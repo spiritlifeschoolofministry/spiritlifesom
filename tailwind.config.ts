@@ -13,7 +13,14 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
       colors: {
+        flame: {
+          DEFAULT: "hsl(16 80% 50%)",
+          light: "hsl(37 90% 55%)",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
