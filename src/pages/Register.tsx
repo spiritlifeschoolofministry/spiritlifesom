@@ -17,15 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, ArrowLeft, ArrowRight, Loader2, Upload } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Upload } from "lucide-react";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+
 import { toast } from "sonner";
 
 const STEPS = ["Account Setup", "Personal Details", "Academic & Preferences"];
@@ -40,8 +34,9 @@ interface FormData {
   phone: string;
   passportPhoto: File | null;
   gender: string;
-  dateOfBirth: Date | undefined;
-  age: string;
+  dobDay: string;
+  dobMonth: string;
+  dobYear: string;
   maritalStatus: string;
   address: string;
   isBornAgain: string;
@@ -70,8 +65,9 @@ const Register = () => {
     phone: "",
     passportPhoto: null,
     gender: "",
-    dateOfBirth: undefined,
-    age: "",
+    dobDay: "",
+    dobMonth: "",
+    dobYear: "",
     maritalStatus: "",
     address: "",
     isBornAgain: "",
@@ -190,8 +186,12 @@ const Register = () => {
         profile_id: userId,
         cohort_id: activeCohortId,
         gender: form.gender || null,
-        date_of_birth: form.dateOfBirth ? format(form.dateOfBirth, "yyyy-MM-dd") : null,
-        age: form.age ? parseInt(form.age) : null,
+        date_of_birth: form.dobYear && form.dobMonth && form.dobDay
+          ? `${form.dobYear}-${form.dobMonth.padStart(2, "0")}-${form.dobDay.padStart(2, "0")}`
+          : null,
+        age: form.dobYear && form.dobMonth && form.dobDay
+          ? Math.floor((Date.now() - new Date(`${form.dobYear}-${form.dobMonth.padStart(2, "0")}-${form.dobDay.padStart(2, "0")}`).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+          : null,
         marital_status: form.maritalStatus || null,
         address: form.address || null,
         is_born_again: form.isBornAgain === "yes",
@@ -296,24 +296,33 @@ const Register = () => {
                   </div>
                 </RadioGroup>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label>Date of Birth</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal mt-1", !form.dateOfBirth && "text-muted-foreground")}>
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {form.dateOfBirth ? format(form.dateOfBirth, "PPP") : "Pick a date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar mode="single" selected={form.dateOfBirth} onSelect={(d) => updateForm("dateOfBirth", d)} disabled={(date) => date > new Date()} initialFocus className="p-3 pointer-events-auto" />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div>
-                  <Label htmlFor="age">Age</Label>
-                  <Input id="age" type="number" value={form.age} onChange={(e) => updateForm("age", e.target.value)} className="mt-1" />
+              <div>
+                <Label>Date of Birth</Label>
+                <div className="grid grid-cols-3 gap-2 mt-1">
+                  <Select value={form.dobDay} onValueChange={(v) => updateForm("dobDay", v)}>
+                    <SelectTrigger><SelectValue placeholder="Day" /></SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                        <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={form.dobMonth} onValueChange={(v) => updateForm("dobMonth", v)}>
+                    <SelectTrigger><SelectValue placeholder="Month" /></SelectTrigger>
+                    <SelectContent>
+                      {["January","February","March","April","May","June","July","August","September","October","November","December"].map((m, i) => (
+                        <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={form.dobYear} onValueChange={(v) => updateForm("dobYear", v)}>
+                    <SelectTrigger><SelectValue placeholder="Year" /></SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: new Date().getFullYear() - 1940 + 1 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                        <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div>
