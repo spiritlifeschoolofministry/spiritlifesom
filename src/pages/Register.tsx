@@ -1,0 +1,474 @@
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import AuthLayout from "@/components/AuthLayout";
+import StepIndicator from "@/components/StepIndicator";
+import LearningModeCard from "@/components/LearningModeCard";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { CalendarIcon, ArrowLeft, ArrowRight, Loader2, Upload } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+
+const STEPS = ["Account Setup", "Personal Details", "Academic & Preferences"];
+
+interface FormData {
+  firstName: string;
+  lastName: string;
+  middleName: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  phone: string;
+  passportPhoto: File | null;
+  gender: string;
+  dateOfBirth: Date | undefined;
+  age: string;
+  maritalStatus: string;
+  address: string;
+  isBornAgain: string;
+  hasDiscoveredMinistry: string;
+  ministryDescription: string;
+  educationalBackground: string;
+  preferredLanguage: string;
+  learningMode: string;
+  affirmStatement: boolean;
+  signatureFullName: string;
+}
+
+const Register = () => {
+  const navigate = useNavigate();
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
+  const [form, setForm] = useState<FormData>({
+    firstName: "",
+    lastName: "",
+    middleName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    phone: "",
+    passportPhoto: null,
+    gender: "",
+    dateOfBirth: undefined,
+    age: "",
+    maritalStatus: "",
+    address: "",
+    isBornAgain: "",
+    hasDiscoveredMinistry: "",
+    ministryDescription: "",
+    educationalBackground: "",
+    preferredLanguage: "",
+    learningMode: "",
+    affirmStatement: false,
+    signatureFullName: "",
+  });
+
+  const updateForm = (field: keyof FormData, value: any) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      updateForm("passportPhoto", file);
+      setPhotoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const validateStep1 = () => {
+    if (!form.firstName.trim()) return "First name is required";
+    if (!form.lastName.trim()) return "Last name is required";
+    if (!form.email.trim()) return "Email is required";
+    if (!form.password) return "Password is required";
+    if (form.password.length < 6) return "Password must be at least 6 characters";
+    if (form.password !== form.confirmPassword) return "Passwords do not match";
+    if (!form.phone.trim()) return "Phone number is required";
+    if (!form.passportPhoto) return "Passport photo is required";
+    return null;
+  };
+
+  const validateStep3 = () => {
+    if (!form.learningMode) return "Please select a learning mode";
+    if (!form.affirmStatement) return "You must affirm the statement of intent";
+    if (!form.signatureFullName.trim()) return "Signature is required";
+    return null;
+  };
+
+  const handleNext = () => {
+    if (step === 1) {
+      const err = validateStep1();
+      if (err) { toast.error(err); return; }
+    }
+    setStep((s) => Math.min(s + 1, 3));
+  };
+
+  const handleBack = () => setStep((s) => Math.max(s - 1, 1));
+
+  const handleSubmit = async () => {
+    const err = validateStep3();
+    if (err) { toast.error(err); return; }
+
+    setLoading(true);
+    try {
+      // 1. Sign up the user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: {
+          data: {
+            first_name: form.firstName,
+            last_name: form.lastName,
+            role: "student",
+          },
+        },
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("Registration failed");
+
+      const userId = authData.user.id;
+
+      // 2. Update profile with additional info
+      await supabase.from("profiles").update({
+        middle_name: form.middleName || null,
+        phone: form.phone,
+      }).eq("id", userId);
+
+      // 3. Upload passport photo
+      let avatarUrl: string | null = null;
+      if (form.passportPhoto) {
+        const fileExt = form.passportPhoto.name.split(".").pop();
+        const filePath = `${userId}/avatar.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(filePath, form.passportPhoto, { upsert: true });
+        if (uploadError) console.error("Photo upload error:", uploadError);
+        else {
+          const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(filePath);
+          avatarUrl = urlData.publicUrl;
+          await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", userId);
+        }
+      }
+
+      // 4. Get active cohort
+      const { data: cohorts } = await supabase
+        .from("cohorts")
+        .select("id")
+        .eq("is_active", true)
+        .limit(1);
+
+      const activeCohortId = cohorts?.[0]?.id;
+      if (!activeCohortId) {
+        toast.error("No active cohort found. Please contact admin.");
+        setLoading(false);
+        return;
+      }
+
+      // 5. Insert student record
+      const { error: studentError } = await supabase.from("students").insert({
+        profile_id: userId,
+        cohort_id: activeCohortId,
+        gender: form.gender || null,
+        date_of_birth: form.dateOfBirth ? format(form.dateOfBirth, "yyyy-MM-dd") : null,
+        age: form.age ? parseInt(form.age) : null,
+        marital_status: form.maritalStatus || null,
+        address: form.address || null,
+        is_born_again: form.isBornAgain === "yes",
+        has_discovered_ministry: form.hasDiscoveredMinistry === "yes",
+        ministry_description: form.hasDiscoveredMinistry === "yes" ? form.ministryDescription : null,
+        educational_background: form.educationalBackground || null,
+        preferred_language: form.preferredLanguage || null,
+        learning_mode: form.learningMode || null,
+        admission_status: "Pending",
+      });
+
+      if (studentError) throw studentError;
+
+      toast.success("Registration successful!");
+      navigate("/student/dashboard");
+    } catch (error: any) {
+      toast.error(error.message || "Registration failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AuthLayout>
+      <div className="w-full max-w-2xl">
+        <div className="bg-card rounded-2xl shadow-[var(--shadow-card)] border border-border p-6 sm:p-10">
+          <h2 className="text-xl font-bold text-foreground mb-6 text-center">
+            Student Registration
+          </h2>
+
+          <StepIndicator currentStep={step} steps={STEPS} />
+
+          {/* Step 1 */}
+          {step === 1 && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="firstName">First Name *</Label>
+                  <Input id="firstName" value={form.firstName} onChange={(e) => updateForm("firstName", e.target.value)} placeholder="John" />
+                </div>
+                <div>
+                  <Label htmlFor="lastName">Last Name *</Label>
+                  <Input id="lastName" value={form.lastName} onChange={(e) => updateForm("lastName", e.target.value)} placeholder="Doe" />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="middleName">Middle Name</Label>
+                <Input id="middleName" value={form.middleName} onChange={(e) => updateForm("middleName", e.target.value)} />
+              </div>
+              <div>
+                <Label htmlFor="email">Email *</Label>
+                <Input id="email" type="email" value={form.email} onChange={(e) => updateForm("email", e.target.value)} placeholder="you@example.com" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="password">Password *</Label>
+                  <Input id="password" type="password" value={form.password} onChange={(e) => updateForm("password", e.target.value)} />
+                </div>
+                <div>
+                  <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                  <Input id="confirmPassword" type="password" value={form.confirmPassword} onChange={(e) => updateForm("confirmPassword", e.target.value)} />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="phone">Phone Number *</Label>
+                <Input id="phone" type="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="+234..." />
+              </div>
+              <div>
+                <Label>Passport Photo *</Label>
+                <div className="mt-2 flex items-center gap-4">
+                  {photoPreview ? (
+                    <img src={photoPreview} alt="Preview" className="w-20 h-20 rounded-xl object-cover border-2 border-primary/20" />
+                  ) : (
+                    <div className="w-20 h-20 rounded-xl bg-muted flex items-center justify-center border-2 border-dashed border-border">
+                      <Upload className="w-6 h-6 text-muted-foreground" />
+                    </div>
+                  )}
+                  <label className="cursor-pointer">
+                    <span className="text-sm font-medium text-primary hover:underline">
+                      {photoPreview ? "Change photo" : "Upload photo"}
+                    </span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 2 */}
+          {step === 2 && (
+            <div className="space-y-5">
+              <div>
+                <Label>Gender</Label>
+                <RadioGroup value={form.gender} onValueChange={(v) => updateForm("gender", v)} className="flex gap-6 mt-2">
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="Male" id="male" />
+                    <Label htmlFor="male" className="font-normal">Male</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="Female" id="female" />
+                    <Label htmlFor="female" className="font-normal">Female</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label>Date of Birth</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal mt-1", !form.dateOfBirth && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {form.dateOfBirth ? format(form.dateOfBirth, "PPP") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={form.dateOfBirth} onSelect={(d) => updateForm("dateOfBirth", d)} disabled={(date) => date > new Date()} initialFocus className="p-3 pointer-events-auto" />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <Label htmlFor="age">Age</Label>
+                  <Input id="age" type="number" value={form.age} onChange={(e) => updateForm("age", e.target.value)} className="mt-1" />
+                </div>
+              </div>
+              <div>
+                <Label>Marital Status</Label>
+                <Select value={form.maritalStatus} onValueChange={(v) => updateForm("maritalStatus", v)}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select status" /></SelectTrigger>
+                  <SelectContent>
+                    {["Single", "Married", "Divorced", "Widowed"].map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="address">Address</Label>
+                <Textarea id="address" value={form.address} onChange={(e) => updateForm("address", e.target.value)} rows={2} />
+              </div>
+              <div>
+                <Label>Are You Born Again?</Label>
+                <RadioGroup value={form.isBornAgain} onValueChange={(v) => updateForm("isBornAgain", v)} className="flex gap-6 mt-2">
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="yes" id="ba-yes" />
+                    <Label htmlFor="ba-yes" className="font-normal">Yes</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="no" id="ba-no" />
+                    <Label htmlFor="ba-no" className="font-normal">No</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+              <div>
+                <Label>Have You Discovered Your Ministry?</Label>
+                <RadioGroup value={form.hasDiscoveredMinistry} onValueChange={(v) => updateForm("hasDiscoveredMinistry", v)} className="flex gap-6 mt-2">
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="yes" id="dm-yes" />
+                    <Label htmlFor="dm-yes" className="font-normal">Yes</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="no" id="dm-no" />
+                    <Label htmlFor="dm-no" className="font-normal">No</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+              {form.hasDiscoveredMinistry === "yes" && (
+                <div>
+                  <Label htmlFor="ministryDesc">Describe Your Ministry</Label>
+                  <Input id="ministryDesc" value={form.ministryDescription} onChange={(e) => updateForm("ministryDescription", e.target.value)} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 3 */}
+          {step === 3 && (
+            <div className="space-y-5">
+              <div>
+                <Label htmlFor="eduBg">Educational Background</Label>
+                <Textarea id="eduBg" value={form.educationalBackground} onChange={(e) => updateForm("educationalBackground", e.target.value)} rows={3} placeholder="List institutions, dates, and qualifications..." />
+              </div>
+              <div>
+                <Label>Preferred Language of Instruction</Label>
+                <RadioGroup value={form.preferredLanguage} onValueChange={(v) => updateForm("preferredLanguage", v)} className="flex gap-6 mt-2">
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="English" id="lang-en" />
+                    <Label htmlFor="lang-en" className="font-normal">English</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="Yoruba" id="lang-yo" />
+                    <Label htmlFor="lang-yo" className="font-normal">Yoruba</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+              <div>
+                <Label className="mb-3 block">Preferred Mode of Learning *</Label>
+                <div className="space-y-3">
+                  <LearningModeCard
+                    title="Physical Class"
+                    description="Attend classes in person at our campus"
+                    price="Free"
+                    selected={form.learningMode === "Physical"}
+                    onSelect={() => updateForm("learningMode", "Physical")}
+                  />
+                  <LearningModeCard
+                    title="Online Class"
+                    description="Join classes remotely via Zoom"
+                    price="₦30,000"
+                    details={[
+                      "Includes training materials",
+                      "Live Zoom sessions & class recordings",
+                      "Must attend physically for project defense and graduation",
+                    ]}
+                    selected={form.learningMode === "Online"}
+                    onSelect={() => updateForm("learningMode", "Online")}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border bg-muted/50 p-4">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="affirm"
+                    checked={form.affirmStatement}
+                    onCheckedChange={(v) => updateForm("affirmStatement", !!v)}
+                    className="mt-1"
+                  />
+                  <Label htmlFor="affirm" className="text-sm font-normal leading-relaxed text-muted-foreground cursor-pointer">
+                    I affirm that I will uphold the doctrine of holiness with regards to spiritual discipline and excellence through modest dressing, paying attention to what is taught, engaging in practical exercises, morals, regular class attendance, and general Christian conduct. I will abide by the Institute's rules and regulations.
+                  </Label>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="signature">Full Name (as Signature) *</Label>
+                  <Input id="signature" value={form.signatureFullName} onChange={(e) => updateForm("signatureFullName", e.target.value)} />
+                </div>
+                <div>
+                  <Label>Date of Signing</Label>
+                  <Input value={format(new Date(), "PPP")} disabled className="mt-0 bg-muted" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Navigation */}
+          <div className="flex items-center justify-between mt-8">
+            {step > 1 ? (
+              <Button type="button" variant="outline" onClick={handleBack}>
+                <ArrowLeft className="w-4 h-4 mr-2" /> Back
+              </Button>
+            ) : (
+              <div />
+            )}
+            {step < 3 ? (
+              <Button type="button" onClick={handleNext} className="gradient-flame border-0 text-accent-foreground hover:opacity-90">
+                Next <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            ) : (
+              <Button type="button" onClick={handleSubmit} disabled={loading} className="gradient-flame border-0 text-accent-foreground hover:opacity-90">
+                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Submit Registration
+              </Button>
+            )}
+          </div>
+
+          <p className="text-center text-sm text-muted-foreground mt-6">
+            Already have an account?{" "}
+            <Link to="/login" className="text-primary font-medium hover:underline">
+              Sign In
+            </Link>
+          </p>
+        </div>
+      </div>
+    </AuthLayout>
+  );
+};
+
+export default Register;
