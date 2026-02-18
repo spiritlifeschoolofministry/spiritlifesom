@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import StudentLayout from "@/components/StudentLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone } from "lucide-react";
+import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Shield } from "lucide-react";
 
 interface DashboardData {
   firstName: string;
@@ -17,6 +20,8 @@ interface DashboardData {
 }
 
 const StudentDashboard = () => {
+  const navigate = useNavigate();
+  const { role, student } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -137,6 +142,8 @@ const StudentDashboard = () => {
   if (!data) return null;
 
   const isPending = data.admissionStatus === "Pending";
+  const isAdmin = role === "admin";
+  const hasNoStudentRecord = isAdmin && !student;
 
   const CARDS = [
     {
@@ -170,17 +177,46 @@ const StudentDashboard = () => {
     },
   ];
 
+  if (hasNoStudentRecord) {
+    return (
+      <StudentLayout admissionStatus={data.admissionStatus}>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center py-12">
+          <div className="bg-blue-50 rounded-full p-4 mb-4">
+            <Shield className="w-8 h-8 text-blue-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-foreground mb-2">Admin View</h2>
+          <p className="text-muted-foreground mb-6 max-w-md">
+            You are viewing this as an Administrator. You don't have a personal student record yet.
+          </p>
+          <Button onClick={() => navigate("/admin/dashboard")} className="gradient-flame border-0 text-accent-foreground">
+            Go to Admin Portal
+          </Button>
+        </div>
+      </StudentLayout>
+    );
+  }
+
   return (
     <StudentLayout admissionStatus={data.admissionStatus}>
       <div className="space-y-6 pb-20 md:pb-0">
-        {/* Welcome */}
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-            Welcome back, {data.firstName} 👋
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Spirit Life School of Ministry — 2025/26 Academic Session
-          </p>
+        {/* Welcome Header with Admin Portal Button */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+              Welcome back, {data.firstName} 👋
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Spirit Life School of Ministry — 2025/26 Academic Session
+            </p>
+          </div>
+          {isAdmin && (
+            <Button
+              onClick={() => navigate("/admin/dashboard")}
+              className="flex items-center gap-2 gradient-flame border-0 text-accent-foreground"
+            >
+              <Shield className="w-4 h-4" /> Admin Portal
+            </Button>
+          )}
         </div>
 
         {/* Summary Cards */}

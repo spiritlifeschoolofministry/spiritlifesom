@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +12,7 @@ import {
   LogOut,
   Menu,
   X,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,39 +26,23 @@ const NAV_ITEMS = [
 const AdminLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState<{ first_name: string; last_name: string; avatar_url: string | null } | null>(null);
+  const { profile: authProfile, signOut, student, role } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { navigate("/login"); return; }
-
-      const { data } = await supabase
-        .from("profiles")
-        .select("first_name, last_name, avatar_url, role")
-        .eq("id", user.id)
-        .single();
-
-      if (data) {
-        if (data.role !== "admin" && data.role !== "teacher") {
-          toast.error("Unauthorized access");
-          navigate("/student/dashboard");
-          return;
-        }
-        setProfile(data);
-      }
-    };
-    fetchProfile();
-  }, [navigate]);
+    if (role && role !== "admin" && role !== "teacher") {
+      toast.error("Unauthorized access");
+      navigate("/student/dashboard");
+    }
+  }, [role, navigate]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await signOut();
     toast.success("Logged out");
     navigate("/login");
   };
 
-  const initials = profile ? `${profile.first_name[0]}${profile.last_name[0]}` : "";
+  const initials = authProfile ? `${authProfile.first_name[0]}${authProfile.last_name[0]}` : "";
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -72,12 +58,22 @@ const AdminLayout = () => {
         <h1 className="text-sm font-semibold text-foreground tracking-wide">Admin Portal</h1>
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground hidden sm:block">
-            {profile ? `${profile.first_name} ${profile.last_name}` : ""}
+            {authProfile ? `${authProfile.first_name} ${authProfile.last_name}` : ""}
           </span>
           <Avatar className="h-8 w-8">
-            {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt="Avatar" />}
+            {authProfile?.avatar_url && <AvatarImage src={authProfile.avatar_url} alt="Avatar" />}
             <AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback>
           </Avatar>
+          {student && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/student/dashboard")}
+              title="Switch to Student View"
+            >
+              <Eye className="w-4 h-4" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
             <LogOut className="w-4 h-4" />
           </Button>

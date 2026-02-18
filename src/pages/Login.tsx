@@ -39,12 +39,20 @@ const Login = () => {
 
       if (profileError) throw profileError;
 
+      const { data: studentData } = await supabase
+        .from("students")
+        .select("id")
+        .eq("profile_id", data.user.id)
+        .maybeSingle();
+
       toast.success("Welcome back!");
 
-      if (profile.role === "student") {
+      if (studentData) {
         navigate("/student/dashboard");
-      } else {
+      } else if (profile.role === "admin") {
         navigate("/admin/dashboard");
+      } else {
+        navigate("/student/dashboard");
       }
     } catch (error: any) {
       toast.error(error.message || "Invalid login credentials");

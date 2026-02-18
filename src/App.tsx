@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import PublicLayout from "./components/PublicLayout";
 import AdminLayout from "./components/AdminLayout";
 import Home from "./pages/Home";
@@ -28,6 +30,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <AuthProvider>
         <Routes>
           {/* Public pages with shared nav + footer */}
           <Route element={<PublicLayout />}>
@@ -41,26 +44,27 @@ const App = () => (
           </Route>
 
           {/* Student portal */}
-          <Route path="/student/dashboard" element={<StudentDashboard />} />
-          <Route path="/student/courses" element={<ComingSoon />} />
-          <Route path="/student/attendance" element={<ComingSoon />} />
-          <Route path="/student/assignments" element={<ComingSoon />} />
-          <Route path="/student/materials" element={<ComingSoon />} />
-          <Route path="/student/coursemates" element={<ComingSoon />} />
-          <Route path="/student/fees" element={<ComingSoon />} />
-          <Route path="/student/profile" element={<ComingSoon />} />
+          <Route path="/student/dashboard" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
+          <Route path="/student/courses" element={<ProtectedRoute><ComingSoon /></ProtectedRoute>} />
+          <Route path="/student/attendance" element={<ProtectedRoute><ComingSoon /></ProtectedRoute>} />
+          <Route path="/student/assignments" element={<ProtectedRoute><ComingSoon /></ProtectedRoute>} />
+          <Route path="/student/materials" element={<ProtectedRoute><ComingSoon /></ProtectedRoute>} />
+          <Route path="/student/coursemates" element={<ProtectedRoute><ComingSoon /></ProtectedRoute>} />
+          <Route path="/student/fees" element={<ProtectedRoute><ComingSoon /></ProtectedRoute>} />
+          <Route path="/student/profile" element={<ProtectedRoute><ComingSoon /></ProtectedRoute>} />
 
           {/* Admin portal */}
           <Route element={<AdminLayout />}>
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            <Route path="/admin/students" element={<AdminStudents />} />
-            <Route path="/admin/admissions" element={<AdminAdmissions />} />
-            <Route path="/admin/settings" element={<AdminSettings />} />
+            <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+            <Route path="/admin/students" element={<ProtectedRoute requiredRole="admin"><AdminStudents /></ProtectedRoute>} />
+            <Route path="/admin/admissions" element={<ProtectedRoute requiredRole="admin"><AdminAdmissions /></ProtectedRoute>} />
+            <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettings /></ProtectedRoute>} />
           </Route>
 
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
