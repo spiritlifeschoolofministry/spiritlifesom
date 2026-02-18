@@ -7,6 +7,7 @@ import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone
 
 interface DashboardData {
   firstName: string;
+  admissionStatus: string | null;
   attendanceRate: number | null;
   totalCourses: number;
   pendingAssignments: number;
@@ -25,10 +26,9 @@ const StudentDashboard = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Parallel fetches
         const [profileRes, studentRes, coursesRes, announcementsRes] = await Promise.all([
           supabase.from("profiles").select("first_name").eq("id", user.id).single(),
-          supabase.from("students").select("id, cohort_id").eq("profile_id", user.id).single(),
+          supabase.from("students").select("id, cohort_id, admission_status").eq("profile_id", user.id).single(),
           supabase.from("courses").select("id"),
           supabase.from("announcements").select("title, body, published_at").eq("is_published", true).order("published_at", { ascending: false }).limit(3),
         ]);
@@ -36,6 +36,8 @@ const StudentDashboard = () => {
         const firstName = profileRes.data?.first_name || "Student";
         const studentId = studentRes.data?.id;
         const cohortId = studentRes.data?.cohort_id;
+        const admissionStatus = studentRes.data?.admission_status || null;
+        const isPending = admissionStatus === "Pending";
 
         let attendanceRate: number | null = null;
         let pendingAssignments = 0;
@@ -43,29 +45,31 @@ const StudentDashboard = () => {
         let upcomingClasses: DashboardData["upcomingClasses"] = [];
 
         if (studentId) {
-          // Attendance
-          const { data: attendance } = await supabase
-            .from("attendance")
-            .select("status")
-            .eq("student_id", studentId);
+          if (!isPending) {
+            // Attendance
+            const { data: attendance } = await supabase
+              .from("attendance")
+              .select("status")
+              .eq("student_id", studentId);
 
-          if (attendance && attendance.length > 0) {
-            const present = attendance.filter((a) => a.status === "Present").length;
-            attendanceRate = Math.round((present / attendance.length) * 100);
+            if (attendance && attendance.length > 0) {
+              const present = attendance.filter((a) => a.status === "Present").length;
+              attendanceRate = Math.round((present / attendance.length) * 100);
+            }
+
+            // Pending assignments
+            if (cohortId) {
+              const [assignRes, submissionRes] = await Promise.all([
+                supabase.from("assignments").select("id").eq("cohort_id", cohortId),
+                supabase.from("assignment_submissions").select("assignment_id").eq("student_id", studentId),
+              ]);
+              const allIds = new Set((assignRes.data || []).map((a) => a.id));
+              const submittedIds = new Set((submissionRes.data || []).map((s) => s.assignment_id));
+              pendingAssignments = [...allIds].filter((id) => !submittedIds.has(id)).length;
+            }
           }
 
-          // Pending assignments: all assignments minus ones student submitted
-          if (cohortId) {
-            const [assignRes, submissionRes] = await Promise.all([
-              supabase.from("assignments").select("id").eq("cohort_id", cohortId),
-              supabase.from("assignment_submissions").select("assignment_id").eq("student_id", studentId),
-            ]);
-            const allIds = new Set((assignRes.data || []).map((a) => a.id));
-            const submittedIds = new Set((submissionRes.data || []).map((s) => s.assignment_id));
-            pendingAssignments = [...allIds].filter((id) => !submittedIds.has(id)).length;
-          }
-
-          // Fees
+          // Fees (always show)
           const { data: fees } = await supabase
             .from("fees")
             .select("payment_status")
@@ -100,6 +104,7 @@ const StudentDashboard = () => {
 
         setData({
           firstName,
+          admissionStatus,
           attendanceRate,
           totalCourses: coursesRes.data?.length || 0,
           pendingAssignments,
@@ -131,27 +136,30 @@ const StudentDashboard = () => {
 
   if (!data) return null;
 
+  const isPending = data.admissionStatus === "Pending";
+
   const CARDS = [
     {
       title: "Attendance Rate",
-      value: data.attendanceRate !== null ? `${data.attendanceRate}%` : "—",
+      value: isPending ? "Not available yet" : (data.attendanceRate !== null ? `${data.attendanceRate}%` : "—"),
       icon: CalendarCheck,
-      color: "text-emerald-600",
-      bg: "bg-emerald-50",
+      color: isPending ? "text-muted-foreground" : "text-emerald-600",
+      bg: isPending ? "bg-muted" : "bg-emerald-50",
     },
     {
       title: "Courses",
       value: String(data.totalCourses),
+      subtitle: isPending ? "Materials locked" : undefined,
       icon: BookOpen,
       color: "text-primary",
       bg: "bg-secondary",
     },
     {
       title: "Pending Assignments",
-      value: String(data.pendingAssignments),
+      value: isPending ? "0" : String(data.pendingAssignments),
       icon: ClipboardList,
-      color: "text-amber-600",
-      bg: "bg-amber-50",
+      color: isPending ? "text-muted-foreground" : "text-amber-600",
+      bg: isPending ? "bg-muted" : "bg-amber-50",
     },
     {
       title: "Fee Status",
@@ -163,7 +171,7 @@ const StudentDashboard = () => {
   ];
 
   return (
-    <StudentLayout>
+    <StudentLayout admissionStatus={data.admissionStatus}>
       <div className="space-y-6 pb-20 md:pb-0">
         {/* Welcome */}
         <div>
@@ -186,6 +194,9 @@ const StudentDashboard = () => {
                 <div>
                   <p className="text-xs text-muted-foreground font-medium">{card.title}</p>
                   <p className={`text-xl font-bold ${card.color}`}>{card.value}</p>
+                  {"subtitle" in card && card.subtitle && (
+                    <p className="text-[10px] text-muted-foreground">{card.subtitle}</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
