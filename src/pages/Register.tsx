@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import AuthLayout from "@/components/AuthLayout";
+
 import StepIndicator from "@/components/StepIndicator";
 import LearningModeCard from "@/components/LearningModeCard";
 import { Button } from "@/components/ui/button";
@@ -215,12 +215,13 @@ const Register = () => {
   };
 
   return (
-    <AuthLayout>
+    <div className="flex flex-col items-center px-4 py-12 sm:py-16">
+      <div className="text-center mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">Student Registration</h1>
+        <p className="text-sm text-muted-foreground mt-1">Join Spirit Life School of Ministry</p>
+      </div>
       <div className="w-full max-w-2xl">
         <div className="bg-card rounded-2xl shadow-[var(--shadow-card)] border border-border p-6 sm:p-10">
-          <h2 className="text-xl font-bold text-foreground mb-6 text-center">
-            Student Registration
-          </h2>
 
           <StepIndicator currentStep={step} steps={STEPS} />
 
@@ -476,7 +477,7 @@ const Register = () => {
           </p>
         </div>
       </div>
-    </AuthLayout>
+    </div>
   );
 };
 
