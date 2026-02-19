@@ -64,16 +64,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               .eq('profile_id', session.user.id)
               .maybeSingle();
 
+            // Student record may not exist yet (e.g. just registered) — that's OK
             setStudent(studentData || null);
           } else {
-            // No profile found after all retries
-            cleanupTimeout = setTimeout(() => {
-              localStorage.clear();
-              setUser(null);
-              setProfile(null);
-              setStudent(null);
-              setRole(null);
-            }, 5000);
+            // Profile not found — likely trigger hasn't run yet, keep user authenticated
+            // Set role from user metadata as fallback
+            const metaRole = session.user.user_metadata?.role;
+            if (metaRole) {
+              setRole(metaRole);
+            }
           }
         }
 
