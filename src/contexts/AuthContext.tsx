@@ -87,6 +87,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       async (event, session) => {
         if (session?.user) {
           setUser(session.user);
+          setIsLoading(true);
 
           const { data: profileData } = await supabase
             .from('profiles')
@@ -106,11 +107,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
             setStudent(studentData || null);
           }
+          setIsLoading(false);
         } else {
           setUser(null);
           setProfile(null);
           setStudent(null);
           setRole(null);
+          setIsLoading(false);
         }
       }
     );

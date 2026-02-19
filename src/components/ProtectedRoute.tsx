@@ -1,7 +1,5 @@
 import { Navigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -10,23 +8,6 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
   const { user, role, isLoading } = useAuth();
-  const [timeoutReached, setTimeoutReached] = useState(false);
-
-  useEffect(() => {
-    if (isLoading) {
-      const timeout = setTimeout(() => {
-        localStorage.clear();
-        toast.error("Authentication timeout. Please login again.");
-        setTimeoutReached(true);
-      }, 5000);
-
-      return () => clearTimeout(timeout);
-    }
-  }, [isLoading]);
-
-  if (timeoutReached && isLoading) {
-    return <Navigate to="/login" />;
-  }
 
   if (isLoading) {
     return (

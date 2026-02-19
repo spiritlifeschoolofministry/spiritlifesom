@@ -143,68 +143,6 @@ const Register = () => {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Registration failed");
 
-      const userId = authData.user.id;
-
-      // 2. Update profile with additional info
-      await supabase.from("profiles").update({
-        middle_name: form.middleName || null,
-        phone: form.phone,
-      }).eq("id", userId);
-
-      // 3. Upload passport photo
-      let avatarUrl: string | null = null;
-      if (form.passportPhoto) {
-        const fileExt = form.passportPhoto.name.split(".").pop();
-        const filePath = `${userId}/avatar.${fileExt}`;
-        const { error: uploadError } = await supabase.storage
-          .from("avatars")
-          .upload(filePath, form.passportPhoto, { upsert: true });
-        if (uploadError) console.error("Photo upload error:", uploadError);
-        else {
-          const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(filePath);
-          avatarUrl = urlData.publicUrl;
-          await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", userId);
-        }
-      }
-
-      // 4. Get active cohort
-      const { data: cohorts } = await supabase
-        .from("cohorts")
-        .select("id")
-        .eq("is_active", true)
-        .limit(1);
-
-      const activeCohortId = cohorts?.[0]?.id;
-      if (!activeCohortId) {
-        toast.error("No active cohort found. Please contact admin.");
-        setLoading(false);
-        return;
-      }
-
-      // 5. Insert student record
-      const { error: studentError } = await supabase.from("students").insert({
-        profile_id: userId,
-        cohort_id: activeCohortId,
-        gender: form.gender || null,
-        date_of_birth: form.dobYear && form.dobMonth && form.dobDay
-          ? `${form.dobYear}-${form.dobMonth.padStart(2, "0")}-${form.dobDay.padStart(2, "0")}`
-          : null,
-        age: form.dobYear && form.dobMonth && form.dobDay
-          ? Math.floor((Date.now() - new Date(`${form.dobYear}-${form.dobMonth.padStart(2, "0")}-${form.dobDay.padStart(2, "0")}`).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-          : null,
-        marital_status: form.maritalStatus || null,
-        address: form.address || null,
-        is_born_again: form.isBornAgain === "yes",
-        has_discovered_ministry: form.hasDiscoveredMinistry === "yes",
-        ministry_description: form.hasDiscoveredMinistry === "yes" ? form.ministryDescription : null,
-        educational_background: form.educationalBackground || null,
-        preferred_language: form.preferredLanguage || null,
-        learning_mode: form.learningMode || null,
-        admission_status: "Pending",
-      });
-
-      if (studentError) throw studentError;
-
       toast.success("Registration successful!");
       await new Promise(resolve => setTimeout(resolve, 2000));
       navigate("/student/dashboard");
