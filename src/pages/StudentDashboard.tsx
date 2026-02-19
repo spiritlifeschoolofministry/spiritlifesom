@@ -6,7 +6,7 @@ import StudentLayout from "@/components/StudentLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Shield } from "lucide-react";
+import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Shield, Loader2 } from "lucide-react";
 
 interface DashboardData {
   firstName: string;
@@ -32,15 +32,15 @@ const StudentDashboard = () => {
         if (!user) return;
 
         const [profileRes, studentRes, coursesRes, announcementsRes] = await Promise.all([
-          supabase.from("profiles").select("first_name").eq("id", user.id).single(),
-          supabase.from("students").select("id, cohort_id, admission_status").eq("profile_id", user.id).single(),
+          supabase.from("profiles").select("first_name").eq("id", user.id).maybeSingle(),
+          supabase.from("students").select("id, cohort_id, admission_status").eq("profile_id", user.id).maybeSingle(),
           supabase.from("courses").select("id"),
           supabase.from("announcements").select("title, body, published_at").eq("is_published", true).order("published_at", { ascending: false }).limit(3),
         ]);
 
-        const firstName = profileRes.data?.first_name || "Student";
-        const studentId = studentRes.data?.id;
-        const cohortId = studentRes.data?.cohort_id;
+        const firstName = profileRes.data?.first_name || user.user_metadata?.first_name || "Student";
+        const studentId = studentRes.data?.id || null;
+        const cohortId = studentRes.data?.cohort_id || null;
         const admissionStatus = studentRes.data?.admission_status || null;
         const isPending = admissionStatus === "Pending";
 
@@ -142,8 +142,28 @@ const StudentDashboard = () => {
   if (!data) return null;
 
   const isPending = data.admissionStatus === "Pending";
-  const isAdmin = role === "admin";
-  const hasNoStudentRecord = isAdmin && !student;
+  const isAdmin = role === "admin" || role === "teacher";
+  const hasNoStudentRecord = !student && !data.admissionStatus;
+
+  // Show a setup screen if authenticated but no student record exists yet
+  if (hasNoStudentRecord && !isAdmin) {
+    return (
+      <StudentLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center py-12">
+          <div className="bg-secondary rounded-full p-4 mb-4">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          </div>
+          <h2 className="text-2xl font-bold text-foreground mb-2">Completing Your Setup</h2>
+          <p className="text-muted-foreground mb-6 max-w-md">
+            Your account is being set up. This may take a moment. If this persists, please refresh or contact the school office.
+          </p>
+          <Button onClick={() => window.location.reload()} variant="outline">
+            Refresh Page
+          </Button>
+        </div>
+      </StudentLayout>
+    );
+  }
 
   const CARDS = [
     {
@@ -177,12 +197,12 @@ const StudentDashboard = () => {
     },
   ];
 
-  if (hasNoStudentRecord) {
+  if (hasNoStudentRecord && isAdmin) {
     return (
       <StudentLayout admissionStatus={data.admissionStatus}>
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center py-12">
-          <div className="bg-blue-50 rounded-full p-4 mb-4">
-            <Shield className="w-8 h-8 text-blue-600" />
+          <div className="bg-secondary rounded-full p-4 mb-4">
+            <Shield className="w-8 h-8 text-primary" />
           </div>
           <h2 className="text-2xl font-bold text-foreground mb-2">Admin View</h2>
           <p className="text-muted-foreground mb-6 max-w-md">
