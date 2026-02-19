@@ -84,12 +84,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     })();
 
-    return () => {
-      if (cleanupTimeout) {
-        clearTimeout(cleanupTimeout);
-      }
-    };
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session?.user) {
@@ -122,7 +116,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    return () => subscription?.unsubscribe();
+    return () => {
+      if (cleanupTimeout) {
+        clearTimeout(cleanupTimeout);
+      }
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
