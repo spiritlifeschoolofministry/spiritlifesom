@@ -46,5 +46,7 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
     }
   }
 
+  // Admins/teachers can access student routes too — no redirect needed
+
   return <>{children}</>;
 };
