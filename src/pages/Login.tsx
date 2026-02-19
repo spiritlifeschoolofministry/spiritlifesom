@@ -30,26 +30,36 @@ const Login = () => {
 
       if (error) throw error;
 
-      // Get user role from profiles
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .single();
+      // Get user role from profiles with retry logic
+      let profile = null;
+      let retries = 0;
+      const maxRetries = 3;
 
-      if (profileError) throw profileError;
+      while (retries < maxRetries && !profile) {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", data.user.id)
+          .maybeSingle();
 
-      const { data: studentData } = await supabase
-        .from("students")
-        .select("id")
-        .eq("profile_id", data.user.id)
-        .maybeSingle();
+        if (profileData) {
+          profile = profileData;
+          break;
+        }
+
+        retries++;
+        if (retries < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      if (!profile) {
+        throw new Error("Failed to fetch profile");
+      }
 
       toast.success("Welcome back!");
 
-      if (studentData) {
-        navigate("/student/dashboard");
-      } else if (profile.role === "admin") {
+      if (profile.role === "admin" || profile.role === "teacher") {
         navigate("/admin/dashboard");
       } else {
         navigate("/student/dashboard");

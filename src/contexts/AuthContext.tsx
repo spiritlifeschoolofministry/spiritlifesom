@@ -22,34 +22,73 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let cleanupTimeout: NodeJS.Timeout | null = null;
+
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
 
-      if (session?.user) {
-        setUser(session.user);
+        if (session?.user) {
+          setUser(session.user);
 
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .maybeSingle();
+          // Retry logic for fetching profile
+          let profileData = null;
+          let retries = 0;
+          const maxRetries = 3;
 
-        if (profileData) {
-          setProfile(profileData);
-          setRole(profileData.role);
+          while (retries < maxRetries && !profileData) {
+            const { data } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .maybeSingle();
 
-          const { data: studentData } = await supabase
-            .from('students')
-            .select('*')
-            .eq('profile_id', session.user.id)
-            .maybeSingle();
+            if (data) {
+              profileData = data;
+              break;
+            }
 
-          setStudent(studentData || null);
+            retries++;
+            if (retries < maxRetries) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          }
+
+          if (profileData) {
+            setProfile(profileData);
+            setRole(profileData.role);
+
+            const { data: studentData } = await supabase
+              .from('students')
+              .select('*')
+              .eq('profile_id', session.user.id)
+              .maybeSingle();
+
+            setStudent(studentData || null);
+          } else {
+            // No profile found after all retries
+            cleanupTimeout = setTimeout(() => {
+              localStorage.clear();
+              setUser(null);
+              setProfile(null);
+              setStudent(null);
+              setRole(null);
+            }, 5000);
+          }
         }
-      }
 
-      setIsLoading(false);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        setIsLoading(false);
+      }
     })();
+
+    return () => {
+      if (cleanupTimeout) {
+        clearTimeout(cleanupTimeout);
+      }
+    };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {

@@ -206,6 +206,7 @@ const Register = () => {
       if (studentError) throw studentError;
 
       toast.success("Registration successful!");
+      await new Promise(resolve => setTimeout(resolve, 2000));
       navigate("/student/dashboard");
     } catch (error: any) {
       toast.error(error.message || "Registration failed");
