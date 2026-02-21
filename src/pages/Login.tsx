@@ -13,6 +13,7 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [statusMsg, setStatusMsg] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,15 +23,19 @@ const Login = () => {
     }
 
     setLoading(true);
+    setStatusMsg("Checking credentials...");
     try {
+      console.log("[Login] Attempting sign in for:", email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
+      console.log("[Login] Sign in successful, fetching profile...");
+      setStatusMsg("Loading profile...");
 
-      // Get user role from profiles with retry logic
+      // Fetch profile with retry
       let profile = null;
       let retries = 0;
       const maxRetries = 3;
@@ -47,25 +52,29 @@ const Login = () => {
           break;
         }
 
+        console.log(`[Login] Profile not found, retry ${retries + 1}/${maxRetries}`);
         retries++;
         if (retries < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
 
-      if (!profile) {
-        throw new Error("Failed to fetch profile");
-      }
+      // Fallback to user_metadata if profile not found
+      const userRole = profile?.role || data.user.user_metadata?.role || "student";
+      console.log("[Login] Resolved role:", userRole);
 
       toast.success("Welcome back!");
+      setStatusMsg("");
 
-      if (profile.role === "admin" || profile.role === "teacher") {
+      if (userRole === "admin" || userRole === "teacher") {
         navigate("/admin/dashboard");
       } else {
         navigate("/student/dashboard");
       }
     } catch (error: any) {
+      console.error("[Login] Error:", error.message);
       toast.error(error.message || "Invalid login credentials");
+      setStatusMsg("");
     } finally {
       setLoading(false);
     }
@@ -109,7 +118,7 @@ const Login = () => {
               className="w-full gradient-flame border-0 text-accent-foreground hover:opacity-90 h-11"
             >
               {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Sign In
+              {loading ? statusMsg || "Signing in..." : "Sign In"}
             </Button>
           </form>
 

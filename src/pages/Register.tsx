@@ -127,6 +127,7 @@ const Register = () => {
 
     setLoading(true);
     try {
+      console.log("[Register] Starting signup for:", form.email);
       // 1. Sign up the user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: form.email,
@@ -142,11 +143,34 @@ const Register = () => {
 
       if (authError) throw authError;
       if (!authData.user) throw new Error("Registration failed");
+      console.log("[Register] Signup successful, user ID:", authData.user.id);
+
+      // 2. Wait for profile to be created by trigger (retry up to 5 times)
+      console.log("[Register] Waiting for profile to be created...");
+      let profileFound = false;
+      for (let i = 0; i < 5; i++) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const { data: profileCheck } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("id", authData.user.id)
+          .maybeSingle();
+        if (profileCheck) {
+          profileFound = true;
+          console.log("[Register] Profile confirmed on attempt", i + 1);
+          break;
+        }
+        console.log(`[Register] Profile not ready, retry ${i + 1}/5`);
+      }
+
+      if (!profileFound) {
+        console.warn("[Register] Profile not found after retries, proceeding anyway");
+      }
 
       toast.success("Registration successful!");
-      await new Promise(resolve => setTimeout(resolve, 2000));
       navigate("/student/dashboard");
     } catch (error: any) {
+      console.error("[Register] Error:", error.message);
       toast.error(error.message || "Registration failed");
     } finally {
       setLoading(false);
