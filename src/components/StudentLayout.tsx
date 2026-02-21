@@ -66,7 +66,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
     navigate("/login");
   };
 
-  const initials = profile ? `${profile.first_name[0]}${profile.last_name[0]}` : "";
+  const initials = profile ? `${(profile.first_name || 'S')[0]}${(profile.last_name || 'U')[0]}` : "";
 
   const renderNavItem = (item: typeof NAV_ITEMS[0], opts: { mobile?: boolean; closeSidebar?: boolean }) => {
     const active = location.pathname === item.path;
@@ -133,7 +133,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
         <h1 className="text-sm font-semibold text-foreground tracking-wide">Student Portal</h1>
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground hidden sm:block">
-            {profile ? `${profile.first_name} ${profile.last_name}` : ""}
+            {profile ? `${profile.first_name || 'Student'} ${profile.last_name || 'User'}` : ""}
           </span>
           <Avatar className="h-8 w-8">
             {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt="Avatar" />}

@@ -42,7 +42,7 @@ const AdminLayout = () => {
     navigate("/login");
   };
 
-  const initials = authProfile ? `${authProfile.first_name[0]}${authProfile.last_name[0]}` : "";
+  const initials = authProfile ? `${(authProfile.first_name || 'A')[0]}${(authProfile.last_name || 'U')[0]}` : "";
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -58,7 +58,7 @@ const AdminLayout = () => {
         <h1 className="text-sm font-semibold text-foreground tracking-wide">Admin Portal</h1>
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground hidden sm:block">
-            {authProfile ? `${authProfile.first_name} ${authProfile.last_name}` : ""}
+            {authProfile ? `${authProfile.first_name || 'Admin'} ${authProfile.last_name || 'User'}` : ""}
           </span>
           <Avatar className="h-8 w-8">
             {authProfile?.avatar_url && <AvatarImage src={authProfile.avatar_url} alt="Avatar" />}

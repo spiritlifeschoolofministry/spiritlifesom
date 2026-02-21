@@ -9,6 +9,7 @@ export interface AuthContextType {
   student: Tables<'students'> | null;
   role: string | null;
   isLoading: boolean;
+  isNewUser: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -20,63 +21,91 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [student, setStudent] = useState<Tables<'students'> | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isNewUser, setIsNewUser] = useState(false);
+
+  const getProfile = async (userId: string) => {
+    console.log("Triggering fetch for user:", userId);
+    try {
+      // Retry logic for fetching profile
+      let profileData = null;
+      let retries = 0;
+      const maxRetries = 3;
+
+      while (retries < maxRetries && !profileData) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+
+        console.log('Profile Fetch Result:', { data, error, retry: retries });
+
+        if (data) {
+          profileData = data;
+          break;
+        }
+
+        retries++;
+        if (retries < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      if (profileData) {
+        // Provide fallbacks for first_name and last_name if null or empty
+        const safeProfile = {
+          ...profileData,
+          first_name: profileData.first_name || 'Student',
+          last_name: profileData.last_name || 'User',
+        };
+        setProfile(safeProfile);
+        setRole(profileData.role);
+
+        const { data: studentData, error: studentError } = await supabase
+          .from('students')
+          .select('*')
+          .eq('profile_id', userId)
+          .limit(1)
+          .maybeSingle();
+
+        console.log('Student Fetch Result:', { data: studentData, error: studentError });
+
+        if (studentData) {
+          setStudent(studentData);
+          setIsNewUser(false);
+        } else {
+          setStudent(null);
+          setIsNewUser(true);
+        }
+      } else {
+        setProfile(null);
+        setRole(null);
+        setStudent(null);
+        setIsNewUser(true);
+      }
+    } catch (error) {
+      console.error('Error fetching profile or student:', error);
+      setProfile(null);
+      setRole(null);
+      setStudent(null);
+      setIsNewUser(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cleanupTimeout: NodeJS.Timeout | null = null;
-
     (async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
 
         if (session?.user) {
           setUser(session.user);
-
-          // Retry logic for fetching profile
-          let profileData = null;
-          let retries = 0;
-          const maxRetries = 3;
-
-          while (retries < maxRetries && !profileData) {
-            const { data } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .maybeSingle();
-
-            if (data) {
-              profileData = data;
-              break;
-            }
-
-            retries++;
-            if (retries < maxRetries) {
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-          }
-
-          if (profileData) {
-            setProfile(profileData);
-            setRole(profileData.role);
-
-            const { data: studentData } = await supabase
-              .from('students')
-              .select('*')
-              .eq('profile_id', session.user.id)
-              .maybeSingle();
-
-            // Student record may not exist yet (e.g. just registered) — that's OK
-            setStudent(studentData || null);
-          } else {
-            // Profile not found — likely trigger hasn't run yet, keep user authenticated
-            // Set role from user metadata as fallback
-            const metaRole = session.user.user_metadata?.role;
-            if (metaRole) {
-              setRole(metaRole);
-            }
-          }
+          setIsLoading(true);
+          await getProfile(session.user.id);
+        } else {
+          setIsLoading(false);
         }
-
-        setIsLoading(false);
       } catch (error) {
         console.error('Auth initialization error:', error);
         setIsLoading(false);
@@ -85,43 +114,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (session?.user) {
+        console.log('Auth State Change:', event, session);
+
+        if (event === 'SIGNED_IN' && session?.user) {
           setUser(session.user);
           setIsLoading(true);
-
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .maybeSingle();
-
-          if (profileData) {
-            setProfile(profileData);
-            setRole(profileData.role);
-
-            const { data: studentData } = await supabase
-              .from('students')
-              .select('*')
-              .eq('profile_id', session.user.id)
-              .maybeSingle();
-
-            setStudent(studentData || null);
+          await getProfile(session.user.id);
+        } else if (session?.user) {
+          setUser(session.user);
+          // For other events with session, ensure data is loaded if not already
+          if (!profile) {
+            setIsLoading(true);
+            await getProfile(session.user.id);
           }
-          setIsLoading(false);
         } else {
           setUser(null);
           setProfile(null);
           setStudent(null);
           setRole(null);
+          setIsNewUser(false);
           setIsLoading(false);
         }
       }
     );
 
     return () => {
-      if (cleanupTimeout) {
-        clearTimeout(cleanupTimeout);
-      }
       subscription?.unsubscribe();
     };
   }, []);
@@ -132,10 +149,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setProfile(null);
     setStudent(null);
     setRole(null);
+    setIsNewUser(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, student, role, isLoading, signOut }}>
+    <AuthContext.Provider value={{ user, profile, student, role, isLoading, isNewUser, signOut }}>
       {children}
     </AuthContext.Provider>
   );

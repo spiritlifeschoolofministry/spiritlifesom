@@ -144,7 +144,7 @@ const AdminDashboard = () => {
               <div key={activity.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                 <div>
                   <p className="text-sm font-medium text-foreground">
-                    {activity.first_name} {activity.last_name}
+                    {activity.first_name || 'Unknown'} {activity.last_name || 'User'}
                   </p>
                   <p className="text-xs text-muted-foreground">{activity.email}</p>
                 </div>
