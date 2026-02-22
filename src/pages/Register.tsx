@@ -128,7 +128,14 @@ const Register = () => {
     setLoading(true);
     try {
       console.log("[Register] Starting signup for:", form.email);
-      // 1. Sign up the user
+      console.log("[Register] Signup metadata:", {
+        first_name: form.firstName,
+        last_name: form.lastName,
+        middle_name: form.middleName,
+        phone: form.phone,
+      });
+
+      // 1. Sign up the user with full metadata
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
@@ -136,6 +143,8 @@ const Register = () => {
           data: {
             first_name: form.firstName,
             last_name: form.lastName,
+            middle_name: form.middleName,
+            phone: form.phone,
             role: "student",
           },
         },
@@ -143,9 +152,10 @@ const Register = () => {
 
       if (authError) throw authError;
       if (!authData.user) throw new Error("Registration failed");
-      console.log("[Register] Signup successful, user ID:", authData.user.id);
+      const userId = authData.user.id;
+      console.log("[Register] Signup successful, user ID:", userId);
 
-      // 2. Wait for profile to be created by trigger (retry up to 5 times)
+      // 2. Wait for profile to be created by trigger
       console.log("[Register] Waiting for profile to be created...");
       let profileFound = false;
       for (let i = 0; i < 5; i++) {
@@ -153,7 +163,7 @@ const Register = () => {
         const { data: profileCheck } = await supabase
           .from("profiles")
           .select("id")
-          .eq("id", authData.user.id)
+          .eq("id", userId)
           .maybeSingle();
         if (profileCheck) {
           profileFound = true;
@@ -163,11 +173,118 @@ const Register = () => {
         console.log(`[Register] Profile not ready, retry ${i + 1}/5`);
       }
 
-      if (!profileFound) {
-        console.warn("[Register] Profile not found after retries, proceeding anyway");
+      // 3. Update profile with full name and phone
+      if (profileFound) {
+        await supabase
+          .from("profiles")
+          .update({
+            first_name: form.firstName,
+            last_name: form.lastName,
+            middle_name: form.middleName || null,
+            phone: form.phone || null,
+          })
+          .eq("id", userId);
+        console.log("[Register] Profile updated with names & phone");
       }
 
+      // 4. Upload passport photo
+      let avatarUrl: string | null = null;
+      if (form.passportPhoto) {
+        const fileExt = form.passportPhoto.name.split(".").pop();
+        const filePath = `${userId}/passport.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(filePath, form.passportPhoto, { upsert: true });
+        if (uploadError) {
+          console.warn("[Register] Avatar upload failed:", uploadError.message);
+        } else {
+          const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(filePath);
+          avatarUrl = urlData.publicUrl;
+          await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", userId);
+          console.log("[Register] Avatar uploaded:", avatarUrl);
+        }
+      }
+
+      // 5. Get active cohort
+      const { data: cohort } = await supabase
+        .from("cohorts")
+        .select("id")
+        .eq("is_active", true)
+        .limit(1)
+        .maybeSingle();
+      
+      if (!cohort) {
+        console.warn("[Register] No active cohort found");
+        toast.error("No active cohort found. Please contact the school office.");
+        setLoading(false);
+        return;
+      }
+
+      // 6. Calculate DOB and age
+      let dateOfBirth: string | null = null;
+      let age: number | null = null;
+      if (form.dobYear && form.dobMonth && form.dobDay) {
+        const dob = new Date(
+          parseInt(form.dobYear),
+          parseInt(form.dobMonth) - 1,
+          parseInt(form.dobDay)
+        );
+        dateOfBirth = dob.toISOString().split("T")[0];
+        const today = new Date();
+        age = today.getFullYear() - dob.getFullYear();
+        if (
+          today.getMonth() < dob.getMonth() ||
+          (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())
+        ) {
+          age--;
+        }
+      }
+
+      // 7. Update student record with all form data
+      const { error: studentError } = await supabase
+        .from("students")
+        .update({
+          cohort_id: cohort.id,
+          gender: form.gender || null,
+          date_of_birth: dateOfBirth,
+          age,
+          marital_status: form.maritalStatus || null,
+          address: form.address || null,
+          is_born_again: form.isBornAgain === "yes",
+          has_discovered_ministry: form.hasDiscoveredMinistry === "yes",
+          ministry_description: form.ministryDescription || null,
+          educational_background: form.educationalBackground || null,
+          preferred_language: form.preferredLanguage || null,
+          learning_mode: form.learningMode || null,
+        })
+        .eq("profile_id", userId);
+
+      if (studentError) {
+        console.error("[Register] Student update error:", studentError.message);
+        // Try insert as fallback if update found no rows
+        const { error: insertError } = await supabase.from("students").insert({
+          profile_id: userId,
+          cohort_id: cohort.id,
+          gender: form.gender || null,
+          date_of_birth: dateOfBirth,
+          age,
+          marital_status: form.maritalStatus || null,
+          address: form.address || null,
+          is_born_again: form.isBornAgain === "yes",
+          has_discovered_ministry: form.hasDiscoveredMinistry === "yes",
+          ministry_description: form.ministryDescription || null,
+          educational_background: form.educationalBackground || null,
+          preferred_language: form.preferredLanguage || null,
+          learning_mode: form.learningMode || null,
+        });
+        if (insertError) {
+          console.error("[Register] Student insert fallback error:", insertError.message);
+        }
+      }
+      console.log("[Register] Student record saved");
+
       toast.success("Registration successful!");
+      await new Promise(resolve => setTimeout(resolve, 2000));
       navigate("/student/dashboard");
     } catch (error: any) {
       console.error("[Register] Error:", error.message);

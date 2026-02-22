@@ -67,7 +67,7 @@ const Login = () => {
       setStatusMsg("");
 
       if (userRole === "admin" || userRole === "teacher") {
-        navigate("/admin/dashboard");
+        navigate("/admin/dashboard", { replace: true });
       } else {
         navigate("/student/dashboard");
       }
