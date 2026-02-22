@@ -8,6 +8,11 @@ import {
   LayoutDashboard,
   Users,
   UserCheck,
+  CalendarCheck,
+  FileText,
+  Folder,
+  CreditCard,
+  Bell,
   Settings,
   LogOut,
   Menu,
@@ -20,6 +25,11 @@ const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/admin/dashboard" },
   { label: "Students", icon: Users, path: "/admin/students" },
   { label: "Admissions", icon: UserCheck, path: "/admin/admissions" },
+  { label: "Attendance", icon: CalendarCheck, path: "/admin/attendance" },
+  { label: "Assignments", icon: FileText, path: "/admin/assignments" },
+  { label: "Materials", icon: Folder, path: "/admin/materials" },
+  { label: "Fees", icon: CreditCard, path: "/admin/fees" },
+  { label: "Announcements", icon: Bell, path: "/admin/announcements" },
   { label: "Settings", icon: Settings, path: "/admin/settings" },
 ];
 

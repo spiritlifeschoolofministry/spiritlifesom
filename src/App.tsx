@@ -16,6 +16,7 @@ import Register from "./pages/Register";
 import Login from "./pages/Login";
 import StudentDashboard from "./pages/StudentDashboard";
 import ComingSoon from "./pages/ComingSoon";
+import AdminComingSoon from "./pages/AdminComingSoon";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminStudents from "./pages/AdminStudents";
 import AdminAdmissions from "./pages/AdminAdmissions";
@@ -55,9 +56,15 @@ const App = () => (
 
           {/* Admin portal */}
           <Route element={<AdminLayout />}>
+            <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/students" element={<ProtectedRoute requiredRole="admin"><AdminStudents /></ProtectedRoute>} />
             <Route path="/admin/admissions" element={<ProtectedRoute requiredRole="admin"><AdminAdmissions /></ProtectedRoute>} />
+            <Route path="/admin/attendance" element={<ProtectedRoute requiredRole="admin"><AdminComingSoon title="Attendance Management" description="Mark student attendance, view reports" icon="calendar" /></ProtectedRoute>} />
+            <Route path="/admin/assignments" element={<ProtectedRoute requiredRole="admin"><AdminComingSoon title="Assignment Management" description="Create assignments, review submissions" icon="file-text" /></ProtectedRoute>} />
+            <Route path="/admin/materials" element={<ProtectedRoute requiredRole="admin"><AdminComingSoon title="Course Materials" description="Upload materials, manage resources" icon="folder" /></ProtectedRoute>} />
+            <Route path="/admin/fees" element={<ProtectedRoute requiredRole="admin"><AdminComingSoon title="Payment Tracking" description="Track fees, record payments" icon="credit-card" /></ProtectedRoute>} />
+            <Route path="/admin/announcements" element={<ProtectedRoute requiredRole="admin"><AdminComingSoon title="Announcements" description="Send notifications to students" icon="bell" /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettings /></ProtectedRoute>} />
           </Route>
 
