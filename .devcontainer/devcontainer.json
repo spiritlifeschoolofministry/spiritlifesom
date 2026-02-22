@@ -1,0 +1,31 @@
+{
+  "name": "spiritlifesom Codespace",
+  "image": "mcr.microsoft.com/vscode/devcontainers/javascript-node:0-20",
+  "forwardPorts": [8080, 5173, 3000],
+  "portsAttributes": {
+    "8080": {
+      "label": "backend",
+      "onAutoForward": "openPreview",
+      "visibility": "public"
+    },
+    "5173": {
+      "label": "vite",
+      "onAutoForward": "openBrowser",
+      "visibility": "public"
+    },
+    "3000": {
+      "label": "frontend",
+      "onAutoForward": "openBrowser",
+      "visibility": "public"
+    }
+  },
+  "postStartCommand": "echo 'Setting ports to public' || true",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint"
+      ]
+    }
+  }
+}

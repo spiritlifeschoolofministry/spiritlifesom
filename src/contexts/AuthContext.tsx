@@ -14,9 +14,20 @@ export interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
+interface UserMetadata {
+  first_name?: string;
+  last_name?: string;
+  middle_name?: string;
+  phone?: string;
+  role?: string;
+  [key: string]: string | undefined;
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_TIMEOUT_MS = 5000;
+export { AuthContext };
+
+const AUTH_TIMEOUT_MS = 30000;
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -44,7 +55,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, AUTH_TIMEOUT_MS);
   };
 
-  const getProfile = async (userId: string, userMeta?: Record<string, any>) => {
+  const getProfile = async (userId: string, userMeta?: UserMetadata): Promise<void> => {
     console.log('[Auth] Fetching profile for:', userId);
     try {
       let profileData = null;
@@ -85,7 +96,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           .from('students')
           .select('*')
           .eq('profile_id', userId)
-          .limit(1)
           .maybeSingle();
 
         console.log('[Auth] Student record:', studentData ? 'found' : 'not found');
@@ -112,16 +122,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('[Auth] Fallback role from metadata:', fallbackRole);
       }
       setAuthError(null);
-    } catch (error) {
-      console.error('[Auth] Error fetching profile:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[Auth] Error fetching profile:', errorMessage);
       setProfile(null);
       setRole(null);
       setStudent(null);
       setIsNewUser(false);
       setAuthError('Failed to load profile data.');
     } finally {
+      console.log('[Auth] Profile fetch completed, clearing timeout');
       clearAuthTimeout();
       setIsLoading(false);
+      console.log('DEBUG: Spinner stopped and timeout cleared');
     }
   };
 
@@ -136,14 +149,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (session?.user) {
           console.log('[Auth] Existing session found for:', session.user.email);
           setUser(session.user);
-          await getProfile(session.user.id, session.user.user_metadata);
+          await getProfile(session.user.id, session.user.user_metadata as UserMetadata | undefined);
         } else {
           console.log('[Auth] No existing session');
           clearAuthTimeout();
           setIsLoading(false);
         }
-      } catch (error) {
-        console.error('[Auth] Initialization error:', error);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('[Auth] Initialization error:', errorMessage);
         clearAuthTimeout();
         setIsLoading(false);
         setAuthError('Failed to initialize authentication.');
@@ -157,13 +171,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (event === 'SIGNED_IN' && session?.user) {
           setUser(session.user);
           startAuthTimeout();
-          await getProfile(session.user.id, session.user.user_metadata);
+          await getProfile(session.user.id, session.user.user_metadata as UserMetadata | undefined);
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           setUser(session.user);
           // Don't refetch profile on token refresh if already loaded
           if (!profile && !role) {
             startAuthTimeout();
-            await getProfile(session.user.id, session.user.user_metadata);
+            await getProfile(session.user.id, session.user.user_metadata as UserMetadata | undefined);
           }
         } else if (event === 'SIGNED_OUT') {
           console.log('[Auth] Signed out — clearing state');
@@ -183,17 +197,35 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       clearAuthTimeout();
       subscription?.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const signOut = async () => {
+  // Safety guard: if loading finished but user exists and profile is still null, just log warning
+  useEffect(() => {
+    if (!isLoading && user && profile == null) {
+      console.warn('[Auth] Profile missing after load — setting loading to false and allowing user session to continue');
+      setIsLoading(false);
+    }
+  }, [isLoading, user, profile]);
+
+  const signOut = async (): Promise<void> => {
     console.log('[Auth] Signing out...');
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error during sign out';
+      console.error('[Auth] Error during signOut:', errorMessage);
+    }
+    // Immediately clear client state and stop any spinner to avoid black screen
     setUser(null);
     setProfile(null);
     setStudent(null);
     setRole(null);
     setIsNewUser(false);
     setAuthError(null);
+    setIsLoading(false);
+    // Force navigation to login to reset app state
+    window.location.href = '/login';
   };
 
   return (
@@ -201,12 +233,4 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       {children}
     </AuthContext.Provider>
   );
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 };

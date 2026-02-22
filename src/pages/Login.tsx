@@ -71,9 +71,10 @@ const Login = () => {
       } else {
         navigate("/student/dashboard");
       }
-    } catch (error: any) {
-      console.error("[Login] Error:", error.message);
-      toast.error(error.message || "Invalid login credentials");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      console.error("[Login] Error:", errorMessage);
+      toast.error(errorMessage || "Invalid login credentials");
       setStatusMsg("");
     } finally {
       setLoading(false);
