@@ -6,7 +6,7 @@ import StudentLayout from "@/components/StudentLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Shield, Loader2 } from "lucide-react";
+import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Shield, Loader2, AlertCircle } from "lucide-react";
 
 interface DashboardData {
   firstName: string;
@@ -145,17 +145,17 @@ const StudentDashboard = () => {
   const isAdmin = role === "admin" || role === "teacher";
   const hasNoStudentRecord = !student && !data.admissionStatus;
 
-  // Show a setup screen if authenticated but no student record exists yet
+  // Show registration completion screen if authenticated but no student record exists yet
   if (hasNoStudentRecord && !isAdmin) {
     return (
       <StudentLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center py-12">
-          <div className="bg-secondary rounded-full p-4 mb-4">
-            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          <div className="bg-amber-100 rounded-full p-4 mb-4">
+            <AlertCircle className="w-8 h-8 text-amber-600" />
           </div>
-          <h2 className="text-2xl font-bold text-foreground mb-2">Completing Your Setup</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-2">Please complete your registration</h2>
           <p className="text-muted-foreground mb-6 max-w-md">
-            Your account is being set up. This may take a moment. If this persists, please refresh or contact the school office.
+            Your profile has been created, but your student record is incomplete. Please contact the school office or an administrator to finalize your registration before accessing course materials.
           </p>
           <Button onClick={() => window.location.reload()} variant="outline">
             Refresh Page
