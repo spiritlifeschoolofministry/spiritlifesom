@@ -62,13 +62,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       let retries = 0;
       const maxRetries = 3;
 
-      while (retries < maxRetries && !profileData) {
-        const { data, error } = await supabase
+      const fetchWithTimeout = async (userId: string) => {
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Query timeout')), 5000)
+        );
+
+        const queryPromise = supabase
           .from('profiles')
           .select('*')
           .eq('id', userId)
           .maybeSingle();
 
+        return Promise.race([queryPromise, timeoutPromise]);
+      };
+
+      while (retries < maxRetries && !profileData) {
+        console.log('[Auth] Running Supabase query...');
+        const result = await fetchWithTimeout(userId) as { data: Tables<'profiles'> | null, error: { message: string } | null };
+        const { data, error } = result;
         console.log(`[Auth] Profile fetch attempt ${retries + 1}:`, { found: !!data, error: error?.message });
 
         if (data) {
