@@ -42,17 +42,16 @@ const AdminAdmissions = () => {
     try {
       const { data, error } = await supabase
         .from("students")
-        .select(`
-          id,
-          admission_status,
-          created_at,
-          learning_mode,
-          is_born_again,
-          has_discovered_ministry,
-          profile:profiles(first_name, last_name, email, phone)
-        `)
-        .eq("admission_status", "Pending")
-        .order("created_at", { ascending: false });
+          .select(`
+            id,
+            admission_status,
+            created_at,
+            learning_mode,
+            is_born_again,
+            has_discovered_ministry,
+            profile:profiles(first_name, last_name, email, phone)
+          `)
+          .order("created_at", { ascending: false });
 
       if (error) throw error;
       setApplications((data as any) || []);
@@ -73,8 +72,8 @@ const AdminAdmissions = () => {
 
       if (error) throw error;
 
-      setApplications((prev) => prev.filter((a) => a.id !== studentId));
       toast.success("Application approved");
+      await loadApplications();
       setSelectedApp(null);
     } catch (err) {
       console.error("Approve error:", err);
@@ -91,8 +90,8 @@ const AdminAdmissions = () => {
 
       if (error) throw error;
 
-      setApplications((prev) => prev.filter((a) => a.id !== studentId));
       toast.success("Application rejected");
+      await loadApplications();
       setSelectedApp(null);
     } catch (err) {
       console.error("Reject error:", err);
@@ -140,6 +139,15 @@ const AdminAdmissions = () => {
                     <Badge variant="outline" className="text-xs">
                       {app.learning_mode || "N/A"}
                     </Badge>
+                    {(() => {
+                      const status = app.admission_status || "Unknown";
+                      const cls = status === "Pending" ? "bg-amber-50 text-amber-700 border-amber-100" : status === "Approved" ? "bg-emerald-50 text-emerald-700 border-emerald-100" : status === "Rejected" ? "bg-destructive/10 text-destructive border-destructive/20" : "bg-muted";
+                      return (
+                        <Badge className={`text-xs border ${cls}`}>
+                          {status}
+                        </Badge>
+                      );
+                    })()}
                     {app.is_born_again && (
                       <Badge variant="outline" className="text-xs">
                         Born Again

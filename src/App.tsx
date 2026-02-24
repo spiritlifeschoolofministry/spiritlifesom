@@ -23,6 +23,7 @@ import AdminProfile from "./pages/admin/Profile";
 import AdminStudents from "./pages/AdminStudents";
 import AdminAdmissions from "./pages/AdminAdmissions";
 import AdminSettings from "./pages/AdminSettings";
+import AdminApprove from "./pages/AdminApprove";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -72,6 +73,7 @@ const App = () => (
           </Route>
 
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/admin/approve" element={<AdminApprove />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
         </AuthProvider>

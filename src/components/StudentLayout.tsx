@@ -39,11 +39,13 @@ const NAV_ITEMS = [
 ];
 
 const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
-  const isPending = admissionStatus === "Pending";
-  const isRejected = admissionStatus === "Rejected";
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, profile: authProfile } = useAuth();
+  const { signOut, profile: authProfile, student } = useAuth();
+  const derivedAdmission = student?.admission_status ?? undefined;
+  const effectiveAdmissionStatus = admissionStatus ?? derivedAdmission ?? null;
+  const isPending = effectiveAdmissionStatus === "Pending";
+  const isRejected = effectiveAdmissionStatus === "Rejected";
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = async () => {
