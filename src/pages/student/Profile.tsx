@@ -45,6 +45,9 @@ const StudentProfile = () => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(profile?.avatar_url || null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   const {
     register: registerPersonal,
@@ -114,6 +117,10 @@ const StudentProfile = () => {
     }
   }, [profile, resetPersonal]);
 
+  useEffect(() => {
+    setAvatarPreview(profile?.avatar_url || null);
+  }, [profile]);
+
   const onPersonalSubmit = async (data: PersonalFormData) => {
     if (!user) return;
 
@@ -173,6 +180,23 @@ const StudentProfile = () => {
     if (!user) return;
     try {
       setIsSavingSocial(true);
+      // Normalize URLs
+      const normalize = (val?: string | null) => {
+        if (!val) return null;
+        try {
+          // accept bare domains by prepending https://
+          new URL(val);
+          return val;
+        } catch {
+          try {
+            const withProto = `https://${val}`;
+            new URL(withProto);
+            return withProto;
+          } catch {
+            throw new Error(`Invalid URL: ${val}`);
+          }
+        }
+      };
       const updateData: Partial<Tables<'profiles'>['Update']> = {
         facebook: data.facebook || null,
         instagram: data.instagram || null,
@@ -189,6 +213,35 @@ const StudentProfile = () => {
       toast.error(msg);
     } finally {
       setIsSavingSocial(false);
+    }
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setAvatarFile(f);
+    setAvatarPreview(URL.createObjectURL(f));
+  };
+
+  const uploadAvatar = async () => {
+    if (!user || !avatarFile) return;
+    try {
+      setIsUploadingAvatar(true);
+      const filePath = `avatars/${user.id}/${Date.now()}_${avatarFile.name}`;
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarFile, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: publicData } = await supabase.storage.from('avatars').getPublicUrl(filePath);
+      const publicUrl = (publicData as any)?.publicUrl || (publicData as any)?.public_url || publicData?.publicUrl;
+      const { error } = await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
+      if (error) throw error;
+      toast.success('Avatar uploaded');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to upload avatar';
+      toast.error(msg);
+      console.error('Avatar upload error:', err);
+    } finally {
+      setIsUploadingAvatar(false);
+      setAvatarFile(null);
     }
   };
 
@@ -229,10 +282,20 @@ const StudentProfile = () => {
       <div className="space-y-6 pb-8">
         {/* Profile Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-          <Avatar className="h-20 w-20 sm:h-24 sm:w-24">
-            {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt="Profile" />}
-            <AvatarFallback className="text-lg bg-primary text-primary-foreground">{initials}</AvatarFallback>
-          </Avatar>
+          <div className="flex items-center gap-4">
+            <Avatar className="h-20 w-20 sm:h-24 sm:w-24">
+              {avatarPreview && <AvatarImage src={avatarPreview} alt="Profile" />}
+              <AvatarFallback className="text-lg bg-primary text-primary-foreground">{initials}</AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col gap-2">
+              <input id="avatar" type="file" accept="image/*" onChange={handleAvatarChange} />
+              <div className="flex gap-2">
+                <Button onClick={uploadAvatar} disabled={isUploadingAvatar || !avatarFile}>
+                  {isUploadingAvatar ? 'Uploading...' : 'Upload Avatar'}
+                </Button>
+              </div>
+            </div>
+          </div>
           <div className="flex-1">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
               <div>
