@@ -449,6 +449,11 @@ export type Database = {
           last_name: string
           middle_name: string | null
           phone: string | null
+          facebook: string | null
+          instagram: string | null
+          twitter: string | null
+          linkedin: string | null
+          youtube: string | null
           promoted_at: string | null
           promoted_by: string | null
           role: string
@@ -462,6 +467,11 @@ export type Database = {
           last_name: string
           middle_name?: string | null
           phone?: string | null
+          facebook?: string | null
+          instagram?: string | null
+          twitter?: string | null
+          linkedin?: string | null
+          youtube?: string | null
           promoted_at?: string | null
           promoted_by?: string | null
           role?: string
@@ -475,6 +485,11 @@ export type Database = {
           last_name?: string
           middle_name?: string | null
           phone?: string | null
+          facebook?: string | null
+          instagram?: string | null
+          twitter?: string | null
+          linkedin?: string | null
+          youtube?: string | null
           promoted_at?: string | null
           promoted_by?: string | null
           role?: string
