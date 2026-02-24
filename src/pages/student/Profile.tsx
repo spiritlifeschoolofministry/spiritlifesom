@@ -197,7 +197,7 @@ const StudentProfile = () => {
           }
         }
       };
-      const updateData: Partial<Tables<'profiles'>['Update']> = {
+      const updateData = {
         facebook: data.facebook || null,
         instagram: data.instagram || null,
         twitter: data.twitter || null,
@@ -231,7 +231,7 @@ const StudentProfile = () => {
       const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarFile, { upsert: true });
       if (uploadError) throw uploadError;
       const { data: publicData } = await supabase.storage.from('avatars').getPublicUrl(filePath);
-      const publicUrl = (publicData as any)?.publicUrl || (publicData as any)?.public_url || publicData?.publicUrl;
+      const publicUrl = (publicData as unknown as { publicUrl?: string; public_url?: string })?.publicUrl || (publicData as unknown as { publicUrl?: string; public_url?: string })?.public_url || '';
       const { error } = await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
       if (error) throw error;
       toast.success('Avatar uploaded');
@@ -527,7 +527,7 @@ const StudentProfile = () => {
                       if (!user || !studentData) return;
                       try {
                         setIsSavingPersonal(true);
-                        const updateData: Partial<Tables<'students'>['Update']> = {
+                        const updateData: Partial<Tables<'students'>> = {
                           learning_mode: (document.getElementById('learningMode') as HTMLInputElement)?.value || studentData.learning_mode,
                           preferred_language: (document.getElementById('preferredLanguage') as HTMLInputElement)?.value || studentData.preferred_language,
                           ministry_description: (document.getElementById('ministryDescription') as HTMLInputElement)?.value || studentData.ministry_description,

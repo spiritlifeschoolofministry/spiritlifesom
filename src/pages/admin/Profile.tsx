@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -188,7 +189,7 @@ const AdminProfile = () => {
           }
         }
       };
-      const updateData: Partial<Tables<'profiles'>['Update']> = {
+      const updateData = {
         facebook: data.facebook || null,
         instagram: data.instagram || null,
         twitter: data.twitter || null,
@@ -221,7 +222,7 @@ const AdminProfile = () => {
       const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarFile, { upsert: true });
       if (uploadError) throw uploadError;
       const { data: publicData } = await supabase.storage.from('avatars').getPublicUrl(filePath);
-      const publicUrl = (publicData as any)?.publicUrl || (publicData as any)?.public_url || publicData?.publicUrl;
+      const publicUrl = (publicData as { publicUrl: string })?.publicUrl || (publicData as unknown as { public_url: string })?.public_url || '';
       const { error } = await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
       if (error) throw error;
       toast.success('Avatar uploaded');
