@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/useAuth';
 import { Button } from '@/components/ui/button';
 import { Loader2, LogOut, AlertTriangle } from 'lucide-react';
@@ -10,6 +10,7 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
   const { user, role, isLoading, authError, signOut } = useAuth();
+  const navigate = useNavigate();
 
   if (isLoading) {
     return (
@@ -36,7 +37,7 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
             onClick={async () => {
               await signOut();
               localStorage.clear();
-              window.location.href = '/login';
+              navigate('/login', { replace: true });
             }}
           >
             <LogOut className="w-4 h-4 mr-2" /> Logout & Retry

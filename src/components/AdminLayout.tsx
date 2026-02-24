@@ -49,7 +49,7 @@ const AdminLayout = () => {
   const handleLogout = async () => {
     await signOut();
     toast.success("Logged out");
-    navigate("/login");
+    navigate("/login", { replace: true });
   };
 
   const initials = authProfile ? `${(authProfile.first_name || 'A')[0]}${(authProfile.last_name || 'U')[0]}` : "";

@@ -80,7 +80,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('[Auth] Running Supabase query...');
         const result = await fetchWithTimeout(userId) as { data: Tables<'profiles'> | null, error: { message: string } | null };
         const { data, error } = result;
-        console.log(`[Auth] Profile fetch attempt ${retries + 1}:`, { found: !!data, error: error?.message });
+        console.log('[Auth] Query result:', { found: !!data, error: error?.message });
 
         if (data) {
           profileData = data;
@@ -235,8 +235,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setIsNewUser(false);
     setAuthError(null);
     setIsLoading(false);
-    // Force navigation to login to reset app state
-    window.location.href = '/login';
+    console.log('[Auth] Logged out successfully');
   };
 
   return (

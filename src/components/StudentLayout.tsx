@@ -63,7 +63,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     toast.success("Logged out");
-    navigate("/login");
+    navigate("/login", { replace: true });
   };
 
   const initials = profile ? `${(profile.first_name || 'S')[0]}${(profile.last_name || 'U')[0]}` : "";
