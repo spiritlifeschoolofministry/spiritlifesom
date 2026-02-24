@@ -31,6 +31,7 @@ const NAV_ITEMS = [
   { label: "Fees", icon: CreditCard, path: "/admin/fees" },
   { label: "Announcements", icon: Bell, path: "/admin/announcements" },
   { label: "Settings", icon: Settings, path: "/admin/settings" },
+  { label: "Profile", icon: UserCircle, path: "/admin/profile" },
 ];
 
 const AdminLayout = () => {
