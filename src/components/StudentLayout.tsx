@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/useAuth";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
@@ -43,30 +43,16 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
   const isRejected = admissionStatus === "Rejected";
   const location = useLocation();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState<{ first_name: string; last_name: string; avatar_url: string | null } | null>(null);
+  const { signOut, profile: authProfile } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { navigate("/login"); return; }
-      const { data } = await supabase
-        .from("profiles")
-        .select("first_name, last_name, avatar_url")
-        .eq("id", user.id)
-        .single();
-      if (data) setProfile(data);
-    };
-    fetchProfile();
-  }, [navigate]);
-
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await signOut();
     toast.success("Logged out");
     navigate("/login", { replace: true });
   };
 
-  const initials = profile ? `${(profile.first_name || 'S')[0]}${(profile.last_name || 'U')[0]}` : "";
+  const initials = authProfile ? `${(authProfile.first_name || 'S')[0]}${(authProfile.last_name || 'U')[0]}` : "";
 
   const renderNavItem = (item: typeof NAV_ITEMS[0], opts: { mobile?: boolean; closeSidebar?: boolean }) => {
     const active = location.pathname === item.path;
@@ -133,10 +119,10 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
         <h1 className="text-sm font-semibold text-foreground tracking-wide">Student Portal</h1>
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground hidden sm:block">
-            {profile ? `${profile.first_name || 'Student'} ${profile.last_name || 'User'}` : ""}
+            {authProfile ? `${authProfile.first_name || 'Student'} ${authProfile.last_name || 'User'}` : ""}
           </span>
           <Avatar className="h-8 w-8">
-            {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt="Avatar" />}
+            {authProfile?.avatar_url && <AvatarImage src={authProfile.avatar_url} alt="Avatar" />}
             <AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback>
           </Avatar>
           <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">

@@ -13,19 +13,20 @@ import {
   Folder,
   CreditCard,
   Bell,
+  LayoutDashboard,
+  Users,
+  UserCheck,
+  CalendarCheck,
+  FileText,
+  Folder,
+  CreditCard,
+  Bell,
   Settings,
+  UserCircle,
   LogOut,
   Menu,
   X,
   Eye,
-} from "lucide-react";
-import { toast } from "sonner";
-
-const NAV_ITEMS = [
-  { label: "Dashboard", icon: LayoutDashboard, path: "/admin/dashboard" },
-  { label: "Students", icon: Users, path: "/admin/students" },
-  { label: "Admissions", icon: UserCheck, path: "/admin/admissions" },
-  { label: "Attendance", icon: CalendarCheck, path: "/admin/attendance" },
   { label: "Assignments", icon: FileText, path: "/admin/assignments" },
   { label: "Materials", icon: Folder, path: "/admin/materials" },
   { label: "Fees", icon: CreditCard, path: "/admin/fees" },
