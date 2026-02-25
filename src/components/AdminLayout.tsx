@@ -1,18 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
-  LayoutDashboard,
-  Users,
-  UserCheck,
-  CalendarCheck,
-  FileText,
-  Folder,
-  CreditCard,
-  Bell,
   LayoutDashboard,
   Users,
   UserCheck,
@@ -27,6 +18,14 @@ import {
   Menu,
   X,
   Eye,
+} from "lucide-react";
+import { toast } from "sonner";
+
+const NAV_ITEMS = [
+  { label: "Dashboard", icon: LayoutDashboard, path: "/admin/dashboard" },
+  { label: "Students", icon: Users, path: "/admin/students" },
+  { label: "Admissions", icon: UserCheck, path: "/admin/admissions" },
+  { label: "Attendance", icon: CalendarCheck, path: "/admin/attendance" },
   { label: "Assignments", icon: FileText, path: "/admin/assignments" },
   { label: "Materials", icon: Folder, path: "/admin/materials" },
   { label: "Fees", icon: CreditCard, path: "/admin/fees" },
