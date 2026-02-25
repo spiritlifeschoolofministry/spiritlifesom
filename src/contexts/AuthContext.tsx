@@ -244,3 +244,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     </AuthContext.Provider>
   );
 };
+
+
+
+// --- DEPLOYMENT HEALTH CHECK ---
+// Repo Visibility: Public
+// Build Triggered: 2026-02-25
+// Purpose: Fix infinite spinner & 502 Timeout resilience
