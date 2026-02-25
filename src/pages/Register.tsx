@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, Loader2, Upload } from "lucide-react";
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, Upload } from "lucide-react";
 import { format } from "date-fns";
 
 import { toast } from "sonner";
@@ -54,6 +54,8 @@ const Register = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [form, setForm] = useState<FormData>({
     firstName: "",
@@ -298,34 +300,70 @@ const Register = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="firstName">First Name *</Label>
-                  <Input id="firstName" value={form.firstName} onChange={(e) => updateForm("firstName", e.target.value)} placeholder="John" />
+                  <Input id="firstName" name="firstName" autoComplete="given-name" value={form.firstName} onChange={(e) => updateForm("firstName", e.target.value)} placeholder="John" />
                 </div>
                 <div>
                   <Label htmlFor="lastName">Last Name *</Label>
-                  <Input id="lastName" value={form.lastName} onChange={(e) => updateForm("lastName", e.target.value)} placeholder="Doe" />
+                  <Input id="lastName" name="lastName" autoComplete="family-name" value={form.lastName} onChange={(e) => updateForm("lastName", e.target.value)} placeholder="Doe" />
                 </div>
               </div>
               <div>
                 <Label htmlFor="middleName">Middle Name</Label>
-                <Input id="middleName" value={form.middleName} onChange={(e) => updateForm("middleName", e.target.value)} />
+                <Input id="middleName" name="middleName" autoComplete="additional-name" value={form.middleName} onChange={(e) => updateForm("middleName", e.target.value)} />
               </div>
               <div>
                 <Label htmlFor="email">Email *</Label>
-                <Input id="email" type="email" value={form.email} onChange={(e) => updateForm("email", e.target.value)} placeholder="you@example.com" />
+                <Input id="email" type="email" name="email" autoComplete="email" value={form.email} onChange={(e) => updateForm("email", e.target.value)} placeholder="you@example.com" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="password">Password *</Label>
-                  <Input id="password" type="password" value={form.password} onChange={(e) => updateForm("password", e.target.value)} />
+                  <div className="relative mt-1">
+                    <Input 
+                      id="password" 
+                      type={showPassword ? "text" : "password"} 
+                      name="password" 
+                      autoComplete="new-password"
+                      value={form.password} 
+                      onChange={(e) => updateForm("password", e.target.value)}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="confirmPassword">Confirm Password *</Label>
-                  <Input id="confirmPassword" type="password" value={form.confirmPassword} onChange={(e) => updateForm("confirmPassword", e.target.value)} />
+                  <div className="relative mt-1">
+                    <Input 
+                      id="confirmPassword" 
+                      type={showConfirmPassword ? "text" : "password"} 
+                      name="confirmPassword" 
+                      autoComplete="new-password"
+                      value={form.confirmPassword} 
+                      onChange={(e) => updateForm("confirmPassword", e.target.value)}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                    >
+                      {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
                 </div>
               </div>
               <div>
                 <Label htmlFor="phone">Phone Number *</Label>
-                <Input id="phone" type="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="+234..." />
+                <Input id="phone" type="tel" name="phone" autoComplete="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="+234..." />
               </div>
               <div>
                 <Label>Passport Photo *</Label>
@@ -406,7 +444,7 @@ const Register = () => {
               </div>
               <div>
                 <Label htmlFor="address">Address</Label>
-                <Textarea id="address" value={form.address} onChange={(e) => updateForm("address", e.target.value)} rows={2} />
+                <Textarea id="address" name="address" autoComplete="street-address" value={form.address} onChange={(e) => updateForm("address", e.target.value)} rows={2} />
               </div>
               <div>
                 <Label>Are You Born Again?</Label>

@@ -1,77 +1,92 @@
-import { useEffect, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { useEffect, useState } from "react"
+import { useSearchParams, Link } from "react-router-dom"
+import { supabase } from "@/integrations/supabase/client"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { CheckCircle, XCircle, Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
-const AdminApprove = () => {
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get("token") || "";
-  const [loading, setLoading] = useState(true);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+export default function AdminApprove() {
+  const [searchParams] = useSearchParams()
+  const [loading, setLoading] = useState(true)
+  const [success, setSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const approve = async () => {
-      setLoading(true);
-      try {
-        const { error: rpcError } = await supabase.rpc("approve_student_by_token", { token });
-        if (rpcError) throw rpcError;
-        setSuccess("Student has been approved successfully. They will now have full access to the portal.");
-      } catch (err: any) {
-        setError(err?.message || "Failed to approve student");
-      } finally {
-        setLoading(false);
+    const approveStudent = async () => {
+      const token = searchParams.get('token')
+      
+      if (!token) {
+        setError('No approval token provided')
+        setLoading(false)
+        return
       }
-    };
 
-    if (!token) {
-      setError("Missing approval token");
-      setLoading(false);
-      return;
+      try {
+        const { data, error: rpcError } = await supabase
+          .rpc('approve_student_by_token', { token })
+
+        if (rpcError) throw rpcError
+
+        if (data?.success) {
+          setSuccess(true)
+        } else {
+          setError(data?.message || 'Approval failed')
+        }
+      } catch (err: any) {
+        setError(err.message || 'An error occurred during approval')
+      } finally {
+        setLoading(false)
+      }
     }
 
-    approve();
-  }, [token]);
+    approveStudent()
+  }, [searchParams])
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-xl">
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardHeader>
-            <CardTitle className="text-base">Admission Approval</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {loading && (
-              <div className="flex items-center gap-3">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Processing approval...</span>
-              </div>
-            )}
-
-            {!loading && success && (
-              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-md p-4">
-                {success}
-              </div>
-            )}
-
-            {!loading && error && (
-              <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-md p-4">
-                {error}
-              </div>
-            )}
-
-            <div className="pt-2">
-              <Link to="/admin/dashboard">
-                <Button variant="outline">Back to Admin Dashboard</Button>
-              </Link>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <Card className="max-w-md w-full shadow-[var(--shadow-card)] border border-border">
+        <CardHeader>
+          <CardTitle className="text-center">
+            Student Approval
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-center">
+          {loading && (
+            <div className="py-8">
+              <Loader2 className="h-12 w-12 animate-spin mx-auto text-purple-600 mb-4" />
+              <p className="text-gray-600">Processing approval...</p>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-};
+          )}
 
-export default AdminApprove;
+          {success && (
+            <div className="py-8">
+              <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-green-800 mb-2">
+                Student Approved!
+              </h3>
+              <p className="text-gray-600 mb-6">
+                The student has been approved successfully and now has full access to the portal.
+              </p>
+              <Button asChild>
+                <Link to="/admin">Go to Admin Dashboard</Link>
+              </Button>
+            </div>
+          )}
+
+          {error && (
+            <div className="py-8">
+              <XCircle className="h-16 w-16 text-red-600 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-red-800 mb-2">
+                Approval Failed
+              </h3>
+              <p className="text-gray-600 mb-6">{error}</p>
+              <Button asChild variant="outline">
+                <Link to="/admin">Go to Admin Dashboard</Link>
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
