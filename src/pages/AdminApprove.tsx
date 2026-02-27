@@ -22,31 +22,36 @@ export default function AdminApprove() {
       }
 
       try {
-        // Update student approval status
-        const { data, error: updateError } = await supabase
+        // Update student approval status (no .single/.select)
+        const { error: updateError } = await supabase
           .from("students")
           .update({ is_approved: true })
           .eq("id", id)
-          .select("profile_id")
-          .single()
 
         if (updateError) throw updateError
-        if (!data) throw new Error("No student found for the provided ID")
 
-        // Fetch student's name from profiles
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("first_name, last_name")
-          .eq("id", data.profile_id)
-          .single()
+        // Optionally fetch student's name after update
+        const { data: studentRows, error: studentFetchError } = await supabase
+          .from("students")
+          .select("profile_id")
+          .eq("id", id)
 
-        if (profileError) {
-          // Approval succeeded but we couldn't fetch the name
-          setStudentName(null)
-        } else {
-          setStudentName(
-            `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || null
-          )
+        if (!studentFetchError && studentRows && studentRows.length > 0) {
+          const profileId = studentRows[0].profile_id
+
+          if (profileId) {
+            const { data: profileRows, error: profileError } = await supabase
+              .from("profiles")
+              .select("first_name, last_name")
+              .eq("id", profileId)
+
+            if (!profileError && profileRows && profileRows.length > 0) {
+              const profile = profileRows[0]
+              setStudentName(
+                `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || null
+              )
+            }
+          }
         }
 
         setSuccess(true)
