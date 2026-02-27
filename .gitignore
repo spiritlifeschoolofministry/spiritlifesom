@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Supabase functions (shouldn't be built by Vite)
+supabase/functions/
