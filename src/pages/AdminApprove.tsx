@@ -10,37 +10,55 @@ export default function AdminApprove() {
   const [loading, setLoading] = useState(true)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [studentName, setStudentName] = useState<string | null>(null)
+  const studentId = searchParams.get("student_id")
 
   useEffect(() => {
     const approveStudent = async () => {
-      const token = searchParams.get('token')
-      
-      if (!token) {
-        setError('No approval token provided')
+      if (!studentId) {
+        setError("No student_id provided in the URL")
         setLoading(false)
         return
       }
 
       try {
-        const { data, error: rpcError } = await supabase
-          .rpc('approve_student_by_token', { token })
+        // Update student approval status
+        const { data, error: updateError } = await supabase
+          .from("students")
+          .update({ is_approved: true })
+          .eq("id", studentId)
+          .select("profile_id")
+          .single()
 
-        if (rpcError) throw rpcError
+        if (updateError) throw updateError
+        if (!data) throw new Error("No student found for the provided ID")
 
-        if (data?.success) {
-          setSuccess(true)
+        // Fetch student's name from profiles
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("first_name, last_name")
+          .eq("id", data.profile_id)
+          .single()
+
+        if (profileError) {
+          // Approval succeeded but we couldn't fetch the name
+          setStudentName(null)
         } else {
-          setError(data?.message || 'Approval failed')
+          setStudentName(
+            `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || null
+          )
         }
+
+        setSuccess(true)
       } catch (err: any) {
-        setError(err.message || 'An error occurred during approval')
+        setError(err.message || "An error occurred during approval")
       } finally {
         setLoading(false)
       }
     }
 
     approveStudent()
-  }, [searchParams])
+  }, [studentId])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
@@ -54,7 +72,10 @@ export default function AdminApprove() {
           {loading && (
             <div className="py-8">
               <Loader2 className="h-12 w-12 animate-spin mx-auto text-purple-600 mb-4" />
-              <p className="text-gray-600">Processing approval...</p>
+              <p className="text-gray-600">
+                Processing approval for student{" "}
+                <span className="font-semibold">{studentId ?? "—"}</span>...
+              </p>
             </div>
           )}
 
@@ -62,7 +83,7 @@ export default function AdminApprove() {
             <div className="py-8">
               <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-green-800 mb-2">
-                Student Approved!
+                {studentName ? `Approved: ${studentName}` : "Student Approved!"}
               </h3>
               <p className="text-gray-600 mb-6">
                 The student has been approved successfully and now has full access to the portal.
