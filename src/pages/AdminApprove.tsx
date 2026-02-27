@@ -11,12 +11,12 @@ export default function AdminApprove() {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [studentName, setStudentName] = useState<string | null>(null)
-  const studentId = searchParams.get("student_id")
+  const id = searchParams.get("id")
 
   useEffect(() => {
     const approveStudent = async () => {
-      if (!studentId) {
-        setError("No student_id provided in the URL")
+      if (!id) {
+        setError("No id provided in the URL")
         setLoading(false)
         return
       }
@@ -26,7 +26,7 @@ export default function AdminApprove() {
         const { data, error: updateError } = await supabase
           .from("students")
           .update({ is_approved: true })
-          .eq("id", studentId)
+          .eq("id", id)
           .select("profile_id")
           .single()
 
@@ -58,7 +58,7 @@ export default function AdminApprove() {
     }
 
     approveStudent()
-  }, [studentId])
+  }, [id])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
@@ -74,7 +74,7 @@ export default function AdminApprove() {
               <Loader2 className="h-12 w-12 animate-spin mx-auto text-purple-600 mb-4" />
               <p className="text-gray-600">
                 Processing approval for student{" "}
-                <span className="font-semibold">{studentId ?? "—"}</span>...
+                <span className="font-semibold">{id ?? "—"}</span>...
               </p>
             </div>
           )}
