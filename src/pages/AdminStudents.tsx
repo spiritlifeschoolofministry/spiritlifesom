@@ -120,16 +120,13 @@ const AdminStudents = () => {
       const is_approved =
         upper === "APPROVED" || upper === "ADMITTED";
 
-      const { data, error } = await supabase
-        .from("students")
-        .update({
-          admission_status,
-          is_approved,
-        })
-        .eq("id", studentId)
-        .select();
+      const payload = { admission_status, is_approved };
+      console.log("[AdminStudents] Sending to DB:", payload);
 
-      console.log("[AdminStudents] Update result:", { data, error });
+      const { error } = await supabase
+        .from("students")
+        .update(payload)
+        .eq("id", studentId);
 
       if (error) {
         console.error("Supabase error:", error);
