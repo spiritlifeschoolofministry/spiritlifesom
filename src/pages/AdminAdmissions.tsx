@@ -67,7 +67,7 @@ const AdminAdmissions = () => {
     try {
       const { error } = await supabase
         .from("students")
-        .update({ admission_status: "Approved" })
+        .update({ admission_status: "ADMITTED" })
         .eq("id", studentId);
 
       if (error) throw error;

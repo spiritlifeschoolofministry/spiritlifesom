@@ -272,7 +272,7 @@ const Register = () => {
 
       // STEP 6 - Redirect to dashboard
       console.log("[Register] STEP 6: Redirecting to dashboard...");
-      toast.success("Registration successful! Welcome to Spirit Life SOM");
+      toast.success("Registration Successful! Your application is now being reviewed manually. Please check back in 24-48 hours; your dashboard will unlock automatically once approved.");
       await new Promise(resolve => setTimeout(resolve, 1500));
       navigate("/student/dashboard", { replace: true });
     } catch (error: any) {

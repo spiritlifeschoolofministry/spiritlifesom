@@ -39,6 +39,18 @@ interface Student {
   };
 }
 
+const UI_TO_DB_STATUS: Record<string, string> = {
+  Pending: "PENDING",
+  Approved: "ADMITTED",
+  Rejected: "REJECTED",
+};
+
+const DB_TO_UI_STATUS: Record<string, string> = {
+  PENDING: "Pending",
+  ADMITTED: "Approved",
+  REJECTED: "Rejected",
+};
+
 const AdminStudents = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
@@ -91,7 +103,10 @@ const AdminStudents = () => {
     }
 
     if (statusFilter !== "all") {
-      filtered = filtered.filter((s) => s.admission_status === statusFilter);
+      filtered = filtered.filter((s) => {
+        const uiStatus = DB_TO_UI_STATUS[(s.admission_status || "").toUpperCase()] || "Pending";
+        return uiStatus === statusFilter;
+      });
     }
 
     setFilteredStudents(filtered);
@@ -99,21 +114,28 @@ const AdminStudents = () => {
 
   const handleStatusChange = async (studentId: string, newStatus: string) => {
     try {
+      const dbStatus = UI_TO_DB_STATUS[newStatus] || "PENDING";
+
       const { error } = await supabase
         .from("students")
-        .update({ admission_status: newStatus })
+        .update({ admission_status: dbStatus })
         .eq("id", studentId);
 
       if (error) throw error;
 
-      setStudents((prev) =>
-        prev.map((s) =>
-          s.id === studentId ? { ...s, admission_status: newStatus } : s
-        )
-      );
-      toast.success("Status updated successfully");
+      // Refresh list from server to keep in sync
+      await loadStudents();
+
+      if (dbStatus === "ADMITTED") {
+        toast.success("Student Admitted Successfully");
+      } else {
+        toast.success("Status updated successfully");
+      }
     } catch (err) {
       console.error("Update status error:", err);
+      if (err && typeof err === "object" && "message" in (err as any)) {
+        console.error("Supabase error message:", (err as any).message);
+      }
       toast.error("Failed to update status");
     }
   };
@@ -188,7 +210,10 @@ const AdminStudents = () => {
                       <TableCell>{student.profile.email}</TableCell>
                       <TableCell>
                         <Select
-                          value={student.admission_status || "Pending"}
+                          value={
+                            DB_TO_UI_STATUS[(student.admission_status || "").toUpperCase()] ||
+                            "Pending"
+                          }
                           onValueChange={(value) => handleStatusChange(student.id, value)}
                         >
                           <SelectTrigger className="w-32">

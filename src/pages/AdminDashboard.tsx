@@ -45,7 +45,10 @@ const AdminDashboard = () => {
     try {
       const [studentsRes, pendingCountRes, coursesRes, cohortRes, recentRes, pendingRes] = await Promise.all([
         supabase.from("students").select("id", { count: "exact", head: true }),
-        supabase.from("students").select("id", { count: "exact", head: true }).eq("admission_status", "Pending"),
+        supabase
+          .from("students")
+          .select("id", { count: "exact", head: true })
+          .eq("admission_status", "PENDING"),
         supabase.from("courses").select("id", { count: "exact", head: true }),
         supabase.from("cohorts").select("name").eq("is_active", true).maybeSingle(),
         supabase
@@ -57,7 +60,7 @@ const AdminDashboard = () => {
         supabase
           .from("students")
           .select("id, learning_mode, profile:profiles(first_name, last_name, avatar_url)")
-          .eq("admission_status", "Pending")
+          .eq("admission_status", "PENDING")
           .order("created_at", { ascending: false })
           .limit(10),
       ]);
@@ -81,9 +84,10 @@ const AdminDashboard = () => {
 
   const handleApproval = async (studentId: string, status: "Admitted" | "Rejected") => {
     try {
+      const dbStatus = status === "Admitted" ? "ADMITTED" : "REJECTED";
       const { error } = await supabase
         .from("students")
-        .update({ admission_status: status })
+        .update({ admission_status: dbStatus })
         .eq("id", studentId);
       if (error) throw error;
       toast.success(`Student ${status.toLowerCase()} successfully`);
