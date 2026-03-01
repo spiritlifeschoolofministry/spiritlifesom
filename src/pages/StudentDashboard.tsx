@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
@@ -26,105 +26,156 @@ const StudentDashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+    // kept for backwards compatibility; real loader is defined below
+  }, []);
 
-        const [profileRes, studentRes, coursesRes, announcementsRes] = await Promise.all([
-          supabase.from("profiles").select("first_name").eq("id", user.id).maybeSingle(),
-          supabase.from("students").select("id, cohort_id, admission_status").eq("profile_id", user.id).maybeSingle(),
-          supabase.from("courses").select("id"),
-          supabase.from("announcements").select("title, body, published_at").eq("is_published", true).order("published_at", { ascending: false }).limit(3),
-        ]);
+  const normalizeStatus = (s: string | null | undefined) => (s ?? "").toUpperCase();
 
-        const firstName = profileRes.data?.first_name || user.user_metadata?.first_name || "Student";
-        const studentId = studentRes.data?.id || null;
-        const cohortId = studentRes.data?.cohort_id || null;
-        const admissionStatus = studentRes.data?.admission_status || null;
-        const isPending = admissionStatus === "Pending";
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setData(null);
+        return;
+      }
 
-        let attendanceRate: number | null = null;
-        let pendingAssignments = 0;
-        let feeStatus = "N/A";
-        let upcomingClasses: DashboardData["upcomingClasses"] = [];
+      const [profileRes, studentRes, coursesRes, announcementsRes] = await Promise.all([
+        supabase.from("profiles").select("first_name").eq("id", user.id).maybeSingle(),
+        supabase
+          .from("students")
+          .select("id, cohort_id, admission_status, is_approved")
+          .eq("profile_id", user.id)
+          .maybeSingle(),
+        supabase.from("courses").select("id"),
+        supabase.from("announcements").select("title, body, published_at").eq("is_published", true).order("published_at", { ascending: false }).limit(3),
+      ]);
 
-        if (studentId) {
-          if (!isPending) {
-            // Attendance
-            const { data: attendance } = await supabase
-              .from("attendance")
-              .select("status")
-              .eq("student_id", studentId);
+      const firstName = profileRes.data?.first_name || user.user_metadata?.first_name || "Student";
+      const studentId = studentRes.data?.id || null;
+      const cohortId = studentRes.data?.cohort_id || null;
+      const admissionStatus = studentRes.data?.admission_status || null;
+      const statusUpper = normalizeStatus(admissionStatus);
+      const isPending = statusUpper === "PENDING";
 
-            if (attendance && attendance.length > 0) {
-              const present = attendance.filter((a) => a.status === "Present").length;
-              attendanceRate = Math.round((present / attendance.length) * 100);
-            }
+      let attendanceRate: number | null = null;
+      let pendingAssignments = 0;
+      let feeStatus = "N/A";
+      let upcomingClasses: DashboardData["upcomingClasses"] = [];
 
-            // Pending assignments
-            if (cohortId) {
-              const [assignRes, submissionRes] = await Promise.all([
-                supabase.from("assignments").select("id").eq("cohort_id", cohortId),
-                supabase.from("assignment_submissions").select("assignment_id").eq("student_id", studentId),
-              ]);
-              const allIds = new Set((assignRes.data || []).map((a) => a.id));
-              const submittedIds = new Set((submissionRes.data || []).map((s) => s.assignment_id));
-              pendingAssignments = [...allIds].filter((id) => !submittedIds.has(id)).length;
-            }
-          }
-
-          // Fees (always show)
-          const { data: fees } = await supabase
-            .from("fees")
-            .select("payment_status")
+      if (studentId) {
+        if (!isPending) {
+          // Attendance
+          const { data: attendance } = await supabase
+            .from("attendance")
+            .select("status")
             .eq("student_id", studentId);
 
-          if (fees && fees.length > 0) {
-            const statuses = fees.map((f) => f.payment_status);
-            if (statuses.every((s) => s === "Paid")) feeStatus = "Paid";
-            else if (statuses.some((s) => s === "Partial" || s === "Paid")) feeStatus = "Partial";
-            else feeStatus = "Unpaid";
+          if (attendance && attendance.length > 0) {
+            const present = attendance.filter((a) => a.status === "Present").length;
+            attendanceRate = Math.round((present / attendance.length) * 100);
+          }
+
+          // Pending assignments
+          if (cohortId) {
+            const [assignRes, submissionRes] = await Promise.all([
+              supabase.from("assignments").select("id").eq("cohort_id", cohortId),
+              supabase.from("assignment_submissions").select("assignment_id").eq("student_id", studentId),
+            ]);
+            const allIds = new Set((assignRes.data || []).map((a) => a.id));
+            const submittedIds = new Set((submissionRes.data || []).map((s) => s.assignment_id));
+            pendingAssignments = [...allIds].filter((id) => !submittedIds.has(id)).length;
           }
         }
 
-        // Upcoming classes
-        const today = new Date().toISOString().split("T")[0];
-        const { data: schedule } = await supabase
-          .from("schedule")
-          .select("date, day, start_time, end_time, course_id, courses(title)")
-          .gt("date", today)
-          .order("date", { ascending: true })
-          .limit(3);
+        // Fees (always show)
+        const { data: fees } = await supabase
+          .from("fees")
+          .select("payment_status")
+          .eq("student_id", studentId);
 
-        if (schedule) {
-          upcomingClasses = schedule.map((s: any) => ({
-            date: s.date,
-            day: s.day,
-            course_title: s.courses?.title || s.description || "Class",
-            start_time: s.start_time,
-            end_time: s.end_time,
-          }));
+        if (fees && fees.length > 0) {
+          const statuses = fees.map((f) => f.payment_status);
+          if (statuses.every((s) => s === "Paid")) feeStatus = "Paid";
+          else if (statuses.some((s) => s === "Partial" || s === "Paid")) feeStatus = "Partial";
+          else feeStatus = "Unpaid";
         }
-
-        setData({
-          firstName,
-          admissionStatus,
-          attendanceRate,
-          totalCourses: coursesRes.data?.length || 0,
-          pendingAssignments,
-          feeStatus,
-          upcomingClasses,
-          announcements: announcementsRes.data || [],
-        });
-      } catch (err) {
-        console.error("Dashboard load error:", err);
-      } finally {
-        setLoading(false);
       }
-    };
-    load();
+
+      // Upcoming classes
+      const today = new Date().toISOString().split("T")[0];
+      const { data: schedule } = await supabase
+        .from("schedule")
+        .select("date, day, start_time, end_time, course_id, courses(title)")
+        .gt("date", today)
+        .order("date", { ascending: true })
+        .limit(3);
+
+      if (schedule) {
+        upcomingClasses = schedule.map((s: any) => ({
+          date: s.date,
+          day: s.day,
+          course_title: s.courses?.title || s.description || "Class",
+          start_time: s.start_time,
+          end_time: s.end_time,
+        }));
+      }
+
+      setData({
+        firstName,
+        admissionStatus,
+        attendanceRate,
+        totalCourses: coursesRes.data?.length || 0,
+        pendingAssignments,
+        feeStatus,
+        upcomingClasses,
+        announcements: announcementsRes.data || [],
+      });
+    } catch (err) {
+      console.error("Dashboard load error:", err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // Fetch latest data on page load
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Realtime listener: unlock UI as soon as admission_status changes (e.g., PENDING -> ADMITTED)
+  useEffect(() => {
+    let channel: any;
+    let cancelled = false;
+
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+
+      channel = supabase
+        .channel(`students-status-${user.id}`)
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "students", filter: `profile_id=eq.${user.id}` },
+          (payload: any) => {
+            const newStatus = payload?.new?.admission_status as string | null | undefined;
+            if (newStatus) {
+              setData((prev) => (prev ? { ...prev, admissionStatus: newStatus } : prev));
+              if (normalizeStatus(newStatus) === "ADMITTED") {
+                // Re-load to pull in data that was previously skipped while pending
+                load();
+              }
+            }
+          }
+        )
+        .subscribe();
+    })();
+
+    return () => {
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [load]);
 
   if (loading) {
     return (
@@ -141,7 +192,7 @@ const StudentDashboard = () => {
 
   if (!data) return null;
 
-  const isPending = data.admissionStatus === "Pending";
+  const isPending = normalizeStatus(data.admissionStatus) === "PENDING";
   const isAdmin = role === "admin" || role === "teacher";
   const hasNoStudentRecord = !student && !data.admissionStatus;
 

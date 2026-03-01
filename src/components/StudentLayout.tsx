@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -44,8 +44,12 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
   const { signOut, profile: authProfile, student } = useAuth();
   const derivedAdmission = student?.admission_status ?? undefined;
   const effectiveAdmissionStatus = admissionStatus ?? derivedAdmission ?? null;
-  const isPending = effectiveAdmissionStatus === "Pending";
-  const isRejected = effectiveAdmissionStatus === "Rejected";
+  const statusUpper = useMemo(
+    () => (effectiveAdmissionStatus ?? "").toString().toUpperCase(),
+    [effectiveAdmissionStatus]
+  );
+  const isPending = statusUpper === "PENDING";
+  const isRejected = statusUpper === "REJECTED";
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = async () => {
