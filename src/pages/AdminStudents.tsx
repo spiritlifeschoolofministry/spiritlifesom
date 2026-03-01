@@ -114,29 +114,40 @@ const AdminStudents = () => {
 
   const handleStatusChange = async (studentId: string, newStatus: string) => {
     try {
-      const dbStatus = UI_TO_DB_STATUS[newStatus] || "PENDING";
+      const upper = newStatus.toUpperCase();
+      const admission_status =
+        upper === "APPROVED" ? "ADMITTED" : upper;
+      const is_approved =
+        upper === "APPROVED" || upper === "ADMITTED";
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("students")
-        .update({ admission_status: dbStatus })
-        .eq("id", studentId);
+        .update({
+          admission_status,
+          is_approved,
+        })
+        .eq("id", studentId)
+        .select();
 
-      if (error) throw error;
+      console.log("[AdminStudents] Update result:", { data, error });
 
-      // Refresh list from server to keep in sync
+      if (error) {
+        console.error("Supabase error:", error);
+        toast.error(error.message || "Failed to update student status");
+        return;
+      }
+
       await loadStudents();
 
-      if (dbStatus === "ADMITTED") {
+      if (admission_status === "ADMITTED") {
         toast.success("Student Admitted Successfully");
       } else {
         toast.success("Status updated successfully");
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update student status";
       console.error("Update status error:", err);
-      if (err && typeof err === "object" && "message" in (err as any)) {
-        console.error("Supabase error message:", (err as any).message);
-      }
-      toast.error("Failed to update status");
+      toast.error(msg);
     }
   };
 

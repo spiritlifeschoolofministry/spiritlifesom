@@ -65,37 +65,59 @@ const AdminAdmissions = () => {
 
   const handleApprove = async (studentId: string) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("students")
-        .update({ admission_status: "ADMITTED" })
-        .eq("id", studentId);
+        .update({
+          admission_status: "ADMITTED",
+          is_approved: true,
+        })
+        .eq("id", studentId)
+        .select();
 
-      if (error) throw error;
+      console.log("[AdminAdmissions] Approve result:", { data, error });
 
-      toast.success("Application approved");
+      if (error) {
+        console.error("Supabase error:", error);
+        toast.error(error.message || "Failed to approve application");
+        return;
+      }
+
+      toast.success("Student Admitted Successfully");
       await loadApplications();
       setSelectedApp(null);
-    } catch (err) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to approve application";
       console.error("Approve error:", err);
-      toast.error("Failed to approve application");
+      toast.error(msg);
     }
   };
 
   const handleReject = async (studentId: string) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("students")
-        .update({ admission_status: "Rejected" })
-        .eq("id", studentId);
+        .update({
+          admission_status: "REJECTED",
+          is_approved: false,
+        })
+        .eq("id", studentId)
+        .select();
 
-      if (error) throw error;
+      console.log("[AdminAdmissions] Reject result:", { data, error });
+
+      if (error) {
+        console.error("Supabase error:", error);
+        toast.error(error.message || "Failed to reject application");
+        return;
+      }
 
       toast.success("Application rejected");
       await loadApplications();
       setSelectedApp(null);
-    } catch (err) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to reject application";
       console.error("Reject error:", err);
-      toast.error("Failed to reject application");
+      toast.error(msg);
     }
   };
 

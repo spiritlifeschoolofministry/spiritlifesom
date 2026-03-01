@@ -84,23 +84,42 @@ const AdminDashboard = () => {
 
   const handleApproval = async (studentId: string, status: "Admitted" | "Rejected") => {
     try {
-      const dbStatus = status === "Admitted" ? "ADMITTED" : "REJECTED";
-      const { error } = await supabase
+      const admission_status = status === "Admitted" ? "ADMITTED" : "REJECTED";
+      const is_approved = status === "Admitted";
+
+      const { data, error } = await supabase
         .from("students")
-        .update({ admission_status: dbStatus })
-        .eq("id", studentId);
-      if (error) throw error;
-      toast.success(`Student ${status.toLowerCase()} successfully`);
-      // Refresh
-      setStats((prev) => prev ? {
-        ...prev,
-        pendingStudents: prev.pendingStudents.filter((s) => s.id !== studentId),
-        pendingCount: Math.max(0, prev.pendingCount - 1),
-        totalStudents: status === "Admitted" ? prev.totalStudents : prev.totalStudents,
-      } : null);
-    } catch (err) {
+        .update({ admission_status, is_approved })
+        .eq("id", studentId)
+        .select();
+
+      console.log("[AdminDashboard] Approval result:", { data, error });
+
+      if (error) {
+        console.error("Supabase error:", error);
+        toast.error(error.message || "Failed to update status");
+        return;
+      }
+
+      toast.success(
+        status === "Admitted"
+          ? "Student Admitted Successfully"
+          : "Student rejected"
+      );
+      setStats((prev) =>
+        prev
+          ? {
+              ...prev,
+              pendingStudents: prev.pendingStudents.filter((s) => s.id !== studentId),
+              pendingCount: Math.max(0, prev.pendingCount - 1),
+              totalStudents: prev.totalStudents,
+            }
+          : null
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update status";
       console.error("Approval error:", err);
-      toast.error("Failed to update status");
+      toast.error(msg);
     }
   };
 
