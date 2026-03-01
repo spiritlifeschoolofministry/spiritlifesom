@@ -115,10 +115,19 @@ const AdminStudents = () => {
   const handleStatusChange = async (studentId: string, newStatus: string) => {
     try {
       const upper = newStatus.toUpperCase();
-      const admission_status =
-        upper === "APPROVED" ? "ADMITTED" : upper;
-      const is_approved =
-        upper === "APPROVED" || upper === "ADMITTED";
+      let admission_status: string;
+
+      if (upper === "APPROVED" || upper === "ADMITTED") {
+        admission_status = "ADMITTED";
+      } else if (upper === "PENDING") {
+        admission_status = "PENDING";
+      } else if (upper === "REJECTED") {
+        admission_status = "REJECTED";
+      } else {
+        admission_status = "PENDING";
+      }
+
+      const is_approved = admission_status === "ADMITTED";
 
       const payload = { admission_status, is_approved };
       console.log("[AdminStudents] Sending to DB:", payload);
@@ -130,14 +139,25 @@ const AdminStudents = () => {
 
       if (error) {
         console.error("Supabase error:", error);
-        toast.error(error.message || "Failed to update student status");
+        const message = error.message || "Failed to update student status";
+        toast.error(message);
+        alert(message);
         return;
       }
 
-      await loadStudents();
+      // Optimistically update local state so the row reflects the new status immediately
+      setStudents((prev) =>
+        prev.map((s) =>
+          s.id === studentId ? { ...s, admission_status } : s
+        )
+      );
 
       if (admission_status === "ADMITTED") {
         toast.success("Student Admitted Successfully");
+      } else if (admission_status === "PENDING") {
+        toast.success("Student marked as Pending");
+      } else if (admission_status === "REJECTED") {
+        toast.success("Student marked as Rejected");
       } else {
         toast.success("Status updated successfully");
       }
