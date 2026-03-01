@@ -189,6 +189,7 @@ export type Database = {
           schedule_id: string
           status: string
           student_id: string
+          is_verified: boolean
         }
         Insert: {
           id?: string
@@ -197,6 +198,7 @@ export type Database = {
           schedule_id: string
           status?: string
           student_id: string
+          is_verified?: boolean
         }
         Update: {
           id?: string
@@ -205,6 +207,7 @@ export type Database = {
           schedule_id?: string
           status?: string
           student_id?: string
+          is_verified?: boolean
         }
         Relationships: [
           {
