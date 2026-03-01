@@ -15,6 +15,7 @@ import Contact from "./pages/Contact";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import StudentDashboard from "./pages/StudentDashboard";
+import StudentCourses from "./pages/StudentCourses";
 import StudentProfile from "./pages/student/Profile";
 import ComingSoon from "./pages/ComingSoon";
 import AdminComingSoon from "./pages/AdminComingSoon";
@@ -50,7 +51,7 @@ const App = () => (
           {/* Student portal */}
           <Route path="/student/dashboard" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
           <Route path="/student/profile" element={<ProtectedRoute><StudentProfile /></ProtectedRoute>} />
-          <Route path="/student/courses" element={<ProtectedRoute><ComingSoon /></ProtectedRoute>} />
+          <Route path="/student/courses" element={<ProtectedRoute><StudentCourses /></ProtectedRoute>} />
           <Route path="/student/attendance" element={<ProtectedRoute><ComingSoon /></ProtectedRoute>} />
           <Route path="/student/assignments" element={<ProtectedRoute><ComingSoon /></ProtectedRoute>} />
           <Route path="/student/materials" element={<ProtectedRoute><ComingSoon /></ProtectedRoute>} />
