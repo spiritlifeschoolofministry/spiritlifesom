@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import StudentLayout from "@/components/StudentLayout";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,6 +25,8 @@ const StudentDashboard = () => {
   const { role, student } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAnnouncement, setShowAnnouncement] = useState(false);
+  const [latestAnnouncement, setLatestAnnouncement] = useState<any | null>(null);
 
   useEffect(() => {
     // kept for backwards compatibility; real loader is defined below
@@ -131,6 +134,33 @@ const StudentDashboard = () => {
         upcomingClasses,
         announcements: announcementsRes.data || [],
       });
+
+      // Fetch latest announcement for immediate popup
+      try {
+        if (studentId) {
+          const cohortId = cohortId;
+          const orQuery = cohortId ? `target_cohort_id.is.null,target_cohort_id.eq.${cohortId}` : `target_cohort_id.is.null`;
+          const { data: latest } = await supabase
+            .from('announcements')
+            .select('*')
+            .or(orQuery)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (latest) {
+            const lastSeen = localStorage.getItem('lastSeenAnnouncementId');
+            const shouldShow = latest.is_urgent || lastSeen !== latest.id;
+            if (shouldShow) {
+              setLatestAnnouncement(latest);
+              // open modal after small delay to allow layout
+              setTimeout(() => setShowAnnouncement(true), 250);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Fetch latest announcement error:', err);
+      }
     } catch (err) {
       console.error("Dashboard load error:", err);
     } finally {
@@ -269,6 +299,30 @@ const StudentDashboard = () => {
 
   return (
     <StudentLayout admissionStatus={data.admissionStatus}>
+      {/* Announcement popup modal */}
+      <Dialog open={showAnnouncement} onOpenChange={(open) => {
+        if (!open && latestAnnouncement) {
+          try {
+            localStorage.setItem('lastSeenAnnouncementId', latestAnnouncement.id);
+          } catch (e) {
+            console.warn('Could not persist last seen announcement:', e);
+          }
+        }
+        setShowAnnouncement(open);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{latestAnnouncement?.title || 'Announcement'}</DialogTitle>
+            <DialogDescription>{latestAnnouncement?.body}</DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex gap-2 justify-end">
+            <Button onClick={() => {
+              if (latestAnnouncement) localStorage.setItem('lastSeenAnnouncementId', latestAnnouncement.id);
+              setShowAnnouncement(false);
+            }}>Dismiss</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <div className="space-y-6 pb-20 md:pb-0">
         {/* Welcome Header with Admin Portal Button */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

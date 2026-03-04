@@ -25,6 +25,8 @@ import Coursemates from "./pages/student/Coursemates";
 import StudentAssignments from "./pages/student/Assignments";
 import ComingSoon from "./pages/ComingSoon";
 import AdminComingSoon from "./pages/AdminComingSoon";
+import AdminAnnouncements from "./pages/admin/Announcements";
+import StudentAnnouncements from "./pages/student/Announcements";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminProfile from "./pages/admin/Profile";
 import AdminPayments from "./pages/admin/Payments";
@@ -82,7 +84,8 @@ const App = () => (
             <Route path="/admin/materials" element={<ProtectedRoute requiredRole="admin"><AdminMaterials /></ProtectedRoute>} />
             <Route path="/admin/fees" element={<ProtectedRoute requiredRole="admin"><AdminFees /></ProtectedRoute>} />
             <Route path="/admin/payments" element={<ProtectedRoute requiredRole="admin"><AdminPayments /></ProtectedRoute>} />
-            <Route path="/admin/announcements" element={<ProtectedRoute requiredRole="admin"><AdminComingSoon title="Announcements" description="Send notifications to students" icon="bell" /></ProtectedRoute>} />
+            <Route path="/admin/announcements" element={<ProtectedRoute requiredRole="admin"><AdminAnnouncements /></ProtectedRoute>} />
+            <Route path="/student/announcements" element={<ProtectedRoute><StudentAnnouncements /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettings /></ProtectedRoute>} />
           </Route>
 
