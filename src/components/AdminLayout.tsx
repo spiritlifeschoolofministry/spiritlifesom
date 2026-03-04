@@ -8,6 +8,7 @@ import {
   Users,
   UserCheck,
   CalendarCheck,
+  CalendarDays,
   FileText,
   Folder,
   CreditCard,
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { label: "Materials", icon: Folder, path: "/admin/materials" },
   { label: "Fees", icon: CreditCard, path: "/admin/fees" },
   { label: "Announcements", icon: Bell, path: "/admin/announcements" },
+  { label: "Calendar", icon: CalendarDays, path: "/admin/calendar" },
   { label: "Settings", icon: Settings, path: "/admin/settings" },
   { label: "Profile", icon: UserCircle, path: "/admin/profile" },
 ];

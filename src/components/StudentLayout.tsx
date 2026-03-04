@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   BookOpen,
   CalendarCheck,
+  CalendarDays,
   ClipboardList,
   FileText,
   Users,
@@ -37,6 +38,7 @@ const NAV_ITEMS = [
   { label: "Course Mates", icon: Users, path: "/student/coursemates", restrictedWhenPending: true },
   { label: "Fees", icon: CreditCard, path: "/student/fees", restrictedWhenPending: false },
   { label: "Announcements", icon: Bell, path: "/student/announcements", restrictedWhenPending: false },
+  { label: "Calendar", icon: CalendarDays, path: "/student/calendar", restrictedWhenPending: false },
   { label: "Profile", icon: UserCircle, path: "/student/profile", restrictedWhenPending: false },
 ];
 

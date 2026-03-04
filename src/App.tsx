@@ -27,6 +27,8 @@ import ComingSoon from "./pages/ComingSoon";
 import AdminComingSoon from "./pages/AdminComingSoon";
 import AdminAnnouncements from "./pages/admin/Announcements";
 import StudentAnnouncements from "./pages/student/Announcements";
+import AdminCalendar from "./pages/admin/Calendar";
+import StudentCalendar from "./pages/student/Calendar";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminProfile from "./pages/admin/Profile";
 import AdminPayments from "./pages/admin/Payments";
@@ -72,6 +74,7 @@ const App = () => (
           <Route path="/student/coursemates" element={<ProtectedRoute><Coursemates /></ProtectedRoute>} />
           <Route path="/student/fees" element={<ProtectedRoute><StudentFees /></ProtectedRoute>} />
           <Route path="/student/announcements" element={<ProtectedRoute><StudentAnnouncements /></ProtectedRoute>} />
+          <Route path="/student/calendar" element={<ProtectedRoute><StudentCalendar /></ProtectedRoute>} />
 
           {/* Admin portal */}
           <Route element={<AdminLayout />}>
@@ -86,6 +89,7 @@ const App = () => (
             <Route path="/admin/fees" element={<ProtectedRoute requiredRole="admin"><AdminFees /></ProtectedRoute>} />
             <Route path="/admin/payments" element={<ProtectedRoute requiredRole="admin"><AdminPayments /></ProtectedRoute>} />
             <Route path="/admin/announcements" element={<ProtectedRoute requiredRole="admin"><AdminAnnouncements /></ProtectedRoute>} />
+            <Route path="/admin/calendar" element={<ProtectedRoute requiredRole="admin"><AdminCalendar /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettings /></ProtectedRoute>} />
           </Route>
 
