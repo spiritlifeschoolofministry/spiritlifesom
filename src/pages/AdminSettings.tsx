@@ -63,14 +63,21 @@ const AdminSettings = () => {
       if (error) throw error;
 
       const settingsMap: Record<string, string> = {};
-      data?.forEach((s) => {
-        settingsMap[s.key] = s.value;
+      data?.forEach((s: any) => {
+        const val = typeof s.value === 'string' ? s.value : JSON.stringify(s.value);
+        settingsMap[s.key] = val;
       });
 
+      const parseVal = (key: string, fallback: string) => {
+        const raw = settingsMap[key];
+        if (!raw) return fallback;
+        try { return JSON.parse(raw); } catch { return raw; }
+      };
+
       setSettings({
-        accepting_applications: settingsMap['accepting_applications'] === 'true',
-        school_name: settingsMap['school_name'] || 'Spirit Life School of Ministry',
-        school_logo_url: settingsMap['school_logo_url'] || '',
+        accepting_applications: parseVal('accepting_applications', 'true') === true || parseVal('accepting_applications', 'true') === 'true',
+        school_name: parseVal('school_name', 'Spirit Life School of Ministry'),
+        school_logo_url: parseVal('school_logo_url', ''),
       });
     } catch (err) {
       console.error('Load settings error:', err);
@@ -136,28 +143,15 @@ const AdminSettings = () => {
       setSaving(true);
 
       const updates = [
-        {
-          key: 'accepting_applications',
-          value: settings.accepting_applications ? 'true' : 'false',
-          updated_by: profile?.id,
-        },
-        {
-          key: 'school_name',
-          value: settings.school_name,
-          updated_by: profile?.id,
-        },
-        {
-          key: 'school_logo_url',
-          value: settings.school_logo_url,
-          updated_by: profile?.id,
-        },
+        { key: 'accepting_applications', value: JSON.stringify(settings.accepting_applications) },
+        { key: 'school_name', value: JSON.stringify(settings.school_name) },
+        { key: 'school_logo_url', value: JSON.stringify(settings.school_logo_url) },
       ];
 
       for (const update of updates) {
         const { error } = await supabase
           .from('system_settings')
-          .update({ value: update.value, updated_by: update.updated_by })
-          .eq('key', update.key);
+          .upsert({ key: update.key, value: update.value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
 
         if (error) throw error;
       }

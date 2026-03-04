@@ -61,6 +61,7 @@ const Home = () => {
   );
 
   return (
+    <div>
     {/* ========== HERO ========== */}
     <section className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center text-center text-primary-foreground">
       <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/images/som1.jpeg)" }} />
@@ -159,7 +160,7 @@ const Home = () => {
         </div>
       </div>
     </Section>
-  </div>
+    </div>
   );
 };
 
