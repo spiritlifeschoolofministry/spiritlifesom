@@ -152,7 +152,7 @@ const AdminAnnouncements = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {announcements.map((a) => (
+                  {announcements?.map((a) => (
                     <TableRow key={a.id}>
                       <TableCell className="font-medium">{a.title}</TableCell>
                       <TableCell>{a.target_cohort_id || 'All Students'}</TableCell>

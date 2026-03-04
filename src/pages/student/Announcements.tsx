@@ -55,7 +55,7 @@ const StudentAnnouncements = () => {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {announcements.map((a) => (
+          {announcements?.map((a) => (
             <Card key={a.id} className={`p-4 ${a.is_urgent ? 'border border-red-300 bg-red-50' : ''}`}>
               <div className="flex items-start justify-between gap-4">
                 <div>

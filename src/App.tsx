@@ -71,6 +71,7 @@ const App = () => (
           <Route path="/student/materials" element={<ProtectedRoute><StudentMaterials /></ProtectedRoute>} />
           <Route path="/student/coursemates" element={<ProtectedRoute><Coursemates /></ProtectedRoute>} />
           <Route path="/student/fees" element={<ProtectedRoute><StudentFees /></ProtectedRoute>} />
+          <Route path="/student/announcements" element={<ProtectedRoute><StudentAnnouncements /></ProtectedRoute>} />
 
           {/* Admin portal */}
           <Route element={<AdminLayout />}>
@@ -85,7 +86,6 @@ const App = () => (
             <Route path="/admin/fees" element={<ProtectedRoute requiredRole="admin"><AdminFees /></ProtectedRoute>} />
             <Route path="/admin/payments" element={<ProtectedRoute requiredRole="admin"><AdminPayments /></ProtectedRoute>} />
             <Route path="/admin/announcements" element={<ProtectedRoute requiredRole="admin"><AdminAnnouncements /></ProtectedRoute>} />
-            <Route path="/student/announcements" element={<ProtectedRoute><StudentAnnouncements /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettings /></ProtectedRoute>} />
           </Route>
 

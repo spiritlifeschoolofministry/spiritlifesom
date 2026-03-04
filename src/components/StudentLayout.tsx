@@ -12,6 +12,7 @@ import {
   FileText,
   Users,
   CreditCard,
+  Bell,
   UserCircle,
   LogOut,
   Menu,
@@ -35,6 +36,7 @@ const NAV_ITEMS = [
   { label: "Course Materials", icon: FileText, path: "/student/materials", restrictedWhenPending: true },
   { label: "Course Mates", icon: Users, path: "/student/coursemates", restrictedWhenPending: true },
   { label: "Fees", icon: CreditCard, path: "/student/fees", restrictedWhenPending: false },
+  { label: "Announcements", icon: Bell, path: "/student/announcements", restrictedWhenPending: false },
   { label: "Profile", icon: UserCircle, path: "/student/profile", restrictedWhenPending: false },
 ];
 
