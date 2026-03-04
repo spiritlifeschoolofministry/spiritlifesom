@@ -148,73 +148,7 @@ const StudentProfile = () => {
     }
   };
 
-  const [isSavingSocial, setIsSavingSocial] = useState(false);
-
-  const {
-    register: registerSocial,
-    handleSubmit: handleSocialSubmit,
-    reset: resetSocial,
-  } = useForm<SocialFormData>({
-    defaultValues: {
-      facebook: profile?.facebook || '',
-      instagram: profile?.instagram || '',
-      twitter: profile?.twitter || '',
-      linkedin: profile?.linkedin || '',
-      youtube: profile?.youtube || '',
-    },
-  });
-
-  useEffect(() => {
-    if (profile) {
-      resetSocial({
-        facebook: profile.facebook || '',
-        instagram: profile.instagram || '',
-        twitter: profile.twitter || '',
-        linkedin: profile.linkedin || '',
-        youtube: profile.youtube || '',
-      });
-    }
-  }, [profile, resetSocial]);
-
-  const onSocialSubmit = async (data: SocialFormData) => {
-    if (!user) return;
-    try {
-      setIsSavingSocial(true);
-      // Normalize URLs
-      const normalize = (val?: string | null) => {
-        if (!val) return null;
-        try {
-          // accept bare domains by prepending https://
-          new URL(val);
-          return val;
-        } catch {
-          try {
-            const withProto = `https://${val}`;
-            new URL(withProto);
-            return withProto;
-          } catch {
-            throw new Error(`Invalid URL: ${val}`);
-          }
-        }
-      };
-      const updateData = {
-        facebook: data.facebook || null,
-        instagram: data.instagram || null,
-        twitter: data.twitter || null,
-        linkedin: data.linkedin || null,
-        youtube: data.youtube || null,
-      };
-
-      const { error } = await supabase.from('profiles').update(updateData).eq('id', user.id);
-      if (error) throw error;
-      toast.success('Social links saved');
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to save social links';
-      toast.error(msg);
-    } finally {
-      setIsSavingSocial(false);
-    }
-  };
+  // Social links removed - columns don't exist in profiles table
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -476,44 +410,7 @@ const StudentProfile = () => {
               </CardContent>
             </Card>
 
-            {/* Social Links Section */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Social Links</CardTitle>
-                <CardDescription>Public links to your social profiles</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSocialSubmit(onSocialSubmit)} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="facebook">Facebook</Label>
-                      <Input id="facebook" {...registerSocial('facebook')} className="mt-1" />
-                    </div>
-                    <div>
-                      <Label htmlFor="instagram">Instagram</Label>
-                      <Input id="instagram" {...registerSocial('instagram')} className="mt-1" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="twitter">X / Twitter</Label>
-                      <Input id="twitter" {...registerSocial('twitter')} className="mt-1" />
-                    </div>
-                    <div>
-                      <Label htmlFor="linkedin">LinkedIn</Label>
-                      <Input id="linkedin" {...registerSocial('linkedin')} className="mt-1" />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="youtube">YouTube</Label>
-                    <Input id="youtube" {...registerSocial('youtube')} className="mt-1" />
-                  </div>
-                  <Button type="submit" disabled={isSavingSocial} className="w-full sm:w-auto mt-4">
-                    Save Social Links
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+            {/* Social Links section removed - not supported by current schema */}
 
             {/* Academic Information Section */}
             {studentData && (

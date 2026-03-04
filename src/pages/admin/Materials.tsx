@@ -17,35 +17,39 @@ interface UploadForm {
   title: string;
   description: string;
   cohort_id: string;
-  file: FileList;
+  course_id: string;
 }
 
 const AdminMaterials = () => {
   const [cohorts, setCohorts] = useState<Tables<'cohorts'>[]>([]);
+  const [courses, setCourses] = useState<Tables<'courses'>[]>([]);
   const [materials, setMaterials] = useState<Tables<'course_materials'>[]>([]);
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
   const [isPinningId, setIsPinningId] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const { register, handleSubmit, reset, watch } = useForm<UploadForm>({
-    defaultValues: { title: '', description: '', cohort_id: '' },
+  const { register, handleSubmit, reset, watch, setValue } = useForm<UploadForm>({
+    defaultValues: { title: '', description: '', cohort_id: '', course_id: '' },
   });
 
   const selectedCohort = watch('cohort_id');
+  const selectedCourse = watch('course_id');
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const { data: cohortsData } = await supabase.from('cohorts').select('*').order('name');
+      const [{ data: cohortsData }, { data: coursesData }, { data: mats }] = await Promise.all([
+        supabase.from('cohorts').select('*').order('name'),
+        supabase.from('courses').select('*').order('title'),
+        supabase.from('course_materials').select('*').order('created_at', { ascending: false }),
+      ]);
       if (cohortsData) setCohorts(cohortsData);
-
-      const { data: mats } = await supabase.from('course_materials').select('*').order('created_at', { ascending: false });
+      if (coursesData) setCourses(coursesData);
       if (mats) setMaterials(mats);
     } catch (e) {
       console.error(e);
@@ -56,41 +60,36 @@ const AdminMaterials = () => {
   };
 
   const onSubmit = async (data: UploadForm) => {
-    if (!data.cohort_id || !data.title) {
-      toast.error('Please provide a title and cohort');
+    if (!data.cohort_id || !data.course_id || !data.title) {
+      toast.error('Please provide title, cohort, and course');
       return;
     }
-
-    const file = data.file?.[0];
-    if (!file) {
+    if (!selectedFile) {
       toast.error('Please select a file to upload');
       return;
     }
-
     try {
       setIsUploading(true);
-      const fileName = `materials/${data.cohort_id}/${Date.now()}-${file.name}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('course-materials')
-        .upload(fileName, file);
-
+      const fileName = `materials/${data.cohort_id}/${Date.now()}-${selectedFile.name}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage.from('course-materials').upload(fileName, selectedFile);
       if (uploadError) throw uploadError;
 
       const { data: urlData } = supabase.storage.from('course-materials').getPublicUrl(uploadData.path);
 
       const { error: insertError } = await supabase.from('course_materials').insert({
         cohort_id: data.cohort_id,
+        course_id: data.course_id,
         title: data.title,
         description: data.description || null,
         file_url: urlData.publicUrl,
         is_paid: false,
         uploaded_by: null,
       });
-
       if (insertError) throw insertError;
 
       toast.success('Material uploaded successfully');
       reset();
+      setSelectedFile(null);
       setIsModalOpen(false);
       await fetchData();
     } catch (e) {
@@ -132,11 +131,7 @@ const AdminMaterials = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[300px]">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return (<div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin" /></div>);
   }
 
   return (
@@ -144,80 +139,51 @@ const AdminMaterials = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Course Materials</h1>
-          <p className="text-sm text-gray-600 mt-1">Upload and manage course materials for cohorts</p>
+          <p className="text-sm text-muted-foreground mt-1">Upload and manage course materials for cohorts</p>
         </div>
 
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogTrigger asChild>
-            <Button className="flex items-center gap-2">
-              <Upload className="h-4 w-4" />
-              Upload New Material
-            </Button>
+            <Button className="flex items-center gap-2"><Upload className="h-4 w-4" /> Upload New Material</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Upload New Material</DialogTitle>
-              <DialogDescription>
-                Add a course material to the materials bucket for your cohort
-              </DialogDescription>
+              <DialogDescription>Add a course material for a cohort</DialogDescription>
             </DialogHeader>
-
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
-                <Label htmlFor="title">Title *</Label>
-                <Input
-                  id="title"
-                  placeholder="e.g., Chapter 1 Notes"
-                  {...register('title', { required: true })}
-                />
+                <Label>Title *</Label>
+                <Input placeholder="e.g., Chapter 1 Notes" {...register('title', { required: true })} />
               </div>
-
               <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Optional description"
-                  {...register('description')}
-                  className="min-h-[80px]"
-                />
+                <Label>Description</Label>
+                <Textarea placeholder="Optional description" {...register('description')} className="min-h-[80px]" />
               </div>
-
               <div>
-                <Label htmlFor="cohort">Cohort *</Label>
-                <Select value={selectedCohort} onValueChange={(val) => reset({ ...watch(), cohort_id: val })}>
-                  <SelectTrigger id="cohort">
-                    <SelectValue placeholder="Select a cohort" />
-                  </SelectTrigger>
+                <Label>Cohort *</Label>
+                <Select value={selectedCohort} onValueChange={(val) => setValue('cohort_id', val)}>
+                  <SelectTrigger><SelectValue placeholder="Select a cohort" /></SelectTrigger>
                   <SelectContent>
-                    {cohorts.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
+                    {cohorts.map((c) => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
                   </SelectContent>
                 </Select>
               </div>
-
               <div>
-                <Label htmlFor="file">File *</Label>
-                <input
-                  id="file"
-                  type="file"
-                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.gif"
-                  {...register('file', { required: true })}
-                  className="block w-full text-sm border border-gray-300 rounded px-3 py-2"
-                />
+                <Label>Course *</Label>
+                <Select value={selectedCourse} onValueChange={(val) => setValue('course_id', val)}>
+                  <SelectTrigger><SelectValue placeholder="Select a course" /></SelectTrigger>
+                  <SelectContent>
+                    {courses.map((c) => (<SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>))}
+                  </SelectContent>
+                </Select>
               </div>
-
+              <div>
+                <Label>File *</Label>
+                <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.gif" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} className="block w-full text-sm border border-border rounded px-3 py-2" />
+              </div>
               <Button type="submit" disabled={isUploading} className="w-full">
-                {isUploading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  'Upload Material'
-                )}
+                {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>) : 'Upload Material'}
               </Button>
             </form>
           </DialogContent>
@@ -231,14 +197,13 @@ const AdminMaterials = () => {
         </CardHeader>
         <CardContent>
           {materials.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No materials uploaded yet</p>
+            <p className="text-muted-foreground text-center py-8">No materials uploaded yet</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Title</TableHead>
-                    <TableHead>Cohort</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>File</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -248,53 +213,21 @@ const AdminMaterials = () => {
                   {materials.map((m) => (
                     <TableRow key={m.id}>
                       <TableCell className="font-medium">{m.title}</TableCell>
-                      <TableCell>{m.cohort_id}</TableCell>
-                      <TableCell>
-                        {m.created_at ? new Date(m.created_at).toLocaleDateString() : '—'}
-                      </TableCell>
+                      <TableCell>{m.created_at ? new Date(m.created_at).toLocaleDateString() : '—'}</TableCell>
                       <TableCell>
                         {m.file_url ? (
-                          <a
-                            href={m.file_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-1 text-blue-600 hover:underline text-sm"
-                          >
-                            Open
-                            <ExternalLink className="h-3 w-3" />
+                          <a href={m.file_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-primary hover:underline text-sm">
+                            Open <ExternalLink className="h-3 w-3" />
                           </a>
-                        ) : (
-                          '—'
-                        )}
+                        ) : '—'}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => togglePin(m.id, m.is_pinned)}
-                            disabled={isPinningId === m.id}
-                            title={m.is_pinned ? 'Unpin material' : 'Pin material'}
-                          >
-                            {isPinningId === m.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : m.is_pinned ? (
-                              <Pin className="h-4 w-4 text-amber-600" />
-                            ) : (
-                              <PinOff className="h-4 w-4" />
-                            )}
+                          <Button size="sm" variant="outline" onClick={() => togglePin(m.id, m.is_pinned)} disabled={isPinningId === m.id} title={m.is_pinned ? 'Unpin' : 'Pin'}>
+                            {isPinningId === m.id ? <Loader2 className="h-4 w-4 animate-spin" /> : m.is_pinned ? <Pin className="h-4 w-4 text-amber-600" /> : <PinOff className="h-4 w-4" />}
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => deleteMaterial(m.id)}
-                            disabled={isDeletingId === m.id}
-                          >
-                            {isDeletingId === m.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-4 w-4" />
-                            )}
+                          <Button size="sm" variant="destructive" onClick={() => deleteMaterial(m.id)} disabled={isDeletingId === m.id}>
+                            {isDeletingId === m.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                           </Button>
                         </div>
                       </TableCell>

@@ -19,6 +19,7 @@ interface AssignmentFormData {
   description: string;
   due_date: string;
   cohort_id: string;
+  course_id: string;
 }
 
 interface AssignmentWithSubmissions extends Tables<'assignments'> {
@@ -28,6 +29,7 @@ interface AssignmentWithSubmissions extends Tables<'assignments'> {
 const AdminAssignments = () => {
   const [assignments, setAssignments] = useState<AssignmentWithSubmissions[]>([]);
   const [cohorts, setCohorts] = useState<Tables<'cohorts'>[]>([]);
+  const [courses, setCourses] = useState<Tables<'courses'>[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<AssignmentWithSubmissions | null>(null);
@@ -37,24 +39,25 @@ const AdminAssignments = () => {
   const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
   const [editDueDate, setEditDueDate] = useState('');
 
-  const { register, handleSubmit, reset, watch } = useForm<AssignmentFormData>({
-    defaultValues: { title: '', description: '', due_date: '', cohort_id: '' },
+  const { register, handleSubmit, reset, watch, setValue } = useForm<AssignmentFormData>({
+    defaultValues: { title: '', description: '', due_date: '', cohort_id: '', course_id: '' },
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const selectedCohort = watch('cohort_id');
+  const selectedCourse = watch('course_id');
+
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const { data: cohortsData } = await supabase.from('cohorts').select('*').order('name');
+      const [{ data: cohortsData }, { data: coursesData }, { data: assignmentsData }] = await Promise.all([
+        supabase.from('cohorts').select('*').order('name'),
+        supabase.from('courses').select('*').order('title'),
+        supabase.from('assignments').select('*').order('due_date', { ascending: false }),
+      ]);
       if (cohortsData) setCohorts(cohortsData);
-
-      const { data: assignmentsData } = await supabase
-        .from('assignments')
-        .select('*')
-        .order('due_date', { ascending: false });
+      if (coursesData) setCourses(coursesData);
       if (assignmentsData) setAssignments(assignmentsData);
     } catch (err) {
       console.error('Load data error:', err);
@@ -65,11 +68,10 @@ const AdminAssignments = () => {
   };
 
   const onCreateAssignment = async (data: AssignmentFormData) => {
-    if (!data.cohort_id) {
-      toast.error('Please select a cohort');
+    if (!data.cohort_id || !data.course_id) {
+      toast.error('Please select a cohort and course');
       return;
     }
-
     try {
       setIsCreating(true);
       const { error } = await supabase.from('assignments').insert({
@@ -77,8 +79,8 @@ const AdminAssignments = () => {
         description: data.description || null,
         due_date: data.due_date ? new Date(data.due_date).toISOString() : null,
         cohort_id: data.cohort_id,
+        course_id: data.course_id,
       });
-
       if (error) throw error;
       toast.success('Assignment created');
       reset();
@@ -96,17 +98,32 @@ const AdminAssignments = () => {
       setLoadingSubmissions(true);
       const { data: submissionsData } = await supabase
         .from('assignment_submissions')
-        .select(`
-          *,
-          student_id(first_name, last_name, email)
-        `)
+        .select('*')
         .eq('assignment_id', assignment.id)
         .order('submitted_at', { ascending: false });
 
-      setSelectedAssignment({
-        ...assignment,
-        submissions: submissionsData as any,
-      });
+      // Fetch student profiles separately
+      const enriched = await Promise.all(
+        (submissionsData || []).map(async (sub) => {
+          const { data: studentData } = await supabase
+            .from('students')
+            .select('profile_id')
+            .eq('id', sub.student_id)
+            .single();
+          let profile: any = null;
+          if (studentData?.profile_id) {
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('first_name, last_name, email')
+              .eq('id', studentData.profile_id)
+              .single();
+            profile = profileData;
+          }
+          return { ...sub, student_profile: profile };
+        })
+      );
+
+      setSelectedAssignment({ ...assignment, submissions: enriched });
     } catch (err) {
       console.error('Load submissions error:', err);
       toast.error('Failed to load submissions');
@@ -117,17 +134,14 @@ const AdminAssignments = () => {
 
   const handleGradeSubmission = async (submissionId: string) => {
     if (!selectedAssignment) return;
-
     try {
       const { error } = await supabase
         .from('assignment_submissions')
         .update({
-          status: 'GRADED',
           feedback: gradingFeedback || null,
-          graded_at: new Date().toISOString(),
+          reviewed_at: new Date().toISOString(),
         })
         .eq('id', submissionId);
-
       if (error) throw error;
       toast.success('Submission graded');
       setGradingId(null);
@@ -140,19 +154,9 @@ const AdminAssignments = () => {
   };
 
   const handleUpdateDueDate = async (assignmentId: string) => {
-    if (!editDueDate) {
-      toast.error('Please select a due date');
-      return;
-    }
-
+    if (!editDueDate) { toast.error('Please select a due date'); return; }
     try {
-      const { error } = await supabase
-        .from('assignments')
-        .update({
-          due_date: new Date(editDueDate).toISOString(),
-        })
-        .eq('id', assignmentId);
-
+      const { error } = await supabase.from('assignments').update({ due_date: new Date(editDueDate).toISOString() }).eq('id', assignmentId);
       if (error) throw error;
       toast.success('Due date updated');
       setEditingAssignmentId(null);
@@ -165,11 +169,7 @@ const AdminAssignments = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[300px]">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return (<div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin" /></div>);
   }
 
   return (
@@ -177,14 +177,12 @@ const AdminAssignments = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Assignments</h1>
-          <p className="text-sm text-gray-600 mt-1">Create and manage assignments for cohorts</p>
+          <p className="text-sm text-muted-foreground mt-1">Create and manage assignments for cohorts</p>
         </div>
 
         <Dialog>
           <DialogTrigger asChild>
-            <Button className="flex items-center gap-2">
-              <Plus className="h-4 w-4" /> Create Assignment
-            </Button>
+            <Button className="flex items-center gap-2"><Plus className="h-4 w-4" /> Create Assignment</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -206,29 +204,24 @@ const AdminAssignments = () => {
               </div>
               <div>
                 <Label>Cohort *</Label>
-                <Select {...(register('cohort_id') as any)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select cohort" />
-                  </SelectTrigger>
+                <Select value={selectedCohort} onValueChange={(val) => setValue('cohort_id', val)}>
+                  <SelectTrigger><SelectValue placeholder="Select cohort" /></SelectTrigger>
                   <SelectContent>
-                    {cohorts.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
+                    {cohorts.map((c) => (<SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Course *</Label>
+                <Select value={selectedCourse} onValueChange={(val) => setValue('course_id', val)}>
+                  <SelectTrigger><SelectValue placeholder="Select course" /></SelectTrigger>
+                  <SelectContent>
+                    {courses.map((c) => (<SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>))}
                   </SelectContent>
                 </Select>
               </div>
               <Button type="submit" disabled={isCreating} className="w-full">
-                {isCreating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="h-4 w-4 mr-2" /> Create Assignment
-                  </>
-                )}
+                {isCreating ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</>) : (<><Plus className="h-4 w-4 mr-2" /> Create Assignment</>)}
               </Button>
             </form>
           </DialogContent>
@@ -236,16 +229,10 @@ const AdminAssignments = () => {
       </div>
 
       {assignments.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-gray-500 py-8">No assignments created yet</p>
-          </CardContent>
-        </Card>
+        <Card><CardContent className="pt-6"><p className="text-center text-muted-foreground py-8">No assignments created yet</p></CardContent></Card>
       ) : (
         <Card>
-          <CardHeader>
-            <CardTitle>All Assignments ({assignments.length})</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>All Assignments ({assignments.length})</CardTitle></CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <Table>
@@ -254,7 +241,6 @@ const AdminAssignments = () => {
                     <TableHead>Title</TableHead>
                     <TableHead>Cohort</TableHead>
                     <TableHead>Due Date</TableHead>
-                    <TableHead>Submissions</TableHead>
                     <TableHead>Action</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -264,164 +250,95 @@ const AdminAssignments = () => {
                     return (
                       <TableRow key={assignment.id}>
                         <TableCell className="font-medium">{assignment.title}</TableCell>
-                        <TableCell>{assignment.cohort_id}</TableCell>
+                        <TableCell>{cohorts.find(c => c.id === assignment.cohort_id)?.name || assignment.cohort_id}</TableCell>
                         <TableCell>{dueDate ? dueDate.toLocaleDateString() : 'No due date'}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">0</Badge>
-                        </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
                             <Dialog open={editingAssignmentId === assignment.id} onOpenChange={(open) => {
-                              if (open) {
-                                setEditingAssignmentId(assignment.id);
-                                setEditDueDate(assignment.due_date ? new Date(assignment.due_date).toISOString().slice(0, 16) : '');
-                              } else {
-                                setEditingAssignmentId(null);
-                                setEditDueDate('');
-                              }
+                              if (open) { setEditingAssignmentId(assignment.id); setEditDueDate(assignment.due_date ? new Date(assignment.due_date).toISOString().slice(0, 16) : ''); }
+                              else { setEditingAssignmentId(null); setEditDueDate(''); }
                             }}>
-                              <DialogTrigger asChild>
-                                <Button variant="outline" size="sm">
-                                  <Edit2 className="h-4 w-4 mr-1" /> Edit
-                                </Button>
-                              </DialogTrigger>
+                              <DialogTrigger asChild><Button variant="outline" size="sm"><Edit2 className="h-4 w-4 mr-1" /> Edit</Button></DialogTrigger>
                               <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Edit Due Date</DialogTitle>
-                                  <DialogDescription>{assignment.title}</DialogDescription>
-                                </DialogHeader>
+                                <DialogHeader><DialogTitle>Edit Due Date</DialogTitle><DialogDescription>{assignment.title}</DialogDescription></DialogHeader>
                                 <div className="space-y-4">
                                   <div>
-                                    <Label htmlFor="due-date-edit">New Due Date & Time</Label>
-                                    <Input
-                                      id="due-date-edit"
-                                      type="datetime-local"
-                                      value={editDueDate}
-                                      onChange={(e) => setEditDueDate(e.target.value)}
-                                      className="mt-2"
-                                    />
+                                    <Label>New Due Date & Time</Label>
+                                    <Input type="datetime-local" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} className="mt-2" />
                                   </div>
-                                  <Button
-                                    onClick={() => handleUpdateDueDate(assignment.id)}
-                                    className="w-full"
-                                  >
-                                    Update Due Date
-                                  </Button>
+                                  <Button onClick={() => handleUpdateDueDate(assignment.id)} className="w-full">Update Due Date</Button>
                                 </div>
                               </DialogContent>
                             </Dialog>
 
-                            <Dialog open={selectedAssignment?.id === assignment.id} onOpenChange={(open) => {
-                              if (open) {
-                                loadSubmissions(assignment);
-                              } else {
-                                setSelectedAssignment(null);
-                              }
-                            }}>
-                              <DialogTrigger asChild>
-                                <Button variant="outline" size="sm">
-                                  <Eye className="h-4 w-4 mr-1" /> View
-                                </Button>
-                              </DialogTrigger>
-                            <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-                              <DialogHeader>
-                                <DialogTitle>{selectedAssignment?.title}</DialogTitle>
-                                <DialogDescription>
-                                  Review student submissions and provide grades
-                                </DialogDescription>
-                              </DialogHeader>
-
-                              {loadingSubmissions ? (
-                                <div className="flex justify-center py-8">
-                                  <Loader2 className="h-8 w-8 animate-spin" />
-                                </div>
-                              ) : selectedAssignment?.submissions && selectedAssignment.submissions.length > 0 ? (
-                                <div className="space-y-4">
-                                  {selectedAssignment.submissions.map((submission) => (
-                                    <Card key={submission.id} className="border-l-4 border-l-blue-500">
-                                      <CardHeader className="pb-2">
-                                        <div className="flex items-start justify-between">
-                                          <div>
-                                            <CardTitle className="text-base">
-                                              {submission.student_id?.first_name} {submission.student_id?.last_name}
-                                            </CardTitle>
-                                            <p className="text-sm text-gray-600">{submission.student_id?.email}</p>
-                                          </div>
-                                          {submission.status === 'GRADED' ? (
-                                            <Badge className="bg-emerald-100 text-emerald-800">
-                                              <CheckCircle2 className="h-3 w-3 mr-1" /> Graded
-                                            </Badge>
-                                          ) : (
-                                            <Badge className="bg-blue-100 text-blue-800">Submitted</Badge>
-                                          )}
-                                        </div>
-                                      </CardHeader>
-                                      <CardContent className="space-y-3">
-                                        <p className="text-sm text-gray-600">
-                                          Submitted: {new Date(submission.submitted_at || '').toLocaleString()}
-                                        </p>
-                                        {submission.file_url && (
-                                          <Button variant="outline" size="sm" asChild>
-                                            <a href={submission.file_url} target="_blank" rel="noopener noreferrer">
-                                              <File className="h-4 w-4 mr-1" /> View Submission
-                                            </a>
-                                          </Button>
-                                        )}
-
-                                        {submission.status === 'GRADED' && submission.feedback && (
-                                          <div className="bg-gray-50 p-3 rounded border border-gray-200">
-                                            <p className="text-sm font-medium text-gray-700">Feedback:</p>
-                                            <p className="text-sm text-gray-600 mt-1">{submission.feedback}</p>
-                                          </div>
-                                        )}
-
-                                        {submission.status !== 'GRADED' && (
-                                          <Dialog open={gradingId === submission.id} onOpenChange={(open) => {
-                                            if (!open) {
-                                              setGradingId(null);
-                                              setGradingFeedback('');
-                                            } else {
-                                              setGradingId(submission.id);
-                                            }
-                                          }}>
-                                            <DialogTrigger asChild>
-                                              <Button size="sm" variant="outline">
-                                                Grade & Provide Feedback
-                                              </Button>
-                                            </DialogTrigger>
-                                            <DialogContent>
-                                              <DialogHeader>
-                                                <DialogTitle>Grade Submission</DialogTitle>
-                                              </DialogHeader>
-                                              <div className="space-y-4">
-                                                <div>
-                                                  <Label>Feedback</Label>
-                                                  <Textarea
-                                                    value={gradingFeedback}
-                                                    onChange={(e) => setGradingFeedback(e.target.value)}
-                                                    placeholder="Enter your feedback for the student..."
-                                                    rows={4}
-                                                  />
-                                                </div>
-                                                <Button
-                                                  onClick={() => handleGradeSubmission(submission.id)}
-                                                  className="w-full"
-                                                >
-                                                  <CheckCircle2 className="h-4 w-4 mr-2" /> Mark as Graded
-                                                </Button>
+                            <Dialog open={selectedAssignment?.id === assignment.id} onOpenChange={(open) => { if (open) loadSubmissions(assignment); else setSelectedAssignment(null); }}>
+                              <DialogTrigger asChild><Button variant="outline" size="sm"><Eye className="h-4 w-4 mr-1" /> View</Button></DialogTrigger>
+                              <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                                <DialogHeader>
+                                  <DialogTitle>{selectedAssignment?.title}</DialogTitle>
+                                  <DialogDescription>Review student submissions</DialogDescription>
+                                </DialogHeader>
+                                {loadingSubmissions ? (
+                                  <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
+                                ) : selectedAssignment?.submissions && selectedAssignment.submissions.length > 0 ? (
+                                  <div className="space-y-4">
+                                    {selectedAssignment.submissions.map((submission) => {
+                                      const isGraded = !!submission.reviewed_at;
+                                      return (
+                                        <Card key={submission.id} className="border-l-4 border-l-blue-500">
+                                          <CardHeader className="pb-2">
+                                            <div className="flex items-start justify-between">
+                                              <div>
+                                                <CardTitle className="text-base">
+                                                  {submission.student_profile?.first_name || ''} {submission.student_profile?.last_name || 'Unknown'}
+                                                </CardTitle>
+                                                <p className="text-sm text-muted-foreground">{submission.student_profile?.email || ''}</p>
                                               </div>
-                                            </DialogContent>
-                                          </Dialog>
-                                        )}
-                                      </CardContent>
-                                    </Card>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-center text-gray-500 py-8">No submissions yet</p>
-                              )}
-                            </DialogContent>
-                          </Dialog>
+                                              {isGraded ? (
+                                                <Badge className="bg-emerald-100 text-emerald-800"><CheckCircle2 className="h-3 w-3 mr-1" /> Graded</Badge>
+                                              ) : (
+                                                <Badge className="bg-blue-100 text-blue-800">Submitted</Badge>
+                                              )}
+                                            </div>
+                                          </CardHeader>
+                                          <CardContent className="space-y-3">
+                                            <p className="text-sm text-muted-foreground">Submitted: {new Date(submission.submitted_at || '').toLocaleString()}</p>
+                                            {submission.file_url && (
+                                              <Button variant="outline" size="sm" asChild>
+                                                <a href={submission.file_url} target="_blank" rel="noopener noreferrer"><File className="h-4 w-4 mr-1" /> View Submission</a>
+                                              </Button>
+                                            )}
+                                            {isGraded && submission.feedback && (
+                                              <div className="bg-muted p-3 rounded border">
+                                                <p className="text-sm font-medium">Feedback:</p>
+                                                <p className="text-sm text-muted-foreground mt-1">{submission.feedback}</p>
+                                              </div>
+                                            )}
+                                            {!isGraded && (
+                                              <Dialog open={gradingId === submission.id} onOpenChange={(open) => { if (!open) { setGradingId(null); setGradingFeedback(''); } else setGradingId(submission.id); }}>
+                                                <DialogTrigger asChild><Button size="sm" variant="outline">Grade & Provide Feedback</Button></DialogTrigger>
+                                                <DialogContent>
+                                                  <DialogHeader><DialogTitle>Grade Submission</DialogTitle></DialogHeader>
+                                                  <div className="space-y-4">
+                                                    <div>
+                                                      <Label>Feedback</Label>
+                                                      <Textarea value={gradingFeedback} onChange={(e) => setGradingFeedback(e.target.value)} placeholder="Provide feedback..." />
+                                                    </div>
+                                                    <Button onClick={() => handleGradeSubmission(submission.id)} className="w-full">Submit Grade</Button>
+                                                  </div>
+                                                </DialogContent>
+                                              </Dialog>
+                                            )}
+                                          </CardContent>
+                                        </Card>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <p className="text-center text-muted-foreground py-8">No submissions yet</p>
+                                )}
+                              </DialogContent>
+                            </Dialog>
                           </div>
                         </TableCell>
                       </TableRow>
