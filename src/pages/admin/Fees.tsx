@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import AdminLayout from '@/components/AdminLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -10,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Eye, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -21,18 +20,53 @@ interface AddFeeFormData {
   description: string;
 }
 
+interface PaymentWithStudent extends Tables<'payments'> {
+  student_name?: string;
+  student_email?: string;
+}
+
 const AdminFees = () => {
   const [tab, setTab] = useState<'manager' | 'approvals'>('manager');
   const [cohorts, setCohorts] = useState<Tables<'cohorts'>[]>([]);
   const [feeStructures, setFeeStructures] = useState<Tables<'fee_structures'>[]>([]);
-  const [pendingPayments, setPendingPayments] = useState<Tables<'payments'>[]>([]);
+  const [pendingPayments, setPendingPayments] = useState<PaymentWithStudent[]>([]);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
 
   const { register, handleSubmit, reset, watch } = useForm<AddFeeFormData>({ defaultValues: { cohort_id: '', name: '', amount: '', description: '' } });
 
+  const fetchPaymentsWithStudents = async () => {
+    try {
+      const { data: payments } = await supabase
+        .from('payments')
+        .select(`
+          *,
+          student_id (
+            first_name,
+            last_name,
+            email
+          )
+        `)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (payments) {
+        const enriched = (payments as any[]).map(p => ({
+          ...p,
+          student_name: p.student_id ? `${p.student_id.first_name || ''} ${p.student_id.last_name || ''}`.trim() : 'Unknown',
+          student_email: p.student_id?.email || ''
+        }));
+        setPendingPayments(enriched);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to load payments');
+    }
+  };
+
   useEffect(() => {
-    const fetch = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         const { data: cohortsData } = await supabase.from('cohorts').select('*').order('name');
@@ -41,8 +75,7 @@ const AdminFees = () => {
         const { data: fees } = await supabase.from('fee_structures').select('*').order('created_at', { ascending: false });
         if (fees) setFeeStructures(fees);
 
-        const { data: payments } = await supabase.from('payments').select('*').eq('status', 'pending').order('created_at', { ascending: false });
-        if (payments) setPendingPayments(payments);
+        await fetchPaymentsWithStudents();
       } catch (e) {
         console.error(e);
         toast.error('Failed to load data');
@@ -51,7 +84,7 @@ const AdminFees = () => {
       }
     };
 
-    fetch();
+    fetchData();
   }, []);
 
   const onAddFee = async (data: AddFeeFormData) => {
@@ -78,7 +111,7 @@ const AdminFees = () => {
       toast.success('Fee added');
       reset();
       const { data: fees } = await supabase.from('fee_structures').select('*').order('created_at', { ascending: false });
-      if (fees) setFeeStructures(fees);
+      if (fees) setFeeStructures(fees); // Refresh fee structures list
     } catch (e) {
       console.error(e);
       toast.error('Error adding fee');
@@ -97,8 +130,7 @@ const AdminFees = () => {
         return;
       }
       toast.success('Payment approved');
-      const { data: payments } = await supabase.from('payments').select('*').eq('status', 'pending').order('created_at', { ascending: false });
-      if (payments) setPendingPayments(payments);
+      await fetchPaymentsWithStudents();
     } catch (e) {
       console.error(e);
       toast.error('Error approving payment');
@@ -117,8 +149,7 @@ const AdminFees = () => {
         return;
       }
       toast.success('Payment rejected');
-      const { data: payments } = await supabase.from('payments').select('*').eq('status', 'pending').order('created_at', { ascending: false });
-      if (payments) setPendingPayments(payments);
+      await fetchPaymentsWithStudents();
     } catch (e) {
       console.error(e);
       toast.error('Error rejecting payment');
@@ -129,15 +160,14 @@ const AdminFees = () => {
 
   if (loading) {
     return (
-      <AdminLayout>
-        <div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin" /></div>
-      </AdminLayout>
+      <div className="flex items-center justify-center min-h-[300px]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
     );
   }
 
   return (
-    <AdminLayout>
-      <div className="max-w-7xl mx-auto">
+    <div className="space-y-6 pb-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Fee Management</h1>
@@ -222,50 +252,79 @@ const AdminFees = () => {
             </CardContent>
           </Card>
         ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment Approvals</CardTitle>
-              <CardDescription>Review and verify pending student payments</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {pendingPayments.length === 0 ? (
-                <p className="text-gray-500">No pending payments</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Student ID</TableHead>
-                        <TableHead>Fee Type</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {pendingPayments.map((p) => (
-                        <TableRow key={p.id}>
-                          <TableCell className="font-medium">{p.student_id}</TableCell>
-                          <TableCell>{p.fee_type}</TableCell>
-                          <TableCell className="text-right">${(p.amount as number).toFixed(2)}</TableCell>
-                          <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : ''}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button onClick={() => approvePayment(p.id)} disabled={isProcessing}>Approve</Button>
-                              <Button variant="destructive" onClick={() => rejectPayment(p.id, 'Rejected by admin')} disabled={isProcessing}>Reject</Button>
-                            </div>
-                          </TableCell>
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle>Payment Approvals</CardTitle>
+                <CardDescription>Review and verify pending student payments</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {pendingPayments.length === 0 ? (
+                  <p className="text-gray-500">No pending payments</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Student Name</TableHead>
+                          <TableHead>Fee Type</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Receipt</TableHead>
+                          <TableHead>Action</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                      </TableHeader>
+                      <TableBody>
+                        {pendingPayments.map((p) => (
+                          <TableRow key={p.id}>
+                            <TableCell className="font-medium">{p.student_name}</TableCell>
+                            <TableCell>{p.fee_type}</TableCell>
+                            <TableCell className="text-right">${(p.amount as number).toFixed(2)}</TableCell>
+                            <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : ''}</TableCell>
+                            <TableCell>
+                              {p.receipt_url ? (
+                                <button onClick={() => setSelectedReceipt(p.receipt_url)} className="text-blue-600 hover:underline flex items-center gap-1">
+                                  <Eye className="h-4 w-4" /> View
+                                </button>
+                              ) : (
+                                <span className="text-gray-500 text-sm">No receipt</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button size="sm" onClick={() => approvePayment(p.id)} disabled={isProcessing}>
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                                <Button size="sm" variant="destructive" onClick={() => rejectPayment(p.id, 'Rejected by admin')} disabled={isProcessing}>
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Dialog open={!!selectedReceipt} onOpenChange={() => setSelectedReceipt(null)}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Payment Receipt</DialogTitle>
+                </DialogHeader>
+                {selectedReceipt && (
+                  <div className="flex flex-col gap-4">
+                    <img src={selectedReceipt} alt="Receipt" className="w-full max-h-96 object-contain rounded" />
+                    <div className="text-sm text-gray-500">Receipt URL: {selectedReceipt}</div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+          </>
         )}
-      </div>
-    </AdminLayout>
+    </div>
   );
 };
 
