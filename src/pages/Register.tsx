@@ -56,6 +56,8 @@ const Register = () => {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [enrollmentOpen, setEnrollmentOpen] = useState(true);
+  const [checkingEnrollment, setCheckingEnrollment] = useState(true);
 
   const [form, setForm] = useState<FormData>({
     firstName: "",

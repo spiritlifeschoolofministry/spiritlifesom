@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { MapPin, Phone, Mail, ChevronRight, ArrowRight } from "lucide-react";
+import { MapPin, Phone, Mail, ChevronRight, ArrowRight, Lock } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 function useFadeIn() {
   const ref = useRef<HTMLDivElement>(null);
@@ -21,8 +22,45 @@ function Section({ className, children }: { className?: string; children: React.
   return <section ref={fade.ref} className={`${fade.className} ${className ?? ""}`}>{children}</section>;
 }
 
-const Home = () => (
-  <div>
+const Home = () => {
+  const [acceptingApplications, setAcceptingApplications] = useState(true);
+
+  useEffect(() => {
+    const fetchEnrollmentStatus = async () => {
+      try {
+        const { data } = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'accepting_applications')
+          .single();
+
+        if (data) {
+          setAcceptingApplications(data.value === 'true');
+        }
+      } catch (err) {
+        console.error('Error fetching enrollment status:', err);
+      }
+    };
+
+    fetchEnrollmentStatus();
+  }, []);
+
+  const RegisterButtons = () => (
+    <>
+      {acceptingApplications ? (
+        <Button asChild size="lg" className="gradient-flame border-0 text-primary-foreground text-base px-8 hover:opacity-90">
+          <Link to="/register">Register Now</Link>
+        </Button>
+      ) : (
+        <Button disabled size="lg" className="bg-gray-400 text-white text-base px-8 cursor-not-allowed" title="Admissions closed">
+          <Lock className="mr-2 h-4 w-4" />
+          Admissions Closed
+        </Button>
+      )}
+    </>
+  );
+
+  return (
     {/* ========== HERO ========== */}
     <section className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center text-center text-primary-foreground">
       <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/images/som1.jpeg)" }} />
@@ -38,9 +76,7 @@ const Home = () => (
           "...for the work of ministry, for building up the body of Christ" — Ephesians 4:12
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-          <Button asChild size="lg" className="gradient-flame border-0 text-primary-foreground text-base px-8 hover:opacity-90">
-            <Link to="/register">Register Now</Link>
-          </Button>
+          <RegisterButtons />
           <Button asChild size="lg" variant="outline" className="border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10 text-base px-8">
             <Link to="/about">Learn More</Link>
           </Button>
@@ -99,9 +135,7 @@ const Home = () => (
             </div>
           ))}
         </div>
-        <Button asChild size="lg" className="gradient-flame border-0 text-primary-foreground text-base px-10 hover:opacity-90">
-          <Link to="/register">Register Now</Link>
-        </Button>
+        <RegisterButtons />
       </div>
     </Section>
 
@@ -126,6 +160,7 @@ const Home = () => (
       </div>
     </Section>
   </div>
-);
+  );
+};
 
 export default Home;
