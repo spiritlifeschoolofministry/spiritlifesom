@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
@@ -11,6 +12,7 @@ const StudentAnnouncements = () => {
   const { student } = useAuth();
   const [announcements, setAnnouncements] = useState<Array<any>>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!student) return;
@@ -20,6 +22,7 @@ const StudentAnnouncements = () => {
   const loadAnnouncements = async () => {
     try {
       setLoading(true);
+      setError(null);
       if (!student) return;
 
       const cohortId = student.cohort_id;
@@ -30,6 +33,7 @@ const StudentAnnouncements = () => {
       setAnnouncements((data as any) || []);
     } catch (err) {
       console.error('Load announcements error:', err);
+      setError('Failed to load announcements. Please try again.');
       toast.error('Failed to load announcements');
     } finally {
       setLoading(false);
@@ -38,6 +42,23 @@ const StudentAnnouncements = () => {
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-[200px]"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6 pb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Notice Board</h1>
+          <p className="text-sm text-gray-600 mt-1">Latest announcements for your cohort</p>
+        </div>
+        <Card className="border-destructive bg-destructive/10">
+          <CardContent className="pt-6">
+            <p className="text-destructive font-medium">{error}</p>
+            <Button onClick={() => loadAnnouncements()} variant="outline" className="mt-4">Retry</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (

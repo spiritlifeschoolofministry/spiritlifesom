@@ -23,6 +23,7 @@ const AdminAnnouncements = () => {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const { register, handleSubmit, reset } = useForm<AnnouncementForm>({ defaultValues: { title: '', body: '', target_cohort_id: '', is_urgent: false } });
 
@@ -33,6 +34,7 @@ const AdminAnnouncements = () => {
   const loadData = async () => {
     try {
       setLoading(true);
+      setError(null);
       const { data: cohortsData } = await supabase.from('cohorts').select('*').order('name');
       if (cohortsData) setCohorts(cohortsData as any);
 
@@ -41,6 +43,7 @@ const AdminAnnouncements = () => {
       setAnnouncements((annData as any) || []);
     } catch (err) {
       console.error('Load announcements error:', err);
+      setError('Failed to load announcements. Please try again.');
       toast.error('Failed to load announcements');
     } finally {
       setLoading(false);
@@ -53,7 +56,7 @@ const AdminAnnouncements = () => {
       const payload = {
         title: values.title,
         body: values.body,
-        target_cohort_id: values.target_cohort_id || null,
+        target_cohort_id: values.target_cohort_id === 'all' ? null : values.target_cohort_id || null,
         is_urgent: values.is_urgent || false,
       };
       const { error } = await supabase.from('announcements').insert(payload);
@@ -87,6 +90,23 @@ const AdminAnnouncements = () => {
     );
   }
 
+  if (error) {
+    return (
+      <div className="space-y-6 pb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Announcements</h1>
+          <p className="text-sm text-gray-600 mt-1">Post notices to cohorts or all students</p>
+        </div>
+        <Card className="border-destructive bg-destructive/10">
+          <CardContent className="pt-6">
+            <p className="text-destructive font-medium">{error}</p>
+            <Button onClick={() => loadData()} variant="outline" className="mt-4">Retry</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-6">
       <div>
@@ -116,8 +136,8 @@ const AdminAnnouncements = () => {
                   <SelectValue placeholder="All Students" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Students</SelectItem>
-                  {cohorts.map((c) => (
+                  <SelectItem value="all">All Students</SelectItem>
+                  {cohorts?.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>

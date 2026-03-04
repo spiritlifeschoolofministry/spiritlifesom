@@ -138,7 +138,6 @@ const StudentDashboard = () => {
       // Fetch latest announcement for immediate popup
       try {
         if (studentId) {
-          const cohortId = cohortId;
           const orQuery = cohortId ? `target_cohort_id.is.null,target_cohort_id.eq.${cohortId}` : `target_cohort_id.is.null`;
           const { data: latest } = await supabase
             .from('announcements')
