@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import PublicLayout from "./components/PublicLayout";
 import AdminLayout from "./components/AdminLayout";
+import { SessionManagerProvider } from "./components/SessionManagerProvider";
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Courses from "./pages/Courses";
@@ -46,6 +47,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <SessionManagerProvider>
         <Routes>
           {/* Public pages with shared nav + footer */}
           <Route element={<PublicLayout />}>
@@ -88,6 +90,7 @@ const App = () => (
           <Route path="/admin/approve" element={<AdminApprove />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+          </SessionManagerProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

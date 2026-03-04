@@ -2,6 +2,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/useAuth';
 import { Button } from '@/components/ui/button';
 import { Loader2, LogOut, AlertTriangle } from 'lucide-react';
+import { useRef, useEffect } from 'react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -11,8 +12,16 @@ interface ProtectedRouteProps {
 export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
   const { user, role, isLoading, authError, signOut } = useAuth();
   const navigate = useNavigate();
+  const didInitialLoad = useRef(false);
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!isLoading) {
+      didInitialLoad.current = true;
+    }
+  }, [isLoading]);
+
+  // Only show loading spinner on first page load, not during navigation
+  if (isLoading && !didInitialLoad.current) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-primary" />
@@ -21,8 +30,8 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
     );
   }
 
-  // Auth error fallback — show error with logout option
-  if (authError && !user) {
+  // Auth error fallback — show error with retry option (don't clear localStorage)
+  if (authError && !user && didInitialLoad.current) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4 text-center">
         <AlertTriangle className="w-10 h-10 text-destructive" />
@@ -36,7 +45,6 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
             variant="destructive"
             onClick={async () => {
               await signOut();
-              localStorage.clear();
               navigate('/login', { replace: true });
             }}
           >

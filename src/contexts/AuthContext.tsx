@@ -38,6 +38,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isNewUser, setIsNewUser] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initializedRef = useRef(false);
 
   const clearAuthTimeout = () => {
     if (timeoutRef.current) {
@@ -150,6 +151,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   useEffect(() => {
+    // Only initialize once on component mount
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
     startAuthTimeout();
 
     (async () => {
