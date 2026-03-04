@@ -54,7 +54,7 @@ interface AttendanceHistoryRow {
   id: string;
   marked_at: string | null;
   status: string;
-  is_verified?: boolean | null;
+  is_verified: boolean;
 }
 
 const AdminAttendance = () => {
@@ -68,8 +68,13 @@ const AdminAttendance = () => {
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [bulkVerifying, setBulkVerifying] = useState(false);
   const [detailStudentId, setDetailStudentId] = useState<string | null>(null);
+  const [detailStudentName, setDetailStudentName] = useState<string>("");
+  const [detailCohortId, setDetailCohortId] = useState<string | null>(null);
   const [detailHistory, setDetailHistory] = useState<AttendanceHistoryRow[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [newDate, setNewDate] = useState<string>("");
+  const [newStatus, setNewStatus] = useState<string>("PRESENT");
+  const [newVerified, setNewVerified] = useState<boolean>(false);
 
   const loadSummary = useCallback(async () => {
     try {
@@ -269,18 +274,123 @@ const AdminAttendance = () => {
     setDetailStudentId(studentId);
     setDetailLoading(true);
     setDetailHistory([]);
+    setNewDate("");
+    setNewStatus("PRESENT");
+    setNewVerified(false);
     try {
-      const { data, error } = await supabase
-        .from("attendance")
-        .select("id, marked_at, status, is_verified")
-        .eq("student_id", studentId)
-        .order("marked_at", { ascending: false });
+      const [{ data: studentData, error: studentError }, { data, error }] =
+        await Promise.all([
+          supabase
+            .from("students")
+            .select("cohort_id, profiles(first_name, last_name)")
+            .eq("id", studentId)
+            .maybeSingle(),
+          supabase
+            .from("attendance")
+            .select("id, marked_at, status, is_verified")
+            .eq("student_id", studentId)
+            .order("marked_at", { ascending: false }),
+        ]);
+
+      if (studentError) throw studentError;
+      const fullName = studentData?.profiles
+        ? `${studentData.profiles.first_name || ""} ${
+            studentData.profiles.last_name || ""
+          }`.trim()
+        : "";
+      setDetailStudentName(fullName || "Student");
+      setDetailCohortId(studentData?.cohort_id ?? null);
+
       if (error) throw error;
       setDetailHistory((data as AttendanceHistoryRow[]) || []);
     } catch (err) {
+      console.error("[AdminAttendance] Detail load error:", err);
       toast.error("Failed to load history");
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  const updateHistoryRow = (id: string, updater: (row: AttendanceHistoryRow) => AttendanceHistoryRow) => {
+    setDetailHistory((prev) => prev.map((row) => (row.id === id ? updater(row) : row)));
+  };
+
+  const saveHistoryRow = async (row: AttendanceHistoryRow) => {
+    try {
+      const { error } = await supabase
+        .from("attendance")
+        .update({ status: row.status, is_verified: row.is_verified })
+        .eq("id", row.id);
+      if (error) throw error;
+      toast.success("Attendance record updated");
+      await loadAll();
+      if (detailStudentId) {
+        await openDetail(detailStudentId);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to update record";
+      toast.error(msg);
+    }
+  };
+
+  const deleteHistoryRow = async (row: AttendanceHistoryRow) => {
+    if (!confirm("Delete this attendance record? This cannot be undone.")) return;
+    try {
+      const { error } = await supabase.from("attendance").delete().eq("id", row.id);
+      if (error) throw error;
+      toast.success("Attendance record deleted");
+      await loadAll();
+      if (detailStudentId) {
+        await openDetail(detailStudentId);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to delete record";
+      toast.error(msg);
+    }
+  };
+
+  const addHistoryRow = async () => {
+    if (!detailStudentId) return;
+    if (!newDate) {
+      toast.error("Please select a date for the new record.");
+      return;
+    }
+    if (!detailCohortId) {
+      toast.error("Student cohort not found for schedule lookup.");
+      return;
+    }
+    try {
+      const { data: scheduleRows, error: scheduleError } = await supabase
+        .from("schedule")
+        .select("id, date, courses!inner(cohort_id)")
+        .eq("date", newDate)
+        .eq("courses.cohort_id", detailCohortId)
+        .limit(1);
+      if (scheduleError) throw scheduleError;
+      if (!scheduleRows || scheduleRows.length === 0) {
+        toast.error("No schedule found for this date and cohort.");
+        return;
+      }
+      const scheduleId = (scheduleRows[0] as { id: string }).id;
+      const { error: insertError } = await supabase
+        .from("attendance")
+        .insert({
+          student_id: detailStudentId,
+          schedule_id: scheduleId,
+          status: newStatus,
+          marked_at: new Date(`${newDate}T00:00:00`).toISOString(),
+          is_verified: newVerified,
+        });
+      if (insertError) throw insertError;
+      toast.success("Attendance record added");
+      setNewDate("");
+      setNewStatus("PRESENT");
+      setNewVerified(false);
+      await loadAll();
+      await openDetail(detailStudentId);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to add record";
+      toast.error(msg);
     }
   };
 
@@ -475,6 +585,7 @@ const AdminAttendance = () => {
                   <TableHead>Total Classes</TableHead>
                   <TableHead>Verified Present</TableHead>
                   <TableHead>Attendance %</TableHead>
+                  <TableHead className="text-right">Edit</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -504,6 +615,16 @@ const AdminAttendance = () => {
                           {s.attendance_pct}%
                         </span>
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openDetail(s.student_id)}
+                        >
+                          Edit Records
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -514,47 +635,133 @@ const AdminAttendance = () => {
       </Card>
 
       <Dialog open={!!detailStudentId} onOpenChange={() => setDetailStudentId(null)}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Attendance History</DialogTitle>
+            <DialogTitle>
+              Edit Attendance – {detailStudentName}
+            </DialogTitle>
           </DialogHeader>
           {detailLoading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="space-y-2">
-              {detailHistory.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No records.</p>
-              ) : (
-                detailHistory.map((row) => (
-                  <div
-                    key={row.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-secondary/50"
+            <div className="space-y-4">
+              <div className="border border-border rounded-lg p-3 space-y-3">
+                <h3 className="text-sm font-semibold">Add New Record</h3>
+                <div className="flex flex-col sm:flex-row gap-3 items-center">
+                  <Input
+                    type="date"
+                    value={newDate}
+                    onChange={(e) => setNewDate(e.target.value)}
+                    className="sm:w-40"
+                  />
+                  <select
+                    className="border border-input bg-background rounded-md px-2 py-1 text-sm"
+                    value={newStatus}
+                    onChange={(e) => setNewStatus(e.target.value)}
                   >
-                    <div>
-                      <p className="text-sm font-medium capitalize">
-                        {(row.status || "").toLowerCase()}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {row.marked_at
-                          ? new Date(row.marked_at).toLocaleString()
-                          : "—"}
-                      </p>
-                    </div>
-                    <Badge
-                      variant={row.is_verified ? "default" : "secondary"}
-                      className={
-                        row.is_verified
-                          ? "bg-emerald-600"
-                          : "bg-amber-100 text-amber-800"
-                      }
+                    <option value="PRESENT">Present</option>
+                    <option value="ABSENT">Absent</option>
+                    <option value="LATE">Late</option>
+                  </select>
+                  <label className="flex items-center gap-2 text-xs sm:text-sm">
+                    <input
+                      type="checkbox"
+                      checked={newVerified}
+                      onChange={(e) => setNewVerified(e.target.checked)}
+                    />
+                    Mark as verified
+                  </label>
+                  <Button size="sm" onClick={addHistoryRow}>
+                    Add Record
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  New records require an existing schedule entry for the selected date
+                  and the student&apos;s cohort.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                {detailHistory.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No records.</p>
+                ) : (
+                  detailHistory.map((row) => (
+                    <div
+                      key={row.id}
+                      className="grid grid-cols-1 md:grid-cols-[1.7fr_1.4fr_1.2fr_auto] gap-3 items-center p-3 rounded-lg bg-secondary/50"
                     >
-                      {row.is_verified ? "Verified" : "Pending"}
-                    </Badge>
-                  </div>
-                ))
-              )}
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          {row.marked_at
+                            ? new Date(row.marked_at).toLocaleString()
+                            : "—"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Status:</span>
+                        <select
+                          className="border border-input bg-background rounded-md px-2 py-1 text-xs"
+                          value={row.status}
+                          onChange={(e) =>
+                            updateHistoryRow(row.id, (r) => ({
+                              ...r,
+                              status: e.target.value,
+                            }))
+                          }
+                        >
+                          <option value="PRESENT">Present</option>
+                          <option value="ABSENT">Absent</option>
+                          <option value="LATE">Late</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={!!row.is_verified}
+                            onChange={(e) =>
+                              updateHistoryRow(row.id, (r) => ({
+                                ...r,
+                                is_verified: e.target.checked,
+                              }))
+                            }
+                          />
+                          Verified
+                        </label>
+                        <Badge
+                          variant={row.is_verified ? "default" : "secondary"}
+                          className={
+                            row.is_verified
+                              ? "bg-emerald-600"
+                              : "bg-amber-100 text-amber-800"
+                          }
+                        >
+                          {row.is_verified ? "Verified" : "Pending"}
+                        </Badge>
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => saveHistoryRow(row)}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                          onClick={() => deleteHistoryRow(row)}
+                        >
+                          <XCircle className="w-4 h-4 mr-1" /> Delete
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           )}
         </DialogContent>
