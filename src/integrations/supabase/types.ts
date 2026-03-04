@@ -362,6 +362,54 @@ export type Database = {
           },
         ]
       }
+      fee_structures: {
+        Row: {
+          amount: number
+          cohort_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+        }
+        Insert: {
+          amount: number
+          cohort_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+        }
+        Update: {
+          amount?: number
+          cohort_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_structures_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_structures_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fees: {
         Row: {
           adjusted_by: string | null
@@ -441,6 +489,73 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          fee_type: string
+          id: string
+          notes: string | null
+          receipt_url: string | null
+          rejected_reason: string | null
+          status: string
+          student_id: string
+          verified_at: string | null
+          verified_by: string | null
+          fee_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          fee_type: string
+          id?: string
+          notes?: string | null
+          receipt_url?: string | null
+          rejected_reason?: string | null
+          status?: string
+          student_id: string
+          verified_at?: string | null
+          verified_by?: string | null
+          fee_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          fee_type?: string
+          id?: string
+          notes?: string | null
+          receipt_url?: string | null
+          rejected_reason?: string | null
+          status?: string
+          student_id?: string
+          verified_at?: string | null
+          verified_by?: string | null
+          fee_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_fee_id_fkey"
+            columns: ["fee_id"]
+            isOneToOne: false
+            referencedRelation: "fees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -559,6 +674,7 @@ export type Database = {
           address: string | null
           admission_status: string | null
           age: number | null
+          bio: string | null
           cohort_id: string
           created_at: string | null
           date_of_birth: string | null
@@ -572,12 +688,14 @@ export type Database = {
           ministry_description: string | null
           preferred_language: string | null
           profile_id: string
+          show_email: boolean | null
           student_code: string | null
         }
         Insert: {
           address?: string | null
           admission_status?: string | null
           age?: number | null
+          bio?: string | null
           cohort_id: string
           created_at?: string | null
           date_of_birth?: string | null
@@ -591,12 +709,14 @@ export type Database = {
           ministry_description?: string | null
           preferred_language?: string | null
           profile_id: string
+          show_email?: boolean | null
           student_code?: string | null
         }
         Update: {
           address?: string | null
           admission_status?: string | null
           age?: number | null
+          bio?: string | null
           cohort_id?: string
           created_at?: string | null
           date_of_birth?: string | null
@@ -610,6 +730,7 @@ export type Database = {
           ministry_description?: string | null
           preferred_language?: string | null
           profile_id?: string
+          show_email?: boolean | null
           student_code?: string | null
         }
         Relationships: [
@@ -631,7 +752,21 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      classmate_directory: {
+        Row: {
+          bio: string | null
+          cohort_id: string
+          display_name: string
+          email: string
+          id: string
+          profile_id: string
+          profile_image_url: string | null
+          show_email: boolean | null
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
     }
     Functions: {
       get_my_role: { Args: never; Returns: string }

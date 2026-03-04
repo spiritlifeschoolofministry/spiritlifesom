@@ -19,10 +19,13 @@ import StudentCourses from "./pages/StudentCourses";
 import StudentAttendance from "./pages/StudentAttendance";
 import StudentProfile from "./pages/student/Profile";
 import StudentMaterials from "./pages/StudentMaterials";
+import StudentFees from "./pages/StudentFees";
+import Coursemates from "./pages/student/Coursemates";
 import ComingSoon from "./pages/ComingSoon";
 import AdminComingSoon from "./pages/AdminComingSoon";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminProfile from "./pages/admin/Profile";
+import AdminPayments from "./pages/admin/Payments";
 import AdminStudents from "./pages/AdminStudents";
 import AdminAdmissions from "./pages/AdminAdmissions";
 import AdminSettings from "./pages/AdminSettings";
@@ -59,8 +62,8 @@ const App = () => (
           <Route path="/student/attendance" element={<ProtectedRoute><StudentAttendance /></ProtectedRoute>} />
           <Route path="/student/assignments" element={<ProtectedRoute><ComingSoon /></ProtectedRoute>} />
           <Route path="/student/materials" element={<ProtectedRoute><StudentMaterials /></ProtectedRoute>} />
-          <Route path="/student/coursemates" element={<ProtectedRoute><ComingSoon /></ProtectedRoute>} />
-          <Route path="/student/fees" element={<ProtectedRoute><ComingSoon /></ProtectedRoute>} />
+          <Route path="/student/coursemates" element={<ProtectedRoute><Coursemates /></ProtectedRoute>} />
+          <Route path="/student/fees" element={<ProtectedRoute><StudentFees /></ProtectedRoute>} />
 
           {/* Admin portal */}
           <Route element={<AdminLayout />}>
@@ -72,7 +75,7 @@ const App = () => (
             <Route path="/admin/attendance" element={<ProtectedRoute requiredRole="admin"><AdminAttendance /></ProtectedRoute>} />
             <Route path="/admin/assignments" element={<ProtectedRoute requiredRole="admin"><AdminComingSoon title="Assignment Management" description="Create assignments, review submissions" icon="file-text" /></ProtectedRoute>} />
             <Route path="/admin/materials" element={<ProtectedRoute requiredRole="admin"><AdminMaterials /></ProtectedRoute>} />
-            <Route path="/admin/fees" element={<ProtectedRoute requiredRole="admin"><AdminComingSoon title="Payment Tracking" description="Track fees, record payments" icon="credit-card" /></ProtectedRoute>} />
+            <Route path="/admin/payments" element={<ProtectedRoute requiredRole="admin"><AdminPayments /></ProtectedRoute>} />
             <Route path="/admin/announcements" element={<ProtectedRoute requiredRole="admin"><AdminComingSoon title="Announcements" description="Send notifications to students" icon="bell" /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettings /></ProtectedRoute>} />
           </Route>
