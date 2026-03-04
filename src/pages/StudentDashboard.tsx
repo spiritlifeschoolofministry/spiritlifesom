@@ -149,7 +149,7 @@ const StudentDashboard = () => {
 
           if (latest) {
             const lastSeen = localStorage.getItem('lastSeenAnnouncementId');
-            const shouldShow = latest.is_urgent || lastSeen !== latest.id;
+            const shouldShow = (latest as any).is_urgent || lastSeen !== latest.id;
             if (shouldShow) {
               setLatestAnnouncement(latest);
               // open modal after small delay to allow layout
