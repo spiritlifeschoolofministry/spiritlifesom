@@ -51,6 +51,7 @@ const AdminAdmissions = () => {
             has_discovered_ministry,
             profile:profiles(first_name, last_name, email, phone)
           `)
+          .eq("admission_status", "PENDING")
           .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -144,7 +145,7 @@ const AdminAdmissions = () => {
         <CardContent className="space-y-3">
           {applications.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
-              No pending applications
+              No new applications to review.
             </p>
           ) : (
             applications.map((app) => (
