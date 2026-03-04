@@ -18,6 +18,7 @@ import StudentDashboard from "./pages/StudentDashboard";
 import StudentCourses from "./pages/StudentCourses";
 import StudentAttendance from "./pages/StudentAttendance";
 import StudentProfile from "./pages/student/Profile";
+import StudentMaterials from "./pages/StudentMaterials";
 import ComingSoon from "./pages/ComingSoon";
 import AdminComingSoon from "./pages/AdminComingSoon";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -26,6 +27,7 @@ import AdminStudents from "./pages/AdminStudents";
 import AdminAdmissions from "./pages/AdminAdmissions";
 import AdminSettings from "./pages/AdminSettings";
 import AdminAttendance from "./pages/AdminAttendance";
+import AdminMaterials from "./pages/AdminMaterials";
 import AdminApprove from "./pages/AdminApprove";
 import NotFound from "./pages/NotFound";
 
@@ -56,7 +58,7 @@ const App = () => (
           <Route path="/student/courses" element={<ProtectedRoute><StudentCourses /></ProtectedRoute>} />
           <Route path="/student/attendance" element={<ProtectedRoute><StudentAttendance /></ProtectedRoute>} />
           <Route path="/student/assignments" element={<ProtectedRoute><ComingSoon /></ProtectedRoute>} />
-          <Route path="/student/materials" element={<ProtectedRoute><ComingSoon /></ProtectedRoute>} />
+          <Route path="/student/materials" element={<ProtectedRoute><StudentMaterials /></ProtectedRoute>} />
           <Route path="/student/coursemates" element={<ProtectedRoute><ComingSoon /></ProtectedRoute>} />
           <Route path="/student/fees" element={<ProtectedRoute><ComingSoon /></ProtectedRoute>} />
 
@@ -69,7 +71,7 @@ const App = () => (
             <Route path="/admin/admissions" element={<ProtectedRoute requiredRole="admin"><AdminAdmissions /></ProtectedRoute>} />
             <Route path="/admin/attendance" element={<ProtectedRoute requiredRole="admin"><AdminAttendance /></ProtectedRoute>} />
             <Route path="/admin/assignments" element={<ProtectedRoute requiredRole="admin"><AdminComingSoon title="Assignment Management" description="Create assignments, review submissions" icon="file-text" /></ProtectedRoute>} />
-            <Route path="/admin/materials" element={<ProtectedRoute requiredRole="admin"><AdminComingSoon title="Course Materials" description="Upload materials, manage resources" icon="folder" /></ProtectedRoute>} />
+            <Route path="/admin/materials" element={<ProtectedRoute requiredRole="admin"><AdminMaterials /></ProtectedRoute>} />
             <Route path="/admin/fees" element={<ProtectedRoute requiredRole="admin"><AdminComingSoon title="Payment Tracking" description="Track fees, record payments" icon="credit-card" /></ProtectedRoute>} />
             <Route path="/admin/announcements" element={<ProtectedRoute requiredRole="admin"><AdminComingSoon title="Announcements" description="Send notifications to students" icon="bell" /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettings /></ProtectedRoute>} />

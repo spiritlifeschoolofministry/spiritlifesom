@@ -273,6 +273,7 @@ export type Database = {
           id: string
           is_paid: boolean | null
           material_type: string | null
+          is_pinned: boolean | null
           title: string
           uploaded_by: string | null
         }
@@ -285,6 +286,7 @@ export type Database = {
           id?: string
           is_paid?: boolean | null
           material_type?: string | null
+          is_pinned?: boolean | null
           title: string
           uploaded_by?: string | null
         }
@@ -297,6 +299,7 @@ export type Database = {
           id?: string
           is_paid?: boolean | null
           material_type?: string | null
+          is_pinned?: boolean | null
           title?: string
           uploaded_by?: string | null
         }
