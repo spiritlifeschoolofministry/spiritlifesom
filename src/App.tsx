@@ -30,7 +30,8 @@ import AdminStudents from "./pages/AdminStudents";
 import AdminAdmissions from "./pages/AdminAdmissions";
 import AdminSettings from "./pages/AdminSettings";
 import AdminAttendance from "./pages/AdminAttendance";
-import AdminMaterials from "./pages/AdminMaterials";
+import AdminMaterials from "./pages/admin/Materials";
+import AdminFees from "./pages/admin/Fees";
 import AdminApprove from "./pages/AdminApprove";
 import NotFound from "./pages/NotFound";
 
@@ -75,6 +76,7 @@ const App = () => (
             <Route path="/admin/attendance" element={<ProtectedRoute requiredRole="admin"><AdminAttendance /></ProtectedRoute>} />
             <Route path="/admin/assignments" element={<ProtectedRoute requiredRole="admin"><AdminComingSoon title="Assignment Management" description="Create assignments, review submissions" icon="file-text" /></ProtectedRoute>} />
             <Route path="/admin/materials" element={<ProtectedRoute requiredRole="admin"><AdminMaterials /></ProtectedRoute>} />
+            <Route path="/admin/fees" element={<ProtectedRoute requiredRole="admin"><AdminFees /></ProtectedRoute>} />
             <Route path="/admin/payments" element={<ProtectedRoute requiredRole="admin"><AdminPayments /></ProtectedRoute>} />
             <Route path="/admin/announcements" element={<ProtectedRoute requiredRole="admin"><AdminComingSoon title="Announcements" description="Send notifications to students" icon="bell" /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettings /></ProtectedRoute>} />
