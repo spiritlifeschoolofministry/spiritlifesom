@@ -170,6 +170,8 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          max_points: number | null
+          passing_score: number | null
           title: string
         }
         Insert: {
@@ -180,6 +182,8 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          max_points?: number | null
+          passing_score?: number | null
           title: string
         }
         Update: {
@@ -190,6 +194,8 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          max_points?: number | null
+          passing_score?: number | null
           title?: string
         }
         Relationships: [
@@ -317,6 +323,7 @@ export type Database = {
           course_id: string
           created_at: string | null
           description: string | null
+          file_type: string | null
           file_url: string | null
           id: string
           is_paid: boolean | null
@@ -330,6 +337,7 @@ export type Database = {
           course_id: string
           created_at?: string | null
           description?: string | null
+          file_type?: string | null
           file_url?: string | null
           id?: string
           is_paid?: boolean | null
@@ -343,6 +351,7 @@ export type Database = {
           course_id?: string
           created_at?: string | null
           description?: string | null
+          file_type?: string | null
           file_url?: string | null
           id?: string
           is_paid?: boolean | null
@@ -614,6 +623,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          bio: string | null
           created_at: string | null
           email: string
           first_name: string
@@ -621,12 +631,14 @@ export type Database = {
           last_name: string
           middle_name: string | null
           phone: string | null
+          phone_number: string | null
           promoted_at: string | null
           promoted_by: string | null
           role: string
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string | null
           email: string
           first_name: string
@@ -634,12 +646,14 @@ export type Database = {
           last_name: string
           middle_name?: string | null
           phone?: string | null
+          phone_number?: string | null
           promoted_at?: string | null
           promoted_by?: string | null
           role?: string
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string | null
           email?: string
           first_name?: string
@@ -647,6 +661,7 @@ export type Database = {
           last_name?: string
           middle_name?: string | null
           phone?: string | null
+          phone_number?: string | null
           promoted_at?: string | null
           promoted_by?: string | null
           role?: string
@@ -759,6 +774,7 @@ export type Database = {
           created_at: string | null
           date_of_birth: string | null
           educational_background: string | null
+          fees_paid: number | null
           gender: string | null
           has_discovered_ministry: boolean | null
           id: string
@@ -772,6 +788,7 @@ export type Database = {
           profile_image_url: string | null
           show_email: boolean | null
           student_code: string | null
+          total_fees_due: number | null
         }
         Insert: {
           address?: string | null
@@ -785,6 +802,7 @@ export type Database = {
           created_at?: string | null
           date_of_birth?: string | null
           educational_background?: string | null
+          fees_paid?: number | null
           gender?: string | null
           has_discovered_ministry?: boolean | null
           id?: string
@@ -798,6 +816,7 @@ export type Database = {
           profile_image_url?: string | null
           show_email?: boolean | null
           student_code?: string | null
+          total_fees_due?: number | null
         }
         Update: {
           address?: string | null
@@ -811,6 +830,7 @@ export type Database = {
           created_at?: string | null
           date_of_birth?: string | null
           educational_background?: string | null
+          fees_paid?: number | null
           gender?: string | null
           has_discovered_ministry?: boolean | null
           id?: string
@@ -824,6 +844,7 @@ export type Database = {
           profile_image_url?: string | null
           show_email?: boolean | null
           student_code?: string | null
+          total_fees_due?: number | null
         }
         Relationships: [
           {

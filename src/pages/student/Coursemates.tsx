@@ -16,14 +16,14 @@ import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
 interface Classmate {
-  id: string;
-  profile_id: string;
-  cohort_id: string;
-  display_name: string;
+  student_id: string | null;
+  cohort_id: string | null;
+  display_name: string | null;
   profile_image_url: string | null;
-  email: string;
+  email: string | null;
   bio: string | null;
   show_email: boolean | null;
+  admission_status: string | null;
 }
 
 interface UpdateProfileFormData {
@@ -276,7 +276,7 @@ const Coursemates = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredClassmates.map((classmate) => (
-              <Card key={classmate.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+              <Card key={classmate.student_id} className="overflow-hidden hover:shadow-lg transition-shadow">
                 <CardContent className="pt-6">
                   {/* Avatar */}
                   <div className="flex justify-center mb-4">

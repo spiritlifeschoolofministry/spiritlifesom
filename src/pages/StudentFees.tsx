@@ -11,39 +11,15 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Upload, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
-interface Fee {
-  id: string;
-  student_id: string;
-  fee_type: string;
-  amount_due: number | null;
-  amount_paid: number | null;
-  payment_status: string | null;
-  waived: boolean | null;
-  waive_reason: string | null;
-}
-
-interface Payment {
-  id: string;
-  fee_type: string;
-  amount: number;
-  status: string;
-  receipt_url: string | null;
-  created_at: string;
-  verified_at: string | null;
-  rejected_reason: string | null;
-}
+type Fee = Tables<'fees'>;
+type Payment = Tables<'payments'>;
 
 interface SubmitPaymentFormData {
   fee_type: string;
@@ -61,57 +37,22 @@ const StudentFees = () => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-    watch,
-  } = useForm<SubmitPaymentFormData>({
-    defaultValues: {
-      fee_type: '',
-      amount: '',
-      notes: '',
-    },
+  const { register, handleSubmit, formState: { errors }, reset, watch } = useForm<SubmitPaymentFormData>({
+    defaultValues: { fee_type: '', amount: '', notes: '' },
   });
 
   const selectedFeeType = watch('fee_type');
 
-  // Fetch fees and payment history
   useEffect(() => {
     const fetchData = async () => {
-      if (!user || !student?.id) {
-        setLoading(false);
-        return;
-      }
-
+      if (!user || !student?.id) { setLoading(false); return; }
       try {
         setLoading(true);
+        const { data: feesData } = await supabase.from('fees').select('*').eq('student_id', student.id);
+        if (feesData) setFees(feesData);
 
-        // Fetch fees for the student
-        const { data: feesData, error: feesError } = await supabase
-          .from('fees')
-          .select('*')
-          .eq('student_id', student.id);
-
-        if (feesError) {
-          console.error('Error fetching fees:', feesError);
-        } else if (feesData) {
-          setFees(feesData as Fee[]);
-        }
-
-        // Fetch payment history
-        const { data: paymentsData, error: paymentsError } = await supabase
-          .from('payments')
-          .select('*')
-          .eq('student_id', student.id)
-          .order('created_at', { ascending: false });
-
-        if (paymentsError) {
-          console.error('Error fetching payments:', paymentsError);
-        } else if (paymentsData) {
-          setPayments(paymentsData as Payment[]);
-        }
+        const { data: paymentsData } = await supabase.from('payments').select('*').eq('student_id', student.id).order('created_at', { ascending: false });
+        if (paymentsData) setPayments(paymentsData);
       } catch (error) {
         console.error('Error fetching data:', error);
         toast.error('Failed to load fees information');
@@ -119,79 +60,44 @@ const StudentFees = () => {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [user, student?.id]);
 
-  // Calculate balance summary
   const calculateSummary = () => {
     const totalOwed = fees.reduce((sum, fee) => sum + (fee.amount_due || 0), 0);
     const totalPaid = fees.reduce((sum, fee) => sum + (fee.amount_paid || 0), 0);
-    const remainingBalance = totalOwed - totalPaid;
-
-    return { totalOwed, totalPaid, remainingBalance };
+    return { totalOwed, totalPaid, remainingBalance: totalOwed - totalPaid };
   };
 
-  // Handle payment submission
   const onSubmit = async (data: SubmitPaymentFormData) => {
     if (!user || !student?.id || !receiptFile) {
       toast.error('Please complete all fields and select a receipt file');
       return;
     }
-
     try {
       setIsSubmitting(true);
-
-      // Upload receipt to storage
       const fileName = `${student.id}/${Date.now()}-${receiptFile.name}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('course-materials')
-        .upload(fileName, receiptFile);
+      const { data: uploadData, error: uploadError } = await supabase.storage.from('course-materials').upload(fileName, receiptFile);
+      if (uploadError) { toast.error('Failed to upload receipt'); return; }
 
-      if (uploadError) {
-        console.error('Error uploading receipt:', uploadError);
-        toast.error('Failed to upload receipt');
-        return;
-      }
+      const { data: urlData } = supabase.storage.from('course-materials').getPublicUrl(uploadData.path);
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('course-materials')
-        .getPublicUrl(uploadData.path);
-
-      // Create payment record
-      const { error: paymentError } = await supabase
-        .from('payments')
-        .insert({
-          student_id: student.id,
-          fee_type: data.fee_type,
-          amount: parseFloat(data.amount),
-          receipt_url: urlData.publicUrl,
-          notes: data.notes || null,
-          status: 'pending',
-        });
-
-      if (paymentError) {
-        console.error('Error creating payment:', paymentError);
-        toast.error('Failed to submit payment');
-        return;
-      }
+      const { error: paymentError } = await supabase.from('payments').insert({
+        student_id: student.id,
+        amount_paid: parseFloat(data.amount),
+        payment_proof_url: urlData.publicUrl,
+        admin_notes: data.notes || null,
+        status: 'PENDING',
+      });
+      if (paymentError) { toast.error('Failed to submit payment'); return; }
 
       toast.success('Payment submitted successfully. Awaiting admin verification.');
       setIsUploadModalOpen(false);
       setReceiptFile(null);
       reset();
 
-      // Refresh payments list
-      const { data: updatedPayments } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('student_id', student.id)
-        .order('created_at', { ascending: false });
-
-      if (updatedPayments) {
-        setPayments(updatedPayments as Payment[]);
-      }
+      const { data: updatedPayments } = await supabase.from('payments').select('*').eq('student_id', student.id).order('created_at', { ascending: false });
+      if (updatedPayments) setPayments(updatedPayments);
     } catch (error) {
       console.error('Error:', error);
       toast.error('An error occurred while submitting payment');
@@ -202,14 +108,12 @@ const StudentFees = () => {
 
   const summary = calculateSummary();
 
-  const getStatusBadge = (status: string) => {
-    const statusMap = {
-      pending: { label: 'Pending', variant: 'outline' as const },
-      verified: { label: 'Verified', variant: 'default' as const },
-      rejected: { label: 'Rejected', variant: 'destructive' as const },
-    };
-    const config = statusMap[status as keyof typeof statusMap] || statusMap.pending;
-    return <Badge variant={config.variant}>{config.label}</Badge>;
+  const getStatusBadge = (status: string | null) => {
+    const s = (status || 'PENDING').toUpperCase();
+    if (s === 'PENDING') return <Badge variant="outline">Pending</Badge>;
+    if (s === 'VERIFIED' || s === 'APPROVED') return <Badge variant="default">Verified</Badge>;
+    if (s === 'REJECTED') return <Badge variant="destructive">Rejected</Badge>;
+    return <Badge variant="outline">{status}</Badge>;
   };
 
   if (loading) {
@@ -225,36 +129,22 @@ const StudentFees = () => {
   return (
     <StudentLayout>
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Fees & Payments</h1>
-          <p className="text-gray-600">Manage your course fees and payment history</p>
+          <p className="text-muted-foreground">Manage your course fees and payment history</p>
         </div>
 
-        {/* Balance Summary */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Owed</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">${summary.totalOwed.toFixed(2)}</div>
-            </CardContent>
+            <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Total Owed</CardTitle></CardHeader>
+            <CardContent><div className="text-2xl font-bold">${summary.totalOwed.toFixed(2)}</div></CardContent>
           </Card>
-
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Paid</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">${summary.totalPaid.toFixed(2)}</div>
-            </CardContent>
+            <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Total Paid</CardTitle></CardHeader>
+            <CardContent><div className="text-2xl font-bold text-green-600">${summary.totalPaid.toFixed(2)}</div></CardContent>
           </Card>
-
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">Remaining Balance</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Remaining Balance</CardTitle></CardHeader>
             <CardContent>
               <div className={`text-2xl font-bold ${summary.remainingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
                 ${summary.remainingBalance.toFixed(2)}
@@ -263,7 +153,6 @@ const StudentFees = () => {
           </Card>
         </div>
 
-        {/* Fees List */}
         <Card className="mb-8">
           <CardHeader>
             <CardTitle>Assigned Fees</CardTitle>
@@ -271,7 +160,7 @@ const StudentFees = () => {
           </CardHeader>
           <CardContent>
             {fees.length === 0 ? (
-              <p className="text-gray-500">No fees assigned yet</p>
+              <p className="text-muted-foreground">No fees assigned yet</p>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -298,7 +187,7 @@ const StudentFees = () => {
                               <Badge variant="secondary">Waived</Badge>
                             ) : (
                               <Badge variant={balance === 0 ? 'default' : 'outline'}>
-                                {balance === 0 ? 'Paid' : 'Outstanding'}
+                                {fee.payment_status || (balance === 0 ? 'Paid' : 'Outstanding')}
                               </Badge>
                             )}
                           </TableCell>
@@ -312,7 +201,6 @@ const StudentFees = () => {
           </CardContent>
         </Card>
 
-        {/* Payment History */}
         <Card className="mb-8">
           <CardHeader>
             <CardTitle>Payment History</CardTitle>
@@ -320,14 +208,13 @@ const StudentFees = () => {
           </CardHeader>
           <CardContent>
             {payments.length === 0 ? (
-              <p className="text-gray-500">No payments submitted yet</p>
+              <p className="text-muted-foreground">No payments submitted yet</p>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Fee Type</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>Amount</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
@@ -335,17 +222,9 @@ const StudentFees = () => {
                   <TableBody>
                     {payments.map((payment) => (
                       <TableRow key={payment.id}>
-                        <TableCell className="font-medium">{payment.fee_type}</TableCell>
-                        <TableCell className="text-right">${payment.amount.toFixed(2)}</TableCell>
-                        <TableCell>{new Date(payment.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
-                            {getStatusBadge(payment.status)}
-                            {payment.status === 'rejected' && payment.rejected_reason && (
-                              <p className="text-xs text-red-600 mt-1">{payment.rejected_reason}</p>
-                            )}
-                          </div>
-                        </TableCell>
+                        <TableCell className="font-medium">${(payment.amount_paid || 0).toFixed(2)}</TableCell>
+                        <TableCell>{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : '—'}</TableCell>
+                        <TableCell>{getStatusBadge(payment.status)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -355,109 +234,51 @@ const StudentFees = () => {
           </CardContent>
         </Card>
 
-        {/* Submit Payment Button */}
         <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
           <DialogTrigger asChild>
             <Button className="flex items-center gap-2">
-              <Upload className="h-4 w-4" />
-              Submit Payment
+              <Upload className="h-4 w-4" /> Submit Payment
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Submit Payment</DialogTitle>
-              <DialogDescription>
-                Upload your bank transfer receipt to submit a payment. We will verify and update your balance once approved.
-              </DialogDescription>
+              <DialogDescription>Upload your bank transfer receipt to submit a payment.</DialogDescription>
             </DialogHeader>
-
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              {/* Fee Type */}
               <div className="space-y-2">
-                <Label htmlFor="fee-type">Fee Type</Label>
+                <Label>Fee Type</Label>
                 <Select value={selectedFeeType} onValueChange={(value) => reset({ ...watch(), fee_type: value })}>
-                  <SelectTrigger id="fee-type">
-                    <SelectValue placeholder="Select fee type" />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select fee type" /></SelectTrigger>
                   <SelectContent>
                     {[...new Set(fees.map((f) => f.fee_type))].map((feeType) => (
-                      <SelectItem key={feeType} value={feeType}>
-                        {feeType}
-                      </SelectItem>
+                      <SelectItem key={feeType} value={feeType}>{feeType}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.fee_type && <p className="text-sm text-red-500">{errors.fee_type.message}</p>}
               </div>
-
-              {/* Amount */}
               <div className="space-y-2">
-                <Label htmlFor="amount">Amount (USD)</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  {...register('amount', {
-                    required: 'Amount is required',
-                    pattern: {
-                      value: /^\d+(\.\d{1,2})?$/,
-                      message: 'Please enter a valid amount',
-                    },
-                  })}
-                />
-                {errors.amount && <p className="text-sm text-red-500">{errors.amount.message}</p>}
+                <Label>Amount (USD)</Label>
+                <Input type="number" step="0.01" placeholder="0.00" {...register('amount', { required: 'Amount is required' })} />
+                {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
               </div>
-
-              {/* Notes */}
               <div className="space-y-2">
-                <Label htmlFor="notes">Notes (Optional)</Label>
-                <Textarea
-                  id="notes"
-                  placeholder="Any additional information about this payment..."
-                  {...register('notes')}
-                  className="min-h-[80px]"
-                />
+                <Label>Notes (Optional)</Label>
+                <Textarea placeholder="Any additional information..." {...register('notes')} className="min-h-[80px]" />
               </div>
-
-              {/* Receipt Upload */}
               <div className="space-y-2">
-                <Label htmlFor="receipt">Bank Transfer Receipt</Label>
-                <div className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-gray-50">
-                  <input
-                    id="receipt"
-                    type="file"
-                    accept="image/*"
-                    {...register('receipt', { required: 'Receipt is required' })}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setReceiptFile(file);
-                      }
-                    }}
-                    className="hidden"
-                  />
+                <Label>Bank Transfer Receipt</Label>
+                <div className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/50">
+                  <input id="receipt" type="file" accept="image/*" {...register('receipt', { required: 'Receipt is required' })} onChange={(e) => { const file = e.target.files?.[0]; if (file) setReceiptFile(file); }} className="hidden" />
                   <label htmlFor="receipt" className="cursor-pointer block">
-                    <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                    <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                     <p className="text-sm font-medium">Click to upload receipt image</p>
-                    <p className="text-xs text-gray-500 mt-1">{receiptFile?.name || 'PNG, JPG, GIF up to 10MB'}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{receiptFile?.name || 'PNG, JPG, GIF up to 10MB'}</p>
                   </label>
                 </div>
-                {errors.receipt && <p className="text-sm text-red-500">{errors.receipt.message}</p>}
               </div>
-
               <Button type="submit" disabled={isSubmitting} className="w-full">
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Submit Payment
-                  </>
-                )}
+                {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting...</>) : (<><CreditCard className="mr-2 h-4 w-4" />Submit Payment</>)}
               </Button>
             </form>
           </DialogContent>
