@@ -66,6 +66,13 @@ export type Database = {
             foreignKeyName: "announcements_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "announcements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -142,15 +149,15 @@ export type Database = {
             foreignKeyName: "assignment_submissions_reviewed_by_fkey"
             columns: ["reviewed_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
           },
           {
-            foreignKeyName: "assignment_submissions_student_id_fkey"
-            columns: ["student_id"]
+            foreignKeyName: "assignment_submissions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
             isOneToOne: false
-            referencedRelation: "classmate_directory"
-            referencedColumns: ["student_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "assignment_submissions_student_id_fkey"
@@ -217,6 +224,13 @@ export type Database = {
             foreignKeyName: "assignments_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "assignments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -261,6 +275,13 @@ export type Database = {
             foreignKeyName: "attendance_marked_by_fkey"
             columns: ["marked_by"]
             isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "attendance_marked_by_fkey"
+            columns: ["marked_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -270,13 +291,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "schedule"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "attendance_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "classmate_directory"
-            referencedColumns: ["student_id"]
           },
           {
             foreignKeyName: "attendance_student_id_fkey"
@@ -374,6 +388,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "courses"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_materials_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
           },
           {
             foreignKeyName: "course_materials_uploaded_by_fkey"
@@ -529,6 +550,13 @@ export type Database = {
             foreignKeyName: "fees_adjusted_by_fkey"
             columns: ["adjusted_by"]
             isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "fees_adjusted_by_fkey"
+            columns: ["adjusted_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -543,15 +571,15 @@ export type Database = {
             foreignKeyName: "fees_recorded_by_fkey"
             columns: ["recorded_by"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
           },
           {
-            foreignKeyName: "fees_student_id_fkey"
-            columns: ["student_id"]
+            foreignKeyName: "fees_recorded_by_fkey"
+            columns: ["recorded_by"]
             isOneToOne: false
-            referencedRelation: "classmate_directory"
-            referencedColumns: ["student_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "fees_student_id_fkey"
@@ -603,13 +631,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "fee_structures"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payments_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "classmate_directory"
-            referencedColumns: ["student_id"]
           },
           {
             foreignKeyName: "payments_student_id_fkey"
@@ -667,6 +688,13 @@ export type Database = {
           role?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_promoted_by_fkey"
+            columns: ["promoted_by"]
+            isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
           {
             foreignKeyName: "profiles_promoted_by_fkey"
             columns: ["promoted_by"]
@@ -858,6 +886,13 @@ export type Database = {
             foreignKeyName: "students_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "students_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -885,14 +920,14 @@ export type Database = {
     Views: {
       classmate_directory: {
         Row: {
-          admission_status: string | null
-          bio: string | null
+          avatar_url: string | null
           cohort_id: string | null
+          cohort_name: string | null
           display_name: string | null
-          email: string | null
-          profile_image_url: string | null
-          show_email: boolean | null
-          student_id: string | null
+          first_name: string | null
+          last_name: string | null
+          profile_id: string | null
+          role: string | null
         }
         Relationships: [
           {
@@ -907,6 +942,15 @@ export type Database = {
     }
     Functions: {
       approve_student_by_token: { Args: { token: string }; Returns: Json }
+      approve_student_payment: {
+        Args: {
+          p_amount: number
+          p_fee_type: string
+          p_payment_id: string
+          p_student_id: string
+        }
+        Returns: undefined
+      }
       get_my_role: { Args: never; Returns: string }
       get_my_student_id: { Args: never; Returns: string }
     }
