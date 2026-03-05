@@ -183,7 +183,7 @@ const AdminFees = () => {
                 <Input {...register('fee_name', { required: true })} placeholder="e.g. Tuition" />
               </div>
               <div>
-                <Label>Amount (USD)</Label>
+                <Label>Amount (₦)</Label>
                 <Input type="number" step="0.01" {...register('amount', { required: true })} />
               </div>
               <div className="md:col-span-3">
