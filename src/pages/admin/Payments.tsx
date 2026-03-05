@@ -225,7 +225,7 @@ const AdminPayments = () => {
                           <p className="text-xs text-muted-foreground">{payment.student_email}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">${Number(payment.amount_paid).toFixed(2)}</TableCell>
+                      <TableCell className="text-right">₦{Number(payment.amount_paid).toLocaleString()}</TableCell>
                       <TableCell>{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : ''}</TableCell>
                       <TableCell>
                         <Dialog open={isReviewModalOpen && selectedPayment?.id === payment.id} onOpenChange={setIsReviewModalOpen}>
