@@ -16,14 +16,14 @@ import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
 interface Classmate {
-  student_id: string | null;
+  profile_id: string | null;
   cohort_id: string | null;
+  cohort_name: string | null;
   display_name: string | null;
-  profile_image_url: string | null;
-  email: string | null;
-  bio: string | null;
-  show_email: boolean | null;
-  admission_status: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+  role: string | null;
 }
 
 interface UpdateProfileFormData {
