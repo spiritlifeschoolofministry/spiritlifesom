@@ -244,7 +244,7 @@ const AdminPayments = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                   <div>
                                     <Label className="text-xs text-muted-foreground">Amount</Label>
-                                    <p className="font-medium">${Number(selectedPayment.amount_paid).toFixed(2)}</p>
+                                    <p className="font-medium">₦{Number(selectedPayment.amount_paid).toLocaleString()}</p>
                                   </div>
                                   <div>
                                     <Label className="text-xs text-muted-foreground">Submitted</Label>

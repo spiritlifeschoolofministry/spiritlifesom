@@ -94,7 +94,7 @@ const StudentAnnouncements = () => {
           ))}
         </div>
       )}
-    </div>
+    </div></StudentLayout>
   );
 };
 

@@ -248,7 +248,7 @@ const AdminFees = () => {
                       {pendingPayments.map((p) => (
                         <TableRow key={p.id}>
                           <TableCell className="font-medium">{p.student_name}</TableCell>
-                          <TableCell className="text-right">${Number(p.amount_paid).toFixed(2)}</TableCell>
+                          <TableCell className="text-right">₦{Number(p.amount_paid).toLocaleString()}</TableCell>
                           <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : ''}</TableCell>
                           <TableCell>
                             {p.payment_proof_url ? (

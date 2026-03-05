@@ -220,7 +220,7 @@ const StudentAssignments = () => {
           })}
         </div>
       )}
-    </div>
+    </div></StudentLayout>
   );
 };
 

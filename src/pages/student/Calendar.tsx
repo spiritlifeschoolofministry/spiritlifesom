@@ -161,7 +161,7 @@ const StudentCalendar = () => {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </div></StudentLayout>
   );
 };
 
