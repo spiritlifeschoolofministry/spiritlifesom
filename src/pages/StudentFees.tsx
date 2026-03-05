@@ -179,9 +179,9 @@ const StudentFees = () => {
                       return (
                         <TableRow key={fee.id}>
                           <TableCell className="font-medium">{fee.fee_type}</TableCell>
-                          <TableCell className="text-right">${(fee.amount_due || 0).toFixed(2)}</TableCell>
-                          <TableCell className="text-right text-green-600">${(fee.amount_paid || 0).toFixed(2)}</TableCell>
-                          <TableCell className="text-right">${balance.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">₦{(fee.amount_due || 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-right text-green-600">₦{(fee.amount_paid || 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-right">₦{balance.toLocaleString()}</TableCell>
                           <TableCell>
                             {fee.waived ? (
                               <Badge variant="secondary">Waived</Badge>
