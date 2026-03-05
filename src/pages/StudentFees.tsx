@@ -222,7 +222,7 @@ const StudentFees = () => {
                   <TableBody>
                     {payments.map((payment) => (
                       <TableRow key={payment.id}>
-                        <TableCell className="font-medium">${(payment.amount_paid || 0).toFixed(2)}</TableCell>
+                        <TableCell className="font-medium">₦{(payment.amount_paid || 0).toLocaleString()}</TableCell>
                         <TableCell>{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : '—'}</TableCell>
                         <TableCell>{getStatusBadge(payment.status)}</TableCell>
                       </TableRow>
