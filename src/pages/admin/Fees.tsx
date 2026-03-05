@@ -211,7 +211,7 @@ const AdminFees = () => {
                         <TableRow key={f.id}>
                           <TableCell className="font-medium">{f.fee_name}</TableCell>
                           <TableCell>{cohorts.find(c => c.id === f.cohort_id)?.name || f.cohort_id || '—'}</TableCell>
-                          <TableCell className="text-right">${Number(f.amount).toFixed(2)}</TableCell>
+                          <TableCell className="text-right">₦{Number(f.amount).toLocaleString()}</TableCell>
                           <TableCell>{f.created_at ? new Date(f.created_at).toLocaleDateString() : ''}</TableCell>
                         </TableRow>
                       ))}
