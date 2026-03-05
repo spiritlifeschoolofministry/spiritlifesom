@@ -276,12 +276,12 @@ const Coursemates = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredClassmates.map((classmate) => (
-              <Card key={classmate.student_id} className="overflow-hidden hover:shadow-lg transition-shadow">
+              <Card key={classmate.profile_id} className="overflow-hidden hover:shadow-lg transition-shadow">
                 <CardContent className="pt-6">
                   {/* Avatar */}
                   <div className="flex justify-center mb-4">
                     <Avatar className="h-20 w-20">
-                      <AvatarImage src={classmate.profile_image_url || ''} alt={classmate.display_name} />
+                      <AvatarImage src={classmate.avatar_url || ''} alt={classmate.display_name || ''} />
                       <AvatarFallback className="text-lg font-semibold">
                         {getInitials(classmate.display_name)}
                       </AvatarFallback>
@@ -290,21 +290,6 @@ const Coursemates = () => {
 
                   {/* Name */}
                   <h3 className="text-lg font-semibold text-center mb-2">{classmate.display_name}</h3>
-
-                  {/* Bio */}
-                  {classmate.bio && (
-                    <p className="text-sm text-gray-600 text-center mb-4 line-clamp-3">{classmate.bio}</p>
-                  )}
-
-                  {/* Email */}
-                  {classmate.show_email && (
-                    <div className="flex items-center justify-center gap-2 text-sm text-gray-700 pt-4 border-t">
-                      <Mail className="h-4 w-4" />
-                      <a href={`mailto:${classmate.email}`} className="text-blue-600 hover:underline truncate">
-                        {classmate.email}
-                      </a>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             ))}
