@@ -185,7 +185,7 @@ const AdminPayments = () => {
                 {errors.fee_name && <p className="text-sm text-destructive">{errors.fee_name.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label>Amount (USD)</Label>
+                <Label>Amount (₦)</Label>
                 <Input type="number" step="0.01" placeholder="0.00" {...register('amount', { required: 'Amount is required' })} />
                 {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
               </div>
@@ -225,7 +225,7 @@ const AdminPayments = () => {
                           <p className="text-xs text-muted-foreground">{payment.student_email}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">${Number(payment.amount_paid).toFixed(2)}</TableCell>
+                      <TableCell className="text-right">₦{Number(payment.amount_paid).toLocaleString()}</TableCell>
                       <TableCell>{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : ''}</TableCell>
                       <TableCell>
                         <Dialog open={isReviewModalOpen && selectedPayment?.id === payment.id} onOpenChange={setIsReviewModalOpen}>
@@ -244,7 +244,7 @@ const AdminPayments = () => {
                                 <div className="grid grid-cols-2 gap-4">
                                   <div>
                                     <Label className="text-xs text-muted-foreground">Amount</Label>
-                                    <p className="font-medium">${Number(selectedPayment.amount_paid).toFixed(2)}</p>
+                                    <p className="font-medium">₦{Number(selectedPayment.amount_paid).toLocaleString()}</p>
                                   </div>
                                   <div>
                                     <Label className="text-xs text-muted-foreground">Submitted</Label>

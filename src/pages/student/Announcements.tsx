@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import StudentLayout from '@/components/StudentLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -41,12 +42,12 @@ const StudentAnnouncements = () => {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-[200px]"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    return <StudentLayout><div className="flex items-center justify-center min-h-[200px]"><Loader2 className="h-8 w-8 animate-spin" /></div></StudentLayout>;
   }
 
   if (error) {
     return (
-      <div className="space-y-6 pb-6">
+      <StudentLayout><div className="space-y-6 pb-6">
         <div>
           <h1 className="text-2xl font-bold">Notice Board</h1>
           <p className="text-sm text-gray-600 mt-1">Latest announcements for your cohort</p>
@@ -57,12 +58,12 @@ const StudentAnnouncements = () => {
             <Button onClick={() => loadAnnouncements()} variant="outline" className="mt-4">Retry</Button>
           </CardContent>
         </Card>
-      </div>
+      </div></StudentLayout>
     );
   }
 
   return (
-    <div className="space-y-6 pb-6">
+    <StudentLayout><div className="space-y-6 pb-6">
       <div>
         <h1 className="text-2xl font-bold">Notice Board</h1>
         <p className="text-sm text-gray-600 mt-1">Latest announcements for your cohort</p>
@@ -93,7 +94,7 @@ const StudentAnnouncements = () => {
           ))}
         </div>
       )}
-    </div>
+    </div></StudentLayout>
   );
 };
 

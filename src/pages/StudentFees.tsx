@@ -137,17 +137,17 @@ const StudentFees = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Total Owed</CardTitle></CardHeader>
-            <CardContent><div className="text-2xl font-bold">${summary.totalOwed.toFixed(2)}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold">₦{summary.totalOwed.toLocaleString()}</div></CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Total Paid</CardTitle></CardHeader>
-            <CardContent><div className="text-2xl font-bold text-green-600">${summary.totalPaid.toFixed(2)}</div></CardContent>
+            <CardContent><div className="text-2xl font-bold text-green-600">₦{summary.totalPaid.toLocaleString()}</div></CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Remaining Balance</CardTitle></CardHeader>
             <CardContent>
               <div className={`text-2xl font-bold ${summary.remainingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                ${summary.remainingBalance.toFixed(2)}
+                ₦{summary.remainingBalance.toLocaleString()}
               </div>
             </CardContent>
           </Card>
@@ -179,9 +179,9 @@ const StudentFees = () => {
                       return (
                         <TableRow key={fee.id}>
                           <TableCell className="font-medium">{fee.fee_type}</TableCell>
-                          <TableCell className="text-right">${(fee.amount_due || 0).toFixed(2)}</TableCell>
-                          <TableCell className="text-right text-green-600">${(fee.amount_paid || 0).toFixed(2)}</TableCell>
-                          <TableCell className="text-right">${balance.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">₦{(fee.amount_due || 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-right text-green-600">₦{(fee.amount_paid || 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-right">₦{balance.toLocaleString()}</TableCell>
                           <TableCell>
                             {fee.waived ? (
                               <Badge variant="secondary">Waived</Badge>
@@ -222,7 +222,7 @@ const StudentFees = () => {
                   <TableBody>
                     {payments.map((payment) => (
                       <TableRow key={payment.id}>
-                        <TableCell className="font-medium">${(payment.amount_paid || 0).toFixed(2)}</TableCell>
+                        <TableCell className="font-medium">₦{(payment.amount_paid || 0).toLocaleString()}</TableCell>
                         <TableCell>{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : '—'}</TableCell>
                         <TableCell>{getStatusBadge(payment.status)}</TableCell>
                       </TableRow>
@@ -258,7 +258,7 @@ const StudentFees = () => {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Amount (USD)</Label>
+                <Label>Amount (₦)</Label>
                 <Input type="number" step="0.01" placeholder="0.00" {...register('amount', { required: 'Amount is required' })} />
                 {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
               </div>

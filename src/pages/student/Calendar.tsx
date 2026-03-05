@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
+import StudentLayout from '@/components/StudentLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -60,10 +61,10 @@ const StudentCalendar = () => {
 
   const upcomingEvents = events.filter((e) => new Date(e.start_date) >= new Date()).slice(0, 5);
 
-  if (loading) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  if (loading) return <StudentLayout><div className="flex items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin" /></div></StudentLayout>;
 
   return (
-    <div className="space-y-6 pb-6">
+    <StudentLayout><div className="space-y-6 pb-6">
       <div>
         <h1 className="text-2xl font-bold">School Calendar</h1>
         <p className="text-sm text-muted-foreground mt-1">View upcoming events and important dates</p>
@@ -160,7 +161,7 @@ const StudentCalendar = () => {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </div></StudentLayout>
   );
 };
 

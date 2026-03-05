@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import StudentLayout from '@/components/StudentLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -123,11 +124,11 @@ const StudentAssignments = () => {
   };
 
   if (loading) {
-    return (<div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin" /></div>);
+    return (<StudentLayout><div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin" /></div></StudentLayout>);
   }
 
   return (
-    <div className="space-y-6 pb-6">
+    <StudentLayout><div className="space-y-6 pb-6">
       <div>
         <h1 className="text-3xl font-bold">Assignments</h1>
         <p className="text-sm text-muted-foreground mt-1">View and submit your coursework</p>
@@ -219,7 +220,7 @@ const StudentAssignments = () => {
           })}
         </div>
       )}
-    </div>
+    </div></StudentLayout>
   );
 };
 

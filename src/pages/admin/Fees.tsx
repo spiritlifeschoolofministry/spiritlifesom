@@ -183,7 +183,7 @@ const AdminFees = () => {
                 <Input {...register('fee_name', { required: true })} placeholder="e.g. Tuition" />
               </div>
               <div>
-                <Label>Amount (USD)</Label>
+                <Label>Amount (₦)</Label>
                 <Input type="number" step="0.01" {...register('amount', { required: true })} />
               </div>
               <div className="md:col-span-3">
@@ -211,7 +211,7 @@ const AdminFees = () => {
                         <TableRow key={f.id}>
                           <TableCell className="font-medium">{f.fee_name}</TableCell>
                           <TableCell>{cohorts.find(c => c.id === f.cohort_id)?.name || f.cohort_id || '—'}</TableCell>
-                          <TableCell className="text-right">${Number(f.amount).toFixed(2)}</TableCell>
+                          <TableCell className="text-right">₦{Number(f.amount).toLocaleString()}</TableCell>
                           <TableCell>{f.created_at ? new Date(f.created_at).toLocaleDateString() : ''}</TableCell>
                         </TableRow>
                       ))}
@@ -248,7 +248,7 @@ const AdminFees = () => {
                       {pendingPayments.map((p) => (
                         <TableRow key={p.id}>
                           <TableCell className="font-medium">{p.student_name}</TableCell>
-                          <TableCell className="text-right">${Number(p.amount_paid).toFixed(2)}</TableCell>
+                          <TableCell className="text-right">₦{Number(p.amount_paid).toLocaleString()}</TableCell>
                           <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : ''}</TableCell>
                           <TableCell>
                             {p.payment_proof_url ? (
