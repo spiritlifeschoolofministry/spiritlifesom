@@ -185,7 +185,7 @@ const AdminPayments = () => {
                 {errors.fee_name && <p className="text-sm text-destructive">{errors.fee_name.message}</p>}
               </div>
               <div className="space-y-2">
-                <Label>Amount (USD)</Label>
+                <Label>Amount (₦)</Label>
                 <Input type="number" step="0.01" placeholder="0.00" {...register('amount', { required: 'Amount is required' })} />
                 {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
               </div>
