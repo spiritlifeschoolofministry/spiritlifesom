@@ -58,12 +58,12 @@ const StudentAnnouncements = () => {
             <Button onClick={() => loadAnnouncements()} variant="outline" className="mt-4">Retry</Button>
           </CardContent>
         </Card>
-      </div>
+      </div></StudentLayout>
     );
   }
 
   return (
-    <div className="space-y-6 pb-6">
+    <StudentLayout><div className="space-y-6 pb-6">
       <div>
         <h1 className="text-2xl font-bold">Notice Board</h1>
         <p className="text-sm text-gray-600 mt-1">Latest announcements for your cohort</p>
