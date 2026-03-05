@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,12 +6,8 @@ import { supabase } from '@/integrations/supabase/client';
 /**
  * Session Manager Hook
  * 
- * Keeps the session alive by:
- * 1. Monitoring for tab visibility changes
- * 2. Refetching session on visibility change (prevents stale sessions)
- * 3. Automatically refreshing token before expiration
- * 4. Refreshing session on route changes
- * 5. Intercepting 401/403 errors to force logout
+ * All hooks are declared unconditionally at the top level.
+ * Session logic is handled inside useEffect callbacks.
  */ 
 export const useSessionManager = () => {
   const { user, signOut } = useAuth();
@@ -20,41 +16,39 @@ export const useSessionManager = () => {
   const tokenRefreshRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastRouteRef = useRef(location.pathname);
 
+  const handleForceLogout = useCallback(async () => {
+    console.warn('[SessionManager] Forcing logout due to stale session');
+    await signOut();
+    navigate('/login', { replace: true });
+  }, [signOut, navigate]);
+
   // Route-change session refresh
   useEffect(() => {
     if (!user) return;
     if (lastRouteRef.current === location.pathname) return;
     lastRouteRef.current = location.pathname;
 
-    // Silent session check on navigation
     supabase.auth.getSession().then(({ data, error }) => {
       if (error || !data.session) {
-        console.warn('[SessionManager] Stale session detected on navigation, logging out');
-        signOut().then(() => navigate('/login', { replace: true }));
+        handleForceLogout();
       }
     });
-  }, [location.pathname, user, signOut, navigate]);
+  }, [location.pathname, user, handleForceLogout]);
 
+  // Visibility change + proactive token refresh
   useEffect(() => {
     if (!user) return;
 
-    // Handle visibility changes - refresh session when returning to tab
     const handleVisibilityChange = async () => {
-      if (document.hidden) {
-        console.log('[SessionManager] Tab hidden, pausing token refresh');
-      } else {
+      if (!document.hidden) {
         console.log('[SessionManager] Tab visible, refreshing session');
         try {
-          const { data, error } = await supabase.auth.refreshSession();
+          const { error } = await supabase.auth.refreshSession();
           if (error) {
-            console.warn('[SessionManager] Session expired, forcing logout');
-            await signOut();
-            navigate('/login', { replace: true });
+            await handleForceLogout();
             return;
           }
-          if (data?.session) {
-            console.log('[SessionManager] Session refreshed successfully');
-          }
+          console.log('[SessionManager] Session refreshed successfully');
         } catch (err) {
           console.error('[SessionManager] Failed to refresh session:', err);
         }
@@ -63,25 +57,19 @@ export const useSessionManager = () => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Schedule token refresh - refresh every 50 minutes (before 1 hour expiry)
     const scheduleTokenRefresh = () => {
       if (tokenRefreshRef.current) clearTimeout(tokenRefreshRef.current);
-      
       tokenRefreshRef.current = setTimeout(async () => {
         if (!document.hidden) {
           try {
-            console.log('[SessionManager] Proactive token refresh');
             const { data, error } = await supabase.auth.refreshSession();
             if (error) throw error;
-            if (data?.session) {
-              console.log('[SessionManager] Token refreshed successfully');
-              scheduleTokenRefresh(); // Schedule next refresh
-            }
+            if (data?.session) scheduleTokenRefresh();
           } catch (err) {
             console.error('[SessionManager] Token refresh failed:', err);
           }
         }
-      }, 50 * 60 * 1000); // 50 minutes
+      }, 50 * 60 * 1000);
     };
 
     scheduleTokenRefresh();
@@ -90,5 +78,5 @@ export const useSessionManager = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (tokenRefreshRef.current) clearTimeout(tokenRefreshRef.current);
     };
-  }, [user, signOut, navigate]);
+  }, [user, handleForceLogout]);
 };
