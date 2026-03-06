@@ -6,8 +6,11 @@ import StudentLayout from "@/components/StudentLayout";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Shield, Loader2, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 
 interface DashboardData {
   firstName: string;
@@ -20,6 +23,11 @@ interface DashboardData {
   announcements: Array<{ title: string; body: string; published_at: string | null }>;
 }
 
+interface CohortOption {
+  id: string;
+  name: string;
+}
+
 const StudentDashboard = () => {
   const navigate = useNavigate();
   const { role, student } = useAuth();
@@ -27,6 +35,14 @@ const StudentDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [latestAnnouncement, setLatestAnnouncement] = useState<any | null>(null);
+  const [showProfileCompletion, setShowProfileCompletion] = useState(false);
+  const [savingProfileCompletion, setSavingProfileCompletion] = useState(false);
+  const [profileCompletionForm, setProfileCompletionForm] = useState({
+    gender: "",
+    age: "",
+    cohort_id: "",
+  });
+  const [cohortOptions, setCohortOptions] = useState<CohortOption[]>([]);
 
   useEffect(() => {
     // kept for backwards compatibility; real loader is defined below
@@ -43,15 +59,16 @@ const StudentDashboard = () => {
         return;
       }
 
-      const [profileRes, studentRes, coursesRes, announcementsRes] = await Promise.all([
+      const [profileRes, studentRes, coursesRes, announcementsRes, cohortsRes] = await Promise.all([
         supabase.from("profiles").select("first_name").eq("id", user.id).maybeSingle(),
         supabase
           .from("students")
-          .select("id, cohort_id, admission_status, is_approved")
+          .select("id, profile_id, cohort_id, admission_status, is_approved, gender, age")
           .eq("profile_id", user.id)
           .maybeSingle(),
         supabase.from("courses").select("id"),
         supabase.from("announcements").select("title, body, published_at").eq("is_published", true).order("published_at", { ascending: false }).limit(3),
+        supabase.from("cohorts").select("id, name").order("created_at", { ascending: false }),
       ]);
 
       const firstName = profileRes.data?.first_name || user.user_metadata?.first_name || "Student";
@@ -60,6 +77,21 @@ const StudentDashboard = () => {
       const admissionStatus = studentRes.data?.admission_status || null;
       const statusUpper = normalizeStatus(admissionStatus);
       const isPending = statusUpper === "PENDING";
+
+      if (cohortsRes.error) throw cohortsRes.error;
+      setCohortOptions((cohortsRes.data || []) as CohortOption[]);
+
+      if (studentRes.data) {
+        const hasIncompleteProfile = !studentRes.data.gender || studentRes.data.age === null || !studentRes.data.cohort_id;
+        setShowProfileCompletion(hasIncompleteProfile);
+        setProfileCompletionForm({
+          gender: studentRes.data.gender || "",
+          age: studentRes.data.age?.toString() || "",
+          cohort_id: studentRes.data.cohort_id || "",
+        });
+      } else {
+        setShowProfileCompletion(false);
+      }
 
       let attendanceRate: number | null = null;
       let pendingAssignments = 0;
@@ -245,6 +277,51 @@ const StudentDashboard = () => {
     );
   }
 
+  const saveProfileCompletion = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("Your session expired. Please log in again.");
+      return;
+    }
+
+    const parsedAge = Number(profileCompletionForm.age);
+    if (!profileCompletionForm.gender) {
+      toast.error("Please select your gender.");
+      return;
+    }
+    if (!Number.isInteger(parsedAge) || parsedAge <= 0) {
+      toast.error("Please enter a valid age.");
+      return;
+    }
+    if (!profileCompletionForm.cohort_id) {
+      toast.error("Please select your cohort.");
+      return;
+    }
+
+    setSavingProfileCompletion(true);
+    try {
+      const { error } = await supabase
+        .from("students")
+        .update({
+          gender: profileCompletionForm.gender,
+          age: parsedAge,
+          cohort_id: profileCompletionForm.cohort_id,
+        })
+        .eq("profile_id", user.id);
+
+      if (error) throw error;
+
+      toast.success("Profile details saved.");
+      setShowProfileCompletion(false);
+      await load();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to save profile details.";
+      toast.error(msg);
+    } finally {
+      setSavingProfileCompletion(false);
+    }
+  };
+
   const CARDS = [
     {
       title: "Attendance Rate",
@@ -298,6 +375,77 @@ const StudentDashboard = () => {
 
   return (
     <StudentLayout admissionStatus={data.admissionStatus}>
+      <Dialog open={showProfileCompletion} onOpenChange={() => undefined}>
+        <DialogContent
+          onEscapeKeyDown={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>Complete your profile</DialogTitle>
+            <DialogDescription>
+              Please provide your gender, age, and cohort selection to continue.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="student-gender">Gender</Label>
+              <select
+                id="student-gender"
+                value={profileCompletionForm.gender}
+                onChange={(event) =>
+                  setProfileCompletionForm((prev) => ({ ...prev, gender: event.target.value }))
+                }
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="student-age">Age</Label>
+              <Input
+                id="student-age"
+                type="number"
+                min={1}
+                value={profileCompletionForm.age}
+                onChange={(event) =>
+                  setProfileCompletionForm((prev) => ({ ...prev, age: event.target.value }))
+                }
+                placeholder="Enter your age"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="student-cohort">Cohort</Label>
+              <select
+                id="student-cohort"
+                required
+                value={profileCompletionForm.cohort_id}
+                onChange={(event) =>
+                  setProfileCompletionForm((prev) => ({ ...prev, cohort_id: event.target.value }))
+                }
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select cohort</option>
+                {cohortOptions.map((cohort) => (
+                  <option key={cohort.id} value={cohort.id}>
+                    {cohort.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button className="w-full" onClick={saveProfileCompletion} disabled={savingProfileCompletion}>
+              {savingProfileCompletion ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                </>
+              ) : (
+                "Save and continue"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {/* Announcement popup modal */}
       <Dialog open={showAnnouncement} onOpenChange={(open) => {
         if (!open && latestAnnouncement) {

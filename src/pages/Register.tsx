@@ -125,45 +125,6 @@ const Register = () => {
 
   const handleBack = () => setStep((s) => Math.max(s - 1, 1));
 
-  const createStudentRecord = async (userId: string, cohortId: string) => {
-    let dateOfBirth: string | null = null;
-    let age: number | null = null;
-    if (form.dobYear && form.dobMonth && form.dobDay) {
-      const dob = new Date(
-        parseInt(form.dobYear),
-        parseInt(form.dobMonth) - 1,
-        parseInt(form.dobDay)
-      );
-      dateOfBirth = dob.toISOString().split("T")[0];
-      const today = new Date();
-      age = today.getFullYear() - dob.getFullYear();
-      if (
-        today.getMonth() < dob.getMonth() ||
-        (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())
-      ) {
-        age--;
-      }
-    }
-
-    const { error } = await supabase.from("students").insert({
-      profile_id: userId,
-      cohort_id: cohortId,
-      gender: form.gender || null,
-      date_of_birth: dateOfBirth,
-      age,
-      marital_status: form.maritalStatus || null,
-      address: form.address || null,
-      is_born_again: form.isBornAgain === "yes",
-      has_discovered_ministry: form.hasDiscoveredMinistry === "yes",
-      ministry_description: form.ministryDescription || null,
-      educational_background: form.educationalBackground || null,
-      preferred_language: form.preferredLanguage || null,
-      learning_mode: form.learningMode || null,
-      admission_status: "Pending",
-    });
-    return error;
-  };
-
   const handleSubmit = async () => {
     const err = validateStep3();
     if (err) { toast.error(err); return; }
@@ -178,11 +139,9 @@ const Register = () => {
         password: form.password,
         options: {
           data: {
-            first_name: form.firstName,
-            last_name: form.lastName,
-            middle_name: form.middleName,
-            phone: form.phone,
-            role: "student",
+            full_name: [form.firstName, form.middleName, form.lastName]
+              .filter((name) => name.trim().length > 0)
+              .join(" "),
           },
         },
       });
@@ -212,32 +171,8 @@ const Register = () => {
         }
       }
 
-      // STEP 3 - Get active cohort
-      const { data: activeCohort, error: cohortError } = await supabase
-        .from("cohorts")
-        .select("id")
-        .eq("is_active", true)
-        .single();
-
-      if (cohortError || !activeCohort) {
-        toast.error("No active cohort found. Please contact the school office.");
-        setLoading(false);
-        return;
-      }
-
-      // STEP 4 - Create student record
-      console.log("[Register] Creating student record...");
-      const studentError = await createStudentRecord(userId, activeCohort.id);
-      if (studentError) {
-        if (studentError.code === "23505") {
-          console.log("[Register] Student record already exists, proceeding.");
-        } else {
-          throw new Error(`Failed to create student record: ${studentError.message}`);
-        }
-      }
-
-      // STEP 5 - Success
-      toast.success("Registration successful! Your application is being reviewed. You'll be notified once approved.");
+      // STEP 3 - Success
+      toast.success("Registration successful! Please complete your profile details after login.");
       await new Promise(resolve => setTimeout(resolve, 1500));
       navigate("/student/dashboard", { replace: true });
     } catch (error: any) {
