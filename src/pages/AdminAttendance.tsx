@@ -372,15 +372,17 @@ const AdminAttendance = () => {
         return;
       }
       const scheduleId = (scheduleRows[0] as { id: string }).id;
+      const checkInTimestamp = new Date(`${newDate}T00:00:00`).toISOString();
       const { error: insertError } = await supabase
         .from("attendance")
-        .insert({
+        .upsert({
           student_id: detailStudentId,
           schedule_id: scheduleId,
           status: newStatus,
-          marked_at: new Date(`${newDate}T00:00:00`).toISOString(),
+          check_in_time: checkInTimestamp,
+          marked_at: checkInTimestamp,
           is_verified: newVerified,
-        });
+        }, { onConflict: "student_id,schedule_id" });
       if (insertError) throw insertError;
       toast.success("Attendance record added");
       setNewDate("");
