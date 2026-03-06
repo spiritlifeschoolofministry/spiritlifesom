@@ -6,8 +6,11 @@ import StudentLayout from "@/components/StudentLayout";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Shield, Loader2, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 
 interface DashboardData {
   firstName: string;
@@ -27,6 +30,12 @@ const StudentDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [latestAnnouncement, setLatestAnnouncement] = useState<any | null>(null);
+  const [showProfileCompletion, setShowProfileCompletion] = useState(false);
+  const [savingProfileCompletion, setSavingProfileCompletion] = useState(false);
+  const [profileCompletionForm, setProfileCompletionForm] = useState({
+    gender: "",
+    age: "",
+  });
 
   useEffect(() => {
     // kept for backwards compatibility; real loader is defined below
@@ -47,7 +56,7 @@ const StudentDashboard = () => {
         supabase.from("profiles").select("first_name").eq("id", user.id).maybeSingle(),
         supabase
           .from("students")
-          .select("id, cohort_id, admission_status, is_approved")
+          .select("id, profile_id, cohort_id, admission_status, is_approved, gender, age")
           .eq("profile_id", user.id)
           .maybeSingle(),
         supabase.from("courses").select("id"),
@@ -60,6 +69,17 @@ const StudentDashboard = () => {
       const admissionStatus = studentRes.data?.admission_status || null;
       const statusUpper = normalizeStatus(admissionStatus);
       const isPending = statusUpper === "PENDING";
+
+      if (studentRes.data) {
+        const hasIncompleteProfile = !studentRes.data.gender || studentRes.data.age === null;
+        setShowProfileCompletion(hasIncompleteProfile);
+        setProfileCompletionForm({
+          gender: studentRes.data.gender || "",
+          age: studentRes.data.age?.toString() || "",
+        });
+      } else {
+        setShowProfileCompletion(false);
+      }
 
       let attendanceRate: number | null = null;
       let pendingAssignments = 0;
@@ -245,6 +265,45 @@ const StudentDashboard = () => {
     );
   }
 
+  const saveProfileCompletion = async () => {
+    if (!student?.profile_id) {
+      toast.error("Could not identify your profile. Please refresh and try again.");
+      return;
+    }
+
+    const parsedAge = Number(profileCompletionForm.age);
+    if (!profileCompletionForm.gender) {
+      toast.error("Please select your gender.");
+      return;
+    }
+    if (!Number.isInteger(parsedAge) || parsedAge <= 0) {
+      toast.error("Please enter a valid age.");
+      return;
+    }
+
+    setSavingProfileCompletion(true);
+    try {
+      const { error } = await supabase
+        .from("students")
+        .update({
+          gender: profileCompletionForm.gender,
+          age: parsedAge,
+        })
+        .eq("profile_id", student.profile_id);
+
+      if (error) throw error;
+
+      toast.success("Profile details saved.");
+      setShowProfileCompletion(false);
+      await load();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to save profile details.";
+      toast.error(msg);
+    } finally {
+      setSavingProfileCompletion(false);
+    }
+  };
+
   const CARDS = [
     {
       title: "Attendance Rate",
@@ -298,6 +357,58 @@ const StudentDashboard = () => {
 
   return (
     <StudentLayout admissionStatus={data.admissionStatus}>
+      <Dialog open={showProfileCompletion} onOpenChange={() => undefined}>
+        <DialogContent
+          onEscapeKeyDown={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>Complete your profile</DialogTitle>
+            <DialogDescription>
+              Please provide your gender and age to continue.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="student-gender">Gender</Label>
+              <select
+                id="student-gender"
+                value={profileCompletionForm.gender}
+                onChange={(event) =>
+                  setProfileCompletionForm((prev) => ({ ...prev, gender: event.target.value }))
+                }
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="student-age">Age</Label>
+              <Input
+                id="student-age"
+                type="number"
+                min={1}
+                value={profileCompletionForm.age}
+                onChange={(event) =>
+                  setProfileCompletionForm((prev) => ({ ...prev, age: event.target.value }))
+                }
+                placeholder="Enter your age"
+              />
+            </div>
+            <Button className="w-full" onClick={saveProfileCompletion} disabled={savingProfileCompletion}>
+              {savingProfileCompletion ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                </>
+              ) : (
+                "Save and continue"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {/* Announcement popup modal */}
       <Dialog open={showAnnouncement} onOpenChange={(open) => {
         if (!open && latestAnnouncement) {
