@@ -170,9 +170,8 @@ const Register = () => {
 
     setLoading(true);
     try {
-      // STEP 1 - Supabase Auth SignUp (or sign in if user already exists)
-      console.log("[Register] STEP 1: Starting signup for:", form.email);
-      let userId: string;
+      // STEP 1 - Supabase Auth SignUp (trigger creates profile automatically)
+      console.log("[Register] Starting signup for:", form.email);
 
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: form.email,
@@ -188,59 +187,18 @@ const Register = () => {
         },
       });
 
-      // Handle "User already registered" — attempt sign-in and repair
-      if (authError && (authError.message.includes("already registered") || authError.message.includes("already been registered"))) {
-        console.warn("[Register] User exists in Auth, attempting sign-in to repair...");
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email: form.email,
-          password: form.password,
-        });
-        if (signInError) {
+      if (authError) {
+        if (authError.message.includes("already registered") || authError.message.includes("already been registered")) {
           throw new Error("An account with this email already exists. Please log in instead.");
         }
-        if (!signInData.user) throw new Error("Sign-in failed during account repair.");
-        userId = signInData.user.id;
-        console.log("[Register] Signed in existing user for repair:", userId);
-      } else if (authError) {
         throw authError;
-      } else if (!authData.user) {
-        throw new Error("Registration failed. Please try again.");
-      } else {
-        userId = authData.user.id;
       }
-      console.log("[Register] STEP 1 COMPLETE: User ID:", userId);
+      if (!authData.user) throw new Error("Registration failed. Please try again.");
 
-      // STEP 2 - Wait for trigger-created profile
-      console.log("[Register] STEP 2: Waiting for profile...");
-      let profileFound = false;
-      for (let i = 0; i < 5; i++) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const { data: profileCheck } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("id", userId)
-          .maybeSingle();
-        if (profileCheck) {
-          profileFound = true;
-          console.log("[Register] STEP 2 COMPLETE: Profile confirmed on attempt", i + 1);
-          break;
-        }
-      }
+      const userId = authData.user.id;
+      console.log("[Register] Auth user created:", userId);
 
-      // Update profile (best effort)
-      if (profileFound) {
-        await supabase
-          .from("profiles")
-          .update({
-            first_name: form.firstName,
-            last_name: form.lastName,
-            middle_name: form.middleName || null,
-            phone: form.phone || null,
-          })
-          .eq("id", userId);
-      }
-
-      // STEP 3 - Upload passport photo
+      // STEP 2 - Upload passport photo
       if (form.passportPhoto) {
         const fileExt = form.passportPhoto.name.split(".").pop();
         const fileName = `${userId}.${fileExt}`;
