@@ -139,11 +139,9 @@ const Register = () => {
         password: form.password,
         options: {
           data: {
-            first_name: form.firstName,
-            last_name: form.lastName,
-            middle_name: form.middleName,
-            phone: form.phone,
-            role: "student",
+            full_name: [form.firstName, form.middleName, form.lastName]
+              .filter((name) => name.trim().length > 0)
+              .join(" "),
           },
         },
       });

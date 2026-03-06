@@ -20,6 +20,7 @@ interface UserMetadata {
   middle_name?: string;
   phone?: string;
   role?: string;
+  full_name?: string;
   [key: string]: string | undefined;
 }
 
@@ -90,7 +91,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         retries++;
         if (retries < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 1500));
         }
       }
 
@@ -134,8 +135,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.warn('[Auth] No profile found after retries, using metadata fallback');
         // Fallback: use user_metadata to keep user logged in
         const fallbackRole = userMeta?.role || 'student';
-        const fallbackFirst = userMeta?.first_name || 'Student';
-        const fallbackLast = userMeta?.last_name || 'User';
+        const nameParts = (userMeta?.full_name || '').trim().split(/\s+/).filter(Boolean);
+        const fallbackFirst = userMeta?.first_name || nameParts[0] || 'Student';
+        const fallbackLast = userMeta?.last_name || nameParts.slice(1).join(' ') || 'User';
 
         setProfile(null);
         setRole(fallbackRole);
