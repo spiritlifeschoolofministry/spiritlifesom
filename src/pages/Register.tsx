@@ -212,7 +212,7 @@ const Register = () => {
         }
       }
 
-      // STEP 4 - Get active cohort
+      // STEP 3 - Get active cohort
       const { data: activeCohort, error: cohortError } = await supabase
         .from("cohorts")
         .select("id")
@@ -225,27 +225,15 @@ const Register = () => {
         return;
       }
 
-      // STEP 5 - Check if student record already exists (repair case)
-      const { data: existingStudent } = await supabase
-        .from("students")
-        .select("id")
-        .eq("profile_id", userId)
-        .maybeSingle();
-
-      if (existingStudent) {
-        console.log("[Register] Student record already exists, skipping insert (repair complete).");
-      } else {
-        console.log("[Register] STEP 5: Creating student record...");
-        const studentError = await createStudentRecord(userId, activeCohort.id);
-        if (studentError) {
-          // Duplicate key means student already exists — safe to proceed
-          if (studentError.code === "23505") {
-            console.log("[Register] Student record already exists (duplicate key), proceeding.");
-          } else {
-            throw new Error(`Failed to create student record: ${studentError.message}`);
-          }
+      // STEP 4 - Create student record
+      console.log("[Register] Creating student record...");
+      const studentError = await createStudentRecord(userId, activeCohort.id);
+      if (studentError) {
+        if (studentError.code === "23505") {
+          console.log("[Register] Student record already exists, proceeding.");
+        } else {
+          throw new Error(`Failed to create student record: ${studentError.message}`);
         }
-        console.log("[Register] STEP 5 COMPLETE: Student record created");
       }
 
       // STEP 6 - Success
