@@ -104,21 +104,17 @@ const StudentAttendance = () => {
         student_id: student.id,
         schedule_id: todayScheduleId,
         status: "PRESENT",
+        check_in_time: new Date().toISOString(),
         marked_at: new Date().toISOString(),
         is_verified: false,
       };
 
-      const { error } = await supabase.from("attendance").insert(payload);
+      const { error } = await supabase
+        .from("attendance")
+        .upsert(payload, { onConflict: "student_id,schedule_id" });
 
       if (error) {
-        if (error.code === "23505") {
-          toast.error("You have already checked in for today.");
-          setCheckedInToday(true);
-          setPendingToday(true);
-        } else {
-          throw error;
-        }
-        return;
+        throw error;
       }
 
       setCheckedInToday(true);
