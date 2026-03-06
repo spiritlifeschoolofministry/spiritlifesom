@@ -236,7 +236,7 @@ const Register = () => {
         }
       }
 
-      // STEP 6 - Success
+      // STEP 5 - Success
       toast.success("Registration successful! Your application is being reviewed. You'll be notified once approved.");
       await new Promise(resolve => setTimeout(resolve, 1500));
       navigate("/student/dashboard", { replace: true });
