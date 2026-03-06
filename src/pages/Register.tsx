@@ -125,14 +125,55 @@ const Register = () => {
 
   const handleBack = () => setStep((s) => Math.max(s - 1, 1));
 
+  const createStudentRecord = async (userId: string, cohortId: string) => {
+    let dateOfBirth: string | null = null;
+    let age: number | null = null;
+    if (form.dobYear && form.dobMonth && form.dobDay) {
+      const dob = new Date(
+        parseInt(form.dobYear),
+        parseInt(form.dobMonth) - 1,
+        parseInt(form.dobDay)
+      );
+      dateOfBirth = dob.toISOString().split("T")[0];
+      const today = new Date();
+      age = today.getFullYear() - dob.getFullYear();
+      if (
+        today.getMonth() < dob.getMonth() ||
+        (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())
+      ) {
+        age--;
+      }
+    }
+
+    const { error } = await supabase.from("students").insert({
+      profile_id: userId,
+      cohort_id: cohortId,
+      gender: form.gender || null,
+      date_of_birth: dateOfBirth,
+      age,
+      marital_status: form.maritalStatus || null,
+      address: form.address || null,
+      is_born_again: form.isBornAgain === "yes",
+      has_discovered_ministry: form.hasDiscoveredMinistry === "yes",
+      ministry_description: form.ministryDescription || null,
+      educational_background: form.educationalBackground || null,
+      preferred_language: form.preferredLanguage || null,
+      learning_mode: form.learningMode || null,
+      admission_status: "Pending",
+    });
+    return error;
+  };
+
   const handleSubmit = async () => {
     const err = validateStep3();
     if (err) { toast.error(err); return; }
 
     setLoading(true);
     try {
-      // STEP 1 - Supabase Auth SignUp
+      // STEP 1 - Supabase Auth SignUp (or sign in if user already exists)
       console.log("[Register] STEP 1: Starting signup for:", form.email);
+      let userId: string;
+
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
@@ -147,13 +188,30 @@ const Register = () => {
         },
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("Registration failed");
-      const userId = authData.user.id;
-      console.log("[Register] STEP 1 COMPLETE: Signup successful, user ID:", userId);
+      // Handle "User already registered" — attempt sign-in and repair
+      if (authError && (authError.message.includes("already registered") || authError.message.includes("already been registered"))) {
+        console.warn("[Register] User exists in Auth, attempting sign-in to repair...");
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: form.email,
+          password: form.password,
+        });
+        if (signInError) {
+          throw new Error("An account with this email already exists. Please log in instead.");
+        }
+        if (!signInData.user) throw new Error("Sign-in failed during account repair.");
+        userId = signInData.user.id;
+        console.log("[Register] Signed in existing user for repair:", userId);
+      } else if (authError) {
+        throw authError;
+      } else if (!authData.user) {
+        throw new Error("Registration failed. Please try again.");
+      } else {
+        userId = authData.user.id;
+      }
+      console.log("[Register] STEP 1 COMPLETE: User ID:", userId);
 
-      // STEP 2 - Wait for trigger to create profile
-      console.log("[Register] STEP 2: Waiting for profile to be created by trigger...");
+      // STEP 2 - Wait for trigger-created profile
+      console.log("[Register] STEP 2: Waiting for profile...");
       let profileFound = false;
       for (let i = 0; i < 5; i++) {
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -167,14 +225,9 @@ const Register = () => {
           console.log("[Register] STEP 2 COMPLETE: Profile confirmed on attempt", i + 1);
           break;
         }
-        console.log(`[Register] STEP 2: Profile not ready, retry ${i + 1}/5`);
       }
 
-      if (!profileFound) {
-        console.warn("[Register] STEP 2: Profile creation timed out, but proceeding with student record creation");
-      }
-
-      // Update profile with full name and phone (best effort)
+      // Update profile (best effort)
       if (profileFound) {
         await supabase
           .from("profiles")
@@ -185,11 +238,9 @@ const Register = () => {
             phone: form.phone || null,
           })
           .eq("id", userId);
-        console.log("[Register] Profile updated with names & phone");
       }
 
-      // STEP 4 - Upload passport photo if provided
-      console.log("[Register] STEP 4: Processing passport photo...");
+      // STEP 3 - Upload passport photo
       if (form.passportPhoto) {
         const fileExt = form.passportPhoto.name.split(".").pop();
         const fileName = `${userId}.${fileExt}`;
@@ -197,21 +248,13 @@ const Register = () => {
           .from("avatars")
           .upload(fileName, form.passportPhoto, { upsert: true });
 
-        if (uploadError) {
-          console.warn("[Register] STEP 4: Avatar upload failed:", uploadError.message);
-        } else {
+        if (!uploadError) {
           const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(fileName);
-          const avatarUrl = urlData.publicUrl;
-          
-          await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", userId);
-          console.log("[Register] STEP 4 COMPLETE: Avatar uploaded:", avatarUrl);
+          await supabase.from("profiles").update({ avatar_url: urlData.publicUrl }).eq("id", userId);
         }
-      } else {
-        console.log("[Register] STEP 4: No passport photo provided (optional)");
       }
 
-      // STEP 3 - Get active cohort
-      console.log("[Register] STEP 3: Fetching active cohort...");
+      // STEP 4 - Get active cohort
       const { data: activeCohort, error: cohortError } = await supabase
         .from("cohorts")
         .select("id")
@@ -219,62 +262,36 @@ const Register = () => {
         .single();
 
       if (cohortError || !activeCohort) {
-        console.error("[Register] STEP 3 FAILED: No active cohort found");
         toast.error("No active cohort found. Please contact the school office.");
         setLoading(false);
         return;
       }
-      console.log("[Register] STEP 3 COMPLETE: Active cohort ID:", activeCohort.id);
 
-      // Calculate DOB and age
-      let dateOfBirth: string | null = null;
-      let age: number | null = null;
-      if (form.dobYear && form.dobMonth && form.dobDay) {
-        const dob = new Date(
-          parseInt(form.dobYear),
-          parseInt(form.dobMonth) - 1,
-          parseInt(form.dobDay)
-        );
-        dateOfBirth = dob.toISOString().split("T")[0];
-        const today = new Date();
-        age = today.getFullYear() - dob.getFullYear();
-        if (
-          today.getMonth() < dob.getMonth() ||
-          (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())
-        ) {
-          age--;
+      // STEP 5 - Check if student record already exists (repair case)
+      const { data: existingStudent } = await supabase
+        .from("students")
+        .select("id")
+        .eq("profile_id", userId)
+        .maybeSingle();
+
+      if (existingStudent) {
+        console.log("[Register] Student record already exists, skipping insert (repair complete).");
+      } else {
+        console.log("[Register] STEP 5: Creating student record...");
+        const studentError = await createStudentRecord(userId, activeCohort.id);
+        if (studentError) {
+          // Duplicate key means student already exists — safe to proceed
+          if (studentError.code === "23505") {
+            console.log("[Register] Student record already exists (duplicate key), proceeding.");
+          } else {
+            throw new Error(`Failed to create student record: ${studentError.message}`);
+          }
         }
+        console.log("[Register] STEP 5 COMPLETE: Student record created");
       }
-      console.log("[Register] Calculated DOB:", dateOfBirth, "Age:", age);
 
-      // STEP 5 - INSERT INTO STUDENTS TABLE (CRITICAL)
-      console.log("[Register] STEP 5: Creating student record...");
-      const { error: studentError } = await supabase.from("students").insert({
-        profile_id: userId,
-        cohort_id: activeCohort.id,
-        gender: form.gender || null,
-        date_of_birth: dateOfBirth,
-        age,
-        marital_status: form.maritalStatus || null,
-        address: form.address || null,
-        is_born_again: form.isBornAgain === "yes",
-        has_discovered_ministry: form.hasDiscoveredMinistry === "yes",
-        ministry_description: form.ministryDescription || null,
-        educational_background: form.educationalBackground || null,
-        preferred_language: form.preferredLanguage || null,
-        learning_mode: form.learningMode || null,
-        admission_status: "Pending",
-      });
-
-      if (studentError) {
-        console.error("[Register] STEP 5 FAILED: Student record creation error:", studentError.message);
-        throw new Error(`Failed to create student record: ${studentError.message}`);
-      }
-      console.log("[Register] STEP 5 COMPLETE: Student record created successfully");
-
-      // STEP 6 - Redirect to dashboard
-      console.log("[Register] STEP 6: Redirecting to dashboard...");
-      toast.success("Registration Successful! Your application is now being reviewed manually. Please check back in 24-48 hours; your dashboard will unlock automatically once approved.");
+      // STEP 6 - Success
+      toast.success("Registration successful! Your application is being reviewed. You'll be notified once approved.");
       await new Promise(resolve => setTimeout(resolve, 1500));
       navigate("/student/dashboard", { replace: true });
     } catch (error: any) {

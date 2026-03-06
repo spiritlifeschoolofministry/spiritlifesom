@@ -104,11 +104,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setRole(profileData.role);
         console.log('[Auth] Profile loaded, role:', profileData.role);
 
-        const { data: studentData } = await supabase
-          .from('students')
-          .select('*')
-          .eq('profile_id', userId)
-          .maybeSingle();
+        // Fetch student record with retry for new registrations
+        let studentData = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const { data } = await supabase
+            .from('students')
+            .select('*')
+            .eq('profile_id', userId)
+            .maybeSingle();
+          if (data) {
+            studentData = data;
+            break;
+          }
+          if (attempt < 2 && profileData.role === 'student') {
+            await new Promise(r => setTimeout(r, 1500));
+          }
+        }
 
         console.log('[Auth] Student record:', studentData ? 'found' : 'not found');
 
@@ -117,7 +128,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setIsNewUser(false);
         } else {
           setStudent(null);
-          // New user if role is student but no student record yet
           setIsNewUser(profileData.role === 'student');
         }
       } else {
