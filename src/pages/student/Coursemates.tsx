@@ -61,7 +61,14 @@ const Coursemates = () => {
   // Fetch classmates
   useEffect(() => {
     const fetchClassmates = async () => {
-      if (!user || !student?.cohort_id) {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      if (!student?.cohort_id) {
+        setClassmates([]);
+        setFilteredClassmates([]);
         setLoading(false);
         return;
       }
@@ -77,13 +84,18 @@ const Coursemates = () => {
         if (error) {
           console.error('Error fetching classmates:', error);
           toast.error('Failed to load classmates');
-        } else if (data) {
-          setClassmates(data as Classmate[]);
-          setFilteredClassmates(data as Classmate[]);
+          setClassmates([]);
+          setFilteredClassmates([]);
+        } else {
+          const safe = (data ?? []) as Classmate[];
+          setClassmates(safe);
+          setFilteredClassmates(safe);
         }
       } catch (error) {
         console.error('Error:', error);
         toast.error('An error occurred while loading classmates');
+        setClassmates([]);
+        setFilteredClassmates([]);
       } finally {
         setLoading(false);
       }
