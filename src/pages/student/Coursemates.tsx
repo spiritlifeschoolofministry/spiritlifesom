@@ -114,7 +114,7 @@ const Coursemates = () => {
           .from('students')
           .select('*')
           .eq('profile_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (error && error.code !== 'PGRST116') {
           console.error('Error fetching student data:', error);
