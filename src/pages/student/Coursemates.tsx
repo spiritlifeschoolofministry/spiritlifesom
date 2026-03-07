@@ -279,9 +279,15 @@ const Coursemates = () => {
         </div>
 
         {/* Classmates Grid */}
-        {filteredClassmates.length === 0 ? (
+        {!student?.cohort_id ? (
           <Card>
-            <CardContent className="pt-6 text-center text-gray-500">
+            <CardContent className="pt-6 text-center text-muted-foreground">
+              You have not been assigned to a cohort yet. Please contact administration.
+            </CardContent>
+          </Card>
+        ) : filteredClassmates.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6 text-center text-muted-foreground">
               {classmates.length === 0
                 ? 'No classmates found in your cohort yet.'
                 : `No results found for "${searchQuery}"`}
@@ -289,21 +295,18 @@ const Coursemates = () => {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredClassmates.map((classmate) => (
-              <Card key={classmate.profile_id} className="overflow-hidden hover:shadow-lg transition-shadow">
+            {filteredClassmates?.map((classmate) => (
+              <Card key={classmate?.profile_id ?? Math.random()} className="overflow-hidden hover:shadow-lg transition-shadow">
                 <CardContent className="pt-6">
-                  {/* Avatar */}
                   <div className="flex justify-center mb-4">
                     <Avatar className="h-20 w-20">
-                      <AvatarImage src={classmate.avatar_url || ''} alt={classmate.display_name || ''} />
+                      <AvatarImage src={classmate?.avatar_url || ''} alt={classmate?.display_name || ''} />
                       <AvatarFallback className="text-lg font-semibold">
-                        {getInitials(classmate.display_name)}
+                        {getInitials(classmate?.display_name)}
                       </AvatarFallback>
                     </Avatar>
                   </div>
-
-                  {/* Name */}
-                  <h3 className="text-lg font-semibold text-center mb-2">{classmate.display_name}</h3>
+                  <h3 className="text-lg font-semibold text-center mb-2">{classmate?.display_name || 'Unknown'}</h3>
                 </CardContent>
               </Card>
             ))}
