@@ -211,7 +211,7 @@ const Coursemates = () => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Course Mates</h1>
-          <p className="text-gray-600">Connect with your classmates in the {student?.cohort_id || 'your'} cohort</p>
+          <p className="text-muted-foreground">Connect with your classmates in the {student?.cohort_id || 'your'} cohort</p>
         </div>
 
         {/* Search Bar and Update Button */}
