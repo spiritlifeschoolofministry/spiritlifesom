@@ -185,12 +185,14 @@ const Coursemates = () => {
     }
   };
 
-  const getInitials = (name: string) => {
+  const getInitials = (name: string | null | undefined) => {
+    if (!name) return '?';
     return name
       .split(' ')
+      .filter(Boolean)
       .map((part) => part[0])
       .join('')
-      .toUpperCase();
+      .toUpperCase() || '?';
   };
 
   if (loading) {
