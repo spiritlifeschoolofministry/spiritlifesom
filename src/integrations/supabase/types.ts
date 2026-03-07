@@ -498,7 +498,7 @@ export type Database = {
           adjusted_by: string | null
           amount_due: number | null
           amount_paid: number | null
-          cohort_id: string
+          cohort_id: string | null
           created_at: string | null
           fee_type: string
           id: string
@@ -515,7 +515,7 @@ export type Database = {
           adjusted_by?: string | null
           amount_due?: number | null
           amount_paid?: number | null
-          cohort_id: string
+          cohort_id?: string | null
           created_at?: string | null
           fee_type: string
           id?: string
@@ -532,7 +532,7 @@ export type Database = {
           adjusted_by?: string | null
           amount_due?: number | null
           amount_paid?: number | null
-          cohort_id?: string
+          cohort_id?: string | null
           created_at?: string | null
           fee_type?: string
           id?: string
@@ -647,9 +647,9 @@ export type Database = {
           bio: string | null
           created_at: string | null
           email: string
-          first_name: string
+          first_name: string | null
           id: string
-          last_name: string
+          last_name: string | null
           middle_name: string | null
           phone: string | null
           phone_number: string | null
@@ -662,9 +662,9 @@ export type Database = {
           bio?: string | null
           created_at?: string | null
           email: string
-          first_name: string
+          first_name?: string | null
           id: string
-          last_name: string
+          last_name?: string | null
           middle_name?: string | null
           phone?: string | null
           phone_number?: string | null
@@ -677,9 +677,9 @@ export type Database = {
           bio?: string | null
           created_at?: string | null
           email?: string
-          first_name?: string
+          first_name?: string | null
           id?: string
-          last_name?: string
+          last_name?: string | null
           middle_name?: string | null
           phone?: string | null
           phone_number?: string | null
@@ -798,7 +798,7 @@ export type Database = {
           approval_token_used: boolean | null
           approved_at: string | null
           bio: string | null
-          cohort_id: string
+          cohort_id: string | null
           created_at: string | null
           date_of_birth: string | null
           educational_background: string | null
@@ -826,7 +826,7 @@ export type Database = {
           approval_token_used?: boolean | null
           approved_at?: string | null
           bio?: string | null
-          cohort_id: string
+          cohort_id?: string | null
           created_at?: string | null
           date_of_birth?: string | null
           educational_background?: string | null
@@ -854,7 +854,7 @@ export type Database = {
           approval_token_used?: boolean | null
           approved_at?: string | null
           bio?: string | null
-          cohort_id?: string
+          cohort_id?: string | null
           created_at?: string | null
           date_of_birth?: string | null
           educational_background?: string | null
@@ -885,14 +885,14 @@ export type Database = {
           {
             foreignKeyName: "students_profile_id_fkey"
             columns: ["profile_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "classmate_directory"
             referencedColumns: ["profile_id"]
           },
           {
             foreignKeyName: "students_profile_id_fkey"
             columns: ["profile_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },

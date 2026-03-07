@@ -49,6 +49,16 @@ interface FormData {
   signatureFullName: string;
 }
 
+const calculateAge = (day: string, month: string, year: string): number | null => {
+  if (!day || !month || !year) return null;
+  const dob = new Date(Number(year), Number(month) - 1, Number(day));
+  const today = new Date();
+  let age = today.getFullYear() - dob.getFullYear();
+  const m = today.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+  return age > 0 ? age : null;
+};
+
 const Register = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -56,8 +66,6 @@ const Register = () => {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [enrollmentOpen, setEnrollmentOpen] = useState(true);
-  const [checkingEnrollment, setCheckingEnrollment] = useState(true);
 
   const [form, setForm] = useState<FormData>({
     firstName: "",
@@ -131,7 +139,9 @@ const Register = () => {
 
     setLoading(true);
     try {
-      // STEP 1 - Supabase Auth SignUp (trigger creates profile automatically)
+      const age = calculateAge(form.dobDay, form.dobMonth, form.dobYear);
+
+      // ONLY supabase.auth.signUp — the DB trigger creates profiles + students rows
       console.log("[Register] Starting signup for:", form.email);
 
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -140,8 +150,14 @@ const Register = () => {
         options: {
           data: {
             full_name: [form.firstName, form.middleName, form.lastName]
-              .filter((name) => name.trim().length > 0)
+              .filter((n) => n.trim().length > 0)
               .join(" "),
+            first_name: form.firstName,
+            last_name: form.lastName,
+            middle_name: form.middleName,
+            phone: form.phone,
+            gender: form.gender || null,
+            age: age ?? null,
           },
         },
       });
@@ -157,22 +173,25 @@ const Register = () => {
       const userId = authData.user.id;
       console.log("[Register] Auth user created:", userId);
 
-      // STEP 2 - Upload passport photo
+      // Upload passport photo (non-blocking — doesn't fail registration)
       if (form.passportPhoto) {
-        const fileExt = form.passportPhoto.name.split(".").pop();
-        const fileName = `${userId}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage
-          .from("avatars")
-          .upload(fileName, form.passportPhoto, { upsert: true });
+        try {
+          const fileExt = form.passportPhoto.name.split(".").pop();
+          const fileName = `${userId}.${fileExt}`;
+          const { error: uploadError } = await supabase.storage
+            .from("avatars")
+            .upload(fileName, form.passportPhoto, { upsert: true });
 
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(fileName);
-          await supabase.from("profiles").update({ avatar_url: urlData.publicUrl }).eq("id", userId);
+          if (!uploadError) {
+            const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(fileName);
+            await supabase.from("profiles").update({ avatar_url: urlData.publicUrl }).eq("id", userId);
+          }
+        } catch (photoErr) {
+          console.warn("[Register] Photo upload failed (non-critical):", photoErr);
         }
       }
 
-      // STEP 3 - Success
-      toast.success("Registration successful! Please complete your profile details after login.");
+      toast.success("Registration successful! Redirecting to your dashboard...");
       await new Promise(resolve => setTimeout(resolve, 1500));
       navigate("/student/dashboard", { replace: true });
     } catch (error: any) {
@@ -232,14 +251,10 @@ const Register = () => {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
                       tabIndex={-1}
                     >
-                      {showPassword ? (
-                        <EyeOff className="h-5 w-5" />
-                      ) : (
-                        <Eye className="h-5 w-5" />
-                      )}
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
                   </div>
                 </div>
@@ -259,14 +274,10 @@ const Register = () => {
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
                       tabIndex={-1}
                     >
-                      {showConfirmPassword ? (
-                        <EyeOff className="h-5 w-5" />
-                      ) : (
-                        <Eye className="h-5 w-5" />
-                      )}
+                      {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
                   </div>
                 </div>

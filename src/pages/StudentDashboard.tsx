@@ -33,8 +33,6 @@ const StudentDashboard = () => {
   const { role, student } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showAnnouncement, setShowAnnouncement] = useState(false);
-  const [latestAnnouncement, setLatestAnnouncement] = useState<any | null>(null);
   const [showProfileCompletion, setShowProfileCompletion] = useState(false);
   const [savingProfileCompletion, setSavingProfileCompletion] = useState(false);
   const [profileCompletionForm, setProfileCompletionForm] = useState({
@@ -72,13 +70,13 @@ const StudentDashboard = () => {
       const cohortId = studentRes.data?.cohort_id || null;
       const admissionStatus = studentRes.data?.admission_status || null;
       const statusUpper = normalizeStatus(admissionStatus);
-      const isPending = statusUpper === "PENDING";
+      const isAdmitted = statusUpper === "ADMITTED" || statusUpper === "APPROVED";
 
-      if (cohortsRes.error) throw cohortsRes.error;
-      setCohortOptions((cohortsRes.data || []) as CohortOption[]);
+      if (cohortsRes.data) {
+        setCohortOptions(cohortsRes.data as CohortOption[]);
+      }
 
       if (studentRes.data) {
-        // If any of these are missing, we show the completion modal
         const hasIncompleteProfile = !studentRes.data.gender || !studentRes.data.age || !studentRes.data.cohort_id;
         setShowProfileCompletion(hasIncompleteProfile);
         setProfileCompletionForm({
@@ -88,30 +86,32 @@ const StudentDashboard = () => {
         });
       }
 
-      // ... [The rest of your existing logic for attendance, assignments, fees, etc.]
-      // Setting defaults for the sake of the snippet
+      // Attendance & assignments — fetch regardless, just default to safe values on empty
       let attendanceRate: number | null = null;
       let pendingAssignments = 0;
       let feeStatus = "N/A";
       let upcomingClasses: DashboardData["upcomingClasses"] = [];
 
       if (studentId) {
-        if (!isPending) {
-          const { data: attendance } = await supabase.from("attendance").select("status").eq("student_id", studentId);
-          if (attendance && attendance.length > 0) {
-            const present = attendance.filter((a) => a.status === "Present").length;
-            attendanceRate = Math.round((present / attendance.length) * 100);
-          }
-          if (cohortId) {
-            const [assignRes, submissionRes] = await Promise.all([
-              supabase.from("assignments").select("id").eq("cohort_id", cohortId),
-              supabase.from("assignment_submissions").select("assignment_id").eq("student_id", studentId),
-            ]);
-            const allIds = new Set((assignRes.data || []).map((a) => a.id));
-            const submittedIds = new Set((submissionRes.data || []).map((s) => s.assignment_id));
-            pendingAssignments = [...allIds].filter((id) => !submittedIds.has(id)).length;
-          }
+        // Attendance — always fetch
+        const { data: attendance } = await supabase.from("attendance").select("status").eq("student_id", studentId);
+        if (attendance && attendance.length > 0) {
+          const present = attendance.filter((a) => a.status === "Present").length;
+          attendanceRate = Math.round((present / attendance.length) * 100);
         }
+
+        // Assignments — only count if admitted and in a cohort
+        if (isAdmitted && cohortId) {
+          const [assignRes, submissionRes] = await Promise.all([
+            supabase.from("assignments").select("id").eq("cohort_id", cohortId),
+            supabase.from("assignment_submissions").select("assignment_id").eq("student_id", studentId),
+          ]);
+          const allIds = new Set((assignRes.data || []).map((a) => a.id));
+          const submittedIds = new Set((submissionRes.data || []).map((s) => s.assignment_id));
+          pendingAssignments = [...allIds].filter((id) => !submittedIds.has(id)).length;
+        }
+
+        // Fees — always fetch
         const { data: fees } = await supabase.from("fees").select("payment_status").eq("student_id", studentId);
         if (fees && fees.length > 0) {
           const statuses = fees.map((f) => f.payment_status);
@@ -121,6 +121,7 @@ const StudentDashboard = () => {
         }
       }
 
+      // Upcoming classes — always fetch for all students
       const today = new Date().toISOString().split("T")[0];
       const { data: schedule } = await supabase.from("schedule").select("date, day, start_time, end_time, courses(title)").gt("date", today).order("date", { ascending: true }).limit(3);
       if (schedule) {
@@ -133,6 +134,7 @@ const StudentDashboard = () => {
         }));
       }
 
+      // ALWAYS call setData so dashboard renders
       setData({
         firstName,
         admissionStatus,
@@ -146,6 +148,17 @@ const StudentDashboard = () => {
 
     } catch (err) {
       console.error("Dashboard load error:", err);
+      // Even on error, set minimal data so the page isn't blank
+      setData({
+        firstName: "Student",
+        admissionStatus: null,
+        attendanceRate: null,
+        totalCourses: 0,
+        pendingAssignments: 0,
+        feeStatus: "N/A",
+        upcomingClasses: [],
+        announcements: [],
+      });
     } finally {
       setLoading(false);
     }
@@ -197,13 +210,13 @@ const StudentDashboard = () => {
     }
   };
 
-  // ... [Keep the rest of your UI JSX as is, ensuring it uses cohortOptions for the dropdown]
-  // (Full UI code truncated for brevity, but use the cohort dropdown block from the 'codex' side of the conflict)
-  
+  const statusUpper = normalizeStatus(data?.admissionStatus);
+  const isPending = statusUpper === "PENDING";
+
   return (
     <StudentLayout admissionStatus={data?.admissionStatus}>
-        {/* Profile Completion Dialog */}
-        <Dialog open={showProfileCompletion} onOpenChange={() => undefined}>
+      {/* Profile Completion Dialog */}
+      <Dialog open={showProfileCompletion} onOpenChange={() => undefined}>
         <DialogContent onEscapeKeyDown={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Complete your profile</DialogTitle>
@@ -212,7 +225,7 @@ const StudentDashboard = () => {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Gender</Label>
-              <select className="w-full border p-2 rounded" value={profileCompletionForm.gender} onChange={(e) => setProfileCompletionForm(p => ({...p, gender: e.target.value}))}>
+              <select className="w-full border border-border bg-background p-2 rounded" value={profileCompletionForm.gender} onChange={(e) => setProfileCompletionForm(p => ({...p, gender: e.target.value}))}>
                 <option value="">Select gender</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
@@ -224,22 +237,126 @@ const StudentDashboard = () => {
             </div>
             <div className="space-y-2">
               <Label>Cohort</Label>
-              <select className="w-full border p-2 rounded" value={profileCompletionForm.cohort_id} onChange={(e) => setProfileCompletionForm(p => ({...p, cohort_id: e.target.value}))}>
+              <select className="w-full border border-border bg-background p-2 rounded" value={profileCompletionForm.cohort_id} onChange={(e) => setProfileCompletionForm(p => ({...p, cohort_id: e.target.value}))}>
                 <option value="">Select cohort</option>
                 {cohortOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <Button className="w-full" onClick={saveProfileCompletion} disabled={savingProfileCompletion}>
-              {savingProfileCompletion ? "Saving..." : "Save and continue"}
+              {savingProfileCompletion ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : "Save and continue"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
-      
-      {/* ... [Rest of your Dashboard UI] */}
-      <div className="p-6">
-          <h1>Welcome back, {data?.firstName} 👋</h1>
-          {/* Dashboard cards, classes, and announcements would go here */}
+
+      <div className="space-y-6">
+        {/* Welcome */}
+        {loading ? (
+          <Skeleton className="h-10 w-64" />
+        ) : (
+          <h1 className="text-2xl font-bold text-foreground">Welcome back, {data?.firstName} 👋</h1>
+        )}
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Attendance</CardTitle>
+              <CalendarCheck className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {loading ? <Skeleton className="h-7 w-16" /> : (data?.attendanceRate != null ? `${data.attendanceRate}%` : "—")}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Courses</CardTitle>
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {loading ? <Skeleton className="h-7 w-16" /> : data?.totalCourses ?? 0}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Pending Tasks</CardTitle>
+              <ClipboardList className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {loading ? <Skeleton className="h-7 w-16" /> : (isPending ? "—" : data?.pendingAssignments ?? 0)}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Fees</CardTitle>
+              <CreditCard className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {loading ? <Skeleton className="h-7 w-16" /> : data?.feeStatus ?? "N/A"}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Upcoming Classes — always visible */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Calendar className="h-4 w-4" /> Upcoming Classes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
+            ) : data?.upcomingClasses && data.upcomingClasses.length > 0 ? (
+              <div className="space-y-3">
+                {data.upcomingClasses.map((c, i) => (
+                  <div key={i} className="flex items-center justify-between border-b border-border pb-2 last:border-0">
+                    <div>
+                      <p className="font-medium text-sm text-foreground">{c.course_title}</p>
+                      <p className="text-xs text-muted-foreground">{c.day || c.date}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{c.start_time} – {c.end_time}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No upcoming classes scheduled.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Announcements — always visible */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Megaphone className="h-4 w-4" /> Announcements
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
+            ) : data?.announcements && data.announcements.length > 0 ? (
+              <div className="space-y-3">
+                {data.announcements.map((a, i) => (
+                  <div key={i} className="border-b border-border pb-2 last:border-0">
+                    <p className="font-medium text-sm text-foreground">{a.title}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{a.body}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No announcements at this time.</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </StudentLayout>
   );
