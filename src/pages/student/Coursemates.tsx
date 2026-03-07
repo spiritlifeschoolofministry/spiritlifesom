@@ -137,7 +137,7 @@ const Coursemates = () => {
   // Handle search
   useEffect(() => {
     const filtered = classmates.filter((classmate) =>
-      classmate.display_name.toLowerCase().includes(searchQuery.toLowerCase())
+      (classmate?.display_name ?? '').toLowerCase().includes(searchQuery.toLowerCase())
     );
     setFilteredClassmates(filtered);
   }, [searchQuery, classmates]);
