@@ -43,7 +43,7 @@ const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (role && role !== "admin" && role !== "teacher") {
+    if (role && role.toLowerCase() !== "admin" && role.toLowerCase() !== "teacher") {
       toast.error("Unauthorized access");
       navigate("/student/dashboard");
     }
