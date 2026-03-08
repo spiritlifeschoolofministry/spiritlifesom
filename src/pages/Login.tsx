@@ -161,7 +161,12 @@ const Login = () => {
             </Button>
           </form>
 
-          <p className="text-center text-sm text-muted-foreground mt-6">
+          <p className="text-center text-sm text-muted-foreground mt-4">
+            <Link to="/forgot-password" className="text-primary font-medium hover:underline">
+              Forgot your password?
+            </Link>
+          </p>
+          <p className="text-center text-sm text-muted-foreground mt-2">
             New student?{" "}
             <Link to="/register" className="text-primary font-medium hover:underline">
               Register here
