@@ -262,7 +262,7 @@ const AdminAssignments = () => {
         <Card><CardContent className="pt-6"><p className="text-center text-muted-foreground py-8">No assignments created yet</p></CardContent></Card>
       ) : (
         <Card>
-          <CardHeader><CardTitle>All Assignments ({assignments.length})</CardTitle></CardHeader>
+          <CardHeader><CardTitle>All Tasks ({assignments.length})</CardTitle></CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <Table>
