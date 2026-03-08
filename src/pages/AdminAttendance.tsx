@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import {
   CalendarCheck,
   AlertTriangle,
@@ -27,6 +28,7 @@ import {
   XCircle,
   Search,
   Loader2,
+  Power,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -67,6 +69,8 @@ const AdminAttendance = () => {
   const [search, setSearch] = useState("");
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [bulkVerifying, setBulkVerifying] = useState(false);
+  const [classTodayEnabled, setClassTodayEnabled] = useState(false);
+  const [togglingClass, setTogglingClass] = useState(false);
   const [detailStudentId, setDetailStudentId] = useState<string | null>(null);
   const [detailStudentName, setDetailStudentName] = useState<string>("");
   const [detailCohortId, setDetailCohortId] = useState<string | null>(null);
@@ -75,6 +79,66 @@ const AdminAttendance = () => {
   const [newDate, setNewDate] = useState<string>("");
   const [newStatus, setNewStatus] = useState<string>("PRESENT");
   const [newVerified, setNewVerified] = useState<boolean>(false);
+
+  const loadClassTodaySetting = useCallback(async () => {
+    try {
+      const today = todayDateString();
+      const { data } = await supabase
+        .from("system_settings")
+        .select("value")
+        .eq("key", "class_today")
+        .maybeSingle();
+      if (data?.value) {
+        const val = data.value as { date?: string; enabled?: boolean };
+        setClassTodayEnabled(val.date === today && val.enabled === true);
+      } else {
+        setClassTodayEnabled(false);
+      }
+    } catch (err) {
+      console.error("[AdminAttendance] Class today setting error:", err);
+    }
+  }, []);
+
+  const toggleClassToday = async (enabled: boolean) => {
+    setTogglingClass(true);
+    try {
+      const today = todayDateString();
+      const newValue = { date: today, enabled };
+
+      const { error } = await supabase
+        .from("system_settings")
+        .upsert({ key: "class_today", value: newValue as unknown as import("@/integrations/supabase/types").Json, updated_at: new Date().toISOString() }, { onConflict: "key" });
+      if (error) throw error;
+
+      // If enabling, ensure a schedule entry exists for today so students can check in
+      if (enabled) {
+        const { data: existingSchedule } = await supabase
+          .from("schedule")
+          .select("id")
+          .eq("date", today)
+          .eq("activity_type", "Lecture")
+          .is("course_id", null)
+          .limit(1);
+
+        if (!existingSchedule || existingSchedule.length === 0) {
+          await supabase.from("schedule").insert({
+            date: today,
+            activity_type: "Lecture",
+            description: "Class session",
+            day: new Date().toLocaleDateString("en-US", { weekday: "long" }),
+          });
+        }
+      }
+
+      setClassTodayEnabled(enabled);
+      toast.success(enabled ? "Class enabled for today — students can now check in" : "Class disabled for today");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to toggle class";
+      toast.error(msg);
+    } finally {
+      setTogglingClass(false);
+    }
+  };
 
   const loadSummary = useCallback(async () => {
     try {
@@ -208,9 +272,9 @@ const AdminAttendance = () => {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    await Promise.all([loadSummary(), loadPendingQueue(), loadStudentStats()]);
+    await Promise.all([loadClassTodaySetting(), loadSummary(), loadPendingQueue(), loadStudentStats()]);
     setLoading(false);
-  }, [loadSummary, loadPendingQueue, loadStudentStats]);
+  }, [loadClassTodaySetting, loadSummary, loadPendingQueue, loadStudentStats]);
 
   useEffect(() => {
     loadAll();
@@ -433,6 +497,29 @@ const AdminAttendance = () => {
           Verify check-ins and view student attendance statistics.
         </p>
       </div>
+
+      <Card className="shadow-[var(--shadow-card)] border-border">
+        <CardContent className="p-5 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${classTodayEnabled ? 'bg-emerald-50' : 'bg-muted'}`}>
+              <Power className={`w-6 h-6 ${classTodayEnabled ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Class Today</p>
+              <p className="text-xs text-muted-foreground">
+                {classTodayEnabled
+                  ? "Students can check in for today's class"
+                  : "Check-in is disabled — toggle ON to allow students to mark attendance"}
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={classTodayEnabled}
+            onCheckedChange={toggleClassToday}
+            disabled={togglingClass}
+          />
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="shadow-[var(--shadow-card)] border-border">

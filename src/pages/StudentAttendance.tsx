@@ -41,20 +41,18 @@ const StudentAttendance = () => {
     try {
       const today = todayDateString();
 
-      const [historyRes, todaySchedulesRes, todayAttendanceRes] = await Promise.all([
+      // Check if admin has enabled class for today via system_settings
+      const [historyRes, classSettingRes, todayAttendanceRes] = await Promise.all([
         supabase
           .from("attendance")
           .select("id, marked_at, status, is_verified")
           .eq("student_id", student.id)
           .order("marked_at", { ascending: false }),
-        student.cohort_id
-          ? supabase
-              .from("schedule")
-              .select("id, date, courses!inner(cohort_id)")
-              .eq("date", today)
-              .eq("courses.cohort_id", student.cohort_id)
-              .limit(1)
-          : { data: null, error: null },
+        supabase
+          .from("system_settings")
+          .select("value")
+          .eq("key", "class_today")
+          .maybeSingle(),
         supabase
           .from("attendance")
           .select("id, marked_at, is_verified")
@@ -66,10 +64,20 @@ const StudentAttendance = () => {
       const rows = (historyRes.data || []) as AttendanceRow[];
       setHistory(rows);
 
-      const scheduleId =
-        Array.isArray(todaySchedulesRes.data) && todaySchedulesRes.data.length > 0
-          ? (todaySchedulesRes.data[0] as { id: string }).id
-          : null;
+      // Check if class is enabled for today
+      let scheduleId: string | null = null;
+      const classSetting = classSettingRes.data?.value as { date?: string; enabled?: boolean } | null;
+      const classEnabledToday = classSetting?.date === today && classSetting?.enabled === true;
+
+      if (classEnabledToday) {
+        // Find schedule entry for today (created by admin toggle)
+        const { data: scheduleData } = await supabase
+          .from("schedule")
+          .select("id")
+          .eq("date", today)
+          .limit(1);
+        scheduleId = scheduleData && scheduleData.length > 0 ? scheduleData[0].id : null;
+      }
       setTodayScheduleId(scheduleId);
 
       const attendances = todayAttendanceRes.data || [];
@@ -183,7 +191,7 @@ const StudentAttendance = () => {
           <CardContent>
             {!todayScheduleId && !checkedInToday && (
               <p className="text-sm text-muted-foreground mb-4">
-                No class scheduled for today. Check-in is not available.
+                No class has been set for today. Check-in is not available.
               </p>
             )}
             <Button
