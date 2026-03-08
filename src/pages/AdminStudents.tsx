@@ -300,6 +300,60 @@ const AdminStudents = () => {
     }
   };
 
+  const openEmailForStudent = (student: Student) => {
+    setEmailTargets([student]);
+    setEmailSubject("");
+    setEmailBody("");
+    setShowEmailDialog(true);
+  };
+
+  const openBulkEmail = () => {
+    const selected = filteredStudents.filter((s) => selectedIds.has(s.id));
+    if (selected.length === 0) {
+      toast.error("No students selected");
+      return;
+    }
+    setEmailTargets(selected);
+    setEmailSubject("");
+    setEmailBody("");
+    setShowEmailDialog(true);
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailSubject.trim() || !emailBody.trim()) {
+      toast.error("Subject and message body are required");
+      return;
+    }
+
+    try {
+      setSendingEmail(true);
+      const recipients = emailTargets.map((s) => ({
+        email: s.profile.email,
+        name: `${s.profile.first_name} ${s.profile.last_name}`.trim(),
+      }));
+
+      const { data, error } = await supabase.functions.invoke("send-student-email", {
+        body: { recipients, subject: emailSubject, body: emailBody },
+      });
+
+      if (error) throw error;
+
+      if (data.failCount > 0) {
+        toast.warning(`${data.successCount} sent, ${data.failCount} failed`);
+      } else {
+        toast.success(`Email sent to ${data.successCount} student(s)`);
+      }
+
+      setShowEmailDialog(false);
+      setEmailTargets([]);
+    } catch (err) {
+      console.error("Send email error:", err);
+      toast.error("Failed to send email. Check console for details.");
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   const getStatusForUI = (status: string | null) => {
     return DB_TO_UI_STATUS[(status || "").toUpperCase()] || "Pending";
   };
