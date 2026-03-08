@@ -163,9 +163,8 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
           <button className="md:hidden text-foreground" onClick={() => setSidebarOpen(!sidebarOpen)}>
             {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
-          <Link to="/student/dashboard" className="flex items-center gap-2 text-primary font-bold text-lg tracking-tight">
-            <img src="/images/logo.png" alt="SLSM Logo" className="h-8 w-8 object-contain" />
-            <span className="hidden sm:inline">SLSM</span>
+          <Link to="/student/dashboard" className="text-primary font-bold text-lg tracking-tight hidden sm:block">
+            SLSM
           </Link>
         </div>
         <h1 className="text-sm font-semibold text-foreground tracking-wide">Student Portal</h1>

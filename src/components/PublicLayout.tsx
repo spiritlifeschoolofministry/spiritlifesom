@@ -105,10 +105,7 @@ const PublicLayout = () => {
       <footer className="bg-[hsl(0,0%,5%)] text-primary-foreground/80 pt-12 pb-6 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto space-y-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-            <span className="flex items-center gap-2 font-bold text-lg text-primary-foreground">
-              <img src="/images/logo.png" alt="SLSM Logo" className="h-8 w-8 object-contain" />
-              Spirit Life SOM
-            </span>
+            <span className="font-bold text-lg text-primary-foreground">Spirit Life SOM</span>
             <div className="flex flex-wrap justify-center gap-4 text-sm">
               {navLinks.map((l) => (
                 <Link key={l.label} to={l.to} className="hover:text-primary-foreground transition-colors">
