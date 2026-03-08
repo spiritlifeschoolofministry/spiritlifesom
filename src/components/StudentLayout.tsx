@@ -175,6 +175,14 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
           </p>
         </div>
       )}
+      {isGraduate && (
+        <div className="bg-primary/10 border-b border-primary/30 text-primary px-4 py-3 flex items-center gap-3 shrink-0">
+          <GraduationCap className="w-5 h-5 shrink-0" />
+          <p className="text-sm font-medium">
+            🎓 Congratulations! You have graduated from Spirit Life School of Ministry. Your records are available for reference.
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - desktop */}
