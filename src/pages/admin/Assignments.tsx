@@ -50,8 +50,12 @@ const AdminAssignments = () => {
   const [editDueDate, setEditDueDate] = useState('');
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<AssignmentFormData>({
-    defaultValues: { title: '', description: '', due_date: '', cohort_id: '', course_id: '' },
+    defaultValues: { title: '', description: '', due_date: '', cohort_id: '', course_id: '', category: 'Assignment' },
   });
+
+  const selectedCohort = watch('cohort_id');
+  const selectedCourse = watch('course_id');
+  const selectedCategory = watch('category');
 
   const selectedCohort = watch('cohort_id');
   const selectedCourse = watch('course_id');
