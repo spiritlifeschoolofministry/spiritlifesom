@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -31,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, MoreHorizontal, GraduationCap, Loader2, Trash2, AlertTriangle } from "lucide-react";
+import { Search, MoreHorizontal, GraduationCap, Loader2, Trash2, AlertTriangle, Mail, Send } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -91,6 +93,13 @@ const AdminStudents = () => {
   // Delete state
   const [deleteTarget, setDeleteTarget] = useState<Student | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Email state
+  const [emailTargets, setEmailTargets] = useState<Student[]>([]);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     loadStudents();
@@ -291,6 +300,60 @@ const AdminStudents = () => {
     }
   };
 
+  const openEmailForStudent = (student: Student) => {
+    setEmailTargets([student]);
+    setEmailSubject("");
+    setEmailBody("");
+    setShowEmailDialog(true);
+  };
+
+  const openBulkEmail = () => {
+    const selected = filteredStudents.filter((s) => selectedIds.has(s.id));
+    if (selected.length === 0) {
+      toast.error("No students selected");
+      return;
+    }
+    setEmailTargets(selected);
+    setEmailSubject("");
+    setEmailBody("");
+    setShowEmailDialog(true);
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailSubject.trim() || !emailBody.trim()) {
+      toast.error("Subject and message body are required");
+      return;
+    }
+
+    try {
+      setSendingEmail(true);
+      const recipients = emailTargets.map((s) => ({
+        email: s.profile.email,
+        name: `${s.profile.first_name} ${s.profile.last_name}`.trim(),
+      }));
+
+      const { data, error } = await supabase.functions.invoke("send-student-email", {
+        body: { recipients, subject: emailSubject, body: emailBody },
+      });
+
+      if (error) throw error;
+
+      if (data.failCount > 0) {
+        toast.warning(`${data.successCount} sent, ${data.failCount} failed`);
+      } else {
+        toast.success(`Email sent to ${data.successCount} student(s)`);
+      }
+
+      setShowEmailDialog(false);
+      setEmailTargets([]);
+    } catch (err) {
+      console.error("Send email error:", err);
+      toast.error("Failed to send email. Check console for details.");
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   const getStatusForUI = (status: string | null) => {
     return DB_TO_UI_STATUS[(status || "").toUpperCase()] || "Pending";
   };
@@ -312,13 +375,23 @@ const AdminStudents = () => {
           <p className="text-muted-foreground text-sm mt-1">View and manage all students</p>
         </div>
         {selectedIds.size > 0 && (
-          <Button
-            onClick={() => setShowBulkGraduateDialog(true)}
-            className="gap-2"
-          >
-            <GraduationCap className="h-4 w-4" />
-            Graduate Selected ({selectedIds.size})
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={openBulkEmail}
+              className="gap-2"
+            >
+              <Mail className="h-4 w-4" />
+              Email Selected ({selectedIds.size})
+            </Button>
+            <Button
+              onClick={() => setShowBulkGraduateDialog(true)}
+              className="gap-2"
+            >
+              <GraduationCap className="h-4 w-4" />
+              Graduate Selected ({selectedIds.size})
+            </Button>
+          </div>
         )}
       </div>
 
@@ -431,7 +504,10 @@ const AdminStudents = () => {
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem onClick={() => navigate(`/admin/students/${student.id}`)}>View Details</DropdownMenuItem>
-                              <DropdownMenuItem>Send Email</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openEmailForStudent(student)}>
+                                <Mail className="mr-2 h-4 w-4" />
+                                Send Email
+                              </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
                                 onClick={() => setDeleteTarget(student)}
@@ -522,6 +598,72 @@ const AdminStudents = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Email Compose Dialog */}
+      <Dialog open={showEmailDialog} onOpenChange={(open) => !open && setShowEmailDialog(false)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-primary" />
+              {emailTargets.length === 1
+                ? `Email ${emailTargets[0].profile.first_name} ${emailTargets[0].profile.last_name}`
+                : `Email ${emailTargets.length} Students`}
+            </DialogTitle>
+            <DialogDescription>
+              {emailTargets.length === 1
+                ? `Sending to: ${emailTargets[0].profile.email}`
+                : `Sending to ${emailTargets.length} selected students`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {emailTargets.length > 1 && (
+            <div className="max-h-24 overflow-y-auto border border-border rounded-md p-2 text-xs text-muted-foreground space-y-0.5">
+              {emailTargets.map((s) => (
+                <p key={s.id}>• {s.profile.first_name} {s.profile.last_name} ({s.profile.email})</p>
+              ))}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="email-subject">Subject</Label>
+              <Input
+                id="email-subject"
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+                placeholder="Email subject..."
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="email-body">Message</Label>
+              <Textarea
+                id="email-body"
+                value={emailBody}
+                onChange={(e) => setEmailBody(e.target.value)}
+                placeholder="Write your message here..."
+                rows={6}
+                className="mt-1"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-end pt-4 border-t">
+            <Button variant="outline" onClick={() => setShowEmailDialog(false)} disabled={sendingEmail}>
+              Cancel
+            </Button>
+            <Button
+              variant="flame"
+              onClick={handleSendEmail}
+              disabled={sendingEmail || !emailSubject.trim() || !emailBody.trim()}
+              className="gap-2"
+            >
+              {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {sendingEmail ? "Sending..." : `Send${emailTargets.length > 1 ? ` to ${emailTargets.length}` : ""}`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
