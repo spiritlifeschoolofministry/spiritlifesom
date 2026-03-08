@@ -86,6 +86,7 @@ const AdminMaterials = () => {
         title: data.title,
         description: data.description || null,
         file_url: urlData.publicUrl,
+        material_type: data.material_type || null,
         is_paid: false,
         uploaded_by: null,
       });
