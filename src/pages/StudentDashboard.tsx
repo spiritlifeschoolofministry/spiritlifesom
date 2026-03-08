@@ -84,6 +84,7 @@ const StudentDashboard = () => {
       const admissionStatus = studentRecord?.admission_status || null;
       const statusUpper = normalizeStatus(admissionStatus);
       const isAdmitted = statusUpper === "ADMITTED" || statusUpper === "APPROVED";
+      const isGraduate = statusUpper === "GRADUATE";
 
       if (cohortsRes.data) {
         setCohortOptions(cohortsRes.data as CohortOption[]);
