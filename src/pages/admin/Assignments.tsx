@@ -94,6 +94,7 @@ const AdminAssignments = () => {
         due_date: data.due_date ? new Date(data.due_date).toISOString() : null,
         cohort_id: data.cohort_id,
         course_id: data.course_id,
+        category: data.category || 'Assignment',
       });
       if (error) throw error;
       toast.success('Assignment created');
