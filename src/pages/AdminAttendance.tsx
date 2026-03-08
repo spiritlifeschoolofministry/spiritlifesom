@@ -543,10 +543,13 @@ const AdminAttendance = () => {
   };
 
   const filteredStats = stats.filter(
-    (s) =>
-      !search ||
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.cohort_name.toLowerCase().includes(search.toLowerCase())
+    (s) => {
+      const matchesSearch = !search ||
+        s.name.toLowerCase().includes(search.toLowerCase()) ||
+        s.cohort_name.toLowerCase().includes(search.toLowerCase());
+      const matchesCohort = statsCohortFilter === "all" || s.cohort_name === cohorts.find(c => c.id === statsCohortFilter)?.name;
+      return matchesSearch && matchesCohort;
+    }
   );
 
   const pctColor = (pct: number) => {
