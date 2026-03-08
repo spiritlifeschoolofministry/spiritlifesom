@@ -256,6 +256,41 @@ const AdminStudents = () => {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      setBulkDeleting(true);
+      const ids = Array.from(selectedIds);
+      const profileIds = students
+        .filter((s) => selectedIds.has(s.id) && s.profile_id)
+        .map((s) => s.profile_id as string);
+
+      // Delete related records for all selected students
+      await supabase.from("payments").delete().in("student_id", ids);
+      await supabase.from("assignment_submissions").delete().in("student_id", ids);
+      await supabase.from("attendance").delete().in("student_id", ids);
+      await supabase.from("fees").delete().in("student_id", ids);
+
+      const { error } = await supabase.from("students").delete().in("id", ids);
+      if (error) throw error;
+
+      // Delete profiles
+      if (profileIds.length > 0) {
+        await supabase.from("profiles").delete().in("id", profileIds);
+      }
+
+      setStudents((prev) => prev.filter((s) => !selectedIds.has(s.id)));
+      toast.success(`${ids.length} student(s) deleted`);
+      setSelectedIds(new Set());
+      setShowBulkDeleteDialog(false);
+    } catch (err) {
+      console.error("Bulk delete error:", err);
+      toast.error("Failed to delete students");
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const handleBulkGraduate = async () => {
     if (selectedIds.size === 0) return;
     try {
