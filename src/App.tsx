@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import PublicLayout from "./components/PublicLayout";
 import AdminLayout from "./components/AdminLayout";
 import { SessionManagerProvider } from "./components/SessionManagerProvider";
+import ScrollToTop from "./components/ScrollToTop";
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Courses from "./pages/Courses";
@@ -56,6 +57,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <ScrollToTop />
         <BrowserRouter>
           <SessionManagerProvider>
         <Routes>
