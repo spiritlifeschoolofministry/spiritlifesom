@@ -43,6 +43,7 @@ const NAV_ITEMS = [
   { label: "Fees", icon: CreditCard, path: "/student/fees", restrictedWhenPending: false },
   { label: "Announcements", icon: Bell, path: "/student/announcements", restrictedWhenPending: false },
   { label: "Calendar", icon: CalendarDays, path: "/student/calendar", restrictedWhenPending: false },
+  { label: "Graduates", icon: GraduationCap, path: "/student/graduates", restrictedWhenPending: false },
   { label: "Profile", icon: UserCircle, path: "/student/profile", restrictedWhenPending: false },
 ];
 

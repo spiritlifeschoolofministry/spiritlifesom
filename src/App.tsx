@@ -79,6 +79,7 @@ const App = () => (
           <Route path="/student/fees" element={<ProtectedRoute><StudentFees /></ProtectedRoute>} />
           <Route path="/student/announcements" element={<ProtectedRoute><StudentAnnouncements /></ProtectedRoute>} />
           <Route path="/student/calendar" element={<ProtectedRoute><StudentCalendar /></ProtectedRoute>} />
+          <Route path="/student/graduates" element={<ProtectedRoute><Graduates /></ProtectedRoute>} />
 
           {/* Admin portal */}
           <Route element={<AdminLayout />}>
