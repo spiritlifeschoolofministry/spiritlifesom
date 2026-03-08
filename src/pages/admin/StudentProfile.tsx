@@ -275,8 +275,6 @@ const AdminStudentProfile = () => {
                   { label: "Date of Birth", value: student.date_of_birth ? new Date(student.date_of_birth).toLocaleDateString() : null },
                   { label: "Marital Status", value: student.marital_status },
                   { label: "Address", value: student.address },
-                  { label: "Preferred Language", value: student.preferred_language },
-                  { label: "Education", value: student.educational_background },
                   { label: "Born Again", value: student.is_born_again ? "Yes" : "No" },
                   { label: "Discovered Ministry", value: student.has_discovered_ministry ? "Yes" : "No" },
                   { label: "Joined", value: student.created_at ? new Date(student.created_at).toLocaleDateString() : null },
@@ -305,6 +303,28 @@ const AdminStudentProfile = () => {
 
         <TabsContent value="academic">
           <div className="space-y-4">
+            {/* Academic Profile */}
+            <Card className="shadow-[var(--shadow-card)] border-border">
+              <CardHeader><CardTitle className="text-base flex items-center gap-2"><GraduationCap className="w-4 h-4" /> Academic Profile</CardTitle></CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4">
+                  {[
+                    { label: "Learning Mode", value: student.learning_mode },
+                    { label: "Preferred Language", value: student.preferred_language },
+                    { label: "Educational Background", value: student.educational_background },
+                    { label: "Cohort", value: student.cohort?.name },
+                    { label: "Student Code", value: student.student_code },
+                    { label: "Admission Status", value: student.admission_status },
+                  ].map(item => (
+                    <div key={item.label} className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground font-medium">{item.label}</p>
+                      <p className="text-sm font-medium text-foreground capitalize">{item.value || "—"}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Attendance */}
             <Card className="shadow-[var(--shadow-card)] border-border">
               <CardHeader><CardTitle className="text-base flex items-center gap-2"><ClipboardCheck className="w-4 h-4" /> Attendance</CardTitle></CardHeader>
