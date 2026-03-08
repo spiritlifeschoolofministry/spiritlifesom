@@ -66,6 +66,24 @@ const Register = () => {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [acceptingApplications, setAcceptingApplications] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkAdmissions = async () => {
+      try {
+        const { data } = await supabase.from('system_settings').select('value').eq('key', 'accepting_applications').single();
+        if (data) {
+          const val = data.value;
+          setAcceptingApplications(val === true || val === 'true');
+        } else {
+          setAcceptingApplications(true);
+        }
+      } catch {
+        setAcceptingApplications(true);
+      }
+    };
+    checkAdmissions();
+  }, []);
 
   const [form, setForm] = useState<FormData>({
     firstName: "",
