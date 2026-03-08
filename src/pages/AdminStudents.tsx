@@ -40,6 +40,7 @@ import {
   AlertTriangle, Mail, Send, Users, UserCheck, Clock, XCircle, Eye, ChevronRight, Download,
 } from "lucide-react";
 import { toast } from "sonner";
+import { downloadCSV } from "@/lib/csv-export";
 import {
   DropdownMenu,
   DropdownMenuContent,
