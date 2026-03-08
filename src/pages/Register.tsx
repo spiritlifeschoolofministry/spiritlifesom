@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, Upload } from "lucide-react";
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, Upload, Lock } from "lucide-react";
 import { format } from "date-fns";
 
 import { toast } from "sonner";
