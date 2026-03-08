@@ -406,7 +406,7 @@ const AdminAttendance = () => {
     setDetailLoading(true);
     setDetailHistory([]);
     setNewDate("");
-    setNewStatus("PRESENT");
+    setNewStatus("Present");
     setNewVerified(false);
     try {
       const [{ data: studentData, error: studentError }, { data, error }] =
