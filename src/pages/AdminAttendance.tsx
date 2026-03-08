@@ -498,6 +498,29 @@ const AdminAttendance = () => {
         </p>
       </div>
 
+      <Card className="shadow-[var(--shadow-card)] border-border">
+        <CardContent className="p-5 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${classTodayEnabled ? 'bg-emerald-50' : 'bg-muted'}`}>
+              <Power className={`w-6 h-6 ${classTodayEnabled ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Class Today</p>
+              <p className="text-xs text-muted-foreground">
+                {classTodayEnabled
+                  ? "Students can check in for today's class"
+                  : "Check-in is disabled — toggle ON to allow students to mark attendance"}
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={classTodayEnabled}
+            onCheckedChange={toggleClassToday}
+            disabled={togglingClass}
+          />
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="shadow-[var(--shadow-card)] border-border">
           <CardContent className="p-5 flex items-center gap-4">
