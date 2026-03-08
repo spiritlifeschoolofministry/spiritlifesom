@@ -177,8 +177,18 @@ const StudentAssignments = () => {
                           </a>
                         </Button>
                       )}
+                      {assignment.submission.grade != null && (
+                        <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded">
+                          <p className="text-sm font-semibold text-emerald-800">
+                            Score: {assignment.submission.grade}/{assignment.max_points || 100}
+                            <span className="ml-2 text-xs font-normal text-emerald-600">
+                              ({Math.round((assignment.submission.grade / (assignment.max_points || 100)) * 100)}%)
+                            </span>
+                          </p>
+                        </div>
+                      )}
                       {assignment.submission.feedback && (
-                        <div className="mt-3 p-2 bg-white rounded text-sm">
+                        <div className="mt-2 p-2 bg-white rounded text-sm">
                           <p className="font-medium">Feedback:</p>
                           <p className="text-muted-foreground">{assignment.submission.feedback}</p>
                         </div>
