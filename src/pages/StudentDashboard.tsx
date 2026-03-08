@@ -35,7 +35,7 @@ const EMPTY_DATA: DashboardData = {
   totalCourses: 0,
   pendingAssignments: 0,
   feeStatus: "N/A",
-  upcomingClasses: [],
+  upcomingEvents: [],
   announcements: [],
 };
 
