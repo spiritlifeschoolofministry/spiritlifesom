@@ -410,7 +410,7 @@ const AdminAssignments = () => {
           </CardContent>
         </Card>
       )})()}
-  );
+    </div>
 };
 
 export default AdminAssignments;

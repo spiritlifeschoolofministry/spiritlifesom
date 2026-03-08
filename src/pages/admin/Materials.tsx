@@ -271,6 +271,7 @@ const AdminMaterials = () => {
           );
           })()}
         </CardContent>
+      </Card>
     </div>
   );
 };
