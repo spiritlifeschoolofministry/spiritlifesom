@@ -33,6 +33,7 @@ const AdminMaterials = () => {
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
   const [isPinningId, setIsPinningId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [cohortFilter, setCohortFilter] = useState('all');
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<UploadForm>({
     defaultValues: { title: '', description: '', cohort_id: '', course_id: '', material_type: '' },
