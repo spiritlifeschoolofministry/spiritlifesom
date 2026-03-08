@@ -170,6 +170,7 @@ export type Database = {
       }
       assignments: {
         Row: {
+          category: string
           cohort_id: string
           course_id: string
           created_at: string | null
@@ -182,6 +183,7 @@ export type Database = {
           title: string
         }
         Insert: {
+          category?: string
           cohort_id: string
           course_id: string
           created_at?: string | null
@@ -194,6 +196,7 @@ export type Database = {
           title: string
         }
         Update: {
+          category?: string
           cohort_id?: string
           course_id?: string
           created_at?: string | null
