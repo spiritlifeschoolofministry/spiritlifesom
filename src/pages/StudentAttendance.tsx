@@ -191,7 +191,7 @@ const StudentAttendance = () => {
           <CardContent>
             {!todayScheduleId && !checkedInToday && (
               <p className="text-sm text-muted-foreground mb-4">
-                No class scheduled for today. Check-in is not available.
+                No class has been set for today. Check-in is not available.
               </p>
             )}
             <Button
