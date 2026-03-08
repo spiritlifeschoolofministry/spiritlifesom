@@ -38,10 +38,10 @@ const StudentFees = () => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
 
-  const { register, handleSubmit, formState: { errors }, reset, watch } = useForm<SubmitPaymentFormData>({
-    defaultValues: { fee_type: '', amount: '', notes: '' },
+  const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<SubmitPaymentFormData>({
+    defaultValues: { fee_id: '', amount: '', notes: '' },
   });
-  const selectedFeeType = watch('fee_type');
+  const selectedFeeId = watch('fee_id');
 
   useEffect(() => {
     const fetchData = async () => {
