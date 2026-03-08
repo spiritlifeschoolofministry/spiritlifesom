@@ -48,6 +48,7 @@ const AdminAssignments = () => {
   const [gradingScore, setGradingScore] = useState<string>('');
   const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
   const [editDueDate, setEditDueDate] = useState('');
+  const [cohortFilter, setCohortFilter] = useState('all');
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<AssignmentFormData>({
     defaultValues: { title: '', description: '', due_date: '', cohort_id: '', course_id: '', category: 'Assignment' },
@@ -258,11 +259,26 @@ const AdminAssignments = () => {
         </Dialog>
       </div>
 
-      {assignments.length === 0 ? (
-        <Card><CardContent className="pt-6"><p className="text-center text-muted-foreground py-8">No assignments created yet</p></CardContent></Card>
+      {(() => {
+        const filteredAssignments = cohortFilter === 'all' ? assignments : assignments.filter(a => a.cohort_id === cohortFilter);
+        return filteredAssignments.length === 0 ? (
+        <Card><CardContent className="pt-6"><p className="text-center text-muted-foreground py-8">No tasks found{cohortFilter !== 'all' ? ' for this cohort' : ''}</p></CardContent></Card>
       ) : (
         <Card>
-          <CardHeader><CardTitle>All Tasks ({assignments.length})</CardTitle></CardHeader>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <CardTitle>All Tasks ({filteredAssignments.length})</CardTitle>
+              <Select value={cohortFilter} onValueChange={setCohortFilter}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Filter by cohort" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Cohorts</SelectItem>
+                  {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <Table>
@@ -276,7 +292,7 @@ const AdminAssignments = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {assignments.map((assignment) => {
+                  {filteredAssignments.map((assignment) => {
                     const dueDate = assignment.due_date ? new Date(assignment.due_date) : null;
                     return (
                       <TableRow key={assignment.id}>
@@ -392,7 +408,7 @@ const AdminAssignments = () => {
             </div>
           </CardContent>
         </Card>
-      )}
+      )})()}
     </div>
   );
 };

@@ -86,6 +86,7 @@ const AdminAttendance = () => {
   const [todayTurnout, setTodayTurnout] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [statsCohortFilter, setStatsCohortFilter] = useState("all");
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [bulkVerifying, setBulkVerifying] = useState(false);
 
@@ -542,10 +543,13 @@ const AdminAttendance = () => {
   };
 
   const filteredStats = stats.filter(
-    (s) =>
-      !search ||
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.cohort_name.toLowerCase().includes(search.toLowerCase())
+    (s) => {
+      const matchesSearch = !search ||
+        s.name.toLowerCase().includes(search.toLowerCase()) ||
+        s.cohort_name.toLowerCase().includes(search.toLowerCase());
+      const matchesCohort = statsCohortFilter === "all" || s.cohort_name === cohorts.find(c => c.id === statsCohortFilter)?.name;
+      return matchesSearch && matchesCohort;
+    }
   );
 
   const pctColor = (pct: number) => {
@@ -784,14 +788,26 @@ const AdminAttendance = () => {
       <Card className="shadow-[var(--shadow-card)] border-border">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Student Statistics</CardTitle>
-          <div className="relative max-w-xs mt-2">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by name or cohort..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
+          <div className="flex flex-col sm:flex-row gap-3 mt-2">
+            <div className="relative flex-1 max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <select
+              className="border border-input bg-background rounded-md px-3 py-2 text-sm"
+              value={statsCohortFilter}
+              onChange={(e) => setStatsCohortFilter(e.target.value)}
+            >
+              <option value="all">All Cohorts</option>
+              {cohorts.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
           </div>
         </CardHeader>
         <CardContent>
