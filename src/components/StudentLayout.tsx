@@ -196,7 +196,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Sidebar - desktop */}
         <TooltipProvider>
           <aside className="hidden md:flex flex-col w-56 shrink-0 gradient-purple text-primary-foreground overflow-y-auto">
