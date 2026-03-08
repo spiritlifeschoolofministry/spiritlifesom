@@ -216,7 +216,7 @@ const StudentMaterials = () => {
                         variant="outline"
                         className="h-7 px-2 text-xs"
                       >
-                        <a href={m.file_url} target="_blank" rel="noreferrer">
+                        <a href={`${m.file_url}?download=`} download>
                           <LinkIcon className="w-3 h-3 mr-1" />
                           Open
                         </a>
