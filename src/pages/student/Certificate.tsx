@@ -79,6 +79,11 @@ const StudentCertificate = () => {
           <div className="relative bg-background border-[3px] border-primary/20 rounded-2xl overflow-hidden max-w-3xl mx-auto shadow-xl print:shadow-none print:border-2 print:max-w-none">
             {/* Decorative border */}
             <div className="absolute inset-3 border-2 border-primary/10 rounded-xl pointer-events-none" />
+
+            {/* Watermark logo */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <img src="/images/logo.png" alt="" className="w-[320px] h-[320px] object-contain opacity-[0.04] select-none" draggable={false} />
+            </div>
             
             {/* Top accent */}
             <div className="h-3 gradient-flame" />
