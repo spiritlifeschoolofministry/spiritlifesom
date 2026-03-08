@@ -103,7 +103,7 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
   const handleSave = async () => {
     try {
       setSaving(true);
-      const { data, error } = await supabase
+      const { error: updateError } = await supabase
         .from("students")
         .update({
           learning_mode: form.learning_mode || null,
@@ -114,15 +114,22 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
           ministry_description: form.ministry_description || null,
           admission_status: form.admission_status || null,
         })
-        .eq("id", student.id)
+        .eq("id", student.id);
+      if (updateError) throw updateError;
+
+      // Re-fetch the updated student with joins
+      const { data, error: fetchError } = await supabase
+        .from("students")
         .select(`*, profile:profiles(first_name, last_name, middle_name, email, phone, avatar_url), cohort:cohorts(name)`)
+        .eq("id", student.id)
         .single();
-      if (error) throw error;
+      if (fetchError) throw fetchError;
       if (data) onSaved(data as any);
       toast.success("Student academic info updated");
       setEditing(false);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update");
+    } catch (err: any) {
+      console.error('[AdminEdit] Update error:', err);
+      toast.error(err?.message || "Failed to update");
     } finally {
       setSaving(false);
     }
