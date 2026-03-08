@@ -304,7 +304,7 @@ const AdminAssignments = () => {
                                                 <p className="text-sm text-muted-foreground">{submission.student_profile?.email || ''}</p>
                                               </div>
                                               {isGraded ? (
-                                                <Badge className="bg-emerald-100 text-emerald-800"><CheckCircle2 className="h-3 w-3 mr-1" /> Graded</Badge>
+                                                <Badge className="bg-emerald-100 text-emerald-800"><CheckCircle2 className="h-3 w-3 mr-1" /> {submission.grade != null ? `${submission.grade}/${selectedAssignment?.max_points || 100}` : 'Graded'}</Badge>
                                               ) : (
                                                 <Badge className="bg-blue-100 text-blue-800">Submitted</Badge>
                                               )}
