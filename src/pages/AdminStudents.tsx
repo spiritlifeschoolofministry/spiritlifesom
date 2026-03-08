@@ -349,27 +349,7 @@ const AdminStudents = () => {
         "Joined": s.created_at ? new Date(s.created_at).toLocaleDateString() : "",
       }));
 
-      const headers = Object.keys(rows[0]);
-      const csvContent = [
-        headers.join(","),
-        ...rows.map((row) =>
-          headers.map((h) => {
-            const val = String(row[h as keyof typeof row] ?? "");
-            return val.includes(",") || val.includes('"') || val.includes("\n")
-              ? `"${val.replace(/"/g, '""')}"`
-              : val;
-          }).join(",")
-        ),
-      ].join("\n");
-
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `students_export_${new Date().toISOString().split("T")[0]}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
-      toast.success(`Exported ${rows.length} students`);
+      downloadCSV(rows, "students_export");
     } catch (err) {
       console.error("Export error:", err);
       toast.error("Failed to export students");
