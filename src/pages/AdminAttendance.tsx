@@ -69,6 +69,8 @@ const AdminAttendance = () => {
   const [search, setSearch] = useState("");
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [bulkVerifying, setBulkVerifying] = useState(false);
+  const [classTodayEnabled, setClassTodayEnabled] = useState(false);
+  const [togglingClass, setTogglingClass] = useState(false);
   const [detailStudentId, setDetailStudentId] = useState<string | null>(null);
   const [detailStudentName, setDetailStudentName] = useState<string>("");
   const [detailCohortId, setDetailCohortId] = useState<string | null>(null);
