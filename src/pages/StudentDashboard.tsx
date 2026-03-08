@@ -141,21 +141,24 @@ const StudentDashboard = () => {
         }
       }
 
-      // Upcoming classes — always fetch
+      // Upcoming events from school_events
       try {
-        const today = new Date().toISOString().split("T")[0];
-        const { data: schedule } = await supabase.from("schedule").select("date, day, start_time, end_time, courses(title)").gt("date", today).order("date", { ascending: true }).limit(3);
-        if (schedule) {
-          upcomingClasses = schedule.map((s: any) => ({
-            date: s.date,
-            day: s.day,
-            course_title: s.courses?.title || "Class",
-            start_time: s.start_time,
-            end_time: s.end_time,
-          }));
+        const cohortId = studentRecord?.cohort_id;
+        const orQuery = cohortId
+          ? `target_cohort_id.is.null,target_cohort_id.eq.${cohortId}`
+          : `target_cohort_id.is.null`;
+        const { data: eventsData } = await supabase
+          .from("school_events")
+          .select("id, title, start_date, end_date, category")
+          .or(orQuery)
+          .gte("start_date", new Date().toISOString())
+          .order("start_date", { ascending: true })
+          .limit(5);
+        if (eventsData) {
+          upcomingEvents = eventsData;
         }
       } catch (e) {
-        console.warn("[Dashboard] Schedule fetch failed:", e);
+        console.warn("[Dashboard] Events fetch failed:", e);
       }
 
       setData({
