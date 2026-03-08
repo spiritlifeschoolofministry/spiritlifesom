@@ -114,8 +114,18 @@ const StudentDashboard = () => {
 
       let attendanceRate: number | null = null;
       let pendingAssignments = 0;
-      let feeStatus = "N/A";
+      let totalAssignments = 0;
+      let fees: FeeBreakdown = { paid: 0, unpaid: 0, partial: 0, total: 0, status: "N/A" };
+      let completedCourses = 0;
       let upcomingEvents: DashboardData["upcomingEvents"] = [];
+
+      // Completed courses
+      if (cohortId) {
+        try {
+          const { data: completedData } = await supabase.from("courses").select("id").eq("cohort_id", cohortId).eq("is_completed", true);
+          completedCourses = completedData?.length ?? 0;
+        } catch (e) { console.warn("[Dashboard] Completed courses fetch failed:", e); }
+      }
 
       if (studentId) {
         try {
@@ -136,6 +146,7 @@ const StudentDashboard = () => {
             ]);
             const allIds = new Set((assignRes.data ?? []).map((a) => a.id));
             const submittedIds = new Set((submissionRes.data ?? []).map((s) => s.assignment_id));
+            totalAssignments = allIds.size;
             pendingAssignments = [...allIds].filter((id) => !submittedIds.has(id)).length;
           } catch (e) {
             console.warn("[Dashboard] Assignments fetch failed:", e);
@@ -143,12 +154,17 @@ const StudentDashboard = () => {
         }
 
         try {
-          const { data: fees } = await supabase.from("fees").select("payment_status").eq("student_id", studentId);
-          if (fees && fees.length > 0) {
-            const statuses = fees.map((f) => f.payment_status);
-            if (statuses.every((s) => s === "Paid")) feeStatus = "Paid";
-            else if (statuses.some((s) => s === "Partial" || s === "Paid")) feeStatus = "Partial";
-            else feeStatus = "Unpaid";
+          const { data: feesData } = await supabase.from("fees").select("payment_status").eq("student_id", studentId);
+          if (feesData && feesData.length > 0) {
+            const paid = feesData.filter(f => f.payment_status === "Paid").length;
+            const unpaid = feesData.filter(f => f.payment_status === "Unpaid").length;
+            const partial = feesData.filter(f => f.payment_status === "Partial").length;
+            const total = feesData.length;
+            let status = "N/A";
+            if (paid === total) status = "Paid";
+            else if (unpaid === total) status = "Unpaid";
+            else status = "Partial";
+            fees = { paid, unpaid, partial, total, status };
           }
         } catch (e) {
           console.warn("[Dashboard] Fees fetch failed:", e);
