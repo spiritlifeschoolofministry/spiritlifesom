@@ -118,6 +118,8 @@ const AdminStudents = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [cohortFilter, setCohortFilter] = useState("all");
+  const [cohorts, setCohorts] = useState<CohortOption[]>([]);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkGraduateDialog, setShowBulkGraduateDialog] = useState(false);
@@ -135,8 +137,8 @@ const AdminStudents = () => {
   const [emailBody, setEmailBody] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
 
-  useEffect(() => { loadStudents(); }, []);
-  useEffect(() => { filterStudents(); }, [students, searchQuery, statusFilter]);
+  useEffect(() => { loadStudents(); loadCohorts(); }, []);
+  useEffect(() => { filterStudents(); }, [students, searchQuery, statusFilter, cohortFilter]);
 
   const loadStudents = async () => {
     try {
