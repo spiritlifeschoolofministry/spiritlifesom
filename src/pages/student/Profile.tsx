@@ -237,7 +237,7 @@ const AcademicInfoCard = ({
   );
 };
 
-
+interface PasswordFormData {
   currentPassword: string;
   newPassword: string;
   confirmPassword: string;
