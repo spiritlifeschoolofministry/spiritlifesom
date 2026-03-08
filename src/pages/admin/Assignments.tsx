@@ -243,6 +243,15 @@ const AdminAssignments = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label>Category *</Label>
+                <Select value={selectedCategory} onValueChange={(val) => setValue('category', val)}>
+                  <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                  <SelectContent>
+                    {ASSIGNMENT_CATEGORIES.map((cat) => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Button type="submit" disabled={isCreating} className="w-full">
                 {isCreating ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</>) : (<><Plus className="h-4 w-4 mr-2" /> Create Assignment</>)}
               </Button>
