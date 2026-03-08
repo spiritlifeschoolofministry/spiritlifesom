@@ -598,6 +598,72 @@ const AdminStudents = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Email Compose Dialog */}
+      <Dialog open={showEmailDialog} onOpenChange={(open) => !open && setShowEmailDialog(false)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-primary" />
+              {emailTargets.length === 1
+                ? `Email ${emailTargets[0].profile.first_name} ${emailTargets[0].profile.last_name}`
+                : `Email ${emailTargets.length} Students`}
+            </DialogTitle>
+            <DialogDescription>
+              {emailTargets.length === 1
+                ? `Sending to: ${emailTargets[0].profile.email}`
+                : `Sending to ${emailTargets.length} selected students`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {emailTargets.length > 1 && (
+            <div className="max-h-24 overflow-y-auto border border-border rounded-md p-2 text-xs text-muted-foreground space-y-0.5">
+              {emailTargets.map((s) => (
+                <p key={s.id}>• {s.profile.first_name} {s.profile.last_name} ({s.profile.email})</p>
+              ))}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="email-subject">Subject</Label>
+              <Input
+                id="email-subject"
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+                placeholder="Email subject..."
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="email-body">Message</Label>
+              <Textarea
+                id="email-body"
+                value={emailBody}
+                onChange={(e) => setEmailBody(e.target.value)}
+                placeholder="Write your message here..."
+                rows={6}
+                className="mt-1"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-end pt-4 border-t">
+            <Button variant="outline" onClick={() => setShowEmailDialog(false)} disabled={sendingEmail}>
+              Cancel
+            </Button>
+            <Button
+              variant="flame"
+              onClick={handleSendEmail}
+              disabled={sendingEmail || !emailSubject.trim() || !emailBody.trim()}
+              className="gap-2"
+            >
+              {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {sendingEmail ? "Sending..." : `Send${emailTargets.length > 1 ? ` to ${emailTargets.length}` : ""}`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
