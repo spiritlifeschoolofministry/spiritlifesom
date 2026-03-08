@@ -80,6 +80,66 @@ const AdminAttendance = () => {
   const [newStatus, setNewStatus] = useState<string>("PRESENT");
   const [newVerified, setNewVerified] = useState<boolean>(false);
 
+  const loadClassTodaySetting = useCallback(async () => {
+    try {
+      const today = todayDateString();
+      const { data } = await supabase
+        .from("system_settings")
+        .select("value")
+        .eq("key", "class_today")
+        .maybeSingle();
+      if (data?.value) {
+        const val = data.value as { date?: string; enabled?: boolean };
+        setClassTodayEnabled(val.date === today && val.enabled === true);
+      } else {
+        setClassTodayEnabled(false);
+      }
+    } catch (err) {
+      console.error("[AdminAttendance] Class today setting error:", err);
+    }
+  }, []);
+
+  const toggleClassToday = async (enabled: boolean) => {
+    setTogglingClass(true);
+    try {
+      const today = todayDateString();
+      const newValue = { date: today, enabled };
+
+      const { error } = await supabase
+        .from("system_settings")
+        .upsert({ key: "class_today", value: newValue as unknown as import("@/integrations/supabase/types").Json, updated_at: new Date().toISOString() }, { onConflict: "key" });
+      if (error) throw error;
+
+      // If enabling, ensure a schedule entry exists for today so students can check in
+      if (enabled) {
+        const { data: existingSchedule } = await supabase
+          .from("schedule")
+          .select("id")
+          .eq("date", today)
+          .eq("activity_type", "Lecture")
+          .is("course_id", null)
+          .limit(1);
+
+        if (!existingSchedule || existingSchedule.length === 0) {
+          await supabase.from("schedule").insert({
+            date: today,
+            activity_type: "Lecture",
+            description: "Class session",
+            day: new Date().toLocaleDateString("en-US", { weekday: "long" }),
+          });
+        }
+      }
+
+      setClassTodayEnabled(enabled);
+      toast.success(enabled ? "Class enabled for today — students can now check in" : "Class disabled for today");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to toggle class";
+      toast.error(msg);
+    } finally {
+      setTogglingClass(false);
+    }
+  };
+
   const loadSummary = useCallback(async () => {
     try {
       const today = todayDateString();
