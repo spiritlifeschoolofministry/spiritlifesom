@@ -409,8 +409,7 @@ const AdminAssignments = () => {
             </div>
           </CardContent>
         </Card>
-      )}
-    </div>
+      )})()}
   );
 };
 

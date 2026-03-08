@@ -268,9 +268,9 @@ const AdminMaterials = () => {
                 </TableBody>
               </Table>
             </div>
-          )}
+          );
+          })()}
         </CardContent>
-      </Card>
     </div>
   );
 };
