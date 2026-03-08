@@ -220,6 +220,29 @@ const Register = () => {
     }
   };
 
+  if (acceptingApplications === null) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (acceptingApplications === false) {
+    return (
+      <div className="flex flex-col items-center px-4 py-16 text-center">
+        <Lock className="h-16 w-16 text-muted-foreground mb-4" />
+        <h1 className="text-2xl font-bold text-foreground mb-2">Registrations Are Currently Closed</h1>
+        <p className="text-muted-foreground max-w-md">
+          We are not accepting new applications at this time. Please check back later or contact the school office for more information.
+        </p>
+        <Button asChild className="mt-6" variant="outline">
+          <Link to="/">Go Back Home</Link>
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-center px-4 py-12 sm:py-16">
       <div className="text-center mb-8">
