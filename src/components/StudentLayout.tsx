@@ -199,7 +199,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - desktop */}
         <TooltipProvider>
-          <aside className="hidden md:flex flex-col w-56 shrink-0 gradient-purple text-primary-foreground">
+          <aside className="hidden md:flex flex-col w-56 shrink-0 gradient-purple text-primary-foreground overflow-y-auto">
             <nav className="flex-1 py-4 space-y-1 px-2">
               {NAV_ITEMS.map((item) => renderNavItem(item, {}))}
               {/* Admin link in sidebar for admins/teachers */}
@@ -221,7 +221,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
           <div className="fixed inset-0 z-40 md:hidden" onClick={() => setSidebarOpen(false)}>
             <div className="absolute inset-0 bg-black/50" />
             <TooltipProvider>
-              <aside className="absolute left-0 top-14 bottom-0 w-60 gradient-purple text-primary-foreground" onClick={(e) => e.stopPropagation()}>
+              <aside className="absolute left-0 top-14 bottom-0 w-60 gradient-purple text-primary-foreground overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                 <nav className="py-4 space-y-1 px-2">
                   {NAV_ITEMS.map((item) => renderNavItem(item, { closeSidebar: true }))}
                   {isAdmin && (
