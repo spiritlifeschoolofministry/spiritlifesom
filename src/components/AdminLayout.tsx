@@ -69,7 +69,8 @@ const AdminLayout = () => {
           <button className="md:hidden text-foreground" onClick={() => setSidebarOpen(!sidebarOpen)}>
             {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
-          <Link to="/admin/dashboard" className="text-primary font-bold text-lg tracking-tight hidden sm:block">
+          <Link to="/admin/dashboard" className="flex items-center gap-2 text-primary font-bold text-lg tracking-tight hidden sm:flex">
+            <img src="/images/school-logo.png" alt="" className="h-8 w-8 object-contain" />
             SLSM Admin
           </Link>
         </div>
