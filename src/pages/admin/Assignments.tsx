@@ -251,7 +251,7 @@ const AdminAssignments = () => {
                 </Select>
               </div>
               <Button type="submit" disabled={isCreating} className="w-full">
-                {isCreating ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</>) : (<><Plus className="h-4 w-4 mr-2" /> Create Assignment</>)}
+                {isCreating ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</>) : (<><Plus className="h-4 w-4 mr-2" /> Create Task</>)}
               </Button>
             </form>
           </DialogContent>
