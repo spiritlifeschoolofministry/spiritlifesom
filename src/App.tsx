@@ -48,6 +48,7 @@ import AdminSettings from "./pages/AdminSettings";
 import AdminAttendance from "./pages/AdminAttendance";
 import AdminMaterials from "./pages/admin/Materials";
 import AdminAssignments from "./pages/admin/Assignments";
+import AdminAnalytics from "./pages/admin/Analytics";
 import AdminFees from "./pages/admin/Fees";
 import AdminCourses from "./pages/admin/Courses";
 import AdminApprove from "./pages/AdminApprove";
@@ -112,6 +113,7 @@ const App = () => (
             <Route path="/admin/payments" element={<ProtectedRoute requiredRole="admin"><AdminPayments /></ProtectedRoute>} />
             <Route path="/admin/announcements" element={<ProtectedRoute requiredRole="admin"><AdminAnnouncements /></ProtectedRoute>} />
             <Route path="/admin/calendar" element={<ProtectedRoute requiredRole="admin"><AdminCalendar /></ProtectedRoute>} />
+            <Route path="/admin/analytics" element={<ProtectedRoute requiredRole="admin"><AdminAnalytics /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettings /></ProtectedRoute>} />
           </Route>
 
