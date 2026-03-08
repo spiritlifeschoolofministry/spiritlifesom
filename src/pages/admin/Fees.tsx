@@ -116,12 +116,29 @@ const AdminFees = () => {
     }
   };
 
-  const approvePayment = async (id: string) => {
+  const approvePayment = async (payment: PaymentWithStudent) => {
     try {
       setIsProcessing(true);
-      const { error } = await supabase.from('payments').update({ status: 'verified' }).eq('id', id);
-      if (error) { toast.error('Failed to approve'); return; }
-      toast.success('Payment approved');
+      
+      if (payment.fee_id && payment.student_id) {
+        // Look up the fee_type from fee_structures
+        const { data: feeStructure } = await supabase.from('fee_structures').select('fee_name').eq('id', payment.fee_id).single();
+        const feeType = feeStructure?.fee_name || '';
+        
+        const { error } = await supabase.rpc('approve_student_payment', {
+          p_payment_id: payment.id,
+          p_amount: payment.amount_paid,
+          p_student_id: payment.student_id,
+          p_fee_type: feeType,
+        });
+        if (error) { console.error(error); toast.error('Failed to approve'); return; }
+      } else {
+        // Fallback: just update payment status
+        const { error } = await supabase.from('payments').update({ status: 'VERIFIED' }).eq('id', payment.id);
+        if (error) { toast.error('Failed to approve'); return; }
+      }
+      
+      toast.success('Payment approved & fee record updated');
       await fetchPaymentsWithStudents();
     } catch (e) {
       console.error(e);
