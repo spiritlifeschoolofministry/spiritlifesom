@@ -80,18 +80,15 @@ const StudentCertificate = () => {
             {/* Decorative border */}
             <div className="absolute inset-3 border-2 border-primary/10 rounded-xl pointer-events-none" />
 
-            {/* Watermark logo */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <img src="/images/logo.png" alt="" className="w-[320px] h-[320px] object-contain opacity-[0.04] select-none" draggable={false} />
-            </div>
-            
             {/* Top accent */}
             <div className="h-3 gradient-flame" />
             
             <div className="px-8 sm:px-16 py-12 sm:py-16 text-center relative">
               {/* Logo area */}
               <div className="mb-6">
-                <img src="/images/logo.png" alt="SLSM Logo" className="w-24 h-24 mx-auto mb-4 object-contain" />
+                <div className="w-20 h-20 mx-auto rounded-full gradient-purple flex items-center justify-center mb-4">
+                  <GraduationCap className="w-10 h-10 text-primary-foreground" />
+                </div>
                 <h2 className="text-lg font-bold text-primary tracking-widest uppercase">
                   Spirit Life School of Ministry
                 </h2>
