@@ -57,8 +57,6 @@ const AdminAssignments = () => {
   const selectedCourse = watch('course_id');
   const selectedCategory = watch('category');
 
-  const selectedCohort = watch('cohort_id');
-  const selectedCourse = watch('course_id');
 
   useEffect(() => { loadData(); }, []);
 
