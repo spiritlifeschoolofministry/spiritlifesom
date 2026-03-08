@@ -422,6 +422,14 @@ const AdminStudents = () => {
               Email Selected ({selectedIds.size})
             </Button>
             <Button
+              variant="outline"
+              className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10"
+              onClick={() => setShowBulkDeleteDialog(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Selected ({selectedIds.size})
+            </Button>
+            <Button
               onClick={() => setShowBulkGraduateDialog(true)}
               className="gap-2"
             >
