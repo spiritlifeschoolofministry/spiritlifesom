@@ -13,13 +13,23 @@ import { Badge } from "@/components/ui/badge";
 import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
+interface FeeBreakdown {
+  paid: number;
+  unpaid: number;
+  partial: number;
+  total: number;
+  status: string;
+}
+
 interface DashboardData {
   firstName: string;
   admissionStatus: string | null;
   attendanceRate: number | null;
   totalCourses: number;
+  completedCourses: number;
   pendingAssignments: number;
-  feeStatus: string;
+  totalAssignments: number;
+  fees: FeeBreakdown;
   upcomingEvents: Array<{ id: string; title: string; start_date: string; end_date: string | null; category: string | null }>;
   announcements: Array<{ title: string; body: string; published_at: string | null }>;
 }
