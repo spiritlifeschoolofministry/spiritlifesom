@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -19,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, MoreHorizontal } from "lucide-react";
+import { Search, MoreHorizontal, GraduationCap, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -27,6 +28,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Student {
   id: string;
@@ -43,12 +51,14 @@ const UI_TO_DB_STATUS: Record<string, string> = {
   Pending: "PENDING",
   Approved: "ADMITTED",
   Rejected: "REJECTED",
+  Graduate: "Graduate",
 };
 
 const DB_TO_UI_STATUS: Record<string, string> = {
   PENDING: "Pending",
   ADMITTED: "Approved",
   REJECTED: "Rejected",
+  GRADUATE: "Graduate",
 };
 
 const AdminStudents = () => {
@@ -57,6 +67,12 @@ const AdminStudents = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  // Bulk graduation state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkGraduateDialog, setShowBulkGraduateDialog] = useState(false);
+  const [bulkGraduating, setBulkGraduating] = useState(false);
+  const [graduatingId, setGraduatingId] = useState<string | null>(null);
 
   useEffect(() => {
     loadStudents();
@@ -114,58 +130,103 @@ const AdminStudents = () => {
 
   const handleStatusChange = async (studentId: string, newStatus: string) => {
     try {
-      const upper = newStatus.toUpperCase();
-      let admission_status: string;
-
-      if (upper === "APPROVED" || upper === "ADMITTED") {
-        admission_status = "ADMITTED";
-      } else if (upper === "PENDING") {
-        admission_status = "PENDING";
-      } else if (upper === "REJECTED") {
-        admission_status = "REJECTED";
-      } else {
-        admission_status = "PENDING";
-      }
-
-      const is_approved = admission_status === "ADMITTED";
-
-      const payload = { admission_status, is_approved };
-      console.log("[AdminStudents] Sending to DB:", payload);
+      const dbStatus = UI_TO_DB_STATUS[newStatus] || "PENDING";
+      const is_approved = dbStatus === "ADMITTED";
 
       const { error } = await supabase
         .from("students")
-        .update(payload)
+        .update({ admission_status: dbStatus, is_approved })
         .eq("id", studentId);
 
       if (error) {
-        console.error("Supabase error:", error);
-        const message = error.message || "Failed to update student status";
-        toast.error(message);
-        alert(message);
+        toast.error(error.message || "Failed to update student status");
         return;
       }
 
-      // Optimistically update local state so the row reflects the new status immediately
       setStudents((prev) =>
         prev.map((s) =>
-          s.id === studentId ? { ...s, admission_status } : s
+          s.id === studentId ? { ...s, admission_status: dbStatus } : s
         )
       );
 
-      if (admission_status === "ADMITTED") {
-        toast.success("Student Admitted Successfully");
-      } else if (admission_status === "PENDING") {
-        toast.success("Student marked as Pending");
-      } else if (admission_status === "REJECTED") {
-        toast.success("Student marked as Rejected");
-      } else {
-        toast.success("Status updated successfully");
-      }
+      toast.success(`Student marked as ${newStatus}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to update student status";
-      console.error("Update status error:", err);
       toast.error(msg);
     }
+  };
+
+  const handleGraduateSingle = async (studentId: string) => {
+    try {
+      setGraduatingId(studentId);
+      const { error } = await supabase
+        .from("students")
+        .update({ admission_status: "Graduate", is_approved: true })
+        .eq("id", studentId);
+
+      if (error) throw error;
+
+      setStudents((prev) =>
+        prev.map((s) =>
+          s.id === studentId ? { ...s, admission_status: "Graduate" } : s
+        )
+      );
+      toast.success("Student marked as Graduate 🎓");
+    } catch (err) {
+      toast.error("Failed to graduate student");
+    } finally {
+      setGraduatingId(null);
+    }
+  };
+
+  const handleBulkGraduate = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      setBulkGraduating(true);
+      const ids = Array.from(selectedIds);
+
+      const { error } = await supabase
+        .from("students")
+        .update({ admission_status: "Graduate", is_approved: true })
+        .in("id", ids);
+
+      if (error) throw error;
+
+      setStudents((prev) =>
+        prev.map((s) =>
+          selectedIds.has(s.id) ? { ...s, admission_status: "Graduate" } : s
+        )
+      );
+
+      toast.success(`${ids.length} student(s) marked as Graduate 🎓`);
+      setSelectedIds(new Set());
+      setShowBulkGraduateDialog(false);
+    } catch (err) {
+      toast.error("Failed to graduate students");
+    } finally {
+      setBulkGraduating(false);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredStudents.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredStudents.map((s) => s.id)));
+    }
+  };
+
+  const getStatusForUI = (status: string | null) => {
+    return DB_TO_UI_STATUS[(status || "").toUpperCase()] || "Pending";
   };
 
   if (loading) {
@@ -179,9 +240,20 @@ const AdminStudents = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Student Management</h1>
-        <p className="text-muted-foreground text-sm mt-1">View and manage all students</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Student Management</h1>
+          <p className="text-muted-foreground text-sm mt-1">View and manage all students</p>
+        </div>
+        {selectedIds.size > 0 && (
+          <Button
+            onClick={() => setShowBulkGraduateDialog(true)}
+            className="gap-2"
+          >
+            <GraduationCap className="h-4 w-4" />
+            Graduate Selected ({selectedIds.size})
+          </Button>
+        )}
       </div>
 
       <Card className="shadow-[var(--shadow-card)] border-border">
@@ -206,6 +278,7 @@ const AdminStudents = () => {
                 <SelectItem value="Pending">Pending</SelectItem>
                 <SelectItem value="Approved">Approved</SelectItem>
                 <SelectItem value="Rejected">Rejected</SelectItem>
+                <SelectItem value="Graduate">Graduate</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -215,6 +288,12 @@ const AdminStudents = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={filteredStudents.length > 0 && selectedIds.size === filteredStudents.length}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Admission Status</TableHead>
@@ -225,64 +304,111 @@ const AdminStudents = () => {
               <TableBody>
                 {filteredStudents.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
                       No students found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredStudents.map((student) => (
-                    <TableRow key={student.id}>
-                      <TableCell className="font-medium">
-                        {student.profile.first_name} {student.profile.last_name}
-                      </TableCell>
-                      <TableCell>{student.profile.email}</TableCell>
-                      <TableCell>
-                        <Select
-                          value={
-                            DB_TO_UI_STATUS[(student.admission_status || "").toUpperCase()] ||
-                            "Pending"
-                          }
-                          onValueChange={(value) => handleStatusChange(student.id, value)}
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Pending">Pending</SelectItem>
-                            <SelectItem value="Approved">Approved</SelectItem>
-                            <SelectItem value="Rejected">Rejected</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        {student.created_at
-                          ? new Date(student.created_at).toLocaleDateString()
-                          : "N/A"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>View Details</DropdownMenuItem>
-                            <DropdownMenuItem>Send Email</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  filteredStudents.map((student) => {
+                    const uiStatus = getStatusForUI(student.admission_status);
+                    const isGraduate = uiStatus === "Graduate";
+
+                    return (
+                      <TableRow key={student.id} className={selectedIds.has(student.id) ? "bg-muted/50" : ""}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.has(student.id)}
+                            onCheckedChange={() => toggleSelect(student.id)}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {student.profile.first_name} {student.profile.last_name}
+                          {isGraduate && <GraduationCap className="inline ml-1.5 h-4 w-4 text-primary" />}
+                        </TableCell>
+                        <TableCell>{student.profile.email}</TableCell>
+                        <TableCell>
+                          <Select
+                            value={uiStatus}
+                            onValueChange={(value) => handleStatusChange(student.id, value)}
+                          >
+                            <SelectTrigger className="w-36">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Pending">Pending</SelectItem>
+                              <SelectItem value="Approved">Approved</SelectItem>
+                              <SelectItem value="Rejected">Rejected</SelectItem>
+                              <SelectItem value="Graduate">Graduate</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          {student.created_at
+                            ? new Date(student.created_at).toLocaleDateString()
+                            : "N/A"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {!isGraduate && (
+                                <DropdownMenuItem
+                                  onClick={() => handleGraduateSingle(student.id)}
+                                  disabled={graduatingId === student.id}
+                                >
+                                  <GraduationCap className="mr-2 h-4 w-4" />
+                                  {graduatingId === student.id ? "Graduating..." : "Mark as Graduate"}
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem>View Details</DropdownMenuItem>
+                              <DropdownMenuItem>Send Email</DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
           </div>
         </CardContent>
       </Card>
+
+      {/* Bulk Graduate Confirmation Dialog */}
+      <Dialog open={showBulkGraduateDialog} onOpenChange={setShowBulkGraduateDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GraduationCap className="h-5 w-5" /> Confirm Bulk Graduation
+            </DialogTitle>
+            <DialogDescription>
+              You are about to mark <strong>{selectedIds.size}</strong> student(s) as Graduate. This will update their admission status. Are you sure?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-48 overflow-y-auto space-y-1 my-2">
+            {filteredStudents
+              .filter((s) => selectedIds.has(s.id))
+              .map((s) => (
+                <p key={s.id} className="text-sm text-muted-foreground">
+                  • {s.profile.first_name} {s.profile.last_name}
+                </p>
+              ))}
+          </div>
+          <div className="flex gap-2 justify-end pt-4 border-t">
+            <Button variant="outline" onClick={() => setShowBulkGraduateDialog(false)}>Cancel</Button>
+            <Button onClick={handleBulkGraduate} disabled={bulkGraduating} className="gap-2">
+              {bulkGraduating ? <Loader2 className="h-4 w-4 animate-spin" /> : <GraduationCap className="h-4 w-4" />}
+              {bulkGraduating ? "Graduating..." : "Confirm Graduation"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
