@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
+import { useUnreadNotifications } from "@/hooks/use-unread-notifications";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
@@ -68,6 +69,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
   const isRejected = statusUpper === "REJECTED";
   const isGraduate = statusUpper === "GRADUATE";
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const unreadCount = useUnreadNotifications();
 
   // Case-insensitive role check for admin access
   const isAdmin = (role ?? "").toLowerCase() === "admin" || (role ?? "").toLowerCase() === "teacher";
@@ -94,8 +96,15 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
         );
       }
       return (
-        <Link key={item.path} to={item.path} className={`flex flex-col items-center gap-0.5 text-[10px] ${active ? "text-accent" : "text-muted-foreground"}`}>
-          <item.icon className="w-5 h-5" />
+        <Link key={item.path} to={item.path} className={`flex flex-col items-center gap-0.5 text-[10px] relative ${active ? "text-accent" : "text-muted-foreground"}`}>
+          <div className="relative">
+            <item.icon className="w-5 h-5" />
+            {item.label === "Notifications" && unreadCount > 0 && (
+              <span className="absolute -top-1 -right-2 inline-flex items-center justify-center min-w-[14px] h-3.5 px-0.5 rounded-full bg-destructive text-destructive-foreground text-[8px] font-bold">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </div>
           {item.label.split(" ")[0]}
         </Link>
       );
@@ -115,17 +124,24 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
       );
     }
 
+    const isNotification = item.label === "Notifications";
+
     return (
       <Link
         key={item.path}
         to={item.path}
         onClick={opts.closeSidebar ? () => setSidebarOpen(false) : undefined}
-        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all relative ${
           active ? "gradient-flame text-accent-foreground shadow-md" : "text-primary-foreground/80 hover:bg-primary-foreground/10"
         }`}
       >
         <item.icon className="w-4 h-4 shrink-0" />
         {item.label}
+        {isNotification && unreadCount > 0 && (
+          <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-xs font-bold">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
       </Link>
     );
   };
@@ -135,6 +151,15 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
       {/* Top Nav */}
       <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 z-30">
         <div className="flex items-center gap-3">
+          {/* Notification bell */}
+          <Button variant="ghost" size="icon" onClick={() => navigate("/student/notifications")} title="Notifications" className="relative">
+            <Bell className="w-4 h-4" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </Button>
           <button className="md:hidden text-foreground" onClick={() => setSidebarOpen(!sidebarOpen)}>
             {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
