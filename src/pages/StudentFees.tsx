@@ -88,6 +88,7 @@ const StudentFees = () => {
       const { data: urlData } = supabase.storage.from('course-materials').getPublicUrl(uploadData.path);
       const { error: paymentError } = await supabase.from('payments').insert({
         student_id: student.id, amount_paid: parseFloat(data.amount),
+        fee_id: data.fee_id || null,
         payment_proof_url: urlData.publicUrl, admin_notes: data.notes || null, status: 'PENDING',
       });
       if (paymentError) { toast.error('Failed to submit payment'); return; }
