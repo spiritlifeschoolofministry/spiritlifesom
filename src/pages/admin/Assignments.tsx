@@ -135,18 +135,26 @@ const AdminAssignments = () => {
 
   const handleGradeSubmission = async (submissionId: string) => {
     if (!selectedAssignment) return;
+    const scoreNum = gradingScore ? parseFloat(gradingScore) : null;
+    if (gradingScore && (isNaN(scoreNum!) || scoreNum! < 0)) {
+      toast.error('Please enter a valid score');
+      return;
+    }
     try {
       const { error } = await supabase
         .from('assignment_submissions')
         .update({
+          grade: scoreNum,
           feedback: gradingFeedback || null,
           reviewed_at: new Date().toISOString(),
+          reviewed_by: (await supabase.auth.getUser()).data.user?.id || null,
         })
         .eq('id', submissionId);
       if (error) throw error;
       toast.success('Submission graded');
       setGradingId(null);
       setGradingFeedback('');
+      setGradingScore('');
       await loadSubmissions(selectedAssignment);
     } catch (err) {
       console.error('Grade error:', err);
