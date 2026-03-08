@@ -240,8 +240,8 @@ const StudentAssignments = () => {
                         </p>
                         {assignment.submission.file_url && (
                           <Button variant="outline" size="sm" asChild>
-                            <a href={assignment.submission.file_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
-                              <File className="w-4 h-4" /> View Submission
+                            <a href={`${assignment.submission.file_url}?download=`} download className="flex items-center gap-2">
+                              <File className="w-4 h-4" /> Download Submission
                             </a>
                           </Button>
                         )}
