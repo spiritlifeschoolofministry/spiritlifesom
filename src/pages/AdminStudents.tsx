@@ -60,11 +60,18 @@ interface Student {
   admission_status: string | null;
   created_at: string | null;
   profile_id?: string;
+  cohort_id: string | null;
   profile: {
     first_name: string;
     last_name: string;
     email: string;
   };
+  cohort: { name: string } | null;
+}
+
+interface CohortOption {
+  id: string;
+  name: string;
 }
 
 const UI_TO_DB_STATUS: Record<string, string> = {
