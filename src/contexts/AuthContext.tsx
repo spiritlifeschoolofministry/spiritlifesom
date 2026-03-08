@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import type { Tables } from '@/integrations/supabase/types';
@@ -11,6 +11,7 @@ export interface AuthContextType {
   isLoading: boolean;
   isNewUser: boolean;
   authError: string | null;
+  isAuthReady: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -38,8 +39,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isNewUser, setIsNewUser] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initializedRef = useRef(false);
+  const profileLoadedRef = useRef(false);
 
   const clearAuthTimeout = () => {
     if (timeoutRef.current) {
@@ -53,33 +56,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     timeoutRef.current = setTimeout(() => {
       console.warn('[Auth] Timeout reached — forcing loading to false');
       setIsLoading(false);
+      setIsAuthReady(true);
       setAuthError('Session loading timed out. Please try logging in again.');
     }, AUTH_TIMEOUT_MS);
   };
 
-  const getProfile = async (userId: string, userMeta?: UserMetadata): Promise<void> => {
+  const getProfile = useCallback(async (userId: string, userMeta?: UserMetadata): Promise<void> => {
     console.log('[Auth] Fetching profile for:', userId);
     try {
       let profileData = null;
       let retries = 0;
       const maxRetries = 3;
 
-      const fetchWithTimeout = async (userId: string) => {
+      const fetchWithTimeout = async (uid: string) => {
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Query timeout')), 5000)
         );
-
         const queryPromise = supabase
           .from('profiles')
           .select('*')
-          .eq('id', userId)
+          .eq('id', uid)
           .maybeSingle();
-
         return Promise.race([queryPromise, timeoutPromise]);
       };
 
       while (retries < maxRetries && !profileData) {
-        console.log('[Auth] Running Supabase query...');
         const result = await fetchWithTimeout(userId) as { data: Tables<'profiles'> | null, error: { message: string } | null };
         const { data, error } = result;
         console.log('[Auth] Query result:', { found: !!data, error: error?.message });
@@ -88,7 +89,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           profileData = data;
           break;
         }
-
         retries++;
         if (retries < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, 1500));
@@ -103,9 +103,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
         setProfile(safeProfile);
         setRole(profileData.role);
+        profileLoadedRef.current = true;
         console.log('[Auth] Profile loaded, role:', profileData.role);
 
-        // Fetch student record with retry for new registrations
         let studentData = null;
         for (let attempt = 0; attempt < 3; attempt++) {
           const { data } = await supabase
@@ -122,8 +122,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
         }
 
-        console.log('[Auth] Student record:', studentData ? 'found' : 'not found');
-
         if (studentData) {
           setStudent(studentData);
           setIsNewUser(false);
@@ -133,17 +131,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       } else {
         console.warn('[Auth] No profile found after retries, using metadata fallback');
-        // Fallback: use user_metadata to keep user logged in
         const fallbackRole = userMeta?.role || 'student';
-        const nameParts = (userMeta?.full_name || '').trim().split(/\s+/).filter(Boolean);
-        const fallbackFirst = userMeta?.first_name || nameParts[0] || 'Student';
-        const fallbackLast = userMeta?.last_name || nameParts.slice(1).join(' ') || 'User';
-
         setProfile(null);
         setRole(fallbackRole);
         setStudent(null);
         setIsNewUser(true);
-        console.log('[Auth] Fallback role from metadata:', fallbackRole);
+        profileLoadedRef.current = true;
       }
       setAuthError(null);
     } catch (error: unknown) {
@@ -155,20 +148,55 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsNewUser(false);
       setAuthError('Failed to load profile data.');
     } finally {
-      console.log('[Auth] Profile fetch completed, clearing timeout');
       clearAuthTimeout();
       setIsLoading(false);
-      console.log('DEBUG: Spinner stopped and timeout cleared');
+      setIsAuthReady(true);
     }
-  };
+  }, []);
+
+  const clearState = useCallback(() => {
+    setUser(null);
+    setProfile(null);
+    setStudent(null);
+    setRole(null);
+    setIsNewUser(false);
+    setAuthError(null);
+    profileLoadedRef.current = false;
+    clearAuthTimeout();
+    setIsLoading(false);
+    setIsAuthReady(true);
+  }, []);
 
   useEffect(() => {
-    // Only initialize once on component mount
     if (initializedRef.current) return;
     initializedRef.current = true;
 
     startAuthTimeout();
 
+    // Set up listener BEFORE getSession to avoid missing events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('[Auth] State change:', event);
+
+        if (event === 'SIGNED_IN' && session?.user) {
+          setUser(session.user);
+          // Only fetch profile if not already loaded for this user
+          if (!profileLoadedRef.current) {
+            startAuthTimeout();
+            await getProfile(session.user.id, session.user.user_metadata as UserMetadata | undefined);
+          }
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          console.log('[Auth] Token refreshed successfully');
+          setUser(session.user);
+          // Don't re-fetch profile on token refresh — just update the user object
+        } else if (event === 'SIGNED_OUT') {
+          console.log('[Auth] Signed out — clearing state');
+          clearState();
+        }
+      }
+    );
+
+    // Restore session from storage
     (async () => {
       try {
         console.log('[Auth] Initializing session...');
@@ -182,44 +210,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           console.log('[Auth] No existing session');
           clearAuthTimeout();
           setIsLoading(false);
+          setIsAuthReady(true);
         }
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('[Auth] Initialization error:', errorMessage);
         clearAuthTimeout();
         setIsLoading(false);
+        setIsAuthReady(true);
         setAuthError('Failed to initialize authentication.');
       }
     })();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('[Auth] State change:', event);
-
-        if (event === 'SIGNED_IN' && session?.user) {
-          setUser(session.user);
-          startAuthTimeout();
-          await getProfile(session.user.id, session.user.user_metadata as UserMetadata | undefined);
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          setUser(session.user);
-          // Don't refetch profile on token refresh if already loaded
-          if (!profile && !role) {
-            startAuthTimeout();
-            await getProfile(session.user.id, session.user.user_metadata as UserMetadata | undefined);
-          }
-        } else if (event === 'SIGNED_OUT') {
-          console.log('[Auth] Signed out — clearing state');
-          setUser(null);
-          setProfile(null);
-          setStudent(null);
-          setRole(null);
-          setIsNewUser(false);
-          setAuthError(null);
-          clearAuthTimeout();
-          setIsLoading(false);
-        }
-      }
-    );
 
     return () => {
       clearAuthTimeout();
@@ -228,43 +229,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Safety guard: if loading finished but user exists and profile is still null, just log warning
-  useEffect(() => {
-    if (!isLoading && user && profile == null) {
-      console.warn('[Auth] Profile missing after load — setting loading to false and allowing user session to continue');
-      setIsLoading(false);
-    }
-  }, [isLoading, user, profile]);
-
-  const signOut = async (): Promise<void> => {
+  const signOut = useCallback(async (): Promise<void> => {
     console.log('[Auth] Signing out...');
     try {
       await supabase.auth.signOut();
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error during sign out';
-      console.error('[Auth] Error during signOut:', errorMessage);
+      console.error('[Auth] Error during signOut:', err instanceof Error ? err.message : 'Unknown error');
     }
-    // Immediately clear client state and stop any spinner to avoid black screen
-    setUser(null);
-    setProfile(null);
-    setStudent(null);
-    setRole(null);
-    setIsNewUser(false);
-    setAuthError(null);
-    setIsLoading(false);
+    clearState();
     console.log('[Auth] Logged out successfully');
-  };
+  }, [clearState]);
 
   return (
-    <AuthContext.Provider value={{ user, profile, student, role, isLoading, isNewUser, authError, signOut }}>
+    <AuthContext.Provider value={{ user, profile, student, role, isLoading, isNewUser, authError, isAuthReady, signOut }}>
       {children}
     </AuthContext.Provider>
   );
 };
-
-
-
-// --- DEPLOYMENT HEALTH CHECK ---
-// Repo Visibility: Public
-// Build Triggered: 2026-02-25
-// Purpose: Fix infinite spinner & 502 Timeout resilience
