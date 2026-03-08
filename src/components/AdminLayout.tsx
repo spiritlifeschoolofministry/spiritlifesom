@@ -20,7 +20,7 @@ import {
   LogOut,
   Menu,
   X,
-  Eye,
+  
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -82,12 +82,13 @@ const AdminLayout = () => {
           </Avatar>
           {student && (
             <Button
-              variant="ghost"
-              size="icon"
+              variant="outline"
+              size="sm"
               onClick={() => navigate("/student/dashboard")}
-              title="Switch to Student View"
+              className="hidden sm:flex items-center gap-1.5 text-xs"
             >
-              <Eye className="w-4 h-4" />
+              <Users className="w-3.5 h-3.5" />
+              Student Portal
             </Button>
           )}
           <ThemeToggle />
