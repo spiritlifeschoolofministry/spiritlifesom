@@ -36,7 +36,8 @@ const PublicLayout = () => {
         }`}
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 h-16">
-          <Link to="/" className="text-primary-foreground font-bold text-lg tracking-tight">
+          <Link to="/" className="flex items-center gap-2 text-primary-foreground font-bold text-lg tracking-tight">
+            <img src="/images/school-logo.png" alt="" className="h-9 w-9 object-contain" />
             Spirit Life SOM
           </Link>
 
