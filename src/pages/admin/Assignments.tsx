@@ -14,12 +14,21 @@ import { Loader2, Plus, Eye, File, CheckCircle2, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
+const ASSIGNMENT_CATEGORIES = [
+  'Assignment',
+  'Project',
+  'Class Work',
+  'Group Activity',
+  'Group Assignment',
+] as const;
+
 interface AssignmentFormData {
   title: string;
   description: string;
   due_date: string;
   cohort_id: string;
   course_id: string;
+  category: string;
 }
 
 interface AssignmentWithSubmissions extends Tables<'assignments'> {
