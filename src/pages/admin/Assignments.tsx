@@ -283,6 +283,7 @@ const AdminAssignments = () => {
                     return (
                       <TableRow key={assignment.id}>
                         <TableCell className="font-medium">{assignment.title}</TableCell>
+                        <TableCell><Badge variant="secondary" className="text-xs">{(assignment as any).category || 'Assignment'}</Badge></TableCell>
                         <TableCell>{cohorts.find(c => c.id === assignment.cohort_id)?.name || assignment.cohort_id}</TableCell>
                         <TableCell>{dueDate ? dueDate.toLocaleDateString() : 'No due date'}</TableCell>
                         <TableCell>
