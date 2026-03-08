@@ -168,7 +168,7 @@ const StudentDashboard = () => {
         totalCourses: coursesRes.data?.length || 0,
         pendingAssignments,
         feeStatus,
-        upcomingClasses,
+        upcomingEvents,
         announcements: announcementsRes.data ?? [],
       });
 
