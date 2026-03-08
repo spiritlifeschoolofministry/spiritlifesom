@@ -100,7 +100,7 @@ const AdminAttendance = () => {
   const [detailHistory, setDetailHistory] = useState<AttendanceHistoryRow[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [newDate, setNewDate] = useState<string>("");
-  const [newStatus, setNewStatus] = useState<string>("PRESENT");
+  const [newStatus, setNewStatus] = useState<string>("Present");
   const [newVerified, setNewVerified] = useState<boolean>(false);
 
   const loadCohorts = useCallback(async () => {
