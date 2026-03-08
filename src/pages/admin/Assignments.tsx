@@ -36,6 +36,7 @@ const AdminAssignments = () => {
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   const [gradingId, setGradingId] = useState<string | null>(null);
   const [gradingFeedback, setGradingFeedback] = useState('');
+  const [gradingScore, setGradingScore] = useState<string>('');
   const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
   const [editDueDate, setEditDueDate] = useState('');
 
