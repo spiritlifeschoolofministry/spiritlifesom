@@ -69,6 +69,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
   const isRejected = statusUpper === "REJECTED";
   const isGraduate = statusUpper === "GRADUATE";
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const unreadCount = useUnreadNotifications();
 
   // Case-insensitive role check for admin access
   const isAdmin = (role ?? "").toLowerCase() === "admin" || (role ?? "").toLowerCase() === "teacher";
