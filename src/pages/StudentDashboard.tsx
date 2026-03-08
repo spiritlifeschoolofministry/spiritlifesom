@@ -19,7 +19,7 @@ interface DashboardData {
   totalCourses: number;
   pendingAssignments: number;
   feeStatus: string;
-  upcomingClasses: Array<{ date: string; day: string | null; course_title: string | null; start_time: string | null; end_time: string | null }>;
+  upcomingEvents: Array<{ id: string; title: string; start_date: string; end_date: string | null; category: string | null }>;
   announcements: Array<{ title: string; body: string; published_at: string | null }>;
 }
 
