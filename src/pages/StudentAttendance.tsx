@@ -111,7 +111,7 @@ const StudentAttendance = () => {
       const payload = {
         student_id: student.id,
         schedule_id: todayScheduleId,
-        status: "PRESENT",
+        status: "Present",
         check_in_time: new Date().toISOString(),
         marked_at: new Date().toISOString(),
         is_verified: false,
