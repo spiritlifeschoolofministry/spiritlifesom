@@ -39,6 +39,7 @@ import AdminAttendance from "./pages/AdminAttendance";
 import AdminMaterials from "./pages/admin/Materials";
 import AdminAssignments from "./pages/admin/Assignments";
 import AdminFees from "./pages/admin/Fees";
+import AdminCourses from "./pages/admin/Courses";
 import AdminApprove from "./pages/AdminApprove";
 import NotFound from "./pages/NotFound";
 
