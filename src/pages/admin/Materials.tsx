@@ -184,6 +184,15 @@ const AdminMaterials = () => {
                 </Select>
               </div>
               <div>
+                <Label>Material Type</Label>
+                <Select value={selectedMaterialType} onValueChange={(val) => setValue('material_type', val)}>
+                  <SelectTrigger><SelectValue placeholder="Select type (optional)" /></SelectTrigger>
+                  <SelectContent>
+                    {MATERIAL_TYPES.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
                 <Label>File *</Label>
                 <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.gif" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} className="block w-full text-sm border border-border rounded px-3 py-2" />
               </div>
