@@ -21,7 +21,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, MoreHorizontal, GraduationCap, Loader2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Search, MoreHorizontal, GraduationCap, Loader2, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -37,10 +47,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+// ... keep existing code (Student interface, status maps)
 interface Student {
   id: string;
   admission_status: string | null;
   created_at: string | null;
+  profile_id?: string;
   profile: {
     first_name: string;
     last_name: string;
@@ -76,6 +88,10 @@ const AdminStudents = () => {
   const [bulkGraduating, setBulkGraduating] = useState(false);
   const [graduatingId, setGraduatingId] = useState<string | null>(null);
 
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState<Student | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   useEffect(() => {
     loadStudents();
   }, []);
@@ -92,6 +108,7 @@ const AdminStudents = () => {
           id,
           admission_status,
           created_at,
+          profile_id,
           profile:profiles(first_name, last_name, email)
         `)
         .order("created_at", { ascending: false });
@@ -178,6 +195,53 @@ const AdminStudents = () => {
       toast.error("Failed to graduate student");
     } finally {
       setGraduatingId(null);
+    }
+  };
+
+  const handleDeleteStudent = async () => {
+    if (!deleteTarget) return;
+    try {
+      setDeleting(true);
+      const studentId = deleteTarget.id;
+      const profileId = deleteTarget.profile_id;
+
+      // Delete related records in order: submissions, attendance, fees, payments, then student, then profile
+      // Payments reference student_id
+      await supabase.from("payments").delete().eq("student_id", studentId);
+      // Assignment submissions reference student_id
+      await supabase.from("assignment_submissions").delete().eq("student_id", studentId);
+      // Attendance references student_id
+      await supabase.from("attendance").delete().eq("student_id", studentId);
+      // Fees reference student_id
+      await supabase.from("fees").delete().eq("student_id", studentId);
+
+      // Delete the student record
+      const { error: studentError } = await supabase
+        .from("students")
+        .delete()
+        .eq("id", studentId);
+
+      if (studentError) throw studentError;
+
+      // Delete the profile (this won't delete the auth.users entry, which is fine)
+      if (profileId) {
+        await supabase.from("profiles").delete().eq("id", profileId);
+      }
+
+      setStudents((prev) => prev.filter((s) => s.id !== studentId));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(studentId);
+        return next;
+      });
+
+      toast.success(`${deleteTarget.profile.first_name} ${deleteTarget.profile.last_name} has been deleted`);
+    } catch (err) {
+      console.error("Delete student error:", err);
+      toast.error("Failed to delete student. Check console for details.");
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -368,7 +432,13 @@ const AdminStudents = () => {
                               )}
                               <DropdownMenuItem onClick={() => navigate(`/admin/students/${student.id}`)}>View Details</DropdownMenuItem>
                               <DropdownMenuItem>Send Email</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => setDeleteTarget(student)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -411,6 +481,47 @@ const AdminStudents = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Student Confirmation Dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Student
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                Are you sure you want to permanently delete{" "}
+                <strong>{deleteTarget?.profile.first_name} {deleteTarget?.profile.last_name}</strong>?
+              </p>
+              <p className="text-sm text-muted-foreground">
+                This will remove all associated data including:
+              </p>
+              <ul className="text-sm text-muted-foreground list-disc list-inside space-y-0.5">
+                <li>Assignment submissions</li>
+                <li>Attendance records</li>
+                <li>Fee & payment records</li>
+                <li>Profile information</li>
+              </ul>
+              <p className="text-sm font-medium text-destructive mt-2">
+                This action cannot be undone.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteStudent}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-2"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {deleting ? "Deleting..." : "Delete Student"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
