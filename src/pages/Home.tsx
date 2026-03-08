@@ -74,6 +74,7 @@ const Home = () => {
       <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/images/som1.jpeg)" }} />
       <div className="absolute inset-0 bg-primary/70" />
       <div className="relative z-10 max-w-3xl px-6 space-y-6">
+        <img src="/images/school-logo.png" alt="" className="h-24 w-24 object-contain mx-auto" />
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight">
           Spirit Life School of Ministry
         </h1>
