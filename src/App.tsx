@@ -35,6 +35,7 @@ import StudentCalendar from "./pages/student/Calendar";
 import Graduates from "./pages/student/Graduates";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminProfile from "./pages/admin/Profile";
+import AdminStudentProfile from "./pages/admin/StudentProfile";
 import AdminPayments from "./pages/admin/Payments";
 import AdminStudents from "./pages/AdminStudents";
 import AdminAdmissions from "./pages/AdminAdmissions";
