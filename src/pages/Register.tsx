@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, Upload } from "lucide-react";
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, Upload, Lock } from "lucide-react";
 import { format } from "date-fns";
 
 import { toast } from "sonner";
@@ -66,6 +66,24 @@ const Register = () => {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [acceptingApplications, setAcceptingApplications] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkAdmissions = async () => {
+      try {
+        const { data } = await supabase.from('system_settings').select('value').eq('key', 'accepting_applications').single();
+        if (data) {
+          const val = data.value;
+          setAcceptingApplications(val === true || val === 'true');
+        } else {
+          setAcceptingApplications(true);
+        }
+      } catch {
+        setAcceptingApplications(true);
+      }
+    };
+    checkAdmissions();
+  }, []);
 
   const [form, setForm] = useState<FormData>({
     firstName: "",
@@ -201,6 +219,29 @@ const Register = () => {
       setLoading(false);
     }
   };
+
+  if (acceptingApplications === null) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (acceptingApplications === false) {
+    return (
+      <div className="flex flex-col items-center px-4 py-16 text-center">
+        <Lock className="h-16 w-16 text-muted-foreground mb-4" />
+        <h1 className="text-2xl font-bold text-foreground mb-2">Registrations Are Currently Closed</h1>
+        <p className="text-muted-foreground max-w-md">
+          We are not accepting new applications at this time. Please check back later or contact the school office for more information.
+        </p>
+        <Button asChild className="mt-6" variant="outline">
+          <Link to="/">Go Back Home</Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center px-4 py-12 sm:py-16">

@@ -43,6 +43,7 @@ const NAV_ITEMS = [
   { label: "Fees", icon: CreditCard, path: "/student/fees", restrictedWhenPending: false },
   { label: "Announcements", icon: Bell, path: "/student/announcements", restrictedWhenPending: false },
   { label: "Calendar", icon: CalendarDays, path: "/student/calendar", restrictedWhenPending: false },
+  { label: "Graduates", icon: GraduationCap, path: "/student/graduates", restrictedWhenPending: false },
   { label: "Profile", icon: UserCircle, path: "/student/profile", restrictedWhenPending: false },
 ];
 
@@ -58,6 +59,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
   );
   const isPending = statusUpper === "PENDING";
   const isRejected = statusUpper === "REJECTED";
+  const isGraduate = statusUpper === "GRADUATE";
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Case-insensitive role check for admin access
@@ -170,6 +172,14 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
           <XCircle className="w-5 h-5 shrink-0" />
           <p className="text-sm font-medium">
             Your application was not approved for this session. Please contact the school office for more information.
+          </p>
+        </div>
+      )}
+      {isGraduate && (
+        <div className="bg-primary/10 border-b border-primary/30 text-primary px-4 py-3 flex items-center gap-3 shrink-0">
+          <GraduationCap className="w-5 h-5 shrink-0" />
+          <p className="text-sm font-medium">
+            🎓 Congratulations! You have graduated from Spirit Life School of Ministry. Your records are available for reference.
           </p>
         </div>
       )}

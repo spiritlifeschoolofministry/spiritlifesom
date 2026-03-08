@@ -30,6 +30,7 @@ import AdminAnnouncements from "./pages/admin/Announcements";
 import StudentAnnouncements from "./pages/student/Announcements";
 import AdminCalendar from "./pages/admin/Calendar";
 import StudentCalendar from "./pages/student/Calendar";
+import Graduates from "./pages/student/Graduates";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminProfile from "./pages/admin/Profile";
 import AdminPayments from "./pages/admin/Payments";
@@ -78,6 +79,7 @@ const App = () => (
           <Route path="/student/fees" element={<ProtectedRoute><StudentFees /></ProtectedRoute>} />
           <Route path="/student/announcements" element={<ProtectedRoute><StudentAnnouncements /></ProtectedRoute>} />
           <Route path="/student/calendar" element={<ProtectedRoute><StudentCalendar /></ProtectedRoute>} />
+          <Route path="/student/graduates" element={<ProtectedRoute><Graduates /></ProtectedRoute>} />
 
           {/* Admin portal */}
           <Route element={<AdminLayout />}>

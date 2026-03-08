@@ -35,7 +35,9 @@ const Home = () => {
           .single();
 
         if (data) {
-          setAcceptingApplications(data.value === 'true');
+          // value is jsonb - could be boolean true, string "true", or JSON string
+          const val = data.value;
+          setAcceptingApplications(val === true || val === 'true');
         }
       } catch (err) {
         console.error('Error fetching enrollment status:', err);
