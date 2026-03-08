@@ -524,7 +524,7 @@ const AdminAttendance = () => {
       if (insertError) throw insertError;
       toast.success("Attendance record added");
       setNewDate("");
-      setNewStatus("PRESENT");
+      setNewStatus("Present");
       setNewVerified(false);
       await loadAll();
       await openDetail(detailStudentId);
