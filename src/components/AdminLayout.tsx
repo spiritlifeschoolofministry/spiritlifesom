@@ -90,6 +90,7 @@ const AdminLayout = () => {
               <Eye className="w-4 h-4" />
             </Button>
           )}
+          <ThemeToggle />
           <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
             <LogOut className="w-4 h-4" />
           </Button>
