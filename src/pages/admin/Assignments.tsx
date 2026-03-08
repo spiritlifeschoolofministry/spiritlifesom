@@ -49,7 +49,6 @@ const AdminAssignments = () => {
   const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
   const [editDueDate, setEditDueDate] = useState('');
   const [cohortFilter, setCohortFilter] = useState('all');
-  const [editDueDate, setEditDueDate] = useState('');
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<AssignmentFormData>({
     defaultValues: { title: '', description: '', due_date: '', cohort_id: '', course_id: '', category: 'Assignment' },
