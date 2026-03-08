@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import {
   CalendarCheck,
   AlertTriangle,
@@ -27,6 +28,7 @@ import {
   XCircle,
   Search,
   Loader2,
+  Power,
 } from "lucide-react";
 import { toast } from "sonner";
 
