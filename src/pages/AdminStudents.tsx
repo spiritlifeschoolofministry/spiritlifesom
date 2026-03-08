@@ -94,6 +94,13 @@ const AdminStudents = () => {
   const [deleteTarget, setDeleteTarget] = useState<Student | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Email state
+  const [emailTargets, setEmailTargets] = useState<Student[]>([]);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
+
   useEffect(() => {
     loadStudents();
   }, []);
