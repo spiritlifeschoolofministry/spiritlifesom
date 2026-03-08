@@ -23,7 +23,7 @@ type Fee = Tables<'fees'>;
 type Payment = Tables<'payments'>;
 
 interface SubmitPaymentFormData {
-  fee_type: string;
+  fee_id: string;
   amount: string;
   notes: string;
   receipt: FileList;
@@ -38,10 +38,10 @@ const StudentFees = () => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
 
-  const { register, handleSubmit, formState: { errors }, reset, watch } = useForm<SubmitPaymentFormData>({
-    defaultValues: { fee_type: '', amount: '', notes: '' },
+  const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<SubmitPaymentFormData>({
+    defaultValues: { fee_id: '', amount: '', notes: '' },
   });
-  const selectedFeeType = watch('fee_type');
+  const selectedFeeId = watch('fee_id');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -88,6 +88,7 @@ const StudentFees = () => {
       const { data: urlData } = supabase.storage.from('course-materials').getPublicUrl(uploadData.path);
       const { error: paymentError } = await supabase.from('payments').insert({
         student_id: student.id, amount_paid: parseFloat(data.amount),
+        fee_id: data.fee_id || null,
         payment_proof_url: urlData.publicUrl, admin_notes: data.notes || null, status: 'PENDING',
       });
       if (paymentError) { toast.error('Failed to submit payment'); return; }
@@ -152,12 +153,21 @@ const StudentFees = () => {
               </DialogHeader>
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Fee Type</Label>
-                  <Select value={selectedFeeType} onValueChange={(value) => reset({ ...watch(), fee_type: value })}>
-                    <SelectTrigger><SelectValue placeholder="Select fee type" /></SelectTrigger>
+                  <Label>Fee</Label>
+                  <Select value={selectedFeeId} onValueChange={(value) => {
+                    setValue('fee_id', value);
+                    const fee = unpaidFees.find(f => f.id === value);
+                    if (fee) {
+                      const balance = (fee.amount_due || 0) - (fee.amount_paid || 0);
+                      setValue('amount', balance.toString());
+                    }
+                  }}>
+                    <SelectTrigger><SelectValue placeholder="Select fee to pay" /></SelectTrigger>
                     <SelectContent>
-                      {[...new Set(fees.map((f) => f.fee_type))].map((feeType) => (
-                        <SelectItem key={feeType} value={feeType}>{feeType}</SelectItem>
+                      {unpaidFees.map((fee) => (
+                        <SelectItem key={fee.id} value={fee.id}>
+                          {fee.fee_type} — ₦{((fee.amount_due || 0) - (fee.amount_paid || 0)).toLocaleString()} remaining
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
