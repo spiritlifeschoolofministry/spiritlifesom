@@ -216,8 +216,8 @@ const AdminMaterials = () => {
                       <TableCell>{m.created_at ? new Date(m.created_at).toLocaleDateString() : '—'}</TableCell>
                       <TableCell>
                         {m.file_url ? (
-                          <a href={m.file_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-primary hover:underline text-sm">
-                            Open <ExternalLink className="h-3 w-3" />
+                          <a href={`${m.file_url}?download=`} download className="flex items-center gap-1 text-primary hover:underline text-sm">
+                            Download <ExternalLink className="h-3 w-3" />
                           </a>
                         ) : '—'}
                       </TableCell>
