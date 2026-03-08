@@ -23,6 +23,7 @@ import StudentMaterials from "./pages/StudentMaterials";
 import StudentFees from "./pages/StudentFees";
 import Coursemates from "./pages/student/Coursemates";
 import StudentAssignments from "./pages/student/Assignments";
+import StudentGrades from "./pages/student/Grades";
 import ComingSoon from "./pages/ComingSoon";
 import AdminComingSoon from "./pages/AdminComingSoon";
 import AdminAnnouncements from "./pages/admin/Announcements";
