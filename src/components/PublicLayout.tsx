@@ -36,9 +36,8 @@ const PublicLayout = () => {
         }`}
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 h-16">
-          <Link to="/" className="flex items-center gap-2 text-primary-foreground font-bold text-lg tracking-tight">
-            <img src="/images/logo.png" alt="SLSM Logo" className="h-9 w-9 object-contain" />
-            <span className="hidden sm:inline">Spirit Life SOM</span>
+          <Link to="/" className="text-primary-foreground font-bold text-lg tracking-tight">
+            Spirit Life SOM
           </Link>
 
           {/* Desktop links */}
