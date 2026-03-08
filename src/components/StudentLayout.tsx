@@ -21,6 +21,7 @@ import {
   Lock,
   AlertTriangle,
   XCircle,
+  Shield,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -45,7 +46,7 @@ const NAV_ITEMS = [
 const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, profile: authProfile, student } = useAuth();
+  const { signOut, profile: authProfile, student, role } = useAuth();
   const derivedAdmission = student?.admission_status ?? undefined;
   const effectiveAdmissionStatus = admissionStatus ?? derivedAdmission ?? null;
   const statusUpper = useMemo(
@@ -55,6 +56,9 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
   const isPending = statusUpper === "PENDING";
   const isRejected = statusUpper === "REJECTED";
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Case-insensitive role check for admin access
+  const isAdmin = (role ?? "").toLowerCase() === "admin" || (role ?? "").toLowerCase() === "teacher";
 
   const handleLogout = async () => {
     await signOut();
@@ -128,6 +132,13 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
         </div>
         <h1 className="text-sm font-semibold text-foreground tracking-wide">Student Portal</h1>
         <div className="flex items-center gap-3">
+          {/* Admin Portal Switch */}
+          {isAdmin && (
+            <Button variant="outline" size="sm" onClick={() => navigate("/admin")} className="hidden sm:flex items-center gap-1.5 text-xs">
+              <Shield className="w-3.5 h-3.5" />
+              Admin Portal
+            </Button>
+          )}
           <span className="text-sm text-muted-foreground hidden sm:block">
             {authProfile ? `${authProfile.first_name || 'Student'} ${authProfile.last_name || 'User'}` : ""}
           </span>
@@ -165,6 +176,16 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
           <aside className="hidden md:flex flex-col w-56 shrink-0 gradient-purple text-primary-foreground">
             <nav className="flex-1 py-4 space-y-1 px-2">
               {NAV_ITEMS.map((item) => renderNavItem(item, {}))}
+              {/* Admin link in sidebar for admins/teachers */}
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 mt-4 border-t border-primary-foreground/20 pt-4"
+                >
+                  <Shield className="w-4 h-4 shrink-0" />
+                  Admin Portal
+                </Link>
+              )}
             </nav>
           </aside>
         </TooltipProvider>
@@ -177,6 +198,16 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
               <aside className="absolute left-0 top-14 bottom-0 w-60 gradient-purple text-primary-foreground" onClick={(e) => e.stopPropagation()}>
                 <nav className="py-4 space-y-1 px-2">
                   {NAV_ITEMS.map((item) => renderNavItem(item, { closeSidebar: true }))}
+                  {isAdmin && (
+                    <Link
+                      to="/admin"
+                      onClick={() => setSidebarOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 mt-4 border-t border-primary-foreground/20 pt-4"
+                    >
+                      <Shield className="w-4 h-4 shrink-0" />
+                      Admin Portal
+                    </Link>
+                  )}
                 </nav>
               </aside>
             </TooltipProvider>
