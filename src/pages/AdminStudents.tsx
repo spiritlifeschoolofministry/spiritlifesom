@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -31,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, MoreHorizontal, GraduationCap, Loader2, Trash2, AlertTriangle } from "lucide-react";
+import { Search, MoreHorizontal, GraduationCap, Loader2, Trash2, AlertTriangle, Mail, Send } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
