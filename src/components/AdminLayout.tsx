@@ -28,6 +28,7 @@ const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/admin/dashboard" },
   { label: "Students", icon: Users, path: "/admin/students" },
   { label: "Admissions", icon: UserCheck, path: "/admin/admissions" },
+  { label: "Courses", icon: BookOpen, path: "/admin/courses" },
   { label: "Attendance", icon: CalendarCheck, path: "/admin/attendance" },
   { label: "Assignments", icon: FileText, path: "/admin/assignments" },
   { label: "Materials", icon: Folder, path: "/admin/materials" },
