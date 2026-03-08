@@ -258,37 +258,51 @@ const AdminStudents = () => {
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    try {
-      setBulkDeleting(true);
-      const ids = Array.from(selectedIds);
-      const profileIds = students
-        .filter((s) => selectedIds.has(s.id) && s.profile_id)
-        .map((s) => s.profile_id as string);
+    const ids = Array.from(selectedIds);
+    const affectedStudents = students.filter((s) => selectedIds.has(s.id));
+    const count = ids.length;
 
-      // Delete related records for all selected students
-      await supabase.from("payments").delete().in("student_id", ids);
-      await supabase.from("assignment_submissions").delete().in("student_id", ids);
-      await supabase.from("attendance").delete().in("student_id", ids);
-      await supabase.from("fees").delete().in("student_id", ids);
+    // Optimistically remove from UI
+    setStudents((prev) => prev.filter((s) => !selectedIds.has(s.id)));
+    setSelectedIds(new Set());
+    setShowBulkDeleteDialog(false);
+    setBulkDeleting(false);
 
-      const { error } = await supabase.from("students").delete().in("id", ids);
-      if (error) throw error;
+    const timeoutId = setTimeout(async () => {
+      try {
+        const profileIds = affectedStudents
+          .filter((s) => s.profile_id)
+          .map((s) => s.profile_id as string);
 
-      // Delete profiles
-      if (profileIds.length > 0) {
-        await supabase.from("profiles").delete().in("id", profileIds);
+        await supabase.from("payments").delete().in("student_id", ids);
+        await supabase.from("assignment_submissions").delete().in("student_id", ids);
+        await supabase.from("attendance").delete().in("student_id", ids);
+        await supabase.from("fees").delete().in("student_id", ids);
+
+        const { error } = await supabase.from("students").delete().in("id", ids);
+        if (error) throw error;
+
+        if (profileIds.length > 0) {
+          await supabase.from("profiles").delete().in("id", profileIds);
+        }
+      } catch (err) {
+        console.error("Bulk delete error:", err);
+        toast.error("Failed to delete students. Refreshing...");
+        loadStudents();
       }
+    }, 6000);
 
-      setStudents((prev) => prev.filter((s) => !selectedIds.has(s.id)));
-      toast.success(`${ids.length} student(s) deleted`);
-      setSelectedIds(new Set());
-      setShowBulkDeleteDialog(false);
-    } catch (err) {
-      console.error("Bulk delete error:", err);
-      toast.error("Failed to delete students");
-    } finally {
-      setBulkDeleting(false);
-    }
+    toast(`${count} student(s) deleted`, {
+      duration: 5500,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          clearTimeout(timeoutId);
+          setStudents((prev) => [...affectedStudents, ...prev]);
+          toast.success("Deletion undone");
+        },
+      },
+    });
   };
 
   const handleBulkGraduate = async () => {
@@ -296,6 +310,9 @@ const AdminStudents = () => {
     try {
       setBulkGraduating(true);
       const ids = Array.from(selectedIds);
+      const previousStatuses = new Map(
+        students.filter((s) => selectedIds.has(s.id)).map((s) => [s.id, s.admission_status])
+      );
 
       const { error } = await supabase
         .from("students")
@@ -310,9 +327,35 @@ const AdminStudents = () => {
         )
       );
 
-      toast.success(`${ids.length} student(s) marked as Graduate 🎓`);
       setSelectedIds(new Set());
       setShowBulkGraduateDialog(false);
+
+      toast(`${ids.length} student(s) marked as Graduate 🎓`, {
+        duration: 5500,
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            try {
+              for (const [id, status] of previousStatuses) {
+                await supabase
+                  .from("students")
+                  .update({ admission_status: status || "PENDING", is_approved: status === "ADMITTED" })
+                  .eq("id", id);
+              }
+              setStudents((prev) =>
+                prev.map((s) =>
+                  previousStatuses.has(s.id)
+                    ? { ...s, admission_status: previousStatuses.get(s.id) || "PENDING" }
+                    : s
+                )
+              );
+              toast.success("Graduation undone");
+            } catch {
+              toast.error("Failed to undo. Please refresh.");
+            }
+          },
+        },
+      });
     } catch (err) {
       toast.error("Failed to graduate students");
     } finally {
