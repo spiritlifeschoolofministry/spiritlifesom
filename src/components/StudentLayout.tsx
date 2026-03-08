@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
+import { useUnreadNotifications } from "@/hooks/use-unread-notifications";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
