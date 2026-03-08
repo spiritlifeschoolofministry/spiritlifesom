@@ -272,9 +272,9 @@ const AdminAttendance = () => {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    await Promise.all([loadSummary(), loadPendingQueue(), loadStudentStats()]);
+    await Promise.all([loadClassTodaySetting(), loadSummary(), loadPendingQueue(), loadStudentStats()]);
     setLoading(false);
-  }, [loadSummary, loadPendingQueue, loadStudentStats]);
+  }, [loadClassTodaySetting, loadSummary, loadPendingQueue, loadStudentStats]);
 
   useEffect(() => {
     loadAll();
