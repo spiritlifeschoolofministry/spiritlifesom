@@ -30,6 +30,7 @@ import AdminAnnouncements from "./pages/admin/Announcements";
 import StudentAnnouncements from "./pages/student/Announcements";
 import AdminCalendar from "./pages/admin/Calendar";
 import StudentCalendar from "./pages/student/Calendar";
+import Graduates from "./pages/student/Graduates";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminProfile from "./pages/admin/Profile";
 import AdminPayments from "./pages/admin/Payments";
