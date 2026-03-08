@@ -36,6 +36,7 @@ const AdminAssignments = () => {
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   const [gradingId, setGradingId] = useState<string | null>(null);
   const [gradingFeedback, setGradingFeedback] = useState('');
+  const [gradingScore, setGradingScore] = useState<string>('');
   const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
   const [editDueDate, setEditDueDate] = useState('');
 
@@ -134,18 +135,26 @@ const AdminAssignments = () => {
 
   const handleGradeSubmission = async (submissionId: string) => {
     if (!selectedAssignment) return;
+    const scoreNum = gradingScore ? parseFloat(gradingScore) : null;
+    if (gradingScore && (isNaN(scoreNum!) || scoreNum! < 0)) {
+      toast.error('Please enter a valid score');
+      return;
+    }
     try {
       const { error } = await supabase
         .from('assignment_submissions')
         .update({
+          grade: scoreNum,
           feedback: gradingFeedback || null,
           reviewed_at: new Date().toISOString(),
+          reviewed_by: (await supabase.auth.getUser()).data.user?.id || null,
         })
         .eq('id', submissionId);
       if (error) throw error;
       toast.success('Submission graded');
       setGradingId(null);
       setGradingFeedback('');
+      setGradingScore('');
       await loadSubmissions(selectedAssignment);
     } catch (err) {
       console.error('Grade error:', err);
@@ -295,7 +304,7 @@ const AdminAssignments = () => {
                                                 <p className="text-sm text-muted-foreground">{submission.student_profile?.email || ''}</p>
                                               </div>
                                               {isGraded ? (
-                                                <Badge className="bg-emerald-100 text-emerald-800"><CheckCircle2 className="h-3 w-3 mr-1" /> Graded</Badge>
+                                                <Badge className="bg-emerald-100 text-emerald-800"><CheckCircle2 className="h-3 w-3 mr-1" /> {submission.grade != null ? `${submission.grade}/${selectedAssignment?.max_points || 100}` : 'Graded'}</Badge>
                                               ) : (
                                                 <Badge className="bg-blue-100 text-blue-800">Submitted</Badge>
                                               )}
@@ -308,23 +317,34 @@ const AdminAssignments = () => {
                                                 <a href={submission.file_url} target="_blank" rel="noopener noreferrer"><File className="h-4 w-4 mr-1" /> View Submission</a>
                                               </Button>
                                             )}
-                                            {isGraded && submission.feedback && (
-                                              <div className="bg-muted p-3 rounded border">
-                                                <p className="text-sm font-medium">Feedback:</p>
-                                                <p className="text-sm text-muted-foreground mt-1">{submission.feedback}</p>
+                                            {isGraded && (
+                                              <div className="bg-muted p-3 rounded border space-y-1">
+                                                {submission.grade != null && (
+                                                  <p className="text-sm font-medium">Score: <span className="text-primary">{submission.grade}/{selectedAssignment?.max_points || 100}</span></p>
+                                                )}
+                                                {submission.feedback && (
+                                                  <>
+                                                    <p className="text-sm font-medium">Feedback:</p>
+                                                    <p className="text-sm text-muted-foreground">{submission.feedback}</p>
+                                                  </>
+                                                )}
                                               </div>
                                             )}
                                             {!isGraded && (
-                                              <Dialog open={gradingId === submission.id} onOpenChange={(open) => { if (!open) { setGradingId(null); setGradingFeedback(''); } else setGradingId(submission.id); }}>
+                                              <Dialog open={gradingId === submission.id} onOpenChange={(open) => { if (!open) { setGradingId(null); setGradingFeedback(''); setGradingScore(''); } else setGradingId(submission.id); }}>
                                                 <DialogTrigger asChild><Button size="sm" variant="outline">Grade & Provide Feedback</Button></DialogTrigger>
                                                 <DialogContent>
                                                   <DialogHeader><DialogTitle>Grade Submission</DialogTitle></DialogHeader>
                                                   <div className="space-y-4">
                                                     <div>
-                                                      <Label>Feedback</Label>
-                                                      <Textarea value={gradingFeedback} onChange={(e) => setGradingFeedback(e.target.value)} placeholder="Provide feedback..." />
+                                                      <Label>Score (out of {selectedAssignment?.max_points || 100})</Label>
+                                                      <Input type="number" min="0" max={selectedAssignment?.max_points || 100} value={gradingScore} onChange={(e) => setGradingScore(e.target.value)} placeholder={`0 – ${selectedAssignment?.max_points || 100}`} className="mt-1" />
                                                     </div>
-                                                    <Button onClick={() => handleGradeSubmission(submission.id)} className="w-full">Submit Grade</Button>
+                                                    <div>
+                                                      <Label>Feedback</Label>
+                                                      <Textarea value={gradingFeedback} onChange={(e) => setGradingFeedback(e.target.value)} placeholder="Provide feedback..." className="mt-1" />
+                                                    </div>
+                                                    <Button onClick={() => handleGradeSubmission(submission.id)} className="w-full" disabled={!gradingScore}>Submit Grade</Button>
                                                   </div>
                                                 </DialogContent>
                                               </Dialog>
