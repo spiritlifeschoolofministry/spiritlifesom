@@ -13,11 +13,14 @@ import { Loader2, Upload, Pin, PinOff, Trash2, ExternalLink } from 'lucide-react
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
+const MATERIAL_TYPES = ['Notes', 'Slides', 'Handout', 'Worksheet', 'Reference', 'Video', 'Other'] as const;
+
 interface UploadForm {
   title: string;
   description: string;
   cohort_id: string;
   course_id: string;
+  material_type: string;
 }
 
 const AdminMaterials = () => {
