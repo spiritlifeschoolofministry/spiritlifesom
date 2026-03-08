@@ -218,7 +218,7 @@ const AdminCourses = () => {
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
-            {search ? "No courses match your search." : "No courses yet. Click "Add Course" to create one."}
+            {search ? "No courses match your search." : "No courses yet. Click \"Add Course\" to create one."}
           </CardContent>
         </Card>
       ) : (
