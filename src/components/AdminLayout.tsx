@@ -81,15 +81,26 @@ const AdminLayout = () => {
             <AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback>
           </Avatar>
           {student && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate("/student/dashboard")}
-              className="hidden sm:flex items-center gap-1.5 text-xs"
-            >
-              <Users className="w-3.5 h-3.5" />
-              Student Portal
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/student/dashboard")}
+                className="hidden sm:flex items-center gap-1.5 text-xs"
+              >
+                <Users className="w-3.5 h-3.5" />
+                Student Portal
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate("/student/dashboard")}
+                className="sm:hidden"
+                title="Student Portal"
+              >
+                <Eye className="w-4 h-4" />
+              </Button>
+            </>
           )}
           <ThemeToggle />
           <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
