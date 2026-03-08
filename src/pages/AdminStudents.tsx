@@ -488,12 +488,24 @@ const AdminStudents = () => {
             <SelectItem value="Graduate">Graduate</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={cohortFilter} onValueChange={setCohortFilter}>
+          <SelectTrigger className="w-full sm:w-44">
+            <SelectValue placeholder="Filter by cohort" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Cohorts</SelectItem>
+            {cohorts.map(c => (
+              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Results count */}
       <p className="text-xs text-muted-foreground">
         Showing {filteredStudents.length} of {totalCount} students
-        {statusFilter !== "all" && <span> · Filtered by: <span className="font-medium text-foreground">{statusFilter}</span></span>}
+        {statusFilter !== "all" && <span> · Status: <span className="font-medium text-foreground">{statusFilter}</span></span>}
+        {cohortFilter !== "all" && <span> · Cohort: <span className="font-medium text-foreground">{cohorts.find(c => c.id === cohortFilter)?.name}</span></span>}
       </p>
 
       {/* Desktop Table */}
