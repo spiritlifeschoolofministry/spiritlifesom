@@ -93,6 +93,8 @@ const AdminStudents = () => {
   // Delete state
   const [deleteTarget, setDeleteTarget] = useState<Student | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   // Email state
   const [emailTargets, setEmailTargets] = useState<Student[]>([]);
@@ -254,6 +256,41 @@ const AdminStudents = () => {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      setBulkDeleting(true);
+      const ids = Array.from(selectedIds);
+      const profileIds = students
+        .filter((s) => selectedIds.has(s.id) && s.profile_id)
+        .map((s) => s.profile_id as string);
+
+      // Delete related records for all selected students
+      await supabase.from("payments").delete().in("student_id", ids);
+      await supabase.from("assignment_submissions").delete().in("student_id", ids);
+      await supabase.from("attendance").delete().in("student_id", ids);
+      await supabase.from("fees").delete().in("student_id", ids);
+
+      const { error } = await supabase.from("students").delete().in("id", ids);
+      if (error) throw error;
+
+      // Delete profiles
+      if (profileIds.length > 0) {
+        await supabase.from("profiles").delete().in("id", profileIds);
+      }
+
+      setStudents((prev) => prev.filter((s) => !selectedIds.has(s.id)));
+      toast.success(`${ids.length} student(s) deleted`);
+      setSelectedIds(new Set());
+      setShowBulkDeleteDialog(false);
+    } catch (err) {
+      console.error("Bulk delete error:", err);
+      toast.error("Failed to delete students");
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const handleBulkGraduate = async () => {
     if (selectedIds.size === 0) return;
     try {
@@ -383,6 +420,14 @@ const AdminStudents = () => {
             >
               <Mail className="h-4 w-4" />
               Email Selected ({selectedIds.size})
+            </Button>
+            <Button
+              variant="outline"
+              className="gap-2 text-destructive border-destructive/30 hover:bg-destructive/10"
+              onClick={() => setShowBulkDeleteDialog(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Selected ({selectedIds.size})
             </Button>
             <Button
               onClick={() => setShowBulkGraduateDialog(true)}
@@ -558,7 +603,40 @@ const AdminStudents = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Student Confirmation Dialog */}
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" /> Delete {selectedIds.size} Student(s)
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the selected students and all their related records (payments, submissions, attendance, fees). This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-48 overflow-y-auto space-y-1 my-2">
+            {filteredStudents
+              .filter((s) => selectedIds.has(s.id))
+              .map((s) => (
+                <p key={s.id} className="text-sm text-muted-foreground">
+                  • {s.profile.first_name} {s.profile.last_name}
+                </p>
+              ))}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-2"
+            >
+              {bulkDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {bulkDeleting ? "Deleting..." : "Delete All"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
