@@ -196,8 +196,10 @@ const StudentDashboard = () => {
         admissionStatus,
         attendanceRate,
         totalCourses: coursesRes.data?.length || 0,
+        completedCourses,
         pendingAssignments,
-        feeStatus,
+        totalAssignments,
+        fees,
         upcomingEvents,
         announcements: announcementsRes.data ?? [],
       });
