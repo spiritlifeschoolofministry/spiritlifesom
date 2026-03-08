@@ -218,7 +218,7 @@ const StudentMaterials = () => {
                       >
                         <a href={`${m.file_url}?download=`} download>
                           <LinkIcon className="w-3 h-3 mr-1" />
-                          Open
+                          Download
                         </a>
                       </Button>
                     )}
