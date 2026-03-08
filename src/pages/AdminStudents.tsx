@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Search, MoreHorizontal, GraduationCap, Loader2, Trash2,
-  AlertTriangle, Mail, Send, Users, UserCheck, Clock, XCircle, Eye, ChevronRight,
+  AlertTriangle, Mail, Send, Users, UserCheck, Clock, XCircle, Eye, ChevronRight, Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -292,6 +292,72 @@ const AdminStudents = () => {
 
   const getStatusForUI = (status: string | null) => DB_TO_UI_STATUS[(status || "").toUpperCase()] || "Pending";
 
+  const handleExportCSV = async () => {
+    try {
+      toast.info("Preparing export...");
+      const { data, error } = await supabase
+        .from("students")
+        .select(`
+          id, admission_status, student_code, learning_mode, gender, age, date_of_birth,
+          marital_status, address, educational_background, preferred_language,
+          is_born_again, has_discovered_ministry, created_at,
+          profile:profiles(first_name, middle_name, last_name, email, phone),
+          cohort:cohorts(name)
+        `)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      if (!data || data.length === 0) { toast.error("No students to export"); return; }
+
+      const rows = (data as any[]).map((s) => ({
+        "First Name": s.profile?.first_name || "",
+        "Middle Name": s.profile?.middle_name || "",
+        "Last Name": s.profile?.last_name || "",
+        "Email": s.profile?.email || "",
+        "Phone": s.profile?.phone || "",
+        "Student Code": s.student_code || "",
+        "Status": getStatusForUI(s.admission_status),
+        "Cohort": s.cohort?.name || "",
+        "Learning Mode": s.learning_mode || "",
+        "Gender": s.gender || "",
+        "Age": s.age ?? "",
+        "Date of Birth": s.date_of_birth || "",
+        "Marital Status": s.marital_status || "",
+        "Address": s.address || "",
+        "Education": s.educational_background || "",
+        "Language": s.preferred_language || "",
+        "Born Again": s.is_born_again ? "Yes" : "No",
+        "Discovered Ministry": s.has_discovered_ministry ? "Yes" : "No",
+        "Joined": s.created_at ? new Date(s.created_at).toLocaleDateString() : "",
+      }));
+
+      const headers = Object.keys(rows[0]);
+      const csvContent = [
+        headers.join(","),
+        ...rows.map((row) =>
+          headers.map((h) => {
+            const val = String(row[h as keyof typeof row] ?? "");
+            return val.includes(",") || val.includes('"') || val.includes("\n")
+              ? `"${val.replace(/"/g, '""')}"`
+              : val;
+          }).join(",")
+        ),
+      ].join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `students_export_${new Date().toISOString().split("T")[0]}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${rows.length} students`);
+    } catch (err) {
+      console.error("Export error:", err);
+      toast.error("Failed to export students");
+    }
+  };
+
   // Stats
   const totalCount = students.length;
   const pendingCount = students.filter((s) => getStatusForUI(s.admission_status) === "Pending").length;
@@ -320,9 +386,14 @@ const AdminStudents = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Students</h1>
-        <p className="text-muted-foreground text-sm">Manage enrollment, status, and communications</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Students</h1>
+          <p className="text-muted-foreground text-sm">Manage enrollment, status, and communications</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2 self-start">
+          <Download className="h-4 w-4" /> Export CSV
+        </Button>
       </div>
 
       {/* Stat Cards */}
