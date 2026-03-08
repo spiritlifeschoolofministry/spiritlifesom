@@ -485,7 +485,7 @@ const AdminAttendance = () => {
       return;
     }
     try {
-      // Try cohort-specific schedule first, then generic
+      // Try to find existing schedule, or auto-create one
       let scheduleId: string | null = null;
       const { data: cohortSchedule } = await supabase
         .from("schedule")
@@ -506,9 +506,16 @@ const AdminAttendance = () => {
           scheduleId = genericSchedule[0].id;
         }
       }
+      // Auto-create a schedule entry if none exists
       if (!scheduleId) {
-        toast.error("No schedule found for this date.");
-        return;
+        const dayName = new Date(`${newDate}T00:00:00`).toLocaleDateString("en-US", { weekday: "long" });
+        const { data: created, error: createErr } = await supabase
+          .from("schedule")
+          .insert({ date: newDate, activity_type: "Lecture", description: "Admin-created session", day: dayName })
+          .select("id")
+          .single();
+        if (createErr) throw createErr;
+        scheduleId = created.id;
       }
       const checkInTimestamp = new Date(`${newDate}T00:00:00`).toISOString();
       const { error: insertError } = await supabase
