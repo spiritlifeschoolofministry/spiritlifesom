@@ -239,7 +239,7 @@ const StudentAttendance = () => {
                 Window: {cohortToggle.start_time} – {cohortToggle.end_time} · Late after {cohortToggle.late_after}
               </p>
             )}
-            <Button onClick={handleCheckIn} disabled={!canCheckIn} className="w-full sm:w-auto gradient-flame border-0 text-accent-foreground hover:opacity-90">
+            <Button onClick={handleCheckIn} disabled={!canCheckIn} variant="flame" className="w-full sm:w-auto">
               {checkingIn ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Marking…</>) : checkedInToday ? (<>Check-in {pendingToday ? "Pending Approval" : "Recorded"}</>) : (<>Mark Attendance for Today</>)}
             </Button>
           </CardContent>

@@ -154,7 +154,8 @@ const Login = () => {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full gradient-flame border-0 text-accent-foreground hover:opacity-90 h-11"
+              variant="flame"
+              className="w-full h-11"
             >
               {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {loading ? statusMsg || "Signing in..." : "Sign In"}

@@ -156,7 +156,7 @@ const StudentFees = () => {
           </div>
           <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
             <DialogTrigger asChild>
-              <Button className="gradient-flame border-0 text-accent-foreground hover:opacity-90">
+              <Button variant="flame">
                 <Upload className="h-4 w-4 mr-2" /> Submit Payment
               </Button>
             </DialogTrigger>

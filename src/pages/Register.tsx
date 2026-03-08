@@ -525,11 +525,11 @@ const Register = () => {
               <div />
             )}
             {step < 3 ? (
-              <Button type="button" onClick={handleNext} className="gradient-flame border-0 text-accent-foreground hover:opacity-90">
+              <Button type="button" onClick={handleNext} variant="flame">
                 Next <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             ) : (
-              <Button type="button" onClick={handleSubmit} disabled={loading} className="gradient-flame border-0 text-accent-foreground hover:opacity-90">
+              <Button type="button" onClick={handleSubmit} disabled={loading} variant="flame">
                 {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Submit Registration
               </Button>
