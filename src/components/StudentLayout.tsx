@@ -139,10 +139,21 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
         <div className="flex items-center gap-3">
           {/* Admin Portal Switch */}
           {isAdmin && (
-            <Button variant="outline" size="sm" onClick={() => navigate("/admin")} className="hidden sm:flex items-center gap-1.5 text-xs">
-              <Shield className="w-3.5 h-3.5" />
-              Admin Portal
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={() => navigate("/admin")} className="hidden sm:flex items-center gap-1.5 text-xs">
+                <Shield className="w-3.5 h-3.5" />
+                Admin Portal
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate("/admin")}
+                className="sm:hidden"
+                title="Admin Portal"
+              >
+                <Eye className="w-4 h-4" />
+              </Button>
+            </>
           )}
           <span className="text-sm text-muted-foreground hidden sm:block">
             {authProfile ? `${authProfile.first_name || 'Student'} ${authProfile.last_name || 'User'}` : ""}
