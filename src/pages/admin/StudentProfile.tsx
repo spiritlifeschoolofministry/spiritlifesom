@@ -5,12 +5,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import {
   ArrowLeft, Mail, Phone, MapPin, Calendar, BookOpen,
-  GraduationCap, CreditCard, ClipboardCheck, User2
+  GraduationCap, CreditCard, ClipboardCheck, User2, Pencil, Save, Loader2, X
 } from "lucide-react";
 
 interface StudentDetail {
@@ -67,6 +78,164 @@ interface AssignmentRecord {
   grade: number | null;
   submitted: boolean;
 }
+
+const LEARNING_MODES = ["On-site", "Online", "Hybrid"];
+const LANGUAGES = ["English", "French", "Yoruba", "Igbo", "Hausa", "Other"];
+const EDUCATION_LEVELS = ["Primary", "Secondary", "Diploma", "Bachelor's Degree", "Master's Degree", "Doctorate", "Other"];
+const MARITAL_STATUSES = ["Single", "Married", "Divorced", "Widowed"];
+const ADMISSION_STATUSES = ["Pending", "ADMITTED", "REJECTED", "Graduate"];
+
+const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; onSaved: (s: StudentDetail) => void }) => {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    learning_mode: student.learning_mode || "",
+    preferred_language: student.preferred_language || "",
+    educational_background: student.educational_background || "",
+    marital_status: student.marital_status || "",
+    address: student.address || "",
+    ministry_description: student.ministry_description || "",
+    admission_status: student.admission_status || "Pending",
+  });
+
+  const set = (key: string, val: string) => setForm(f => ({ ...f, [key]: val }));
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const { data, error } = await supabase
+        .from("students")
+        .update({
+          learning_mode: form.learning_mode || null,
+          preferred_language: form.preferred_language || null,
+          educational_background: form.educational_background || null,
+          marital_status: form.marital_status || null,
+          address: form.address || null,
+          ministry_description: form.ministry_description || null,
+          admission_status: form.admission_status || null,
+        })
+        .eq("id", student.id)
+        .select(`*, profile:profiles(first_name, last_name, middle_name, email, phone, avatar_url), cohort:cohorts(name)`)
+        .single();
+      if (error) throw error;
+      if (data) onSaved(data as any);
+      toast.success("Student academic info updated");
+      setEditing(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const cancel = () => {
+    setEditing(false);
+    setForm({
+      learning_mode: student.learning_mode || "",
+      preferred_language: student.preferred_language || "",
+      educational_background: student.educational_background || "",
+      marital_status: student.marital_status || "",
+      address: student.address || "",
+      ministry_description: student.ministry_description || "",
+      admission_status: student.admission_status || "Pending",
+    });
+  };
+
+  return (
+    <Card className="shadow-[var(--shadow-card)] border-border">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2"><GraduationCap className="w-4 h-4" /> Academic Profile</CardTitle>
+          {!editing && (
+            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+              <Pencil className="w-3.5 h-3.5 mr-1.5" /> Edit
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {editing ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <Label className="text-xs">Learning Mode</Label>
+                <Select value={form.learning_mode} onValueChange={v => set("learning_mode", v)}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>{LEARNING_MODES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Preferred Language</Label>
+                <Select value={form.preferred_language} onValueChange={v => set("preferred_language", v)}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>{LANGUAGES.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Educational Background</Label>
+                <Select value={form.educational_background} onValueChange={v => set("educational_background", v)}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>{EDUCATION_LEVELS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Marital Status</Label>
+                <Select value={form.marital_status} onValueChange={v => set("marital_status", v)}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>{MARITAL_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Admission Status</Label>
+                <Select value={form.admission_status} onValueChange={v => set("admission_status", v)}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>{ADMISSION_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Address</Label>
+              <Input value={form.address} onChange={e => set("address", e.target.value)} className="mt-1" placeholder="Student address" />
+            </div>
+            <div>
+              <Label className="text-xs">Ministry Description</Label>
+              <Textarea value={form.ministry_description} onChange={e => set("ministry_description", e.target.value)} className="mt-1" rows={3} placeholder="Ministry involvement" />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button onClick={handleSave} disabled={saving} size="sm">
+                {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
+                Save
+              </Button>
+              <Button variant="outline" size="sm" onClick={cancel}>
+                <X className="w-4 h-4 mr-1.5" /> Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4">
+            {[
+              { label: "Learning Mode", value: student.learning_mode },
+              { label: "Preferred Language", value: student.preferred_language },
+              { label: "Educational Background", value: student.educational_background },
+              { label: "Marital Status", value: student.marital_status },
+              { label: "Cohort", value: student.cohort?.name },
+              { label: "Student Code", value: student.student_code },
+              { label: "Admission Status", value: student.admission_status },
+              { label: "Address", value: student.address },
+              { label: "Ministry Description", value: student.ministry_description },
+            ].map(item => (
+              <div key={item.label} className="space-y-0.5">
+                <p className="text-xs text-muted-foreground font-medium">{item.label}</p>
+                <p className="text-sm font-medium text-foreground capitalize">{item.value || "—"}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
 
 const AdminStudentProfile = () => {
   const { studentId } = useParams<{ studentId: string }>();
@@ -303,27 +472,8 @@ const AdminStudentProfile = () => {
 
         <TabsContent value="academic">
           <div className="space-y-4">
-            {/* Academic Profile */}
-            <Card className="shadow-[var(--shadow-card)] border-border">
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><GraduationCap className="w-4 h-4" /> Academic Profile</CardTitle></CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4">
-                  {[
-                    { label: "Learning Mode", value: student.learning_mode },
-                    { label: "Preferred Language", value: student.preferred_language },
-                    { label: "Educational Background", value: student.educational_background },
-                    { label: "Cohort", value: student.cohort?.name },
-                    { label: "Student Code", value: student.student_code },
-                    { label: "Admission Status", value: student.admission_status },
-                  ].map(item => (
-                    <div key={item.label} className="space-y-0.5">
-                      <p className="text-xs text-muted-foreground font-medium">{item.label}</p>
-                      <p className="text-sm font-medium text-foreground capitalize">{item.value || "—"}</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            {/* Academic Profile - Editable */}
+            <AdminAcademicEditCard student={student} onSaved={(updated) => setStudent(updated as any)} />
 
             {/* Attendance */}
             <Card className="shadow-[var(--shadow-card)] border-border">
