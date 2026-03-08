@@ -504,7 +504,10 @@ const AdminStudents = () => {
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem onClick={() => navigate(`/admin/students/${student.id}`)}>View Details</DropdownMenuItem>
-                              <DropdownMenuItem>Send Email</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openEmailForStudent(student)}>
+                                <Mail className="mr-2 h-4 w-4" />
+                                Send Email
+                              </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
                                 onClick={() => setDeleteTarget(student)}
