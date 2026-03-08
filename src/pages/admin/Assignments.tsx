@@ -207,8 +207,8 @@ const AdminAssignments = () => {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create New Assignment</DialogTitle>
-              <DialogDescription>Add a new assignment for a cohort</DialogDescription>
+              <DialogTitle>Create New Task</DialogTitle>
+              <DialogDescription>Add a new task for a cohort</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit(onCreateAssignment)} className="space-y-4">
               <div>

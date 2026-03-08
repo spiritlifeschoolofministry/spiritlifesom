@@ -36,7 +36,7 @@ const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/student/dashboard", restrictedWhenPending: false },
   { label: "My Courses", icon: BookOpen, path: "/student/courses", restrictedWhenPending: false },
   { label: "Attendance", icon: CalendarCheck, path: "/student/attendance", restrictedWhenPending: false },
-  { label: "Assignments", icon: ClipboardList, path: "/student/assignments", restrictedWhenPending: true },
+  { label: "Tasks", icon: ClipboardList, path: "/student/assignments", restrictedWhenPending: true },
   { label: "Grades", icon: GraduationCap, path: "/student/grades", restrictedWhenPending: true },
   { label: "Course Materials", icon: FileText, path: "/student/materials", restrictedWhenPending: true },
   { label: "Course Mates", icon: Users, path: "/student/coursemates", restrictedWhenPending: true },

@@ -30,7 +30,7 @@ const NAV_ITEMS = [
   { label: "Admissions", icon: UserCheck, path: "/admin/admissions" },
   { label: "Courses", icon: BookOpen, path: "/admin/courses" },
   { label: "Attendance", icon: CalendarCheck, path: "/admin/attendance" },
-  { label: "Assignments", icon: FileText, path: "/admin/assignments" },
+  { label: "Tasks", icon: FileText, path: "/admin/assignments" },
   { label: "Materials", icon: Folder, path: "/admin/materials" },
   { label: "Fees", icon: CreditCard, path: "/admin/fees" },
   { label: "Announcements", icon: Bell, path: "/admin/announcements" },
