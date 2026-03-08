@@ -375,13 +375,23 @@ const AdminStudents = () => {
           <p className="text-muted-foreground text-sm mt-1">View and manage all students</p>
         </div>
         {selectedIds.size > 0 && (
-          <Button
-            onClick={() => setShowBulkGraduateDialog(true)}
-            className="gap-2"
-          >
-            <GraduationCap className="h-4 w-4" />
-            Graduate Selected ({selectedIds.size})
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={openBulkEmail}
+              className="gap-2"
+            >
+              <Mail className="h-4 w-4" />
+              Email Selected ({selectedIds.size})
+            </Button>
+            <Button
+              onClick={() => setShowBulkGraduateDialog(true)}
+              className="gap-2"
+            >
+              <GraduationCap className="h-4 w-4" />
+              Graduate Selected ({selectedIds.size})
+            </Button>
+          </div>
         )}
       </div>
 
