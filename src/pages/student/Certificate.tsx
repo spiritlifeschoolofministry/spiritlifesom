@@ -86,9 +86,7 @@ const StudentCertificate = () => {
             <div className="px-8 sm:px-16 py-12 sm:py-16 text-center relative">
               {/* Logo area */}
               <div className="mb-6">
-                <div className="w-20 h-20 mx-auto rounded-full gradient-purple flex items-center justify-center mb-4">
-                  <GraduationCap className="w-10 h-10 text-primary-foreground" />
-                </div>
+                <img src="/images/logo.png" alt="SLSM Logo" className="w-24 h-24 mx-auto mb-4 object-contain" />
                 <h2 className="text-lg font-bold text-primary tracking-widest uppercase">
                   Spirit Life School of Ministry
                 </h2>
