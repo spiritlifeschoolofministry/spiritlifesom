@@ -306,30 +306,30 @@ const StudentDashboard = () => {
           </Card>
         </div>
 
-        {/* Upcoming Classes — always visible */}
+        {/* Upcoming Events — always visible */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Calendar className="h-4 w-4" /> Upcoming Classes
+              <Calendar className="h-4 w-4" /> Upcoming Schedule & Events
             </CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
               <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
-            ) : data?.upcomingClasses && data.upcomingClasses.length > 0 ? (
+            ) : data?.upcomingEvents && data.upcomingEvents.length > 0 ? (
               <div className="space-y-3">
-                {data.upcomingClasses.map((c, i) => (
-                  <div key={i} className="flex items-center justify-between border-b border-border pb-2 last:border-0">
+                {data.upcomingEvents.map((ev) => (
+                  <div key={ev.id} className="flex items-center justify-between border-b border-border pb-2 last:border-0">
                     <div>
-                      <p className="font-medium text-sm text-foreground">{c?.course_title ?? "Class"}</p>
-                      <p className="text-xs text-muted-foreground">{c?.day || c?.date}</p>
+                      <p className="font-medium text-sm text-foreground">{ev.title}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(ev.start_date).toLocaleDateString()}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground">{c?.start_time} – {c?.end_time}</p>
+                    <Badge variant="secondary" className="text-xs">{ev.category || "General"}</Badge>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No upcoming classes scheduled.</p>
+              <p className="text-sm text-muted-foreground">No upcoming events scheduled.</p>
             )}
           </CardContent>
         </Card>
