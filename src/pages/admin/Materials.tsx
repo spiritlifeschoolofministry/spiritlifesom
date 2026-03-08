@@ -40,6 +40,7 @@ const AdminMaterials = () => {
 
   const selectedCohort = watch('cohort_id');
   const selectedCourse = watch('course_id');
+  const selectedMaterialType = watch('material_type');
 
   useEffect(() => { fetchData(); }, []);
 
