@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   XCircle,
   Shield,
+  Eye,
   GraduationCap,
 } from "lucide-react";
 import { toast } from "sonner";
