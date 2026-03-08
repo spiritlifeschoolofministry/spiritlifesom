@@ -121,8 +121,9 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
       if (data) onSaved(data as any);
       toast.success("Student academic info updated");
       setEditing(false);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update");
+    } catch (err: any) {
+      console.error('[AdminEdit] Update error:', err);
+      toast.error(err?.message || "Failed to update");
     } finally {
       setSaving(false);
     }
