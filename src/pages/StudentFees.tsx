@@ -86,9 +86,23 @@ const StudentFees = () => {
       const { data: uploadData, error: uploadError } = await supabase.storage.from('course-materials').upload(fileName, receiptFile);
       if (uploadError) { toast.error('Failed to upload receipt'); return; }
       const { data: urlData } = supabase.storage.from('course-materials').getPublicUrl(uploadData.path);
+
+      // Look up fee_structure id from the selected fee record
+      let feeStructureId: string | null = null;
+      const selectedFee = fees.find(f => f.id === data.fee_id);
+      if (selectedFee) {
+        const { data: fs } = await supabase
+          .from('fee_structures')
+          .select('id')
+          .eq('fee_name', selectedFee.fee_type)
+          .eq('cohort_id', selectedFee.cohort_id!)
+          .maybeSingle();
+        feeStructureId = fs?.id || null;
+      }
+
       const { error: paymentError } = await supabase.from('payments').insert({
         student_id: student.id, amount_paid: parseFloat(data.amount),
-        fee_id: data.fee_id || null,
+        fee_id: feeStructureId,
         payment_proof_url: urlData.publicUrl, admin_notes: data.notes || null, status: 'PENDING',
       });
       if (paymentError) { toast.error('Failed to submit payment'); return; }
