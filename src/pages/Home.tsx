@@ -17,10 +17,15 @@ function useFadeIn() {
   return { ref, className: `transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}` };
 }
 
-function Section({ className, children }: { className?: string; children: React.ReactNode }) {
-  const fade = useFadeIn();
-  return <section ref={fade.ref} className={`${fade.className} ${className ?? ""}`}>{children}</section>;
-}
+import React from "react";
+
+const Section = React.forwardRef<HTMLElement, { className?: string; children: React.ReactNode }>(
+  ({ className, children }, _ref) => {
+    const fade = useFadeIn();
+    return <section ref={fade.ref} className={`${fade.className} ${className ?? ""}`}>{children}</section>;
+  }
+);
+Section.displayName = "Section";
 
 const Home = () => {
   const [acceptingApplications, setAcceptingApplications] = useState(true);
