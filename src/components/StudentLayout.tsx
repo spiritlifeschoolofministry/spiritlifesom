@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   XCircle,
   Shield,
+  GraduationCap,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -36,6 +37,7 @@ const NAV_ITEMS = [
   { label: "My Courses", icon: BookOpen, path: "/student/courses", restrictedWhenPending: false },
   { label: "Attendance", icon: CalendarCheck, path: "/student/attendance", restrictedWhenPending: false },
   { label: "Assignments", icon: ClipboardList, path: "/student/assignments", restrictedWhenPending: true },
+  { label: "Grades", icon: GraduationCap, path: "/student/grades", restrictedWhenPending: true },
   { label: "Course Materials", icon: FileText, path: "/student/materials", restrictedWhenPending: true },
   { label: "Course Mates", icon: Users, path: "/student/coursemates", restrictedWhenPending: true },
   { label: "Fees", icon: CreditCard, path: "/student/fees", restrictedWhenPending: false },

@@ -14,12 +14,21 @@ import { Loader2, Plus, Eye, File, CheckCircle2, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
+const ASSIGNMENT_CATEGORIES = [
+  'Assignment',
+  'Project',
+  'Class Work',
+  'Group Activity',
+  'Group Assignment',
+] as const;
+
 interface AssignmentFormData {
   title: string;
   description: string;
   due_date: string;
   cohort_id: string;
   course_id: string;
+  category: string;
 }
 
 interface AssignmentWithSubmissions extends Tables<'assignments'> {
@@ -41,11 +50,13 @@ const AdminAssignments = () => {
   const [editDueDate, setEditDueDate] = useState('');
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<AssignmentFormData>({
-    defaultValues: { title: '', description: '', due_date: '', cohort_id: '', course_id: '' },
+    defaultValues: { title: '', description: '', due_date: '', cohort_id: '', course_id: '', category: 'Assignment' },
   });
 
   const selectedCohort = watch('cohort_id');
   const selectedCourse = watch('course_id');
+  const selectedCategory = watch('category');
+
 
   useEffect(() => { loadData(); }, []);
 
@@ -81,6 +92,7 @@ const AdminAssignments = () => {
         due_date: data.due_date ? new Date(data.due_date).toISOString() : null,
         cohort_id: data.cohort_id,
         course_id: data.course_id,
+        category: data.category || 'Assignment',
       });
       if (error) throw error;
       toast.success('Assignment created');
@@ -229,6 +241,15 @@ const AdminAssignments = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label>Category *</Label>
+                <Select value={selectedCategory} onValueChange={(val) => setValue('category', val)}>
+                  <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                  <SelectContent>
+                    {ASSIGNMENT_CATEGORIES.map((cat) => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Button type="submit" disabled={isCreating} className="w-full">
                 {isCreating ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</>) : (<><Plus className="h-4 w-4 mr-2" /> Create Assignment</>)}
               </Button>
@@ -248,6 +269,7 @@ const AdminAssignments = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Title</TableHead>
+                    <TableHead>Category</TableHead>
                     <TableHead>Cohort</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead>Action</TableHead>
@@ -259,6 +281,7 @@ const AdminAssignments = () => {
                     return (
                       <TableRow key={assignment.id}>
                         <TableCell className="font-medium">{assignment.title}</TableCell>
+                        <TableCell><Badge variant="secondary" className="text-xs">{(assignment as any).category || 'Assignment'}</Badge></TableCell>
                         <TableCell>{cohorts.find(c => c.id === assignment.cohort_id)?.name || assignment.cohort_id}</TableCell>
                         <TableCell>{dueDate ? dueDate.toLocaleDateString() : 'No due date'}</TableCell>
                         <TableCell>

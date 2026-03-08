@@ -23,6 +23,7 @@ import StudentMaterials from "./pages/StudentMaterials";
 import StudentFees from "./pages/StudentFees";
 import Coursemates from "./pages/student/Coursemates";
 import StudentAssignments from "./pages/student/Assignments";
+import StudentGrades from "./pages/student/Grades";
 import ComingSoon from "./pages/ComingSoon";
 import AdminComingSoon from "./pages/AdminComingSoon";
 import AdminAnnouncements from "./pages/admin/Announcements";
@@ -71,6 +72,7 @@ const App = () => (
           <Route path="/student/courses" element={<ProtectedRoute><StudentCourses /></ProtectedRoute>} />
           <Route path="/student/attendance" element={<ProtectedRoute><StudentAttendance /></ProtectedRoute>} />
           <Route path="/student/assignments" element={<ProtectedRoute><StudentAssignments /></ProtectedRoute>} />
+          <Route path="/student/grades" element={<ProtectedRoute><StudentGrades /></ProtectedRoute>} />
           <Route path="/student/materials" element={<ProtectedRoute><StudentMaterials /></ProtectedRoute>} />
           <Route path="/student/coursemates" element={<ProtectedRoute><Coursemates /></ProtectedRoute>} />
           <Route path="/student/fees" element={<ProtectedRoute><StudentFees /></ProtectedRoute>} />
