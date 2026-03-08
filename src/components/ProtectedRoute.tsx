@@ -10,7 +10,7 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
-  const { user, role, isLoading, authError, signOut } = useAuth();
+  const { user, role, isLoading, authError, isAuthReady, signOut } = useAuth();
   const navigate = useNavigate();
   const didInitialLoad = useRef(false);
 
