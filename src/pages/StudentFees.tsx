@@ -153,12 +153,21 @@ const StudentFees = () => {
               </DialogHeader>
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Fee Type</Label>
-                  <Select value={selectedFeeType} onValueChange={(value) => reset({ ...watch(), fee_type: value })}>
-                    <SelectTrigger><SelectValue placeholder="Select fee type" /></SelectTrigger>
+                  <Label>Fee</Label>
+                  <Select value={selectedFeeId} onValueChange={(value) => {
+                    setValue('fee_id', value);
+                    const fee = unpaidFees.find(f => f.id === value);
+                    if (fee) {
+                      const balance = (fee.amount_due || 0) - (fee.amount_paid || 0);
+                      setValue('amount', balance.toString());
+                    }
+                  }}>
+                    <SelectTrigger><SelectValue placeholder="Select fee to pay" /></SelectTrigger>
                     <SelectContent>
-                      {[...new Set(fees.map((f) => f.fee_type))].map((feeType) => (
-                        <SelectItem key={feeType} value={feeType}>{feeType}</SelectItem>
+                      {unpaidFees.map((fee) => (
+                        <SelectItem key={fee.id} value={fee.id}>
+                          {fee.fee_type} — ₦{((fee.amount_due || 0) - (fee.amount_paid || 0)).toLocaleString()} remaining
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

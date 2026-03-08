@@ -278,7 +278,7 @@ const AdminFees = () => {
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-2">
-                              <Button size="sm" onClick={() => approvePayment(p.id)} disabled={isProcessing}><Check className="h-4 w-4" /></Button>
+                              <Button size="sm" onClick={() => approvePayment(p)} disabled={isProcessing}><Check className="h-4 w-4" /></Button>
                               <Button size="sm" variant="destructive" onClick={() => rejectPayment(p.id)} disabled={isProcessing}><X className="h-4 w-4" /></Button>
                             </div>
                           </TableCell>
