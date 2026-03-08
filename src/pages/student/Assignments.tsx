@@ -130,7 +130,7 @@ const StudentAssignments = () => {
   return (
     <StudentLayout><div className="space-y-6 pb-6">
       <div>
-        <h1 className="text-3xl font-bold">Assignments</h1>
+        <h1 className="text-3xl font-bold">Tasks</h1>
         <p className="text-sm text-muted-foreground mt-1">View and submit your coursework</p>
       </div>
 
