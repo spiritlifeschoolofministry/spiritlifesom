@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
@@ -19,7 +20,7 @@ interface DashboardData {
   totalCourses: number;
   pendingAssignments: number;
   feeStatus: string;
-  upcomingClasses: Array<{ date: string; day: string | null; course_title: string | null; start_time: string | null; end_time: string | null }>;
+  upcomingEvents: Array<{ id: string; title: string; start_date: string; end_date: string | null; category: string | null }>;
   announcements: Array<{ title: string; body: string; published_at: string | null }>;
 }
 
@@ -35,7 +36,7 @@ const EMPTY_DATA: DashboardData = {
   totalCourses: 0,
   pendingAssignments: 0,
   feeStatus: "N/A",
-  upcomingClasses: [],
+  upcomingEvents: [],
   announcements: [],
 };
 
@@ -101,7 +102,7 @@ const StudentDashboard = () => {
       let attendanceRate: number | null = null;
       let pendingAssignments = 0;
       let feeStatus = "N/A";
-      let upcomingClasses: DashboardData["upcomingClasses"] = [];
+      let upcomingEvents: DashboardData["upcomingEvents"] = [];
 
       if (studentId) {
         try {
@@ -141,21 +142,24 @@ const StudentDashboard = () => {
         }
       }
 
-      // Upcoming classes — always fetch
+      // Upcoming events from school_events
       try {
-        const today = new Date().toISOString().split("T")[0];
-        const { data: schedule } = await supabase.from("schedule").select("date, day, start_time, end_time, courses(title)").gt("date", today).order("date", { ascending: true }).limit(3);
-        if (schedule) {
-          upcomingClasses = schedule.map((s: any) => ({
-            date: s.date,
-            day: s.day,
-            course_title: s.courses?.title || "Class",
-            start_time: s.start_time,
-            end_time: s.end_time,
-          }));
+        const cohortId = studentRecord?.cohort_id;
+        const orQuery = cohortId
+          ? `target_cohort_id.is.null,target_cohort_id.eq.${cohortId}`
+          : `target_cohort_id.is.null`;
+        const { data: eventsData } = await supabase
+          .from("school_events")
+          .select("id, title, start_date, end_date, category")
+          .or(orQuery)
+          .gte("start_date", new Date().toISOString())
+          .order("start_date", { ascending: true })
+          .limit(5);
+        if (eventsData) {
+          upcomingEvents = eventsData;
         }
       } catch (e) {
-        console.warn("[Dashboard] Schedule fetch failed:", e);
+        console.warn("[Dashboard] Events fetch failed:", e);
       }
 
       setData({
@@ -165,7 +169,7 @@ const StudentDashboard = () => {
         totalCourses: coursesRes.data?.length || 0,
         pendingAssignments,
         feeStatus,
-        upcomingClasses,
+        upcomingEvents,
         announcements: announcementsRes.data ?? [],
       });
 
@@ -303,30 +307,30 @@ const StudentDashboard = () => {
           </Card>
         </div>
 
-        {/* Upcoming Classes — always visible */}
+        {/* Upcoming Events — always visible */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Calendar className="h-4 w-4" /> Upcoming Classes
+              <Calendar className="h-4 w-4" /> Upcoming Schedule & Events
             </CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
               <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
-            ) : data?.upcomingClasses && data.upcomingClasses.length > 0 ? (
+            ) : data?.upcomingEvents && data.upcomingEvents.length > 0 ? (
               <div className="space-y-3">
-                {data.upcomingClasses.map((c, i) => (
-                  <div key={i} className="flex items-center justify-between border-b border-border pb-2 last:border-0">
+                {data.upcomingEvents.map((ev) => (
+                  <div key={ev.id} className="flex items-center justify-between border-b border-border pb-2 last:border-0">
                     <div>
-                      <p className="font-medium text-sm text-foreground">{c?.course_title ?? "Class"}</p>
-                      <p className="text-xs text-muted-foreground">{c?.day || c?.date}</p>
+                      <p className="font-medium text-sm text-foreground">{ev.title}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(ev.start_date).toLocaleDateString()}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground">{c?.start_time} – {c?.end_time}</p>
+                    <Badge variant="secondary" className="text-xs">{ev.category || "General"}</Badge>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No upcoming classes scheduled.</p>
+              <p className="text-sm text-muted-foreground">No upcoming events scheduled.</p>
             )}
           </CardContent>
         </Card>

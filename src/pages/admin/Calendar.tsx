@@ -225,7 +225,7 @@ const AdminCalendar = () => {
                         <TableCell className="font-medium">{ev.title}</TableCell>
                         <TableCell>{new Date(ev.start_date).toLocaleDateString()}</TableCell>
                         <TableCell><Badge variant="secondary">{ev.category}</Badge></TableCell>
-                        <TableCell>{ev.target_cohort_id ? 'Specific Cohort' : 'All Students'}</TableCell>
+                        <TableCell>{ev.target_cohort_id ? cohorts.find(c => c.id === ev.target_cohort_id)?.name || 'Unknown Cohort' : 'All Students'}</TableCell>
                         <TableCell className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => handleEdit(ev)}><Edit2 className="h-4 w-4" /></Button>
                           <Button variant="destructive" size="sm" onClick={() => handleDelete(ev.id)}><Trash2 className="h-4 w-4" /></Button>
