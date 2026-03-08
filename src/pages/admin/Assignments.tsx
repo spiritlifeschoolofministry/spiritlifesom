@@ -337,7 +337,7 @@ const AdminAssignments = () => {
                                             <p className="text-sm text-muted-foreground">Submitted: {new Date(submission.submitted_at || '').toLocaleString()}</p>
                                             {submission.file_url && (
                                               <Button variant="outline" size="sm" asChild>
-                                                <a href={submission.file_url} target="_blank" rel="noopener noreferrer"><File className="h-4 w-4 mr-1" /> View Submission</a>
+                                                <a href={`${submission.file_url}?download=`} download><File className="h-4 w-4 mr-1" /> Download Submission</a>
                                               </Button>
                                             )}
                                             {isGraded && (

@@ -100,7 +100,7 @@ const AdminAttendance = () => {
   const [detailHistory, setDetailHistory] = useState<AttendanceHistoryRow[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [newDate, setNewDate] = useState<string>("");
-  const [newStatus, setNewStatus] = useState<string>("PRESENT");
+  const [newStatus, setNewStatus] = useState<string>("Present");
   const [newVerified, setNewVerified] = useState<boolean>(false);
 
   const loadCohorts = useCallback(async () => {
@@ -406,7 +406,7 @@ const AdminAttendance = () => {
     setDetailLoading(true);
     setDetailHistory([]);
     setNewDate("");
-    setNewStatus("PRESENT");
+    setNewStatus("Present");
     setNewVerified(false);
     try {
       const [{ data: studentData, error: studentError }, { data, error }] =
@@ -524,7 +524,7 @@ const AdminAttendance = () => {
       if (insertError) throw insertError;
       toast.success("Attendance record added");
       setNewDate("");
-      setNewStatus("PRESENT");
+      setNewStatus("Present");
       setNewVerified(false);
       await loadAll();
       await openDetail(detailStudentId);
