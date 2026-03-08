@@ -292,50 +292,122 @@ const StudentDashboard = () => {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Attendance</CardTitle>
-              <CalendarCheck className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading ? <Skeleton className="h-7 w-16" /> : (data?.attendanceRate != null ? `${data.attendanceRate}%` : "—")}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Courses</CardTitle>
-              <BookOpen className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading ? <Skeleton className="h-7 w-16" /> : data?.totalCourses ?? 0}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pending Tasks</CardTitle>
-              <ClipboardList className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading ? <Skeleton className="h-7 w-16" /> : (isPending ? "—" : data?.pendingAssignments ?? 0)}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Fees</CardTitle>
-              <CreditCard className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {loading ? <Skeleton className="h-7 w-16" /> : data?.feeStatus ?? "N/A"}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Attendance Card */}
+          {(() => {
+            const rate = data?.attendanceRate;
+            const isGood = rate != null && rate >= 75;
+            const isWarning = rate != null && rate >= 50 && rate < 75;
+            const isDanger = rate != null && rate < 50;
+            const borderColor = loading ? "border-border" : isGood ? "border-emerald-500" : isWarning ? "border-amber-500" : isDanger ? "border-red-500" : "border-border";
+            const bgColor = loading ? "" : isGood ? "bg-emerald-50 dark:bg-emerald-950/20" : isWarning ? "bg-amber-50 dark:bg-amber-950/20" : isDanger ? "bg-red-50 dark:bg-red-950/20" : "";
+            const iconColor = loading ? "text-muted-foreground" : isGood ? "text-emerald-600" : isWarning ? "text-amber-600" : isDanger ? "text-red-600" : "text-muted-foreground";
+            const valueColor = loading ? "" : isGood ? "text-emerald-700 dark:text-emerald-400" : isWarning ? "text-amber-700 dark:text-amber-400" : isDanger ? "text-red-700 dark:text-red-400" : "";
+            return (
+              <Card className={`border-l-4 ${borderColor} ${bgColor} transition-colors`}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Attendance</CardTitle>
+                  <CalendarCheck className={`h-4 w-4 ${iconColor}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${valueColor}`}>
+                    {loading ? <Skeleton className="h-7 w-16" /> : (rate != null ? `${rate}%` : "—")}
+                  </div>
+                  {!loading && rate != null && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {isGood ? "Good standing" : isWarning ? "Needs improvement" : "At risk"}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
+
+          {/* Courses Card */}
+          {(() => {
+            const total = data?.totalCourses ?? 0;
+            const completed = data?.completedCourses ?? 0;
+            const hasData = !loading && total > 0;
+            const allDone = hasData && completed === total;
+            const borderColor = !hasData ? "border-border" : allDone ? "border-emerald-500" : "border-primary";
+            const bgColor = !hasData ? "" : allDone ? "bg-emerald-50 dark:bg-emerald-950/20" : "bg-primary/5";
+            const iconColor = !hasData ? "text-muted-foreground" : allDone ? "text-emerald-600" : "text-primary";
+            return (
+              <Card className={`border-l-4 ${borderColor} ${bgColor} transition-colors`}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Courses</CardTitle>
+                  <BookOpen className={`h-4 w-4 ${iconColor}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{loading ? <Skeleton className="h-7 w-16" /> : total}</div>
+                  {!loading && total > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {completed} completed · {total - completed} ongoing
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
+
+          {/* Pending Tasks Card */}
+          {(() => {
+            const pending = data?.pendingAssignments ?? 0;
+            const total = data?.totalAssignments ?? 0;
+            const hasTasks = !loading && !isPending && total > 0;
+            const allDone = hasTasks && pending === 0;
+            const borderColor = !hasTasks ? "border-border" : allDone ? "border-emerald-500" : pending > 3 ? "border-red-500" : "border-amber-500";
+            const bgColor = !hasTasks ? "" : allDone ? "bg-emerald-50 dark:bg-emerald-950/20" : pending > 3 ? "bg-red-50 dark:bg-red-950/20" : "bg-amber-50 dark:bg-amber-950/20";
+            const iconColor = !hasTasks ? "text-muted-foreground" : allDone ? "text-emerald-600" : pending > 3 ? "text-red-600" : "text-amber-600";
+            const valueColor = !hasTasks ? "" : allDone ? "text-emerald-700 dark:text-emerald-400" : pending > 3 ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400";
+            return (
+              <Card className={`border-l-4 ${borderColor} ${bgColor} transition-colors`}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Pending Tasks</CardTitle>
+                  <ClipboardList className={`h-4 w-4 ${iconColor}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${valueColor}`}>
+                    {loading ? <Skeleton className="h-7 w-16" /> : (isPending ? "—" : pending)}
+                  </div>
+                  {!loading && !isPending && total > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {total - pending} submitted · {total} total
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
+
+          {/* Fees Card */}
+          {(() => {
+            const f = data?.fees ?? EMPTY_DATA.fees;
+            const isPaid = f.status === "Paid";
+            const isUnpaid = f.status === "Unpaid";
+            const isPartial = f.status === "Partial";
+            const borderColor = loading ? "border-border" : isPaid ? "border-emerald-500" : isUnpaid ? "border-red-500" : isPartial ? "border-amber-500" : "border-border";
+            const bgColor = loading ? "" : isPaid ? "bg-emerald-50 dark:bg-emerald-950/20" : isUnpaid ? "bg-red-50 dark:bg-red-950/20" : isPartial ? "bg-amber-50 dark:bg-amber-950/20" : "";
+            const iconColor = loading ? "text-muted-foreground" : isPaid ? "text-emerald-600" : isUnpaid ? "text-red-600" : isPartial ? "text-amber-600" : "text-muted-foreground";
+            const valueColor = loading ? "" : isPaid ? "text-emerald-700 dark:text-emerald-400" : isUnpaid ? "text-red-700 dark:text-red-400" : isPartial ? "text-amber-700 dark:text-amber-400" : "";
+            return (
+              <Card className={`border-l-4 ${borderColor} ${bgColor} transition-colors`}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Fees</CardTitle>
+                  <CreditCard className={`h-4 w-4 ${iconColor}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${valueColor}`}>
+                    {loading ? <Skeleton className="h-7 w-16" /> : f.status}
+                  </div>
+                  {!loading && f.total > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {f.paid} paid · {f.unpaid + f.partial} pending
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
         </div>
 
         {/* Upcoming Events — always visible */}
