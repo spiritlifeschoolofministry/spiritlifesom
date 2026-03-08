@@ -45,7 +45,9 @@ const StudentCourses = () => {
               id,
               title,
               code,
-              cohort_id
+              cohort_id,
+              lecturer,
+              is_completed
             )
           `
           )
