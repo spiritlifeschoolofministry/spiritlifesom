@@ -162,18 +162,54 @@ const AdminFees = () => {
     }
   };
 
+  const handleExportFees = async () => {
+    try {
+      toast.info("Preparing fee report...");
+      let query = supabase.from("fees").select("student_id, fee_type, amount_due, amount_paid, payment_status, cohort_id, waived, created_at");
+      const { data: fees } = await query;
+      if (!fees?.length) { toast.error("No fee data to export"); return; }
+
+      // Enrich with student names
+      const studentIds = [...new Set(fees.map(f => f.student_id))];
+      const { data: students } = await supabase.from("students").select("id, student_code, profile:profiles(first_name, last_name, email)").in("id", studentIds);
+      const studentMap = new Map((students || []).map(s => [s.id, s]));
+
+      const rows = fees.map(f => {
+        const s = studentMap.get(f.student_id) as any;
+        return {
+          Student: s ? `${s.profile?.first_name || ''} ${s.profile?.last_name || ''}`.trim() : 'Unknown',
+          Email: s?.profile?.email || '',
+          Student_Code: s?.student_code || '',
+          Fee_Type: f.fee_type,
+          Amount_Due: f.amount_due,
+          Amount_Paid: f.amount_paid,
+          Status: f.payment_status,
+          Waived: f.waived ? 'Yes' : 'No',
+          Date: f.created_at ? new Date(f.created_at).toLocaleDateString() : '',
+        };
+      });
+      downloadCSV(rows, "fee_report");
+    } catch (err) {
+      console.error(err);
+      toast.error("Export failed");
+    }
+  };
+
   if (loading) {
     return (<div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin" /></div>);
   }
 
   return (
     <div className="space-y-6 pb-6">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Fee Management</h1>
           <p className="text-sm text-muted-foreground">Create fees and approve student payments</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportFees} className="gap-2">
+            <Download className="h-4 w-4" /> Export Fees
+          </Button>
           <Button variant={tab === 'manager' ? 'default' : 'ghost'} onClick={() => setTab('manager')}>Fee Manager</Button>
           <Button variant={tab === 'approvals' ? 'default' : 'ghost'} onClick={() => setTab('approvals')}>Payment Approvals</Button>
         </div>
