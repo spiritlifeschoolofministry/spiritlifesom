@@ -85,9 +85,15 @@ const EDUCATION_LEVELS = ["Primary", "Secondary", "Diploma", "Bachelor's Degree"
 const MARITAL_STATUSES = ["Single", "Married", "Divorced", "Widowed"];
 const ADMISSION_STATUSES = ["Pending", "ADMITTED", "REJECTED", "Graduate"];
 
+interface CohortOption {
+  id: string;
+  name: string;
+}
+
 const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; onSaved: (s: StudentDetail) => void }) => {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [cohorts, setCohorts] = useState<CohortOption[]>([]);
   const [form, setForm] = useState({
     learning_mode: student.learning_mode || "",
     preferred_language: student.preferred_language || "",
@@ -96,7 +102,14 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
     address: student.address || "",
     ministry_description: student.ministry_description || "",
     admission_status: student.admission_status || "Pending",
+    cohort_id: student.cohort_id || "",
   });
+
+  useEffect(() => {
+    supabase.from("cohorts").select("id, name").order("name").then(({ data }) => {
+      if (data) setCohorts(data);
+    });
+  }, []);
 
   const set = (key: string, val: string) => setForm(f => ({ ...f, [key]: val }));
 
@@ -113,11 +126,11 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
           address: form.address || null,
           ministry_description: form.ministry_description || null,
           admission_status: form.admission_status || null,
+          cohort_id: form.cohort_id || null,
         })
         .eq("id", student.id);
       if (updateError) throw updateError;
 
-      // Re-fetch the updated student with joins
       const { data, error: fetchError } = await supabase
         .from("students")
         .select(`*, profile:profiles(first_name, last_name, middle_name, email, phone, avatar_url), cohort:cohorts(name)`)
@@ -145,6 +158,7 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
       address: student.address || "",
       ministry_description: student.ministry_description || "",
       admission_status: student.admission_status || "Pending",
+      cohort_id: student.cohort_id || "",
     });
   };
 
@@ -164,6 +178,13 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
         {editing ? (
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <Label className="text-xs">Cohort</Label>
+                <Select value={form.cohort_id} onValueChange={v => set("cohort_id", v)}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select cohort" /></SelectTrigger>
+                  <SelectContent>{cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
               <div>
                 <Label className="text-xs">Learning Mode</Label>
                 <Select value={form.learning_mode} onValueChange={v => set("learning_mode", v)}>
@@ -221,11 +242,11 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4">
             {[
+              { label: "Cohort", value: student.cohort?.name },
               { label: "Learning Mode", value: student.learning_mode },
               { label: "Preferred Language", value: student.preferred_language },
               { label: "Educational Background", value: student.educational_background },
               { label: "Marital Status", value: student.marital_status },
-              { label: "Cohort", value: student.cohort?.name },
               { label: "Student Code", value: student.student_code },
               { label: "Admission Status", value: student.admission_status },
               { label: "Address", value: student.address },

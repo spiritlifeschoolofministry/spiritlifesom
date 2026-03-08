@@ -60,11 +60,18 @@ interface Student {
   admission_status: string | null;
   created_at: string | null;
   profile_id?: string;
+  cohort_id: string | null;
   profile: {
     first_name: string;
     last_name: string;
     email: string;
   };
+  cohort: { name: string } | null;
+}
+
+interface CohortOption {
+  id: string;
+  name: string;
 }
 
 const UI_TO_DB_STATUS: Record<string, string> = {
@@ -111,6 +118,8 @@ const AdminStudents = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [cohortFilter, setCohortFilter] = useState("all");
+  const [cohorts, setCohorts] = useState<CohortOption[]>([]);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkGraduateDialog, setShowBulkGraduateDialog] = useState(false);
@@ -128,14 +137,19 @@ const AdminStudents = () => {
   const [emailBody, setEmailBody] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
 
-  useEffect(() => { loadStudents(); }, []);
-  useEffect(() => { filterStudents(); }, [students, searchQuery, statusFilter]);
+  useEffect(() => { loadStudents(); loadCohorts(); }, []);
+  useEffect(() => { filterStudents(); }, [students, searchQuery, statusFilter, cohortFilter]);
+
+  const loadCohorts = async () => {
+    const { data } = await supabase.from("cohorts").select("id, name").order("name");
+    if (data) setCohorts(data);
+  };
 
   const loadStudents = async () => {
     try {
       const { data, error } = await supabase
         .from("students")
-        .select(`id, admission_status, created_at, profile_id, profile:profiles(first_name, last_name, email)`)
+        .select(`id, admission_status, created_at, profile_id, cohort_id, profile:profiles(first_name, last_name, email), cohort:cohorts(name)`)
         .order("created_at", { ascending: false });
       if (error) throw error;
       setStudents((data as any) || []);
@@ -159,6 +173,9 @@ const AdminStudents = () => {
     }
     if (statusFilter !== "all") {
       filtered = filtered.filter((s) => getStatusForUI(s.admission_status) === statusFilter);
+    }
+    if (cohortFilter !== "all") {
+      filtered = filtered.filter((s) => s.cohort_id === cohortFilter);
     }
     setFilteredStudents(filtered);
   };
@@ -471,12 +488,24 @@ const AdminStudents = () => {
             <SelectItem value="Graduate">Graduate</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={cohortFilter} onValueChange={setCohortFilter}>
+          <SelectTrigger className="w-full sm:w-44">
+            <SelectValue placeholder="Filter by cohort" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Cohorts</SelectItem>
+            {cohorts.map(c => (
+              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Results count */}
       <p className="text-xs text-muted-foreground">
         Showing {filteredStudents.length} of {totalCount} students
-        {statusFilter !== "all" && <span> · Filtered by: <span className="font-medium text-foreground">{statusFilter}</span></span>}
+        {statusFilter !== "all" && <span> · Status: <span className="font-medium text-foreground">{statusFilter}</span></span>}
+        {cohortFilter !== "all" && <span> · Cohort: <span className="font-medium text-foreground">{cohorts.find(c => c.id === cohortFilter)?.name}</span></span>}
       </p>
 
       {/* Desktop Table */}
