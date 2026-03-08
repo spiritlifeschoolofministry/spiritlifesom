@@ -366,7 +366,7 @@ const AdminStudents = () => {
                                   {graduatingId === student.id ? "Graduating..." : "Mark as Graduate"}
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem>View Details</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => navigate(`/admin/students/${student.id}`)}>View Details</DropdownMenuItem>
                               <DropdownMenuItem>Send Email</DropdownMenuItem>
                               <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
                             </DropdownMenuContent>
