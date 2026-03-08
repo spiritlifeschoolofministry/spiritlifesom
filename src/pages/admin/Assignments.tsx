@@ -317,10 +317,17 @@ const AdminAssignments = () => {
                                                 <a href={submission.file_url} target="_blank" rel="noopener noreferrer"><File className="h-4 w-4 mr-1" /> View Submission</a>
                                               </Button>
                                             )}
-                                            {isGraded && submission.feedback && (
-                                              <div className="bg-muted p-3 rounded border">
-                                                <p className="text-sm font-medium">Feedback:</p>
-                                                <p className="text-sm text-muted-foreground mt-1">{submission.feedback}</p>
+                                            {isGraded && (
+                                              <div className="bg-muted p-3 rounded border space-y-1">
+                                                {submission.grade != null && (
+                                                  <p className="text-sm font-medium">Score: <span className="text-primary">{submission.grade}/{selectedAssignment?.max_points || 100}</span></p>
+                                                )}
+                                                {submission.feedback && (
+                                                  <>
+                                                    <p className="text-sm font-medium">Feedback:</p>
+                                                    <p className="text-sm text-muted-foreground">{submission.feedback}</p>
+                                                  </>
+                                                )}
                                               </div>
                                             )}
                                             {!isGraded && (
