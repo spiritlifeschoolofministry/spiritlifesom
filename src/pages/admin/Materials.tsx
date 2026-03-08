@@ -13,11 +13,14 @@ import { Loader2, Upload, Pin, PinOff, Trash2, ExternalLink } from 'lucide-react
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
+const MATERIAL_TYPES = ['Notes', 'Slides', 'Handout', 'Worksheet', 'Reference', 'Video', 'Other'] as const;
+
 interface UploadForm {
   title: string;
   description: string;
   cohort_id: string;
   course_id: string;
+  material_type: string;
 }
 
 const AdminMaterials = () => {
@@ -32,11 +35,12 @@ const AdminMaterials = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<UploadForm>({
-    defaultValues: { title: '', description: '', cohort_id: '', course_id: '' },
+    defaultValues: { title: '', description: '', cohort_id: '', course_id: '', material_type: '' },
   });
 
   const selectedCohort = watch('cohort_id');
   const selectedCourse = watch('course_id');
+  const selectedMaterialType = watch('material_type');
 
   useEffect(() => { fetchData(); }, []);
 
@@ -82,6 +86,7 @@ const AdminMaterials = () => {
         title: data.title,
         description: data.description || null,
         file_url: urlData.publicUrl,
+        material_type: data.material_type || null,
         is_paid: false,
         uploaded_by: null,
       });
@@ -175,6 +180,15 @@ const AdminMaterials = () => {
                   <SelectTrigger><SelectValue placeholder="Select a course" /></SelectTrigger>
                   <SelectContent>
                     {courses.map((c) => (<SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Material Type</Label>
+                <Select value={selectedMaterialType} onValueChange={(val) => setValue('material_type', val)}>
+                  <SelectTrigger><SelectValue placeholder="Select type (optional)" /></SelectTrigger>
+                  <SelectContent>
+                    {MATERIAL_TYPES.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}
                   </SelectContent>
                 </Select>
               </div>
