@@ -60,7 +60,8 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
   }
 
   if (requiredRole === "admin") {
-    if (role !== "admin" && role !== "teacher") {
+    const normalizedRole = (role ?? "").toLowerCase();
+    if (normalizedRole !== "admin" && normalizedRole !== "teacher") {
       return <Navigate to="/student/dashboard" />;
     }
   }
