@@ -63,6 +63,7 @@ const DB_TO_UI_STATUS: Record<string, string> = {
 };
 
 const AdminStudents = () => {
+  const navigate = useNavigate();
   const [students, setStudents] = useState<Student[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
