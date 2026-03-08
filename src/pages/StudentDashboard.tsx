@@ -44,8 +44,10 @@ const EMPTY_DATA: DashboardData = {
   admissionStatus: null,
   attendanceRate: null,
   totalCourses: 0,
+  completedCourses: 0,
   pendingAssignments: 0,
-  feeStatus: "N/A",
+  totalAssignments: 0,
+  fees: { paid: 0, unpaid: 0, partial: 0, total: 0, status: "N/A" },
   upcomingEvents: [],
   announcements: [],
 };
