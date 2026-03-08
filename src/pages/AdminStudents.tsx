@@ -93,6 +93,8 @@ const AdminStudents = () => {
   // Delete state
   const [deleteTarget, setDeleteTarget] = useState<Student | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   // Email state
   const [emailTargets, setEmailTargets] = useState<Student[]>([]);
