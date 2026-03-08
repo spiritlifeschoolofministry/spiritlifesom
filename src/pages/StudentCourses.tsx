@@ -1,25 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import StudentLayout from "@/components/StudentLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, Clock, BookOpen, CheckCircle, AlertCircle } from "lucide-react";
+import { BookOpen, CheckCircle, Clock, User } from "lucide-react";
 
-interface TimetableEntry {
+interface Course {
   id: string;
-  date: string;
-  dayName: string;
-  startTime: string | null;
-  endTime: string | null;
+  code: string;
   title: string;
+  description: string | null;
   lecturer: string | null;
-  isCompleted: boolean;
+  is_completed: boolean | null;
+  start_date: string | null;
 }
 
 const StudentCourses = () => {
   const { student } = useAuth();
-  const [entries, setEntries] = useState<TimetableEntry[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,70 +27,24 @@ const StudentCourses = () => {
     const load = async () => {
       try {
         if (!student?.cohort_id) {
-          setEntries([]);
+          setCourses([]);
           return;
         }
 
         const { data, error } = await supabase
-          .from("schedule")
-          .select(
-            `
-            id,
-            date,
-            day,
-            start_time,
-            end_time,
-            description,
-            courses!inner(
-              id,
-              title,
-              code,
-              cohort_id,
-              lecturer,
-              is_completed
-            )
-          `
-          )
-          .eq("courses.cohort_id", student.cohort_id)
-          .order("date", { ascending: true })
-          .order("start_time", { ascending: true });
+          .from("courses")
+          .select("id, code, title, description, lecturer, is_completed, start_date")
+          .eq("cohort_id", student.cohort_id)
+          .order("start_date", { ascending: true, nullsFirst: false });
 
         if (error) throw error;
-
-        const now = new Date();
-
-        const mapped: TimetableEntry[] = (data as any[] | null || []).map((row) => {
-          const dateStr: string = row.date;
-          const dateObj = new Date(`${dateStr}T00:00:00`);
-          const dayName: string =
-            row.day || dateObj.toLocaleDateString("en-US", { weekday: "long" });
-          const startTime: string | null = row.start_time;
-          const endTime: string | null = row.end_time;
-
-          const endDateTime = new Date(
-            `${dateStr}T${endTime ?? "23:59:59"}`
-          );
-          const isCompleted = endDateTime < now;
-
-          return {
-            id: row.id,
-            date: dateStr,
-            dayName,
-            startTime,
-            endTime,
-            title: row.courses?.title || row.description || "Class session",
-            lecturer: row.courses?.lecturer || null,
-            isCompleted: row.courses?.is_completed || endDateTime < now,
-          };
-        });
-
-        setEntries(mapped);
+        setCourses((data as Course[]) || []);
         setError(null);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Failed to load timetable";
+        const msg = err instanceof Error ? err.message : "Failed to load courses";
         console.error("[StudentCourses] Load error:", err);
         setError(msg);
-        setEntries([]);
+        setCourses([]);
       } finally {
         setLoading(false);
       }
@@ -99,20 +53,8 @@ const StudentCourses = () => {
     load();
   }, [student?.cohort_id]);
 
-  const groupedByDay = useMemo(() => {
-    const map = new Map<string, TimetableEntry[]>();
-    for (const entry of entries) {
-      const key = entry.dayName;
-      if (!map.has(key)) {
-        map.set(key, []);
-      }
-      map.get(key)!.push(entry);
-    }
-    return map;
-  }, [entries]);
-
-  const completed = entries.filter((e) => e.isCompleted);
-  const upcoming = entries.filter((e) => !e.isCompleted);
+  const completed = courses.filter((c) => c.is_completed);
+  const inProgress = courses.filter((c) => !c.is_completed);
 
   if (loading) {
     return (
@@ -128,196 +70,97 @@ const StudentCourses = () => {
     );
   }
 
-  if (!entries.length) {
+  if (!courses.length) {
     return (
       <StudentLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center py-12">
           <div className="bg-muted rounded-full p-4 mb-4">
-            <Calendar className="w-8 h-8 text-primary" />
+            <BookOpen className="w-8 h-8 text-primary" />
           </div>
-          <h2 className="text-2xl font-bold text-foreground mb-2">
-            My Courses & Timetable
-          </h2>
+          <h2 className="text-2xl font-bold text-foreground mb-2">My Courses</h2>
           <p className="text-muted-foreground mb-2 max-w-md">
-            Your lecture timetable is being finalized by the Admin.
+            No courses have been assigned to your cohort yet.
           </p>
-          {error && (
-            <p className="text-xs text-destructive max-w-md">
-              {error}
-            </p>
-          )}
+          {error && <p className="text-xs text-destructive max-w-md">{error}</p>}
         </div>
       </StudentLayout>
     );
   }
 
-  const orderedDays = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-  ];
-
   return (
     <StudentLayout>
       <div className="space-y-6 pb-20 md:pb-0">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-              My Courses & Live Timetable
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              View your weekly lecture schedule and track your progress.
-            </p>
-          </div>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">My Courses</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {courses.length} course{courses.length !== 1 ? "s" : ""} · {completed.length} completed · {inProgress.length} in progress
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="shadow-[var(--shadow-card)] border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-primary" /> Weekly Timetable
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {orderedDays.map((day) => {
-                const dayEntries = groupedByDay.get(day) || [];
-                if (!dayEntries.length) return null;
+        {/* Summary cards */}
+        <div className="grid grid-cols-2 gap-4">
+          <Card className="border-border">
+            <CardContent className="p-4 flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground font-medium">Completed</span>
+              <span className="text-2xl font-bold text-foreground">{completed.length}</span>
+            </CardContent>
+          </Card>
+          <Card className="border-border">
+            <CardContent className="p-4 flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground font-medium">In Progress</span>
+              <span className="text-2xl font-bold text-foreground">{inProgress.length}</span>
+            </CardContent>
+          </Card>
+        </div>
 
-                return (
-                  <div key={day}>
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                      {day}
-                    </h3>
-                    <div className="space-y-2">
-                      {dayEntries.map((entry) => (
-                        <div
-                          key={entry.id}
-                          className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50"
-                        >
-                          <div className="mt-0.5">
-                            <BookOpen className="w-4 h-4 text-primary" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-foreground">
-                              {entry.title}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
-                              <Clock className="w-3 h-3" />
-                              {entry.startTime?.slice(0, 5) ?? "--:--"}{" "}
-                              {entry.endTime && `– ${entry.endTime.slice(0, 5)}`}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
-                              <AlertCircle className="w-3 h-3" />
-                              Lecturer: {entry.lecturer || "To be announced"}
-                            </p>
-                          </div>
-                          {entry.isCompleted && (
-                            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
+        {/* Course list */}
+        <div className="space-y-3">
+          {courses.map((course) => (
+            <Card key={course.id} className="border-border shadow-[var(--shadow-card)]">
+              <CardContent className="p-4 flex items-start gap-4">
+                <div className="bg-primary/10 rounded-lg p-2.5 shrink-0 mt-0.5">
+                  <BookOpen className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm font-semibold text-foreground">{course.title}</h3>
+                    <span className="text-xs font-mono text-muted-foreground">{course.code}</span>
                   </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-[var(--shadow-card)] border-border">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-primary" /> Progress Tracker
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-lg bg-emerald-50 flex flex-col gap-1">
-                  <span className="text-xs text-emerald-700 font-medium">
-                    Completed Modules
-                  </span>
-                  <span className="text-2xl font-bold text-emerald-700">
-                    {completed.length}
-                  </span>
-                </div>
-                <div className="p-3 rounded-lg bg-amber-50 flex flex-col gap-1">
-                  <span className="text-xs text-amber-700 font-medium">
-                    Upcoming Modules
-                  </span>
-                  <span className="text-2xl font-bold text-amber-700">
-                    {upcoming.length}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                    Next Up
-                  </h3>
-                  {upcoming.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No upcoming modules scheduled.
-                    </p>
-                  ) : (
-                    upcoming.slice(0, 5).map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="p-3 rounded-lg bg-secondary/50 mb-2"
-                      >
-                        <p className="text-sm font-medium text-foreground">
-                          {entry.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {new Date(entry.date + "T00:00:00").toLocaleDateString(
-                            "en-GB",
-                            { weekday: "short", day: "numeric", month: "short" }
-                          )}{" "}
-                          ·{" "}
-                          {entry.startTime?.slice(0, 5) ?? "--:--"}
-                          {entry.endTime && ` – ${entry.endTime.slice(0, 5)}`}
-                        </p>
-                      </div>
-                    ))
+                  {course.description && (
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{course.description}</p>
                   )}
+                  <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <User className="w-3 h-3" />
+                      {course.lecturer || "TBA"}
+                    </span>
+                    {course.start_date && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {new Date(course.start_date + "T00:00:00").toLocaleDateString("en-GB", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                    )}
+                  </div>
                 </div>
-
-                <div>
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                    Recently Completed
-                  </h3>
-                  {completed.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      You have not completed any modules yet.
-                    </p>
+                <Badge
+                  variant={course.is_completed ? "default" : "secondary"}
+                  className={course.is_completed ? "bg-emerald-600 shrink-0" : "shrink-0"}
+                >
+                  {course.is_completed ? (
+                    <span className="flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" /> Done
+                    </span>
                   ) : (
-                    completed.slice(0, 5).map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="p-3 rounded-lg bg-muted mb-2 flex items-center gap-2"
-                      >
-                        <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium text-foreground">
-                            {entry.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {new Date(entry.date + "T00:00:00").toLocaleDateString(
-                              "en-GB",
-                              { weekday: "short", day: "numeric", month: "short" }
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    ))
+                    "In Progress"
                   )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                </Badge>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     </StudentLayout>
@@ -325,4 +168,3 @@ const StudentCourses = () => {
 };
 
 export default StudentCourses;
-
