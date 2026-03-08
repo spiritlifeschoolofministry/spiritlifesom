@@ -191,6 +191,37 @@ const Register = () => {
       const userId = authData.user.id;
       console.log("[Register] Auth user created:", userId);
 
+      // Wait briefly for the DB trigger to create the student record
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Update student record with all registration fields
+      const dob = form.dobDay && form.dobMonth && form.dobYear
+        ? `${form.dobYear}-${form.dobMonth.padStart(2, '0')}-${form.dobDay.padStart(2, '0')}`
+        : null;
+
+      const studentUpdate: Record<string, any> = {
+        learning_mode: form.learningMode || null,
+        marital_status: form.maritalStatus || null,
+        address: form.address || null,
+        is_born_again: form.isBornAgain === 'yes',
+        has_discovered_ministry: form.hasDiscoveredMinistry === 'yes',
+        ministry_description: form.ministryDescription || null,
+        educational_background: form.educationalBackground || null,
+        preferred_language: form.preferredLanguage || null,
+        date_of_birth: dob,
+      };
+
+      const { error: studentUpdateError } = await supabase
+        .from('students')
+        .update(studentUpdate)
+        .eq('profile_id', userId);
+
+      if (studentUpdateError) {
+        console.warn('[Register] Student update failed (non-critical):', studentUpdateError.message);
+      } else {
+        console.log('[Register] Student record updated with registration details');
+      }
+
       // Upload passport photo (non-blocking — doesn't fail registration)
       if (form.passportPhoto) {
         try {
