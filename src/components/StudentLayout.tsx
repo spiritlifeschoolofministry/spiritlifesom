@@ -10,6 +10,7 @@ import {
   BookOpen,
   CalendarCheck,
   CalendarDays,
+  CalendarClock,
   ClipboardList,
   FileText,
   Users,
@@ -25,6 +26,7 @@ import {
   Shield,
   Eye,
   GraduationCap,
+  Award,
 } from "lucide-react";
 import { toast } from "sonner";
 
