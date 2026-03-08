@@ -271,6 +271,7 @@ const AdminAssignments = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Title</TableHead>
+                    <TableHead>Category</TableHead>
                     <TableHead>Cohort</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead>Action</TableHead>
