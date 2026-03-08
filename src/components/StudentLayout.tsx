@@ -199,7 +199,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - desktop */}
         <TooltipProvider>
-          <aside className="hidden md:flex flex-col w-56 shrink-0 gradient-purple text-primary-foreground">
+          <aside className="hidden md:flex flex-col w-56 shrink-0 gradient-purple text-primary-foreground overflow-y-auto">
             <nav className="flex-1 py-4 space-y-1 px-2">
               {NAV_ITEMS.map((item) => renderNavItem(item, {}))}
               {/* Admin link in sidebar for admins/teachers */}
