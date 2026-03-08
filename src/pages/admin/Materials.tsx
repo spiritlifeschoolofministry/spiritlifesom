@@ -207,27 +207,44 @@ const AdminMaterials = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>All Materials</CardTitle>
-          <CardDescription>Manage uploaded course materials</CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <CardTitle>All Materials</CardTitle>
+              <CardDescription>Manage uploaded course materials</CardDescription>
+            </div>
+            <Select value={cohortFilter} onValueChange={setCohortFilter}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Filter by cohort" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Cohorts</SelectItem>
+                {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
-          {materials.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No materials uploaded yet</p>
+          {(() => {
+            const filtered = cohortFilter === 'all' ? materials : materials.filter(m => m.cohort_id === cohortFilter);
+            return filtered.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No materials found{cohortFilter !== 'all' ? ' for this cohort' : ''}</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Title</TableHead>
+                    <TableHead>Cohort</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>File</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {materials.map((m) => (
+                  {filtered.map((m) => (
                     <TableRow key={m.id}>
                       <TableCell className="font-medium">{m.title}</TableCell>
+                      <TableCell>{cohorts.find(c => c.id === m.cohort_id)?.name || '—'}</TableCell>
                       <TableCell>{m.created_at ? new Date(m.created_at).toLocaleDateString() : '—'}</TableCell>
                       <TableCell>
                         {m.file_url ? (
