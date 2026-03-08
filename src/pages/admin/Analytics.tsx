@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
-import { Users, TrendingUp, CalendarCheck, ClipboardList } from "lucide-react";
+import { Users, TrendingUp, CalendarCheck, ClipboardList, Download } from "lucide-react";
+import { downloadCSV } from "@/lib/csv-export";
 
 interface Cohort { id: string; name: string; }
 
@@ -221,17 +224,40 @@ const AdminAnalytics = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Analytics</h1>
           <p className="text-muted-foreground text-sm mt-1">Insights and performance metrics</p>
         </div>
-        <Select value={cohortFilter} onValueChange={setCohortFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Filter by cohort" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Cohorts</SelectItem>
-            {cohorts.map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Download className="h-4 w-4" /> Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => downloadCSV(enrollmentData, "enrollment_trends")}>
+                Enrollment Trends
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => downloadCSV(revenueData, "revenue_by_fee_type")}>
+                Revenue Data
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => downloadCSV(attendanceData, "attendance_distribution")}>
+                Attendance Data
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => downloadCSV(assignmentData, "task_performance")}>
+                Task Performance
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Select value={cohortFilter} onValueChange={setCohortFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filter by cohort" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Cohorts</SelectItem>
+              {cohorts.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Summary Cards */}
