@@ -140,11 +140,16 @@ const AdminStudents = () => {
   useEffect(() => { loadStudents(); loadCohorts(); }, []);
   useEffect(() => { filterStudents(); }, [students, searchQuery, statusFilter, cohortFilter]);
 
+  const loadCohorts = async () => {
+    const { data } = await supabase.from("cohorts").select("id, name").order("name");
+    if (data) setCohorts(data);
+  };
+
   const loadStudents = async () => {
     try {
       const { data, error } = await supabase
         .from("students")
-        .select(`id, admission_status, created_at, profile_id, profile:profiles(first_name, last_name, email)`)
+        .select(`id, admission_status, created_at, profile_id, cohort_id, profile:profiles(first_name, last_name, email), cohort:cohorts(name)`)
         .order("created_at", { ascending: false });
       if (error) throw error;
       setStudents((data as any) || []);
