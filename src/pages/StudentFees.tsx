@@ -23,7 +23,7 @@ type Fee = Tables<'fees'>;
 type Payment = Tables<'payments'>;
 
 interface SubmitPaymentFormData {
-  fee_type: string;
+  fee_id: string;
   amount: string;
   notes: string;
   receipt: FileList;
