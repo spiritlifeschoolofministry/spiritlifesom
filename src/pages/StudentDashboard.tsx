@@ -309,10 +309,11 @@ const StudentDashboard = () => {
 
         {/* Upcoming Events — always visible */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base">
               <Calendar className="h-4 w-4" /> Upcoming Schedule & Events
             </CardTitle>
+            <Button variant="link" size="sm" className="text-xs p-0 h-auto" onClick={() => navigate("/student/calendar")}>View All Events →</Button>
           </CardHeader>
           <CardContent>
             {loading ? (
