@@ -11,8 +11,15 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Loader2, Eye, EyeOff, AlertCircle, Save } from 'lucide-react';
 import type { Tables } from '@/integrations/supabase/types';
 
 interface PersonalFormData {
@@ -29,6 +36,206 @@ interface SocialFormData {
   linkedin?: string;
   youtube?: string;
 }
+
+interface AcademicFormData {
+  learning_mode: string;
+  preferred_language: string;
+  educational_background: string;
+  marital_status: string;
+  address: string;
+  ministry_description: string;
+}
+
+const LEARNING_MODES = ['On-site', 'Online', 'Hybrid'];
+const LANGUAGES = ['English', 'French', 'Yoruba', 'Igbo', 'Hausa', 'Other'];
+const EDUCATION_LEVELS = ['Primary', 'Secondary', 'Diploma', 'Bachelor\'s Degree', 'Master\'s Degree', 'Doctorate', 'Other'];
+const MARITAL_STATUSES = ['Single', 'Married', 'Divorced', 'Widowed'];
+
+const AcademicInfoCard = ({
+  studentData,
+  userId,
+  onSaved,
+}: {
+  studentData: Tables<'students'>;
+  userId: string | undefined;
+  onSaved: (data: Tables<'students'>) => void;
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [form, setForm] = useState<AcademicFormData>({
+    learning_mode: studentData.learning_mode || '',
+    preferred_language: studentData.preferred_language || '',
+    educational_background: studentData.educational_background || '',
+    marital_status: studentData.marital_status || '',
+    address: studentData.address || '',
+    ministry_description: studentData.ministry_description || '',
+  });
+
+  // Check if any key fields are missing to show a prompt
+  const hasMissingFields = !studentData.learning_mode || !studentData.educational_background || !studentData.marital_status || !studentData.preferred_language;
+
+  const handleSave = async () => {
+    if (!userId) return;
+    try {
+      setIsSaving(true);
+      const updateData = {
+        learning_mode: form.learning_mode || null,
+        preferred_language: form.preferred_language || null,
+        educational_background: form.educational_background || null,
+        marital_status: form.marital_status || null,
+        address: form.address || null,
+        ministry_description: form.ministry_description || null,
+      };
+      const { data, error } = await supabase
+        .from('students')
+        .update(updateData)
+        .eq('profile_id', userId)
+        .select()
+        .single();
+      if (error) throw error;
+      if (data) onSaved(data);
+      toast.success('Academic information updated');
+      setIsEditing(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const InfoRow = ({ label, value }: { label: string; value: string | null }) => (
+    <div>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <p className="text-sm font-medium mt-0.5 capitalize">{value || <span className="text-muted-foreground italic">Not provided</span>}</p>
+    </div>
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Academic Information</CardTitle>
+            <CardDescription>Your enrollment and academic details</CardDescription>
+          </div>
+          {!isEditing && (
+            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+              Edit
+            </Button>
+          )}
+        </div>
+        {hasMissingFields && !isEditing && (
+          <div className="flex items-center gap-2 mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-sm">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>Some academic details are missing. Click <strong>Edit</strong> to complete your profile.</span>
+          </div>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Read-only fields */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Label className="text-xs text-muted-foreground">Student Code</Label>
+            <p className="text-sm font-semibold mt-0.5">{studentData.student_code || 'N/A'}</p>
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Admission Status</Label>
+            <div className="mt-1">
+              <Badge variant={studentData.admission_status === 'ADMITTED' ? 'default' : studentData.admission_status === 'Pending' ? 'secondary' : 'destructive'}>
+                {studentData.admission_status || 'Pending'}
+              </Badge>
+            </div>
+          </div>
+        </div>
+
+        {isEditing ? (
+          <div className="space-y-4 pt-2 border-t border-border">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label>Learning Mode</Label>
+                <Select value={form.learning_mode} onValueChange={(v) => setForm(f => ({ ...f, learning_mode: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select mode" /></SelectTrigger>
+                  <SelectContent>
+                    {LEARNING_MODES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Preferred Language</Label>
+                <Select value={form.preferred_language} onValueChange={(v) => setForm(f => ({ ...f, preferred_language: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select language" /></SelectTrigger>
+                  <SelectContent>
+                    {LANGUAGES.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label>Educational Background</Label>
+                <Select value={form.educational_background} onValueChange={(v) => setForm(f => ({ ...f, educational_background: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select level" /></SelectTrigger>
+                  <SelectContent>
+                    {EDUCATION_LEVELS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Marital Status</Label>
+                <Select value={form.marital_status} onValueChange={(v) => setForm(f => ({ ...f, marital_status: v }))}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select status" /></SelectTrigger>
+                  <SelectContent>
+                    {MARITAL_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Address</Label>
+              <Input value={form.address} onChange={(e) => setForm(f => ({ ...f, address: e.target.value }))} className="mt-1" placeholder="Your address" />
+            </div>
+            <div>
+              <Label>Ministry Description</Label>
+              <Textarea value={form.ministry_description} onChange={(e) => setForm(f => ({ ...f, ministry_description: e.target.value }))} className="mt-1" placeholder="Describe your ministry involvement" rows={3} />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button onClick={handleSave} disabled={isSaving}>
+                {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Save Changes
+              </Button>
+              <Button variant="outline" onClick={() => {
+                setIsEditing(false);
+                setForm({
+                  learning_mode: studentData.learning_mode || '',
+                  preferred_language: studentData.preferred_language || '',
+                  educational_background: studentData.educational_background || '',
+                  marital_status: studentData.marital_status || '',
+                  address: studentData.address || '',
+                  ministry_description: studentData.ministry_description || '',
+                });
+              }}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <InfoRow label="Learning Mode" value={studentData.learning_mode} />
+              <InfoRow label="Preferred Language" value={studentData.preferred_language} />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <InfoRow label="Educational Background" value={studentData.educational_background} />
+              <InfoRow label="Marital Status" value={studentData.marital_status} />
+            </div>
+            {studentData.address && <InfoRow label="Address" value={studentData.address} />}
+            {studentData.ministry_description && <InfoRow label="Ministry Description" value={studentData.ministry_description} />}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
 interface PasswordFormData {
   currentPassword: string;
@@ -414,118 +621,11 @@ const StudentProfile = () => {
 
             {/* Academic Information Section */}
             {studentData && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Academic Information</CardTitle>
-                  <CardDescription>Your enrollment and academic status</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <form onSubmit={async (e) => { e.preventDefault();
-                      if (!user || !studentData) return;
-                      try {
-                        setIsSavingPersonal(true);
-                        const updateData: Partial<Tables<'students'>> = {
-                          learning_mode: (document.getElementById('learningMode') as HTMLInputElement)?.value || studentData.learning_mode,
-                          preferred_language: (document.getElementById('preferredLanguage') as HTMLInputElement)?.value || studentData.preferred_language,
-                          ministry_description: (document.getElementById('ministryDescription') as HTMLInputElement)?.value || studentData.ministry_description,
-                          educational_background: (document.getElementById('educationalBackground') as HTMLInputElement)?.value || studentData.educational_background,
-                          address: (document.getElementById('address') as HTMLInputElement)?.value || studentData.address,
-                        };
-                        const { error } = await supabase.from('students').update(updateData).eq('profile_id', user.id);
-                        if (error) throw error;
-                        toast.success('Academic information saved');
-                      } catch (err) {
-                        const msg = err instanceof Error ? err.message : 'Failed to save academic info';
-                        toast.error(msg);
-                      } finally {
-                        setIsSavingPersonal(false);
-                      }
-                    }}>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-muted-foreground">Student Code</Label>
-                      <p className="text-lg font-semibold mt-1">{studentData.student_code || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground">Admission Status</Label>
-                      <div className="mt-1">
-                        <Badge
-                          variant={
-                            studentData.admission_status === 'Approved'
-                              ? 'default'
-                              : studentData.admission_status === 'Pending'
-                                ? 'secondary'
-                                : 'destructive'
-                          }
-                        >
-                          {studentData.admission_status || 'Pending'}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-muted-foreground">Learning Mode</Label>
-                      <p className="text-lg font-semibold mt-1 capitalize">{studentData.learning_mode || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground">Preferred Language</Label>
-                      <p className="text-lg font-semibold mt-1 capitalize">{studentData.preferred_language || 'N/A'}</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label className="text-muted-foreground">Educational Background</Label>
-                      <p className="text-lg font-semibold mt-1 capitalize">{studentData.educational_background || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground">Marital Status</Label>
-                      <p className="text-lg font-semibold mt-1 capitalize">{studentData.marital_status || 'N/A'}</p>
-                    </div>
-                  </div>
-
-                  {studentData.ministry_description && (
-                    <div>
-                      <Label className="text-muted-foreground">Ministry Description</Label>
-                      <p className="text-base mt-1">{studentData.ministry_description}</p>
-                    </div>
-                  )}
-
-                  {studentData.address && (
-                    <div>
-                      <Label htmlFor="address">Address</Label>
-                      <Input id="address" defaultValue={studentData.address || ''} className="mt-1" />
-                    </div>
-                  )}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="learningMode">Learning Mode</Label>
-                      <Input id="learningMode" defaultValue={studentData.learning_mode || ''} className="mt-1" />
-                    </div>
-                    <div>
-                      <Label htmlFor="preferredLanguage">Preferred Language</Label>
-                      <Input id="preferredLanguage" defaultValue={studentData.preferred_language || ''} className="mt-1" />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4">
-                    <div>
-                      <Label htmlFor="educationalBackground">Educational Background</Label>
-                      <Input id="educationalBackground" defaultValue={studentData.educational_background || ''} className="mt-1" />
-                    </div>
-                    <div>
-                      <Label htmlFor="ministryDescription">Ministry Description</Label>
-                      <Textarea id="ministryDescription" defaultValue={studentData.ministry_description || ''} className="mt-1" />
-                    </div>
-                  </div>
-                  <div className="flex gap-2 mt-4">
-                    <Button type="submit">Save Academic Information</Button>
-                  </div>
-                  </form>
-                </CardContent>
-              </Card>
+              <AcademicInfoCard
+                studentData={studentData}
+                userId={user?.id}
+                onSaved={(updated) => setStudentData(updated)}
+              />
             )}
           </>
         )}
