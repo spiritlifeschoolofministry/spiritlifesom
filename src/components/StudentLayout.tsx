@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import ThemeToggle from "@/components/ThemeToggle";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -146,6 +147,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
             {authProfile?.avatar_url && <AvatarImage src={authProfile.avatar_url} alt="Avatar" />}
             <AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback>
           </Avatar>
+          <ThemeToggle />
           <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
             <LogOut className="w-4 h-4" />
           </Button>

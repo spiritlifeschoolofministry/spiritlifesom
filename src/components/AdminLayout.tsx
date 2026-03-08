@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import ThemeToggle from "@/components/ThemeToggle";
 import {
   LayoutDashboard,
   Users,
@@ -11,6 +12,7 @@ import {
   CalendarDays,
   FileText,
   Folder,
+  BookOpen,
   CreditCard,
   Bell,
   Settings,
@@ -26,6 +28,7 @@ const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/admin/dashboard" },
   { label: "Students", icon: Users, path: "/admin/students" },
   { label: "Admissions", icon: UserCheck, path: "/admin/admissions" },
+  { label: "Courses", icon: BookOpen, path: "/admin/courses" },
   { label: "Attendance", icon: CalendarCheck, path: "/admin/attendance" },
   { label: "Assignments", icon: FileText, path: "/admin/assignments" },
   { label: "Materials", icon: Folder, path: "/admin/materials" },
@@ -87,6 +90,7 @@ const AdminLayout = () => {
               <Eye className="w-4 h-4" />
             </Button>
           )}
+          <ThemeToggle />
           <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
             <LogOut className="w-4 h-4" />
           </Button>

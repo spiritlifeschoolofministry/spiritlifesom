@@ -45,7 +45,9 @@ const StudentCourses = () => {
               id,
               title,
               code,
-              cohort_id
+              cohort_id,
+              lecturer,
+              is_completed
             )
           `
           )
@@ -77,10 +79,8 @@ const StudentCourses = () => {
             startTime,
             endTime,
             title: row.courses?.title || row.description || "Class session",
-            // Lecturer information is not modeled yet in the schema,
-            // so we show a friendly placeholder.
-            lecturer: null,
-            isCompleted,
+            lecturer: row.courses?.lecturer || null,
+            isCompleted: row.courses?.is_completed || endDateTime < now,
           };
         });
 
