@@ -10,6 +10,7 @@ import {
   BookOpen,
   CalendarCheck,
   CalendarDays,
+  CalendarClock,
   ClipboardList,
   FileText,
   Users,
@@ -25,6 +26,7 @@ import {
   Shield,
   Eye,
   GraduationCap,
+  Award,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -36,14 +38,18 @@ interface StudentLayoutProps {
 const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/student/dashboard", restrictedWhenPending: false },
   { label: "My Courses", icon: BookOpen, path: "/student/courses", restrictedWhenPending: false },
+  { label: "Timetable", icon: CalendarClock, path: "/student/timetable", restrictedWhenPending: false },
   { label: "Attendance", icon: CalendarCheck, path: "/student/attendance", restrictedWhenPending: false },
   { label: "Tasks", icon: ClipboardList, path: "/student/assignments", restrictedWhenPending: true },
   { label: "Grades", icon: GraduationCap, path: "/student/grades", restrictedWhenPending: true },
+  { label: "Transcript", icon: FileText, path: "/student/transcript", restrictedWhenPending: true },
   { label: "Course Materials", icon: FileText, path: "/student/materials", restrictedWhenPending: true },
   { label: "Course Mates", icon: Users, path: "/student/coursemates", restrictedWhenPending: true },
   { label: "Fees", icon: CreditCard, path: "/student/fees", restrictedWhenPending: false },
+  { label: "Notifications", icon: Bell, path: "/student/notifications", restrictedWhenPending: false },
   { label: "Announcements", icon: Bell, path: "/student/announcements", restrictedWhenPending: false },
   { label: "Calendar", icon: CalendarDays, path: "/student/calendar", restrictedWhenPending: false },
+  { label: "Certificate", icon: Award, path: "/student/certificate", restrictedWhenPending: false },
   { label: "Graduates", icon: GraduationCap, path: "/student/graduates", restrictedWhenPending: false },
   { label: "Profile", icon: UserCircle, path: "/student/profile", restrictedWhenPending: false },
 ];
