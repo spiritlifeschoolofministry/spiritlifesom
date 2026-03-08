@@ -29,10 +29,29 @@ import {
   Search,
   Loader2,
   Power,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
+import type { Json } from "@/integrations/supabase/types";
 
 const todayDateString = () => new Date().toISOString().split("T")[0];
+
+interface CohortToggle {
+  enabled: boolean;
+  start_time: string; // HH:mm
+  end_time: string;   // HH:mm
+  late_after: string;  // HH:mm — after this time, check-in counts as late
+}
+
+interface ClassTodayValue {
+  date: string;
+  cohorts: Record<string, CohortToggle>;
+}
+
+interface CohortInfo {
+  id: string;
+  name: string;
+}
 
 interface PendingRow {
   id: string;
@@ -69,8 +88,12 @@ const AdminAttendance = () => {
   const [search, setSearch] = useState("");
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [bulkVerifying, setBulkVerifying] = useState(false);
-  const [classTodayEnabled, setClassTodayEnabled] = useState(false);
-  const [togglingClass, setTogglingClass] = useState(false);
+
+  // Per-cohort toggles
+  const [cohorts, setCohorts] = useState<CohortInfo[]>([]);
+  const [cohortToggles, setCohortToggles] = useState<Record<string, CohortToggle>>({});
+  const [togglingCohort, setTogglingCohort] = useState<string | null>(null);
+
   const [detailStudentId, setDetailStudentId] = useState<string | null>(null);
   const [detailStudentName, setDetailStudentName] = useState<string>("");
   const [detailCohortId, setDetailCohortId] = useState<string | null>(null);
@@ -80,6 +103,15 @@ const AdminAttendance = () => {
   const [newStatus, setNewStatus] = useState<string>("PRESENT");
   const [newVerified, setNewVerified] = useState<boolean>(false);
 
+  const loadCohorts = useCallback(async () => {
+    const { data } = await supabase
+      .from("cohorts")
+      .select("id, name")
+      .eq("is_active", true)
+      .order("name");
+    setCohorts((data || []) as CohortInfo[]);
+  }, []);
+
   const loadClassTodaySetting = useCallback(async () => {
     try {
       const today = todayDateString();
@@ -88,39 +120,61 @@ const AdminAttendance = () => {
         .select("value")
         .eq("key", "class_today")
         .maybeSingle();
+
       if (data?.value) {
-        const val = data.value as { date?: string; enabled?: boolean };
-        setClassTodayEnabled(val.date === today && val.enabled === true);
+        const val = data.value as unknown as ClassTodayValue;
+        if (val.date === today && val.cohorts) {
+          setCohortToggles(val.cohorts);
+        } else {
+          setCohortToggles({});
+        }
       } else {
-        setClassTodayEnabled(false);
+        setCohortToggles({});
       }
     } catch (err) {
       console.error("[AdminAttendance] Class today setting error:", err);
     }
   }, []);
 
-  const toggleClassToday = async (enabled: boolean) => {
-    setTogglingClass(true);
+  const saveClassToday = async (newToggles: Record<string, CohortToggle>) => {
+    const today = todayDateString();
+    const newValue: ClassTodayValue = { date: today, cohorts: newToggles };
+    const { error } = await supabase
+      .from("system_settings")
+      .upsert(
+        { key: "class_today", value: newValue as unknown as Json, updated_at: new Date().toISOString() },
+        { onConflict: "key" }
+      );
+    if (error) throw error;
+  };
+
+  const toggleCohortClass = async (cohortId: string, enabled: boolean) => {
+    setTogglingCohort(cohortId);
     try {
-      const today = todayDateString();
-      const newValue = { date: today, enabled };
-
-      const { error } = await supabase
-        .from("system_settings")
-        .upsert({ key: "class_today", value: newValue as unknown as import("@/integrations/supabase/types").Json, updated_at: new Date().toISOString() }, { onConflict: "key" });
-      if (error) throw error;
-
-      // If enabling, ensure a schedule entry exists for today so students can check in
+      const current = { ...cohortToggles };
       if (enabled) {
-        const { data: existingSchedule } = await supabase
+        current[cohortId] = {
+          enabled: true,
+          start_time: current[cohortId]?.start_time || "09:00",
+          end_time: current[cohortId]?.end_time || "12:00",
+          late_after: current[cohortId]?.late_after || "09:15",
+        };
+      } else {
+        current[cohortId] = { ...current[cohortId], enabled: false, start_time: current[cohortId]?.start_time || "09:00", end_time: current[cohortId]?.end_time || "12:00", late_after: current[cohortId]?.late_after || "09:15" };
+      }
+      await saveClassToday(current);
+
+      // Ensure schedule entry exists when enabling
+      if (enabled) {
+        const today = todayDateString();
+        const { data: existing } = await supabase
           .from("schedule")
           .select("id")
           .eq("date", today)
           .eq("activity_type", "Lecture")
           .is("course_id", null)
           .limit(1);
-
-        if (!existingSchedule || existingSchedule.length === 0) {
+        if (!existing || existing.length === 0) {
           await supabase.from("schedule").insert({
             date: today,
             activity_type: "Lecture",
@@ -130,20 +184,34 @@ const AdminAttendance = () => {
         }
       }
 
-      setClassTodayEnabled(enabled);
-      toast.success(enabled ? "Class enabled for today — students can now check in" : "Class disabled for today");
+      setCohortToggles(current);
+      const cohortName = cohorts.find(c => c.id === cohortId)?.name || "Cohort";
+      toast.success(enabled ? `Class enabled for ${cohortName}` : `Class disabled for ${cohortName}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to toggle class";
       toast.error(msg);
     } finally {
-      setTogglingClass(false);
+      setTogglingCohort(null);
+    }
+  };
+
+  const updateCohortTime = async (cohortId: string, field: "start_time" | "end_time" | "late_after", value: string) => {
+    const current = { ...cohortToggles };
+    if (!current[cohortId]) {
+      current[cohortId] = { enabled: false, start_time: "09:00", end_time: "12:00", late_after: "09:15" };
+    }
+    current[cohortId] = { ...current[cohortId], [field]: value };
+    setCohortToggles(current);
+    try {
+      await saveClassToday(current);
+    } catch (err) {
+      console.error("Failed to save time:", err);
     }
   };
 
   const loadSummary = useCallback(async () => {
     try {
       const today = todayDateString();
-
       const [pendingCountRes, todayCountRes] = await Promise.all([
         supabase
           .from("attendance")
@@ -155,7 +223,6 @@ const AdminAttendance = () => {
           .gte("marked_at", `${today}T00:00:00`)
           .lt("marked_at", `${today}T23:59:59.999Z`),
       ]);
-
       setTotalPending(pendingCountRes.count ?? 0);
       setTodayTurnout(todayCountRes.count ?? 0);
     } catch (err) {
@@ -167,7 +234,7 @@ const AdminAttendance = () => {
     try {
       const { data: attendanceData, error: attError } = await supabase
         .from("attendance")
-        .select("id, marked_at, student_id, is_verified")
+        .select("id, marked_at, student_id, is_verified, check_in_time")
         .eq("is_verified", false)
         .order("marked_at", { ascending: false });
 
@@ -272,9 +339,9 @@ const AdminAttendance = () => {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    await Promise.all([loadClassTodaySetting(), loadSummary(), loadPendingQueue(), loadStudentStats()]);
+    await Promise.all([loadCohorts(), loadClassTodaySetting(), loadSummary(), loadPendingQueue(), loadStudentStats()]);
     setLoading(false);
-  }, [loadClassTodaySetting, loadSummary, loadPendingQueue, loadStudentStats]);
+  }, [loadCohorts, loadClassTodaySetting, loadSummary, loadPendingQueue, loadStudentStats]);
 
   useEffect(() => {
     loadAll();
@@ -358,9 +425,7 @@ const AdminAttendance = () => {
 
       if (studentError) throw studentError;
       const fullName = studentData?.profiles
-        ? `${studentData.profiles.first_name || ""} ${
-            studentData.profiles.last_name || ""
-          }`.trim()
+        ? `${studentData.profiles.first_name || ""} ${studentData.profiles.last_name || ""}`.trim()
         : "";
       setDetailStudentName(fullName || "Student");
       setDetailCohortId(studentData?.cohort_id ?? null);
@@ -388,9 +453,7 @@ const AdminAttendance = () => {
       if (error) throw error;
       toast.success("Attendance record updated");
       await loadAll();
-      if (detailStudentId) {
-        await openDetail(detailStudentId);
-      }
+      if (detailStudentId) await openDetail(detailStudentId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to update record";
       toast.error(msg);
@@ -404,9 +467,7 @@ const AdminAttendance = () => {
       if (error) throw error;
       toast.success("Attendance record deleted");
       await loadAll();
-      if (detailStudentId) {
-        await openDetail(detailStudentId);
-      }
+      if (detailStudentId) await openDetail(detailStudentId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to delete record";
       toast.error(msg);
@@ -424,18 +485,31 @@ const AdminAttendance = () => {
       return;
     }
     try {
-      const { data: scheduleRows, error: scheduleError } = await supabase
+      // Try cohort-specific schedule first, then generic
+      let scheduleId: string | null = null;
+      const { data: cohortSchedule } = await supabase
         .from("schedule")
         .select("id, date, courses!inner(cohort_id)")
         .eq("date", newDate)
         .eq("courses.cohort_id", detailCohortId)
         .limit(1);
-      if (scheduleError) throw scheduleError;
-      if (!scheduleRows || scheduleRows.length === 0) {
-        toast.error("No schedule found for this date and cohort.");
+      if (cohortSchedule && cohortSchedule.length > 0) {
+        scheduleId = (cohortSchedule[0] as { id: string }).id;
+      } else {
+        const { data: genericSchedule } = await supabase
+          .from("schedule")
+          .select("id")
+          .eq("date", newDate)
+          .is("course_id", null)
+          .limit(1);
+        if (genericSchedule && genericSchedule.length > 0) {
+          scheduleId = genericSchedule[0].id;
+        }
+      }
+      if (!scheduleId) {
+        toast.error("No schedule found for this date.");
         return;
       }
-      const scheduleId = (scheduleRows[0] as { id: string }).id;
       const checkInTimestamp = new Date(`${newDate}T00:00:00`).toISOString();
       const { error: insertError } = await supabase
         .from("attendance")
@@ -473,6 +547,8 @@ const AdminAttendance = () => {
     return "text-emerald-600 font-semibold";
   };
 
+  const anyEnabled = Object.values(cohortToggles).some(t => t.enabled);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -498,26 +574,88 @@ const AdminAttendance = () => {
         </p>
       </div>
 
+      {/* Per-Cohort Class Toggles */}
       <Card className="shadow-[var(--shadow-card)] border-border">
-        <CardContent className="p-5 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${classTodayEnabled ? 'bg-emerald-50' : 'bg-muted'}`}>
-              <Power className={`w-6 h-6 ${classTodayEnabled ? 'text-emerald-600' : 'text-muted-foreground'}`} />
-            </div>
-            <div>
-              <p className="font-semibold text-foreground">Class Today</p>
-              <p className="text-xs text-muted-foreground">
-                {classTodayEnabled
-                  ? "Students can check in for today's class"
-                  : "Check-in is disabled — toggle ON to allow students to mark attendance"}
-              </p>
-            </div>
-          </div>
-          <Switch
-            checked={classTodayEnabled}
-            onCheckedChange={toggleClassToday}
-            disabled={togglingClass}
-          />
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Power className={`w-4 h-4 ${anyEnabled ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+            Class Today — Per Cohort
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Enable class and set the check-in window for each cohort. Students arriving after the "Late after" time will be marked as Late.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {cohorts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No active cohorts found.</p>
+          ) : (
+            cohorts.map((cohort) => {
+              const toggle = cohortToggles[cohort.id] || { enabled: false, start_time: "09:00", end_time: "12:00", late_after: "09:15" };
+              const isToggling = togglingCohort === cohort.id;
+              return (
+                <div
+                  key={cohort.id}
+                  className={`rounded-lg border p-4 transition-colors ${toggle.enabled ? 'border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-800' : 'border-border bg-secondary/30'}`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${toggle.enabled ? 'bg-emerald-100 dark:bg-emerald-900' : 'bg-muted'}`}>
+                        <CalendarCheck className={`w-4 h-4 ${toggle.enabled ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground text-sm">{cohort.name}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {toggle.enabled ? "Check-in open" : "Check-in disabled"}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={toggle.enabled}
+                      onCheckedChange={(checked) => toggleCohortClass(cohort.id, checked)}
+                      disabled={isToggling}
+                    />
+                  </div>
+                  {toggle.enabled && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pl-12">
+                      <div>
+                        <label className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mb-1">
+                          <Clock className="w-3 h-3" /> Start Time
+                        </label>
+                        <Input
+                          type="time"
+                          value={toggle.start_time}
+                          onChange={(e) => updateCohortTime(cohort.id, "start_time", e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mb-1">
+                          <Clock className="w-3 h-3" /> End Time
+                        </label>
+                        <Input
+                          type="time"
+                          value={toggle.end_time}
+                          onChange={(e) => updateCohortTime(cohort.id, "end_time", e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mb-1">
+                          <AlertTriangle className="w-3 h-3 text-amber-500" /> Late After
+                        </label>
+                        <Input
+                          type="time"
+                          value={toggle.late_after}
+                          onChange={(e) => updateCohortTime(cohort.id, "late_after", e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
         </CardContent>
       </Card>
 
@@ -528,9 +666,7 @@ const AdminAttendance = () => {
               <CalendarCheck className="w-6 h-6 text-amber-600" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground font-medium">
-                Total Pending
-              </p>
+              <p className="text-xs text-muted-foreground font-medium">Total Pending</p>
               <p className="text-2xl font-bold text-foreground">{totalPending}</p>
             </div>
           </CardContent>
@@ -541,15 +677,10 @@ const AdminAttendance = () => {
               <AlertTriangle className="w-6 h-6 text-red-600" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground font-medium">
-                Low Attendance Alert
-              </p>
+              <p className="text-xs text-muted-foreground font-medium">Low Attendance Alert</p>
               <p className="text-2xl font-bold text-foreground">
                 {lowAttendanceCount}
-                <span className="text-sm font-normal text-muted-foreground">
-                  {" "}
-                  below 75%
-                </span>
+                <span className="text-sm font-normal text-muted-foreground"> below 75%</span>
               </p>
             </div>
           </CardContent>
@@ -560,17 +691,14 @@ const AdminAttendance = () => {
               <Users className="w-6 h-6 text-emerald-600" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground font-medium">
-                Today's Turnout
-              </p>
-              <p className="text-2xl font-bold text-foreground">
-                {todayTurnout}
-              </p>
+              <p className="text-xs text-muted-foreground font-medium">Today's Turnout</p>
+              <p className="text-2xl font-bold text-foreground">{todayTurnout}</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Verification Queue */}
       <Card className="shadow-[var(--shadow-card)] border-border">
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <CardTitle className="text-base">Verification Queue</CardTitle>
@@ -592,9 +720,7 @@ const AdminAttendance = () => {
         </CardHeader>
         <CardContent>
           {pending.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              No pending approvals.
-            </p>
+            <p className="text-sm text-muted-foreground text-center py-8">No pending approvals.</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -609,14 +735,10 @@ const AdminAttendance = () => {
                 <TableBody>
                   {pending.map((row) => (
                     <TableRow key={row.id}>
-                      <TableCell className="font-medium">
-                        {row.student_name || "—"}
-                      </TableCell>
+                      <TableCell className="font-medium">{row.student_name || "—"}</TableCell>
                       <TableCell>{row.cohort_name}</TableCell>
                       <TableCell>
-                        {row.marked_at
-                          ? new Date(row.marked_at).toLocaleString()
-                          : "—"}
+                        {row.marked_at ? new Date(row.marked_at).toLocaleString() : "—"}
                       </TableCell>
                       <TableCell className="text-right flex gap-2 justify-end">
                         <Button
@@ -651,6 +773,7 @@ const AdminAttendance = () => {
         </CardContent>
       </Card>
 
+      {/* Student Statistics */}
       <Card className="shadow-[var(--shadow-card)] border-border">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Student Statistics</CardTitle>
@@ -680,7 +803,7 @@ const AdminAttendance = () => {
               <TableBody>
                 {filteredStats.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       No students found.
                     </TableCell>
                   </TableRow>
@@ -700,9 +823,7 @@ const AdminAttendance = () => {
                       <TableCell>{s.total_classes}</TableCell>
                       <TableCell>{s.verified_present}</TableCell>
                       <TableCell>
-                        <span className={pctColor(s.attendance_pct)}>
-                          {s.attendance_pct}%
-                        </span>
+                        <span className={pctColor(s.attendance_pct)}>{s.attendance_pct}%</span>
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
@@ -723,12 +844,11 @@ const AdminAttendance = () => {
         </CardContent>
       </Card>
 
+      {/* Detail Dialog */}
       <Dialog open={!!detailStudentId} onOpenChange={() => setDetailStudentId(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              Edit Attendance – {detailStudentName}
-            </DialogTitle>
+            <DialogTitle>Edit Attendance – {detailStudentName}</DialogTitle>
           </DialogHeader>
           {detailLoading ? (
             <div className="flex justify-center py-8">
@@ -750,9 +870,9 @@ const AdminAttendance = () => {
                     value={newStatus}
                     onChange={(e) => setNewStatus(e.target.value)}
                   >
-                    <option value="PRESENT">Present</option>
-                    <option value="ABSENT">Absent</option>
-                    <option value="LATE">Late</option>
+                    <option value="Present">Present</option>
+                    <option value="Absent">Absent</option>
+                    <option value="Late">Late</option>
                   </select>
                   <label className="flex items-center gap-2 text-xs sm:text-sm">
                     <input
@@ -762,13 +882,10 @@ const AdminAttendance = () => {
                     />
                     Mark as verified
                   </label>
-                  <Button size="sm" onClick={addHistoryRow}>
-                    Add Record
-                  </Button>
+                  <Button size="sm" onClick={addHistoryRow}>Add Record</Button>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  New records require an existing schedule entry for the selected date
-                  and the student&apos;s cohort.
+                  New records require an existing schedule entry for the selected date.
                 </p>
               </div>
 
@@ -783,9 +900,7 @@ const AdminAttendance = () => {
                     >
                       <div>
                         <p className="text-xs text-muted-foreground">
-                          {row.marked_at
-                            ? new Date(row.marked_at).toLocaleString()
-                            : "—"}
+                          {row.marked_at ? new Date(row.marked_at).toLocaleString() : "—"}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -794,15 +909,12 @@ const AdminAttendance = () => {
                           className="border border-input bg-background rounded-md px-2 py-1 text-xs"
                           value={row.status}
                           onChange={(e) =>
-                            updateHistoryRow(row.id, (r) => ({
-                              ...r,
-                              status: e.target.value,
-                            }))
+                            updateHistoryRow(row.id, (r) => ({ ...r, status: e.target.value }))
                           }
                         >
-                          <option value="PRESENT">Present</option>
-                          <option value="ABSENT">Absent</option>
-                          <option value="LATE">Late</option>
+                          <option value="Present">Present</option>
+                          <option value="Absent">Absent</option>
+                          <option value="Late">Late</option>
                         </select>
                       </div>
                       <div className="flex items-center gap-3">
@@ -811,31 +923,20 @@ const AdminAttendance = () => {
                             type="checkbox"
                             checked={!!row.is_verified}
                             onChange={(e) =>
-                              updateHistoryRow(row.id, (r) => ({
-                                ...r,
-                                is_verified: e.target.checked,
-                              }))
+                              updateHistoryRow(row.id, (r) => ({ ...r, is_verified: e.target.checked }))
                             }
                           />
                           Verified
                         </label>
                         <Badge
                           variant={row.is_verified ? "default" : "secondary"}
-                          className={
-                            row.is_verified
-                              ? "bg-emerald-600"
-                              : "bg-amber-100 text-amber-800"
-                          }
+                          className={row.is_verified ? "bg-emerald-600" : "bg-amber-100 text-amber-800"}
                         >
                           {row.is_verified ? "Verified" : "Pending"}
                         </Badge>
                       </div>
                       <div className="flex gap-2 justify-end">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => saveHistoryRow(row)}
-                        >
+                        <Button size="sm" variant="outline" onClick={() => saveHistoryRow(row)}>
                           Save
                         </Button>
                         <Button

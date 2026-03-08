@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CalendarCheck, Loader2, UserCheck } from "lucide-react";
+import { CalendarCheck, Loader2, UserCheck, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 interface AttendanceRow {
@@ -22,6 +22,19 @@ interface AttendanceRow {
   marked_at: string | null;
   status: string;
   is_verified: boolean;
+  check_in_time: string | null;
+}
+
+interface CohortToggle {
+  enabled: boolean;
+  start_time: string;
+  end_time: string;
+  late_after: string;
+}
+
+interface ClassTodayValue {
+  date: string;
+  cohorts: Record<string, CohortToggle>;
 }
 
 const todayDateString = () => new Date().toISOString().split("T")[0];
@@ -34,6 +47,9 @@ const StudentAttendance = () => {
   const [pendingToday, setPendingToday] = useState(false);
   const [loading, setLoading] = useState(true);
   const [checkingIn, setCheckingIn] = useState(false);
+  const [cohortToggle, setCohortToggle] = useState<CohortToggle | null>(null);
+  const [outsideWindow, setOutsideWindow] = useState(false);
+  const [windowMessage, setWindowMessage] = useState("");
 
   const loadData = useCallback(async () => {
     if (!student?.id) return;
@@ -41,11 +57,19 @@ const StudentAttendance = () => {
     try {
       const today = todayDateString();
 
-      // Check if admin has enabled class for today via system_settings
+      // Get student's cohort_id
+      const { data: studentData } = await supabase
+        .from("students")
+        .select("cohort_id")
+        .eq("id", student.id)
+        .maybeSingle();
+
+      const cohortId = studentData?.cohort_id;
+
       const [historyRes, classSettingRes, todayAttendanceRes] = await Promise.all([
         supabase
           .from("attendance")
-          .select("id, marked_at, status, is_verified")
+          .select("id, marked_at, status, is_verified, check_in_time")
           .eq("student_id", student.id)
           .order("marked_at", { ascending: false }),
         supabase
@@ -64,20 +88,60 @@ const StudentAttendance = () => {
       const rows = (historyRes.data || []) as AttendanceRow[];
       setHistory(rows);
 
-      // Check if class is enabled for today
+      // Check cohort-specific class toggle
       let scheduleId: string | null = null;
-      const classSetting = classSettingRes.data?.value as { date?: string; enabled?: boolean } | null;
-      const classEnabledToday = classSetting?.date === today && classSetting?.enabled === true;
+      let toggle: CohortToggle | null = null;
 
-      if (classEnabledToday) {
-        // Find schedule entry for today (created by admin toggle)
+      if (classSettingRes.data?.value && cohortId) {
+        const val = classSettingRes.data.value as unknown as ClassTodayValue;
+        if (val.date === today && val.cohorts && val.cohorts[cohortId]) {
+          toggle = val.cohorts[cohortId];
+        }
+      }
+
+      // Legacy fallback: check old format {date, enabled}
+      if (!toggle && classSettingRes.data?.value) {
+        const legacyVal = classSettingRes.data.value as { date?: string; enabled?: boolean };
+        if (legacyVal.date === today && legacyVal.enabled === true && !legacyVal.hasOwnProperty("cohorts")) {
+          toggle = { enabled: true, start_time: "00:00", end_time: "23:59", late_after: "23:59" };
+        }
+      }
+
+      setCohortToggle(toggle);
+
+      const classEnabled = toggle?.enabled === true;
+
+      if (classEnabled) {
+        // Check time window
+        const now = new Date();
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        const [startH, startM] = (toggle!.start_time || "00:00").split(":").map(Number);
+        const [endH, endM] = (toggle!.end_time || "23:59").split(":").map(Number);
+        const startMinutes = startH * 60 + startM;
+        const endMinutes = endH * 60 + endM;
+
+        if (currentMinutes < startMinutes) {
+          setOutsideWindow(true);
+          setWindowMessage(`Check-in opens at ${toggle!.start_time}`);
+        } else if (currentMinutes > endMinutes) {
+          setOutsideWindow(true);
+          setWindowMessage(`Check-in closed at ${toggle!.end_time}`);
+        } else {
+          setOutsideWindow(false);
+          setWindowMessage("");
+        }
+
         const { data: scheduleData } = await supabase
           .from("schedule")
           .select("id")
           .eq("date", today)
           .limit(1);
         scheduleId = scheduleData && scheduleData.length > 0 ? scheduleData[0].id : null;
+      } else {
+        setOutsideWindow(false);
+        setWindowMessage("");
       }
+
       setTodayScheduleId(scheduleId);
 
       const attendances = todayAttendanceRes.data || [];
@@ -108,12 +172,25 @@ const StudentAttendance = () => {
 
     setCheckingIn(true);
     try {
+      const now = new Date();
+
+      // Determine if late
+      let status = "Present";
+      if (cohortToggle?.late_after) {
+        const [lateH, lateM] = cohortToggle.late_after.split(":").map(Number);
+        const lateMinutes = lateH * 60 + lateM;
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        if (currentMinutes > lateMinutes) {
+          status = "Late";
+        }
+      }
+
       const payload = {
         student_id: student.id,
         schedule_id: todayScheduleId,
-        status: "Present",
-        check_in_time: new Date().toISOString(),
-        marked_at: new Date().toISOString(),
+        status,
+        check_in_time: now.toISOString(),
+        marked_at: now.toISOString(),
         is_verified: false,
       };
 
@@ -121,13 +198,12 @@ const StudentAttendance = () => {
         .from("attendance")
         .upsert(payload, { onConflict: "student_id,schedule_id" });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setCheckedInToday(true);
       setPendingToday(true);
-      toast.success("Attendance marked. Pending approval.");
+      const lateMsg = status === "Late" ? " (marked as Late)" : "";
+      toast.success(`Attendance marked${lateMsg}. Pending approval.`);
       await loadData();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to mark attendance";
@@ -140,7 +216,10 @@ const StudentAttendance = () => {
 
   const totalClasses = history.length;
   const attended = history.filter(
-    (r) => (r.status || "").toUpperCase() === "PRESENT"
+    (r) => ["PRESENT", "LATE"].includes((r.status || "").toUpperCase())
+  ).length;
+  const lateCount = history.filter(
+    (r) => (r.status || "").toUpperCase() === "LATE"
   ).length;
   const percentage =
     totalClasses > 0 ? Math.round((attended / totalClasses) * 100) : 0;
@@ -151,6 +230,14 @@ const StudentAttendance = () => {
     if (u === "ABSENT") return "Absent";
     if (u === "LATE") return "Late";
     return s || "—";
+  };
+
+  const statusBadgeClass = (s: string) => {
+    const u = (s || "").toUpperCase();
+    if (u === "PRESENT") return "bg-emerald-100 text-emerald-800 hover:bg-emerald-100";
+    if (u === "LATE") return "bg-amber-100 text-amber-800 hover:bg-amber-100";
+    if (u === "ABSENT") return "bg-red-100 text-red-800 hover:bg-red-100";
+    return "";
   };
 
   if (loading) {
@@ -165,10 +252,13 @@ const StudentAttendance = () => {
     );
   }
 
+  const classEnabled = cohortToggle?.enabled === true;
   const canCheckIn =
     !checkedInToday &&
     !checkingIn &&
-    todayScheduleId !== null;
+    todayScheduleId !== null &&
+    classEnabled &&
+    !outsideWindow;
 
   return (
     <StudentLayout>
@@ -189,9 +279,20 @@ const StudentAttendance = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {!todayScheduleId && !checkedInToday && (
+            {!classEnabled && !checkedInToday && (
               <p className="text-sm text-muted-foreground mb-4">
-                No class has been set for today. Check-in is not available.
+                No class has been set for your cohort today. Check-in is not available.
+              </p>
+            )}
+            {classEnabled && outsideWindow && !checkedInToday && (
+              <div className="flex items-center gap-2 text-sm text-amber-600 mb-4">
+                <Clock className="w-4 h-4" />
+                <span>{windowMessage}</span>
+              </div>
+            )}
+            {classEnabled && !outsideWindow && !checkedInToday && cohortToggle && (
+              <p className="text-xs text-muted-foreground mb-3">
+                Class window: {cohortToggle.start_time} – {cohortToggle.end_time} · Late after {cohortToggle.late_after}
               </p>
             )}
             <Button
@@ -204,7 +305,7 @@ const StudentAttendance = () => {
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Marking…
                 </>
               ) : checkedInToday ? (
-                <>Check-in Pending Approval</>
+                <>Check-in {pendingToday ? "Pending Approval" : "Recorded"}</>
               ) : (
                 <>Mark Attendance for Today</>
               )}
@@ -212,19 +313,15 @@ const StudentAttendance = () => {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Card className="shadow-[var(--shadow-card)] border-border">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center">
                 <CalendarCheck className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground font-medium">
-                  Total Classes
-                </p>
-                <p className="text-xl font-bold text-foreground">
-                  {totalClasses}
-                </p>
+                <p className="text-xs text-muted-foreground font-medium">Total</p>
+                <p className="text-xl font-bold text-foreground">{totalClasses}</p>
               </div>
             </CardContent>
           </Card>
@@ -234,29 +331,30 @@ const StudentAttendance = () => {
                 <UserCheck className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground font-medium">
-                  Attended
-                </p>
-                <p className="text-xl font-bold text-emerald-600">
-                  {attended}
-                </p>
+                <p className="text-xs text-muted-foreground font-medium">Present</p>
+                <p className="text-xl font-bold text-emerald-600">{attended}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="shadow-[var(--shadow-card)] border-border">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
+                <Clock className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground font-medium">Late</p>
+                <p className="text-xl font-bold text-amber-600">{lateCount}</p>
               </div>
             </CardContent>
           </Card>
           <Card className="shadow-[var(--shadow-card)] border-border">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <span className="text-lg font-bold text-primary">
-                  {percentage}%
-                </span>
+                <span className="text-lg font-bold text-primary">{percentage}%</span>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground font-medium">
-                  Attendance %
-                </p>
-                <p className="text-xl font-bold text-foreground">
-                  {percentage}%
-                </p>
+                <p className="text-xs text-muted-foreground font-medium">Rate</p>
+                <p className="text-xl font-bold text-foreground">{percentage}%</p>
               </div>
             </CardContent>
           </Card>
@@ -277,6 +375,7 @@ const StudentAttendance = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Date</TableHead>
+                      <TableHead>Check-in Time</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Verification</TableHead>
                     </TableRow>
@@ -290,13 +389,22 @@ const StudentAttendance = () => {
                             year: "numeric",
                           })
                         : "—";
+                      const timeStr = row.check_in_time
+                        ? new Date(row.check_in_time).toLocaleTimeString("en-US", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "—";
                       const verified = row.is_verified;
                       return (
                         <TableRow key={row.id}>
-                          <TableCell className="font-medium">
-                            {dateStr}
+                          <TableCell className="font-medium">{dateStr}</TableCell>
+                          <TableCell className="text-muted-foreground">{timeStr}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className={statusBadgeClass(row.status)}>
+                              {statusLabel(row.status)}
+                            </Badge>
                           </TableCell>
-                          <TableCell>{statusLabel(row.status)}</TableCell>
                           <TableCell>
                             <Badge
                               variant={verified ? "default" : "secondary"}
