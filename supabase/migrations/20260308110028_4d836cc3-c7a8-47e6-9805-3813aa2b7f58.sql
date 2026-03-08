@@ -1,0 +1,1 @@
+UPDATE system_settings SET value = 'true', updated_at = now() WHERE key = 'accepting_applications';
