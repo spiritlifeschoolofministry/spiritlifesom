@@ -117,17 +117,24 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
       );
     }
 
+    const isNotification = item.label === "Notifications";
+
     return (
       <Link
         key={item.path}
         to={item.path}
         onClick={opts.closeSidebar ? () => setSidebarOpen(false) : undefined}
-        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all relative ${
           active ? "gradient-flame text-accent-foreground shadow-md" : "text-primary-foreground/80 hover:bg-primary-foreground/10"
         }`}
       >
         <item.icon className="w-4 h-4 shrink-0" />
         {item.label}
+        {isNotification && unreadCount > 0 && (
+          <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-xs font-bold">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
       </Link>
     );
   };
