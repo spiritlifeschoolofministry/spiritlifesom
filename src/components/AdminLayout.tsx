@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import ThemeToggle from "@/components/ThemeToggle";
 import {
   LayoutDashboard,
   Users,
@@ -11,6 +12,7 @@ import {
   CalendarDays,
   FileText,
   Folder,
+  BookOpen,
   CreditCard,
   Bell,
   Settings,
