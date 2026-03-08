@@ -331,16 +331,20 @@ const AdminAssignments = () => {
                                               </div>
                                             )}
                                             {!isGraded && (
-                                              <Dialog open={gradingId === submission.id} onOpenChange={(open) => { if (!open) { setGradingId(null); setGradingFeedback(''); } else setGradingId(submission.id); }}>
+                                              <Dialog open={gradingId === submission.id} onOpenChange={(open) => { if (!open) { setGradingId(null); setGradingFeedback(''); setGradingScore(''); } else setGradingId(submission.id); }}>
                                                 <DialogTrigger asChild><Button size="sm" variant="outline">Grade & Provide Feedback</Button></DialogTrigger>
                                                 <DialogContent>
                                                   <DialogHeader><DialogTitle>Grade Submission</DialogTitle></DialogHeader>
                                                   <div className="space-y-4">
                                                     <div>
-                                                      <Label>Feedback</Label>
-                                                      <Textarea value={gradingFeedback} onChange={(e) => setGradingFeedback(e.target.value)} placeholder="Provide feedback..." />
+                                                      <Label>Score (out of {selectedAssignment?.max_points || 100})</Label>
+                                                      <Input type="number" min="0" max={selectedAssignment?.max_points || 100} value={gradingScore} onChange={(e) => setGradingScore(e.target.value)} placeholder={`0 – ${selectedAssignment?.max_points || 100}`} className="mt-1" />
                                                     </div>
-                                                    <Button onClick={() => handleGradeSubmission(submission.id)} className="w-full">Submit Grade</Button>
+                                                    <div>
+                                                      <Label>Feedback</Label>
+                                                      <Textarea value={gradingFeedback} onChange={(e) => setGradingFeedback(e.target.value)} placeholder="Provide feedback..." className="mt-1" />
+                                                    </div>
+                                                    <Button onClick={() => handleGradeSubmission(submission.id)} className="w-full" disabled={!gradingScore}>Submit Grade</Button>
                                                   </div>
                                                 </DialogContent>
                                               </Dialog>
