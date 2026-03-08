@@ -35,7 +35,7 @@ const AdminMaterials = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<UploadForm>({
-    defaultValues: { title: '', description: '', cohort_id: '', course_id: '' },
+    defaultValues: { title: '', description: '', cohort_id: '', course_id: '', material_type: '' },
   });
 
   const selectedCohort = watch('cohort_id');
