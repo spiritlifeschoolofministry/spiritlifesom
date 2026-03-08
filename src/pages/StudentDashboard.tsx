@@ -101,7 +101,7 @@ const StudentDashboard = () => {
       let attendanceRate: number | null = null;
       let pendingAssignments = 0;
       let feeStatus = "N/A";
-      let upcomingClasses: DashboardData["upcomingClasses"] = [];
+      let upcomingEvents: DashboardData["upcomingEvents"] = [];
 
       if (studentId) {
         try {
