@@ -86,6 +86,7 @@ const AdminAttendance = () => {
   const [todayTurnout, setTodayTurnout] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [statsCohortFilter, setStatsCohortFilter] = useState("all");
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [bulkVerifying, setBulkVerifying] = useState(false);
 
