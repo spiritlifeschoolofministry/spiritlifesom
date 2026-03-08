@@ -174,6 +174,9 @@ const AdminStudents = () => {
     if (statusFilter !== "all") {
       filtered = filtered.filter((s) => getStatusForUI(s.admission_status) === statusFilter);
     }
+    if (cohortFilter !== "all") {
+      filtered = filtered.filter((s) => s.cohort_id === cohortFilter);
+    }
     setFilteredStudents(filtered);
   };
 
