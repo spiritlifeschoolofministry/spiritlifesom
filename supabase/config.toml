@@ -14,3 +14,8 @@ entrypoint = "./functions/send-registration-email/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/send-student-email/index.ts"
+
+[functions.delete-user]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/delete-user/index.ts"
