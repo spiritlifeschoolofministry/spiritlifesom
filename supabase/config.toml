@@ -18,5 +18,3 @@ entrypoint = "./functions/send-student-email/index.ts"
 [functions.delete-user]
 enabled = true
 verify_jwt = true
-import_map = "./functions/delete-user/deno.json"
-entrypoint = "./functions/delete-user/index.ts"
