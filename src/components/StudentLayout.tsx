@@ -96,14 +96,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
       }
       return (
         <Link key={item.path} to={item.path} className={`flex flex-col items-center gap-0.5 text-[10px] relative ${active ? "text-accent" : "text-muted-foreground"}`}>
-          <div className="relative">
-            <item.icon className="w-5 h-5" />
-            {item.label === "Notifications" && unreadCount > 0 && (
-              <span className="absolute -top-1 -right-2 inline-flex items-center justify-center min-w-[14px] h-3.5 px-0.5 rounded-full bg-destructive text-destructive-foreground text-[8px] font-bold">
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </span>
-            )}
-          </div>
+          <item.icon className="w-5 h-5" />
           {item.label.split(" ")[0]}
         </Link>
       );
