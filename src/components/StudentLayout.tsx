@@ -179,7 +179,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
             </>
           )}
           <span className="text-sm text-muted-foreground hidden sm:block">
-            {authProfile ? `${authProfile.first_name || 'Student'} ${authProfile.last_name || 'User'}` : ""}
+            {fullName || "Student"}
           </span>
           <Avatar className="h-8 w-8">
             {authProfile?.avatar_url && <AvatarImage src={authProfile.avatar_url} alt="Avatar" />}
