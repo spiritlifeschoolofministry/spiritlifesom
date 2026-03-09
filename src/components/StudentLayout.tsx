@@ -78,6 +78,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
     navigate("/login", { replace: true });
   };
 
+  const fullName = authProfile ? [authProfile.first_name, authProfile.middle_name, authProfile.last_name].filter(Boolean).join(' ') : "";
   const initials = authProfile ? `${(authProfile.first_name || 'S')[0]}${(authProfile.last_name || 'U')[0]}` : "";
 
   const renderNavItem = (item: typeof NAV_ITEMS[0], opts: { mobile?: boolean; closeSidebar?: boolean }) => {
