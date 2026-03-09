@@ -116,8 +116,6 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
       );
     }
 
-    const isNotification = item.label === "Notifications";
-
     return (
       <Link
         key={item.path}
@@ -129,11 +127,6 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
       >
         <item.icon className="w-4 h-4 shrink-0" />
         {item.label}
-        {isNotification && unreadCount > 0 && (
-          <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-xs font-bold">
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </span>
-        )}
       </Link>
     );
   };
