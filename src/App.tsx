@@ -34,6 +34,7 @@ import StudentAnnouncements from "./pages/student/Announcements";
 import AdminCalendar from "./pages/admin/Calendar";
 import StudentCalendar from "./pages/student/Calendar";
 import Graduates from "./pages/student/Graduates";
+import StudentTranscript from "./pages/student/Transcript";
 import StudentCertificate from "./pages/student/Certificate";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminProfile from "./pages/admin/Profile";
