@@ -441,7 +441,7 @@ const StudentProfile = () => {
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-                  {profile ? `${profile.first_name} ${profile.last_name}` : 'Student'}
+                  {profile ? [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(' ') : 'Student'}
                 </h1>
                 <p className="text-muted-foreground mt-1">{profile?.email}</p>
               </div>

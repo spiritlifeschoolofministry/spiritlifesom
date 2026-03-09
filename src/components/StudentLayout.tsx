@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
-import { useUnreadNotifications } from "@/hooks/use-unread-notifications";
+
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
@@ -11,7 +11,7 @@ import {
   BookOpen,
   CalendarCheck,
   CalendarDays,
-  CalendarClock,
+  
   ClipboardList,
   FileText,
   Users,
@@ -39,7 +39,6 @@ interface StudentLayoutProps {
 const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/student/dashboard", restrictedWhenPending: false },
   { label: "My Courses", icon: BookOpen, path: "/student/courses", restrictedWhenPending: false },
-  { label: "Timetable", icon: CalendarClock, path: "/student/timetable", restrictedWhenPending: false },
   { label: "Attendance", icon: CalendarCheck, path: "/student/attendance", restrictedWhenPending: false },
   { label: "Tasks", icon: ClipboardList, path: "/student/assignments", restrictedWhenPending: true },
   { label: "Grades", icon: GraduationCap, path: "/student/grades", restrictedWhenPending: true },
@@ -47,7 +46,6 @@ const NAV_ITEMS = [
   { label: "Course Materials", icon: FileText, path: "/student/materials", restrictedWhenPending: true },
   { label: "Course Mates", icon: Users, path: "/student/coursemates", restrictedWhenPending: true },
   { label: "Fees", icon: CreditCard, path: "/student/fees", restrictedWhenPending: false },
-  { label: "Notifications", icon: Bell, path: "/student/notifications", restrictedWhenPending: false },
   { label: "Announcements", icon: Bell, path: "/student/announcements", restrictedWhenPending: false },
   { label: "Calendar", icon: CalendarDays, path: "/student/calendar", restrictedWhenPending: false },
   { label: "Certificate", icon: Award, path: "/student/certificate", restrictedWhenPending: false },
@@ -69,7 +67,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
   const isRejected = statusUpper === "REJECTED";
   const isGraduate = statusUpper === "GRADUATE";
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const unreadCount = useUnreadNotifications();
+  
 
   // Case-insensitive role check for admin access
   const isAdmin = (role ?? "").toLowerCase() === "admin" || (role ?? "").toLowerCase() === "teacher";
@@ -80,6 +78,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
     navigate("/login", { replace: true });
   };
 
+  const fullName = authProfile ? [authProfile.first_name, authProfile.middle_name, authProfile.last_name].filter(Boolean).join(' ') : "";
   const initials = authProfile ? `${(authProfile.first_name || 'S')[0]}${(authProfile.last_name || 'U')[0]}` : "";
 
   const renderNavItem = (item: typeof NAV_ITEMS[0], opts: { mobile?: boolean; closeSidebar?: boolean }) => {
@@ -97,14 +96,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
       }
       return (
         <Link key={item.path} to={item.path} className={`flex flex-col items-center gap-0.5 text-[10px] relative ${active ? "text-accent" : "text-muted-foreground"}`}>
-          <div className="relative">
-            <item.icon className="w-5 h-5" />
-            {item.label === "Notifications" && unreadCount > 0 && (
-              <span className="absolute -top-1 -right-2 inline-flex items-center justify-center min-w-[14px] h-3.5 px-0.5 rounded-full bg-destructive text-destructive-foreground text-[8px] font-bold">
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </span>
-            )}
-          </div>
+          <item.icon className="w-5 h-5" />
           {item.label.split(" ")[0]}
         </Link>
       );
@@ -124,8 +116,6 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
       );
     }
 
-    const isNotification = item.label === "Notifications";
-
     return (
       <Link
         key={item.path}
@@ -137,11 +127,6 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
       >
         <item.icon className="w-4 h-4 shrink-0" />
         {item.label}
-        {isNotification && unreadCount > 0 && (
-          <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-xs font-bold">
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </span>
-        )}
       </Link>
     );
   };
@@ -151,15 +136,6 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
       {/* Top Nav */}
       <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 z-30">
         <div className="flex items-center gap-3">
-          {/* Notification bell */}
-          <Button variant="ghost" size="icon" onClick={() => navigate("/student/notifications")} title="Notifications" className="relative">
-            <Bell className="w-4 h-4" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </span>
-            )}
-          </Button>
           <button className="md:hidden text-foreground" onClick={() => setSidebarOpen(!sidebarOpen)}>
             {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -189,7 +165,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
             </>
           )}
           <span className="text-sm text-muted-foreground hidden sm:block">
-            {authProfile ? `${authProfile.first_name || 'Student'} ${authProfile.last_name || 'User'}` : ""}
+            {fullName || "Student"}
           </span>
           <Avatar className="h-8 w-8">
             {authProfile?.avatar_url && <AvatarImage src={authProfile.avatar_url} alt="Avatar" />}

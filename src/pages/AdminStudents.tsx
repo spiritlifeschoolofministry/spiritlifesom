@@ -214,12 +214,18 @@ const AdminStudents = () => {
       await supabase.from("assignment_submissions").delete().eq("student_id", studentId);
       await supabase.from("attendance").delete().eq("student_id", studentId);
       await supabase.from("fees").delete().eq("student_id", studentId);
+      await supabase.from("notifications").delete().eq("user_id", profileId);
       const { error } = await supabase.from("students").delete().eq("id", studentId);
       if (error) throw error;
       if (profileId) await supabase.from("profiles").delete().eq("id", profileId);
+      // Delete from auth.users via edge function
+      if (profileId) {
+        const { error: authError } = await supabase.functions.invoke("delete-user", { body: { user_id: profileId } });
+        if (authError) console.error("Auth user delete failed:", authError);
+      }
       setStudents((prev) => prev.filter((s) => s.id !== studentId));
       setSelectedIds((prev) => { const n = new Set(prev); n.delete(studentId); return n; });
-      toast.success(`${deleteTarget.profile.first_name} ${deleteTarget.profile.last_name} has been deleted`);
+      toast.success(`${deleteTarget.profile.first_name} ${deleteTarget.profile.last_name} has been fully deleted`);
     } catch (err) {
       console.error("Delete student error:", err);
       toast.error("Failed to delete student.");
@@ -242,9 +248,14 @@ const AdminStudents = () => {
         await supabase.from("assignment_submissions").delete().in("student_id", ids);
         await supabase.from("attendance").delete().in("student_id", ids);
         await supabase.from("fees").delete().in("student_id", ids);
+        if (profileIds.length > 0) await supabase.from("notifications").delete().in("user_id", profileIds);
         const { error } = await supabase.from("students").delete().in("id", ids);
         if (error) throw error;
         if (profileIds.length > 0) await supabase.from("profiles").delete().in("id", profileIds);
+        // Delete auth users via edge function
+        for (const pid of profileIds) {
+          await supabase.functions.invoke("delete-user", { body: { user_id: pid } });
+        }
       } catch { toast.error("Failed to delete students. Refreshing..."); loadStudents(); }
     }, 6000);
     toast(`${count} student(s) deleted`, {

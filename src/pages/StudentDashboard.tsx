@@ -80,7 +80,7 @@ const StudentDashboard = () => {
       console.log("[Dashboard] Loading for user:", authUser.id);
 
       const [profileRes, studentRes, coursesRes, announcementsRes, cohortsRes] = await Promise.all([
-        supabase.from("profiles").select("first_name").eq("id", authUser.id).maybeSingle(),
+        supabase.from("profiles").select("first_name, middle_name, last_name").eq("id", authUser.id).maybeSingle(),
         supabase.from("students").select("id, profile_id, cohort_id, admission_status, is_approved, gender, age").eq("profile_id", authUser.id).maybeSingle(),
         supabase.from("courses").select("id"),
         supabase.from("announcements").select("title, body, published_at").eq("is_published", true).order("published_at", { ascending: false }).limit(3),
@@ -89,7 +89,7 @@ const StudentDashboard = () => {
 
       console.log("[Dashboard] Profile:", profileRes.data, "Student:", studentRes.data);
 
-      const firstName = profileRes.data?.first_name || authUser.user_metadata?.full_name?.split(' ')?.[0] || "Student";
+      const firstName = profileRes.data ? [profileRes.data.first_name, profileRes.data.middle_name, profileRes.data.last_name].filter(Boolean).join(' ') : authUser.user_metadata?.full_name || "Student";
       const studentRecord = studentRes.data;
       const studentId = studentRecord?.id || null;
       const cohortId = studentRecord?.cohort_id || null;

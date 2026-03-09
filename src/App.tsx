@@ -36,8 +36,6 @@ import StudentCalendar from "./pages/student/Calendar";
 import Graduates from "./pages/student/Graduates";
 import StudentTranscript from "./pages/student/Transcript";
 import StudentCertificate from "./pages/student/Certificate";
-import StudentTimetable from "./pages/student/Timetable";
-import StudentNotifications from "./pages/student/Notifications";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminProfile from "./pages/admin/Profile";
 import AdminStudentProfile from "./pages/admin/StudentProfile";
@@ -94,8 +92,6 @@ const App = () => (
           <Route path="/student/graduates" element={<ProtectedRoute><Graduates /></ProtectedRoute>} />
           <Route path="/student/transcript" element={<ProtectedRoute><StudentTranscript /></ProtectedRoute>} />
           <Route path="/student/certificate" element={<ProtectedRoute><StudentCertificate /></ProtectedRoute>} />
-          <Route path="/student/timetable" element={<ProtectedRoute><StudentTimetable /></ProtectedRoute>} />
-          <Route path="/student/notifications" element={<ProtectedRoute><StudentNotifications /></ProtectedRoute>} />
 
           {/* Admin portal */}
           <Route element={<AdminLayout />}>
