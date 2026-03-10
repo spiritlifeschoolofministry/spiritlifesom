@@ -340,6 +340,53 @@ const AdminAttendance = () => {
     }
   }, []);
 
+  const handleExportAllAttendance = async () => {
+    try {
+      toast.info("Preparing attendance export...");
+      const { data, error } = await supabase
+        .from("attendance")
+        .select("id, student_id, status, is_verified, marked_at, check_in_time, students(profiles(first_name, middle_name, last_name), cohorts(name))")
+        .order("marked_at", { ascending: false });
+      if (error) throw error;
+      if (!data || data.length === 0) { toast.error("No attendance records"); return; }
+      const rows = (data as any[]).map((a) => ({
+        "Student Name": [a.students?.profiles?.first_name, a.students?.profiles?.middle_name, a.students?.profiles?.last_name].filter(Boolean).join(" "),
+        "Cohort": a.students?.cohorts?.name || "",
+        "Status": a.status || "",
+        "Verified": a.is_verified ? "Yes" : "No",
+        "Date": a.marked_at ? new Date(a.marked_at).toLocaleDateString() : "",
+        "Time": a.marked_at ? new Date(a.marked_at).toLocaleTimeString() : "",
+      }));
+      downloadCSV(rows, "all_attendance");
+    } catch (err) {
+      console.error("Export error:", err);
+      toast.error("Failed to export attendance");
+    }
+  };
+
+  const handleExportStudentAttendance = async (studentId: string, studentName: string) => {
+    try {
+      toast.info(`Exporting attendance for ${studentName}...`);
+      const { data, error } = await supabase
+        .from("attendance")
+        .select("id, status, is_verified, marked_at, check_in_time")
+        .eq("student_id", studentId)
+        .order("marked_at", { ascending: false });
+      if (error) throw error;
+      if (!data || data.length === 0) { toast.error("No records for this student"); return; }
+      const rows = data.map((a) => ({
+        "Status": a.status || "",
+        "Verified": a.is_verified ? "Yes" : "No",
+        "Date": a.marked_at ? new Date(a.marked_at).toLocaleDateString() : "",
+        "Time": a.marked_at ? new Date(a.marked_at).toLocaleTimeString() : "",
+      }));
+      downloadCSV(rows, `attendance_${studentName.replace(/\s+/g, "_")}`);
+    } catch (err) {
+      console.error("Export error:", err);
+      toast.error("Failed to export student attendance");
+    }
+  };
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     await Promise.all([loadCohorts(), loadClassTodaySetting(), loadSummary(), loadPendingQueue(), loadStudentStats()]);
