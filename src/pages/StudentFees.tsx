@@ -284,35 +284,66 @@ const StudentFees = () => {
             {fees.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No fees assigned yet</p>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Fee Type</TableHead>
-                      <TableHead className="text-right">Due</TableHead>
-                      <TableHead className="text-right">Paid</TableHead>
-                      <TableHead className="text-right">Balance</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {fees.map((fee) => {
-                      const balance = (fee.amount_due || 0) - (fee.amount_paid || 0);
-                      return (
-                        <TableRow key={fee.id}>
-                          <TableCell className="font-medium">{fee.fee_type}</TableCell>
-                          <TableCell className="text-right">₦{(fee.amount_due || 0).toLocaleString()}</TableCell>
-                          <TableCell className="text-right text-emerald-700 dark:text-emerald-400">₦{(fee.amount_paid || 0).toLocaleString()}</TableCell>
-                          <TableCell className={`text-right font-medium ${balance > 0 ? 'text-red-700 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
-                            ₦{balance.toLocaleString()}
-                          </TableCell>
-                          <TableCell>{getFeeStatusBadge(fee)}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+              <>
+                {/* Desktop table */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fee Type</TableHead>
+                        <TableHead className="text-right">Due</TableHead>
+                        <TableHead className="text-right">Paid</TableHead>
+                        <TableHead className="text-right">Balance</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {fees.map((fee) => {
+                        const balance = (fee.amount_due || 0) - (fee.amount_paid || 0);
+                        return (
+                          <TableRow key={fee.id}>
+                            <TableCell className="font-medium">{fee.fee_type}</TableCell>
+                            <TableCell className="text-right">₦{(fee.amount_due || 0).toLocaleString()}</TableCell>
+                            <TableCell className="text-right text-emerald-700 dark:text-emerald-400">₦{(fee.amount_paid || 0).toLocaleString()}</TableCell>
+                            <TableCell className={`text-right font-medium ${balance > 0 ? 'text-red-700 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                              ₦{balance.toLocaleString()}
+                            </TableCell>
+                            <TableCell>{getFeeStatusBadge(fee)}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+                {/* Mobile cards */}
+                <div className="sm:hidden space-y-3">
+                  {fees.map((fee) => {
+                    const balance = (fee.amount_due || 0) - (fee.amount_paid || 0);
+                    return (
+                      <div key={fee.id} className="rounded-lg border border-border p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-foreground">{fee.fee_type}</span>
+                          {getFeeStatusBadge(fee)}
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div>
+                            <p className="text-muted-foreground">Due</p>
+                            <p className="font-medium">₦{(fee.amount_due || 0).toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Paid</p>
+                            <p className="font-medium text-emerald-700 dark:text-emerald-400">₦{(fee.amount_paid || 0).toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Balance</p>
+                            <p className={`font-medium ${balance > 0 ? 'text-red-700 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-400'}`}>₦{balance.toLocaleString()}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
