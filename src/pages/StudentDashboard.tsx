@@ -282,7 +282,7 @@ const StudentDashboard = () => {
         </DialogContent>
       </Dialog>
 
-      <div className="space-y-6">
+      <div className="space-y-6 pb-20 md:pb-0">
         {/* Welcome */}
         {loading ? (
           <Skeleton className="h-10 w-64" />
