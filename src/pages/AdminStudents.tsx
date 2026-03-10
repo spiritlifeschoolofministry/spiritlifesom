@@ -441,6 +441,13 @@ const AdminStudents = () => {
             <Mail className="h-3.5 w-3.5" /> Email
           </Button>
           <Button
+            size="sm"
+            className="gap-1.5 text-xs h-8 bg-emerald-600 hover:bg-emerald-700 text-primary-foreground"
+            onClick={handleBulkApprove}
+          >
+            <UserCheck className="h-3.5 w-3.5" /> Approve
+          </Button>
+          <Button
             variant="outline"
             size="sm"
             className="gap-1.5 text-xs h-8 text-destructive border-destructive/30 hover:bg-destructive/10"
