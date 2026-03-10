@@ -31,6 +31,7 @@ import {
   Loader2,
   Power,
   Clock,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Json } from "@/integrations/supabase/types";
