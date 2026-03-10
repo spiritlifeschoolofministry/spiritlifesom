@@ -292,6 +292,18 @@ const AdminStudents = () => {
     finally { setBulkGraduating(false); }
   };
 
+  const handleBulkApprove = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      const ids = Array.from(selectedIds);
+      const { error } = await supabase.from("students").update({ admission_status: "ADMITTED", is_approved: true }).in("id", ids);
+      if (error) throw error;
+      setStudents((p) => p.map((s) => selectedIds.has(s.id) ? { ...s, admission_status: "ADMITTED" } : s));
+      setSelectedIds(new Set());
+      toast.success(`${ids.length} student(s) approved`);
+    } catch { toast.error("Failed to approve students"); }
+  };
+
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   };
