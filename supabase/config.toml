@@ -3,12 +3,7 @@ project_id = "siirpzuflcimkhnzvass"
 enabled = true
 verify_jwt = true
 import_map = "./functions/send-registration-email/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
 entrypoint = "./functions/send-registration-email/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/send-registration-email/*.html" ]
 
 [functions.send-student-email]
 enabled = true
@@ -19,4 +14,8 @@ entrypoint = "./functions/send-student-email/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/delete-user/index.ts"
-import_map = "./functions/delete-user/deno.json"
+
+[functions.send-contact-email]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/send-contact-email/index.ts"

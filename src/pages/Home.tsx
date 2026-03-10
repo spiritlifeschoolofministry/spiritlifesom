@@ -86,7 +86,7 @@ const Home = () => {
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
           <RegisterButtons />
-          <Button asChild size="lg" variant="outline" className="border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10 text-base px-8">
+          <Button asChild size="lg" variant="outline" className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10 text-base px-8">
             <Link to="/about">Learn More</Link>
           </Button>
         </div>

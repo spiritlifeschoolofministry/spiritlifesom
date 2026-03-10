@@ -59,7 +59,7 @@ const PublicLayout = () => {
           </div>
 
           <div className="hidden md:flex items-center gap-3">
-            <Button asChild variant="ghost" size="sm" className="text-primary-foreground hover:bg-primary-foreground/10">
+            <Button asChild variant="ghost" size="sm" className="bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
               <Link to="/login">Login</Link>
             </Button>
             <Button asChild size="sm" className="gradient-flame border-0 text-primary-foreground hover:opacity-90">

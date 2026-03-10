@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { downloadCSV } from "@/lib/csv-export";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ import {
   Loader2,
   Power,
   Clock,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Json } from "@/integrations/supabase/types";
@@ -338,6 +340,53 @@ const AdminAttendance = () => {
     }
   }, []);
 
+  const handleExportAllAttendance = async () => {
+    try {
+      toast.info("Preparing attendance export...");
+      const { data, error } = await supabase
+        .from("attendance")
+        .select("id, student_id, status, is_verified, marked_at, check_in_time, students(profiles(first_name, middle_name, last_name), cohorts(name))")
+        .order("marked_at", { ascending: false });
+      if (error) throw error;
+      if (!data || data.length === 0) { toast.error("No attendance records"); return; }
+      const rows = (data as any[]).map((a) => ({
+        "Student Name": [a.students?.profiles?.first_name, a.students?.profiles?.middle_name, a.students?.profiles?.last_name].filter(Boolean).join(" "),
+        "Cohort": a.students?.cohorts?.name || "",
+        "Status": a.status || "",
+        "Verified": a.is_verified ? "Yes" : "No",
+        "Date": a.marked_at ? new Date(a.marked_at).toLocaleDateString() : "",
+        "Time": a.marked_at ? new Date(a.marked_at).toLocaleTimeString() : "",
+      }));
+      downloadCSV(rows, "all_attendance");
+    } catch (err) {
+      console.error("Export error:", err);
+      toast.error("Failed to export attendance");
+    }
+  };
+
+  const handleExportStudentAttendance = async (studentId: string, studentName: string) => {
+    try {
+      toast.info(`Exporting attendance for ${studentName}...`);
+      const { data, error } = await supabase
+        .from("attendance")
+        .select("id, status, is_verified, marked_at, check_in_time")
+        .eq("student_id", studentId)
+        .order("marked_at", { ascending: false });
+      if (error) throw error;
+      if (!data || data.length === 0) { toast.error("No records for this student"); return; }
+      const rows = data.map((a) => ({
+        "Status": a.status || "",
+        "Verified": a.is_verified ? "Yes" : "No",
+        "Date": a.marked_at ? new Date(a.marked_at).toLocaleDateString() : "",
+        "Time": a.marked_at ? new Date(a.marked_at).toLocaleTimeString() : "",
+      }));
+      downloadCSV(rows, `attendance_${studentName.replace(/\s+/g, "_")}`);
+    } catch (err) {
+      console.error("Export error:", err);
+      toast.error("Failed to export student attendance");
+    }
+  };
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     await Promise.all([loadCohorts(), loadClassTodaySetting(), loadSummary(), loadPendingQueue(), loadStudentStats()]);
@@ -576,13 +625,18 @@ const AdminAttendance = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-          Attendance Command Center
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Verify check-ins and view student attendance statistics.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+            Attendance Command Center
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Verify check-ins and view student attendance statistics.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleExportAllAttendance} className="gap-2 self-start">
+          <Download className="h-4 w-4" /> Export All Attendance
+        </Button>
       </div>
 
       {/* Per-Cohort Class Toggles */}
@@ -848,7 +902,16 @@ const AdminAttendance = () => {
                       <TableCell>
                         <span className={pctColor(s.attendance_pct)}>{s.attendance_pct}%</span>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleExportStudentAttendance(s.student_id, s.name)}
+                          className="gap-1"
+                        >
+                          <Download className="h-3.5 w-3.5" /> Export
+                        </Button>
                         <Button
                           type="button"
                           size="sm"

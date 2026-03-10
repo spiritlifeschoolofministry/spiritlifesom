@@ -292,6 +292,18 @@ const AdminStudents = () => {
     finally { setBulkGraduating(false); }
   };
 
+  const handleBulkApprove = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      const ids = Array.from(selectedIds);
+      const { error } = await supabase.from("students").update({ admission_status: "ADMITTED", is_approved: true }).in("id", ids);
+      if (error) throw error;
+      setStudents((p) => p.map((s) => selectedIds.has(s.id) ? { ...s, admission_status: "ADMITTED" } : s));
+      setSelectedIds(new Set());
+      toast.success(`${ids.length} student(s) approved`);
+    } catch { toast.error("Failed to approve students"); }
+  };
+
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   };
@@ -439,6 +451,13 @@ const AdminStudents = () => {
           </span>
           <Button variant="outline" size="sm" onClick={openBulkEmail} className="gap-1.5 text-xs h-8">
             <Mail className="h-3.5 w-3.5" /> Email
+          </Button>
+          <Button
+            size="sm"
+            className="gap-1.5 text-xs h-8 bg-emerald-600 hover:bg-emerald-700 text-primary-foreground"
+            onClick={handleBulkApprove}
+          >
+            <UserCheck className="h-3.5 w-3.5" /> Approve
           </Button>
           <Button
             variant="outline"
