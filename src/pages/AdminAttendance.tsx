@@ -902,7 +902,16 @@ const AdminAttendance = () => {
                       <TableCell>
                         <span className={pctColor(s.attendance_pct)}>{s.attendance_pct}%</span>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleExportStudentAttendance(s.student_id, s.name)}
+                          className="gap-1"
+                        >
+                          <Download className="h-3.5 w-3.5" /> Export
+                        </Button>
                         <Button
                           type="button"
                           size="sm"
