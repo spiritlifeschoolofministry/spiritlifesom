@@ -53,17 +53,17 @@ const ContactPage = () => {
           {/* Contact info */}
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-primary">Contact Details</h2>
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <MapPin className="text-accent shrink-0 mt-1" size={20} />
-              <p className="text-muted-foreground">Spirit Life C&S Church, John Olorombo Street, Balogun Isale, 200258, Ibadan, Nigeria</p>
+              <p className="text-muted-foreground text-sm sm:text-base">Spirit Life C&S Church, John Olorombo Street, Balogun Isale, 200258, Ibadan, Nigeria</p>
             </div>
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <Phone className="text-accent shrink-0 mt-1" size={20} />
-              <p className="text-muted-foreground">+234 809 092 5555</p>
+              <p className="text-muted-foreground text-sm sm:text-base">+234 809 092 5555</p>
             </div>
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <Mail className="text-accent shrink-0 mt-1" size={20} />
-              <p className="text-muted-foreground">spiritlifeschoolofministry@gmail.com</p>
+              <p className="text-muted-foreground text-sm sm:text-base break-all">spiritlifeschoolofministry@gmail.com</p>
             </div>
             <div className="rounded-xl overflow-hidden border border-border h-56 bg-muted flex items-center justify-center text-muted-foreground text-sm">
               Map placeholder

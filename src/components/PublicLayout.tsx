@@ -86,7 +86,7 @@ const PublicLayout = () => {
               </Link>
             ))}
             <div className="flex gap-2 pt-2">
-              <Button asChild variant="outline" size="sm" className="flex-1 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10">
+              <Button asChild variant="outline" size="sm" className="flex-1 bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
                 <Link to="/login">Login</Link>
               </Button>
               <Button asChild size="sm" className="flex-1 gradient-flame border-0 text-primary-foreground">

@@ -152,7 +152,7 @@ const Home = () => {
     <Section className="py-16 px-4 sm:px-6 bg-background">
       <div className="max-w-4xl mx-auto">
         <h2 className="text-2xl font-bold text-primary text-center mb-8">Contact Us</h2>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-8 text-muted-foreground text-sm">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-muted-foreground text-sm">
           <div className="flex items-center gap-2">
             <MapPin className="text-accent shrink-0" size={18} />
             <span>Ibadan, Nigeria</span>
@@ -161,9 +161,9 @@ const Home = () => {
             <Phone className="text-accent shrink-0" size={18} />
             <span>+234 809 092 5555</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <Mail className="text-accent shrink-0" size={18} />
-            <span>spiritlifeschoolofministry@gmail.com</span>
+            <span className="truncate">spiritlifeschoolofministry@gmail.com</span>
           </div>
         </div>
       </div>

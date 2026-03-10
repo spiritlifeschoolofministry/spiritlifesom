@@ -282,7 +282,7 @@ const StudentDashboard = () => {
         </DialogContent>
       </Dialog>
 
-      <div className="space-y-6">
+      <div className="space-y-6 pb-20 md:pb-0">
         {/* Welcome */}
         {loading ? (
           <Skeleton className="h-10 w-64" />
@@ -291,7 +291,7 @@ const StudentDashboard = () => {
         )}
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {/* Attendance Card */}
           {(() => {
             const rate = data?.attendanceRate;
