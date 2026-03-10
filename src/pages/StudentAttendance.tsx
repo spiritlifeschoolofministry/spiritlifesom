@@ -293,7 +293,7 @@ const StudentAttendance = () => {
           </Card>
         </div>
 
-        {/* History Table */}
+        {/* History */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Attendance History</CardTitle>
@@ -302,38 +302,60 @@ const StudentAttendance = () => {
             {history.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">No attendance records yet.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Check-in Time</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Verification</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {history.map((row) => (
-                      <TableRow key={row.id}>
-                        <TableCell className="font-medium">
-                          {row.marked_at ? new Date(row.marked_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "—"}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {row.check_in_time ? new Date(row.check_in_time).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "—"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={statusBadgeClass(row.status)}>{statusLabel(row.status)}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={row.is_verified ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-amber-100 text-amber-800 border-amber-300"}>
-                            {row.is_verified ? "Verified" : "Pending"}
-                          </Badge>
-                        </TableCell>
+              <>
+                {/* Desktop table */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Check-in Time</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Verification</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {history.map((row) => (
+                        <TableRow key={row.id}>
+                          <TableCell className="font-medium">
+                            {row.marked_at ? new Date(row.marked_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {row.check_in_time ? new Date(row.check_in_time).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={statusBadgeClass(row.status)}>{statusLabel(row.status)}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={row.is_verified ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-amber-100 text-amber-800 border-amber-300"}>
+                              {row.is_verified ? "Verified" : "Pending"}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                {/* Mobile cards */}
+                <div className="sm:hidden space-y-3">
+                  {history.map((row) => (
+                    <div key={row.id} className="rounded-lg border border-border p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-foreground">
+                          {row.marked_at ? new Date(row.marked_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}
+                        </span>
+                        <Badge variant="outline" className={statusBadgeClass(row.status)}>{statusLabel(row.status)}</Badge>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{row.check_in_time ? new Date(row.check_in_time).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "No check-in"}</span>
+                        <Badge variant="outline" className={`text-[10px] ${row.is_verified ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-amber-100 text-amber-800 border-amber-300"}`}>
+                          {row.is_verified ? "Verified" : "Pending"}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

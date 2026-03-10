@@ -420,33 +420,27 @@ const StudentProfile = () => {
 
   return (
     <StudentLayout>
-      <div className="space-y-6 pb-8">
+      <div className="space-y-6 pb-20 md:pb-0">
         {/* Profile Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-20 w-20 sm:h-24 sm:w-24">
+        <div className="flex flex-col gap-4 sm:gap-6">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+            <Avatar className="h-20 w-20 sm:h-24 sm:w-24 shrink-0">
               {avatarPreview && <AvatarImage src={avatarPreview} alt="Profile" />}
               <AvatarFallback className="text-lg bg-primary text-primary-foreground">{initials}</AvatarFallback>
             </Avatar>
-            <div className="flex flex-col gap-2">
-              <input id="avatar" type="file" accept="image/*" onChange={handleAvatarChange} />
-              <div className="flex gap-2">
-                <Button onClick={uploadAvatar} disabled={isUploadingAvatar || !avatarFile}>
-                  {isUploadingAvatar ? 'Uploading...' : 'Upload Avatar'}
-                </Button>
-              </div>
+            <div className="flex flex-col gap-2 items-center sm:items-start w-full min-w-0">
+              <input id="avatar" type="file" accept="image/*" onChange={handleAvatarChange} className="text-sm w-full max-w-[250px]" />
+              <Button size="sm" onClick={uploadAvatar} disabled={isUploadingAvatar || !avatarFile}>
+                {isUploadingAvatar ? 'Uploading...' : 'Upload Avatar'}
+              </Button>
             </div>
           </div>
-          <div className="flex-1">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-                  {profile ? [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(' ') : 'Student'}
-                </h1>
-                <p className="text-muted-foreground mt-1">{profile?.email}</p>
-              </div>
-              <Badge className="w-fit bg-primary text-primary-foreground">{profile?.role || 'Student'}</Badge>
-            </div>
+          <div className="text-center sm:text-left">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground break-words">
+              {profile ? [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(' ') : 'Student'}
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm break-all">{profile?.email}</p>
+            <Badge className="w-fit bg-primary text-primary-foreground mt-2">{profile?.role || 'Student'}</Badge>
           </div>
         </div>
 

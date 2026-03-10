@@ -358,26 +358,39 @@ const StudentFees = () => {
             {payments.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No payments submitted yet</p>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {payments.map((payment) => (
-                      <TableRow key={payment.id}>
-                        <TableCell className="font-medium">₦{(payment.amount_paid || 0).toLocaleString()}</TableCell>
-                        <TableCell className="text-muted-foreground">{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : '—'}</TableCell>
-                        <TableCell>{getPaymentStatusBadge(payment.status)}</TableCell>
+              <>
+                <div className="hidden sm:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Status</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {payments.map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell className="font-medium">₦{(payment.amount_paid || 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-muted-foreground">{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : '—'}</TableCell>
+                          <TableCell>{getPaymentStatusBadge(payment.status)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="sm:hidden space-y-3">
+                  {payments.map((payment) => (
+                    <div key={payment.id} className="rounded-lg border border-border p-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold">₦{(payment.amount_paid || 0).toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : '—'}</p>
+                      </div>
+                      {getPaymentStatusBadge(payment.status)}
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
