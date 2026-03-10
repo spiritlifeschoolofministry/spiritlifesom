@@ -625,13 +625,18 @@ const AdminAttendance = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-          Attendance Command Center
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Verify check-ins and view student attendance statistics.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+            Attendance Command Center
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Verify check-ins and view student attendance statistics.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleExportAllAttendance} className="gap-2 self-start">
+          <Download className="h-4 w-4" /> Export All Attendance
+        </Button>
       </div>
 
       {/* Per-Cohort Class Toggles */}
