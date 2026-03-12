@@ -255,9 +255,49 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
         </main>
       </div>
 
-      {/* Mobile bottom nav */}
+      {/* Mobile bottom nav with sheet for all items */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border flex justify-around py-2 z-30">
-        {NAV_ITEMS.slice(0, 5).map((item) => renderNavItem(item, { mobile: true }))}
+        {NAV_ITEMS.slice(0, 4).map((item) => renderNavItem(item, { mobile: true }))}
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+          <SheetTrigger asChild>
+            <button className="flex flex-col items-center gap-0.5 text-[10px] text-muted-foreground">
+              <MoreHorizontal className="w-5 h-5" />
+              More
+            </button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="rounded-t-2xl max-h-[70vh] overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle className="text-left">Navigation</SheetTitle>
+            </SheetHeader>
+            <div className="grid grid-cols-3 gap-3 pt-4 pb-6">
+              {NAV_ITEMS.map((item) => {
+                const active = location.pathname === item.path;
+                const restricted = isPending && item.restrictedWhenPending;
+                if (restricted) {
+                  return (
+                    <span key={item.path} className="flex flex-col items-center gap-1.5 p-3 rounded-xl text-muted-foreground/40 cursor-not-allowed">
+                      <Lock className="w-5 h-5" />
+                      <span className="text-[11px] text-center leading-tight">{item.label}</span>
+                    </span>
+                  );
+                }
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setSheetOpen(false)}
+                    className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition-colors ${
+                      active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span className="text-[11px] text-center leading-tight">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </SheetContent>
+        </Sheet>
       </nav>
     </div>
   );
