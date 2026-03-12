@@ -6,12 +6,12 @@ import { useAuth } from "@/contexts/useAuth";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   LayoutDashboard,
   BookOpen,
   CalendarCheck,
   CalendarDays,
-  
   ClipboardList,
   FileText,
   Users,
@@ -28,6 +28,7 @@ import {
   Eye,
   GraduationCap,
   Award,
+  MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 
