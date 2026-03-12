@@ -68,6 +68,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
   const isRejected = statusUpper === "REJECTED";
   const isGraduate = statusUpper === "GRADUATE";
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   
 
   // Case-insensitive role check for admin access
