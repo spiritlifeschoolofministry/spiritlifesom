@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import ThemeToggle from "@/components/ThemeToggle";
 import {
   LayoutDashboard,
@@ -22,6 +23,7 @@ import {
   X,
   Eye,
   BarChart3,
+  MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,6 +48,7 @@ const AdminLayout = () => {
   const navigate = useNavigate();
   const { profile: authProfile, signOut, student, role } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   useEffect(() => {
     if (role && role.toLowerCase() !== "admin" && role.toLowerCase() !== "teacher") {
@@ -159,10 +162,54 @@ const AdminLayout = () => {
           </div>
         )}
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-20 md:pb-8">
           <Outlet />
         </main>
       </div>
+
+      {/* Mobile bottom nav */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border flex justify-around py-2 z-30">
+        {NAV_ITEMS.slice(0, 4).map((item) => {
+          const active = location.pathname === item.path;
+          return (
+            <Link key={item.path} to={item.path} className={`flex flex-col items-center gap-0.5 text-[10px] ${active ? "text-accent" : "text-muted-foreground"}`}>
+              <item.icon className="w-5 h-5" />
+              {item.label.split(" ")[0]}
+            </Link>
+          );
+        })}
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+          <SheetTrigger asChild>
+            <button className="flex flex-col items-center gap-0.5 text-[10px] text-muted-foreground">
+              <MoreHorizontal className="w-5 h-5" />
+              More
+            </button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="rounded-t-2xl max-h-[70vh] overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle className="text-left">Navigation</SheetTitle>
+            </SheetHeader>
+            <div className="grid grid-cols-3 gap-3 pt-4 pb-6">
+              {NAV_ITEMS.map((item) => {
+                const active = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setSheetOpen(false)}
+                    className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition-colors ${
+                      active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span className="text-[11px] text-center leading-tight">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </SheetContent>
+        </Sheet>
+      </nav>
     </div>
   );
 };
