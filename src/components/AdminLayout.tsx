@@ -48,6 +48,7 @@ const AdminLayout = () => {
   const navigate = useNavigate();
   const { profile: authProfile, signOut, student, role } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   useEffect(() => {
     if (role && role.toLowerCase() !== "admin" && role.toLowerCase() !== "teacher") {
