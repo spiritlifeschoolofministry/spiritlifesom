@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import ThemeToggle from "@/components/ThemeToggle";
 import {
   LayoutDashboard,
@@ -22,6 +23,7 @@ import {
   X,
   Eye,
   BarChart3,
+  MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 
