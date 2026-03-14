@@ -49,6 +49,19 @@ const AdminLayout = () => {
   const { profile: authProfile, signOut, student, role } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (touchStartX.current !== null) {
+      const diff = touchStartX.current - e.changedTouches[0].clientX;
+      if (diff > 60) setSidebarOpen(false);
+      touchStartX.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     if (role && role.toLowerCase() !== "admin" && role.toLowerCase() !== "teacher") {
