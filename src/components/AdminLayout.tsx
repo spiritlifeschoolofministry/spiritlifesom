@@ -150,7 +150,7 @@ const AdminLayout = () => {
         </aside>
 
         {sidebarOpen && (
-          <div className="fixed inset-0 z-40 md:hidden" onClick={() => setSidebarOpen(false)}>
+          <div className="fixed inset-0 z-40 md:hidden" onClick={() => setSidebarOpen(false)} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
             <div className="absolute inset-0 bg-black/50" />
             <aside className="absolute left-0 top-14 bottom-0 w-60 gradient-purple text-primary-foreground overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <nav className="py-4 space-y-1 px-2">
