@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useCallback } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
@@ -69,7 +69,20 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
   const isGraduate = statusUpper === "GRADUATE";
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
-  
+  const touchStartX = useRef<number | null>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (touchStartX.current !== null) {
+      const diff = touchStartX.current - e.changedTouches[0].clientX;
+      if (diff > 60) setSidebarOpen(false);
+      touchStartX.current = null;
+    }
+  }, []);
+
 
   // Case-insensitive role check for admin access
   const isAdmin = (role ?? "").toLowerCase() === "admin" || (role ?? "").toLowerCase() === "teacher";
@@ -228,7 +241,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
 
         {/* Sidebar - mobile overlay */}
         {sidebarOpen && (
-          <div className="fixed inset-0 z-40 md:hidden" onClick={() => setSidebarOpen(false)}>
+          <div className="fixed inset-0 z-40 md:hidden" onClick={() => setSidebarOpen(false)} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
             <div className="absolute inset-0 bg-black/50" />
             <TooltipProvider>
               <aside className="absolute left-0 top-14 bottom-0 w-60 gradient-purple text-primary-foreground overflow-y-auto" onClick={(e) => e.stopPropagation()}>

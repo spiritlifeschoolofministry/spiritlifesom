@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -49,6 +49,19 @@ const AdminLayout = () => {
   const { profile: authProfile, signOut, student, role } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const touchStartX = useRef<number | null>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (touchStartX.current !== null) {
+      const diff = touchStartX.current - e.changedTouches[0].clientX;
+      if (diff > 60) setSidebarOpen(false);
+      touchStartX.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     if (role && role.toLowerCase() !== "admin" && role.toLowerCase() !== "teacher") {
@@ -137,7 +150,7 @@ const AdminLayout = () => {
         </aside>
 
         {sidebarOpen && (
-          <div className="fixed inset-0 z-40 md:hidden" onClick={() => setSidebarOpen(false)}>
+          <div className="fixed inset-0 z-40 md:hidden" onClick={() => setSidebarOpen(false)} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
             <div className="absolute inset-0 bg-black/50" />
             <aside className="absolute left-0 top-14 bottom-0 w-60 gradient-purple text-primary-foreground overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <nav className="py-4 space-y-1 px-2">
