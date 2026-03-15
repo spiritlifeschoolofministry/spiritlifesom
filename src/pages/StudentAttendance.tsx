@@ -51,13 +51,15 @@ const StudentAttendance = () => {
     if (!student?.id) return;
     try {
       const today = todayDateString();
+      const todayStart = `${today}T00:00:00`; 
+      const todayEnd = `${today}T23:59:59.999`; 
+
       const { data: studentData } = await supabase.from("students").select("cohort_id").eq("id", student.id).maybeSingle();
       const cohortId = studentData?.cohort_id;
 
-      const [historyRes, classSettingRes, todayAttendanceRes] = await Promise.all([
-        supabase.from("attendance").select("id, marked_at, status, is_verified, check_in_time").eq("student_id", student.id).order("marked_at", { ascending: false }),
+      const [historyRes, classSettingRes] = await Promise.all([
+        supabase.from("attendance").select("id, marked_at, status, is_verified, check_in_time, schedule_id").eq("student_id", student.id).order("marked_at", { ascending: false }),
         supabase.from("system_settings").select("value").eq("key", "class_today").maybeSingle(),
-        supabase.from("attendance").select("id, marked_at, is_verified").eq("student_id", student.id),
       ]);
 
       if (historyRes.error) throw historyRes.error;
@@ -105,10 +107,19 @@ const StudentAttendance = () => {
       }
 
       setTodayScheduleId(scheduleId);
-      const attendances = todayAttendanceRes.data || [];
-      const todayRecords = attendances.filter((a: { marked_at: string | null }) => a.marked_at ? a.marked_at.startsWith(today) : false);
+
+      const { data: todayAttendanceRes, error: todayAttendanceError } = await supabase
+        .from("attendance")
+        .select("id, marked_at, is_verified, schedule_id")
+        .eq("student_id", student.id)
+        .gte("marked_at", todayStart)
+        .lt("marked_at", todayEnd);
+
+      if (todayAttendanceError) throw todayAttendanceError;
+      const todayRecords = (todayAttendanceRes || []).filter((a) => !scheduleId || a.schedule_id === scheduleId);
+
       setCheckedInToday(todayRecords.length > 0);
-      setPendingToday(todayRecords.length > 0 && todayRecords.some((a: { is_verified?: boolean }) => a.is_verified === false));
+      setPendingToday(todayRecords.some((a) => a.is_verified === false));
     } catch (err) {
       console.error("[StudentAttendance] Load error:", err);
       toast.error("Failed to load attendance");
@@ -129,11 +140,31 @@ const StudentAttendance = () => {
         const [lateH, lateM] = cohortToggle.late_after.split(":").map(Number);
         if (now.getHours() * 60 + now.getMinutes() > lateH * 60 + lateM) status = "Late";
       }
-      const { error } = await supabase.from("attendance").upsert({
-        student_id: student.id, schedule_id: todayScheduleId, status,
-        check_in_time: now.toISOString(), marked_at: now.toISOString(), is_verified: false,
-      }, { onConflict: "student_id,schedule_id" });
-      if (error) throw error;
+
+      // Insert-only path to avoid RLS update conflict for student self-check-in.
+      const { error } = await supabase.from("attendance").insert({
+        student_id: student.id,
+        schedule_id: todayScheduleId,
+        status,
+        check_in_time: now.toISOString(),
+        marked_at: now.toISOString(),
+        is_verified: false,
+      });
+
+      // If there is a duplicate key violation, treat as already checked in.
+      if (error) {
+        const detail = (error as any)?.details || "";
+        const msg = (error as any)?.message || "";
+        if (msg.includes("duplicate key") || detail.includes("duplicate key") || error.code === "23505") {
+          setCheckedInToday(true);
+          setPendingToday(true);
+          toast.success(`Attendance already recorded${status === "Late" ? " (Late)" : ""}. Pending approval.`);
+          await loadData();
+          return;
+        }
+        throw error;
+      }
+
       setCheckedInToday(true);
       setPendingToday(true);
       toast.success(`Attendance marked${status === "Late" ? " (Late)" : ""}. Pending approval.`);
