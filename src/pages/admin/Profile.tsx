@@ -205,10 +205,7 @@ const AdminProfile = () => {
                     <Input type="tel" {...registerPersonal('phone')} className="mt-1" placeholder="Optional" />
                   </div>
                 </div>
-                <div>
-                  <Label>Email Address</Label>
-                  <Input type="email" value={profile?.email || ''} disabled className="mt-1 bg-muted" />
-                </div>
+                <AdminEmailChangeSection />
                 <Button type="submit" disabled={isSavingPersonal}>
                   {isSavingPersonal ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>) : 'Save Changes'}
                 </Button>
