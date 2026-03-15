@@ -128,6 +128,7 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
           ministry_description: form.ministry_description || null,
           admission_status: form.admission_status || null,
           cohort_id: form.cohort_id || null,
+          student_code: form.student_code || null,
         })
         .eq("id", student.id);
       if (updateError) throw updateError;
