@@ -506,17 +506,7 @@ const StudentProfile = () => {
                     </div>
                   </div>
 
-                  <div>
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={profile?.email || ''}
-                      disabled
-                      className="mt-1 bg-muted"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
-                  </div>
+                  <EmailChangeSection />
 
                   <Button type="submit" disabled={isSavingPersonal} className="w-full sm:w-auto mt-4">
                     {isSavingPersonal && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
