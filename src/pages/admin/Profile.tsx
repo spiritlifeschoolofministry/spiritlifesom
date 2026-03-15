@@ -26,6 +26,45 @@ interface PasswordFormData {
   confirmPassword: string;
 }
 
+const AdminEmailChangeSection = () => {
+  const { user, profile } = useAuth();
+  const [newEmail, setNewEmail] = useState(profile?.email || '');
+  const [isSaving, setIsSaving] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  useEffect(() => { setNewEmail(profile?.email || ''); }, [profile?.email]);
+
+  const handleChange = async () => {
+    if (!user || !newEmail || newEmail === profile?.email) return;
+    try {
+      setIsSaving(true);
+      const { error } = await supabase.auth.updateUser({ email: newEmail });
+      if (error) throw error;
+      setSent(true);
+      toast.success('Confirmation email sent to both addresses.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update email');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <Label>Email Address</Label>
+      <div className="flex flex-col sm:flex-row gap-2 mt-1">
+        <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="flex-1" />
+        <Button type="button" variant="outline" size="sm" disabled={isSaving || newEmail === profile?.email || !newEmail} onClick={handleChange} className="shrink-0">
+          {isSaving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
+          Change Email
+        </Button>
+      </div>
+      {sent && <p className="text-xs text-emerald-600 mt-1">Confirmation sent — check both inboxes.</p>}
+      <p className="text-xs text-muted-foreground mt-1">A confirmation link will be sent to both email addresses.</p>
+    </div>
+  );
+};
+
 const AdminProfile = () => {
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(false);
