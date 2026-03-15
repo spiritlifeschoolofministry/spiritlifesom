@@ -223,6 +223,10 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
                   <SelectContent>{ADMISSION_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label className="text-xs">Student Code</Label>
+                <Input value={form.student_code} onChange={e => set("student_code", e.target.value)} className="mt-1" placeholder="e.g. SLSM-2526-0001" />
+              </div>
             </div>
             <div>
               <Label className="text-xs">Address</Label>
