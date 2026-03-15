@@ -103,6 +103,7 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
     ministry_description: student.ministry_description || "",
     admission_status: student.admission_status || "Pending",
     cohort_id: student.cohort_id || "",
+    student_code: student.student_code || "",
   });
 
   useEffect(() => {
