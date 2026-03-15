@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
@@ -25,6 +25,45 @@ interface PasswordFormData {
   newPassword: string;
   confirmPassword: string;
 }
+
+const AdminEmailChangeSection = () => {
+  const { user, profile } = useAuth();
+  const [newEmail, setNewEmail] = useState(profile?.email || '');
+  const [isSaving, setIsSaving] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  useEffect(() => { setNewEmail(profile?.email || ''); }, [profile?.email]);
+
+  const handleChange = async () => {
+    if (!user || !newEmail || newEmail === profile?.email) return;
+    try {
+      setIsSaving(true);
+      const { error } = await supabase.auth.updateUser({ email: newEmail });
+      if (error) throw error;
+      setSent(true);
+      toast.success('Confirmation email sent to both addresses.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update email');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <Label>Email Address</Label>
+      <div className="flex flex-col sm:flex-row gap-2 mt-1">
+        <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="flex-1" />
+        <Button type="button" variant="outline" size="sm" disabled={isSaving || newEmail === profile?.email || !newEmail} onClick={handleChange} className="shrink-0">
+          {isSaving ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
+          Change Email
+        </Button>
+      </div>
+      {sent && <p className="text-xs text-emerald-600 mt-1">Confirmation sent — check both inboxes.</p>}
+      <p className="text-xs text-muted-foreground mt-1">A confirmation link will be sent to both email addresses.</p>
+    </div>
+  );
+};
 
 const AdminProfile = () => {
   const { user, profile } = useAuth();
@@ -205,10 +244,7 @@ const AdminProfile = () => {
                     <Input type="tel" {...registerPersonal('phone')} className="mt-1" placeholder="Optional" />
                   </div>
                 </div>
-                <div>
-                  <Label>Email Address</Label>
-                  <Input type="email" value={profile?.email || ''} disabled className="mt-1 bg-muted" />
-                </div>
+                <AdminEmailChangeSection />
                 <Button type="submit" disabled={isSavingPersonal}>
                   {isSavingPersonal ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>) : 'Save Changes'}
                 </Button>

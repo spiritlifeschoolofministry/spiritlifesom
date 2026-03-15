@@ -103,6 +103,7 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
     ministry_description: student.ministry_description || "",
     admission_status: student.admission_status || "Pending",
     cohort_id: student.cohort_id || "",
+    student_code: student.student_code || "",
   });
 
   useEffect(() => {
@@ -127,6 +128,7 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
           ministry_description: form.ministry_description || null,
           admission_status: form.admission_status || null,
           cohort_id: form.cohort_id || null,
+          student_code: form.student_code || null,
         })
         .eq("id", student.id);
       if (updateError) throw updateError;
@@ -159,6 +161,7 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
       ministry_description: student.ministry_description || "",
       admission_status: student.admission_status || "Pending",
       cohort_id: student.cohort_id || "",
+      student_code: student.student_code || "",
     });
   };
 
@@ -219,6 +222,10 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
                   <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>{ADMISSION_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Student Code</Label>
+                <Input value={form.student_code} onChange={e => set("student_code", e.target.value)} className="mt-1" placeholder="e.g. SLSM-2526-0001" />
               </div>
             </div>
             <div>

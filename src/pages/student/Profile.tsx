@@ -243,6 +243,63 @@ interface PasswordFormData {
   confirmPassword: string;
 }
 
+const EmailChangeSection = () => {
+  const { user, profile } = useAuth();
+  const [newEmail, setNewEmail] = useState(profile?.email || '');
+  const [isSavingEmail, setIsSavingEmail] = useState(false);
+  const [emailChanged, setEmailChanged] = useState(false);
+
+  useEffect(() => {
+    setNewEmail(profile?.email || '');
+  }, [profile?.email]);
+
+  const handleEmailChange = async () => {
+    if (!user || !newEmail || newEmail === profile?.email) return;
+    try {
+      setIsSavingEmail(true);
+      const { error } = await supabase.auth.updateUser({ email: newEmail });
+      if (error) throw error;
+      setEmailChanged(true);
+      toast.success('Confirmation email sent to both old and new addresses. Please confirm to complete the change.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update email');
+    } finally {
+      setIsSavingEmail(false);
+    }
+  };
+
+  return (
+    <div>
+      <Label htmlFor="email">Email Address</Label>
+      <div className="flex flex-col sm:flex-row gap-2 mt-1">
+        <Input
+          id="email"
+          type="email"
+          value={newEmail}
+          onChange={(e) => setNewEmail(e.target.value)}
+          className="flex-1"
+          placeholder="your@email.com"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={isSavingEmail || newEmail === profile?.email || !newEmail}
+          onClick={handleEmailChange}
+          className="shrink-0"
+        >
+          {isSavingEmail ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null}
+          Change Email
+        </Button>
+      </div>
+      {emailChanged && (
+        <p className="text-xs text-emerald-600 mt-1">Confirmation sent — check both your old and new email inboxes.</p>
+      )}
+      <p className="text-xs text-muted-foreground mt-1">A confirmation link will be sent to both email addresses.</p>
+    </div>
+  );
+};
+
 const StudentProfile = () => {
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -506,17 +563,7 @@ const StudentProfile = () => {
                     </div>
                   </div>
 
-                  <div>
-                    <Label htmlFor="email">Email Address</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={profile?.email || ''}
-                      disabled
-                      className="mt-1 bg-muted"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
-                  </div>
+                  <EmailChangeSection />
 
                   <Button type="submit" disabled={isSavingPersonal} className="w-full sm:w-auto mt-4">
                     {isSavingPersonal && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
