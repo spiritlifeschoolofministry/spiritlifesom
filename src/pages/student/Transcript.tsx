@@ -42,9 +42,10 @@ interface AttendanceSummary {
 const getLetterGrade = (pct: number) => {
   if (pct >= 90) return { letter: "A", label: "Excellent", color: "text-emerald-600" };
   if (pct >= 80) return { letter: "B", label: "Very Good", color: "text-blue-600" };
-  if (pct >= 70) return { letter: "C", label: "Good", color: "text-amber-600" };
-  if (pct >= 60) return { letter: "D", label: "Fair", color: "text-orange-600" };
-  return { letter: "F", label: "Fail", color: "text-red-600" };
+  if (pct >= 70) return { letter: "C", label: "Good", color: "text-cyan-600" };
+  if (pct >= 60) return { letter: "D", label: "Satisfactory", color: "text-yellow-600" };
+  if (pct >= 50) return { letter: "E", label: "Needs Improvement", color: "text-orange-600" };
+  return { letter: "F", label: "Unsatisfactory", color: "text-red-600" };
 };
 
 const StudentTranscript = () => {

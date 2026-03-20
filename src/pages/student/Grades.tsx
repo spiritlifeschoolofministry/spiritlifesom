@@ -55,11 +55,12 @@ const CATEGORY_ICONS: Record<string, React.ElementType> = {
 };
 
 const getLetterGrade = (pct: number) => {
-  if (pct >= 90) return { letter: "A", color: "text-emerald-600" };
-  if (pct >= 80) return { letter: "B", color: "text-blue-600" };
-  if (pct >= 70) return { letter: "C", color: "text-amber-600" };
-  if (pct >= 60) return { letter: "D", color: "text-orange-600" };
-  return { letter: "F", color: "text-red-600" };
+  if (pct >= 90) return { letter: "A", color: "text-emerald-600", description: "Excellent", isPassing: true };
+  if (pct >= 80) return { letter: "B", color: "text-blue-600", description: "Very Good", isPassing: true };
+  if (pct >= 70) return { letter: "C", color: "text-cyan-600", description: "Good", isPassing: true };
+  if (pct >= 60) return { letter: "D", color: "text-yellow-600", description: "Satisfactory", isPassing: true };
+  if (pct >= 50) return { letter: "E", color: "text-orange-600", description: "Needs Improvement", isPassing: true, needsRemedial: true };
+  return { letter: "F", color: "text-red-600", description: "Unsatisfactory", isPassing: false };
 };
 
 const StudentGrades = () => {
