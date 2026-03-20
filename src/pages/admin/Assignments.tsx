@@ -29,6 +29,7 @@ interface AssignmentFormData {
   cohort_id: string;
   course_id: string;
   category: string;
+  max_points: number;
 }
 
 interface AssignmentWithSubmissions extends Tables<'assignments'> {
@@ -51,7 +52,7 @@ const AdminAssignments = () => {
   const [cohortFilter, setCohortFilter] = useState('all');
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<AssignmentFormData>({
-    defaultValues: { title: '', description: '', due_date: '', cohort_id: '', course_id: '', category: 'Assignment' },
+    defaultValues: { title: '', description: '', due_date: '', cohort_id: '', course_id: '', category: 'Assignment', max_points: 0 },
   });
 
   const selectedCohort = watch('cohort_id');
@@ -85,6 +86,10 @@ const AdminAssignments = () => {
       toast.error('Please select a cohort and course');
       return;
     }
+    if (!data.max_points || data.max_points < 1 || data.max_points > 1000) {
+      toast.error('Please enter a valid maximum points value (1-1000)');
+      return;
+    }
     try {
       setIsCreating(true);
       const { error } = await supabase.from('assignments').insert({
@@ -94,6 +99,7 @@ const AdminAssignments = () => {
         cohort_id: data.cohort_id,
         course_id: data.course_id,
         category: data.category || 'Assignment',
+        max_points: data.max_points,
       });
       if (error) throw error;
       toast.success('Assignment created');
@@ -149,8 +155,9 @@ const AdminAssignments = () => {
   const handleGradeSubmission = async (submissionId: string) => {
     if (!selectedAssignment) return;
     const scoreNum = gradingScore ? parseFloat(gradingScore) : null;
-    if (gradingScore && (isNaN(scoreNum!) || scoreNum! < 0)) {
-      toast.error('Please enter a valid score');
+    const maxPoints = selectedAssignment?.max_points ?? 100;
+    if (gradingScore && (isNaN(scoreNum!) || scoreNum! < 0 || scoreNum! > maxPoints)) {
+      toast.error(`Please enter a valid score (0-${maxPoints})`);
       return;
     }
     try {
@@ -251,6 +258,16 @@ const AdminAssignments = () => {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label>Maximum Points *</Label>
+                <Input
+                  type="number"
+                  {...register('max_points', { required: true, min: 1, max: 1000 })}
+                  placeholder="e.g., 10, 50, 100"
+                  min={1}
+                  max={1000}
+                />
+              </div>
               <Button type="submit" disabled={isCreating} className="w-full">
                 {isCreating ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</>) : (<><Plus className="h-4 w-4 mr-2" /> Create Task</>)}
               </Button>
@@ -286,6 +303,7 @@ const AdminAssignments = () => {
                   <TableRow>
                     <TableHead>Title</TableHead>
                     <TableHead>Category</TableHead>
+                    <TableHead>Max Points</TableHead>
                     <TableHead>Cohort</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead>Action</TableHead>
@@ -298,6 +316,7 @@ const AdminAssignments = () => {
                       <TableRow key={assignment.id}>
                         <TableCell className="font-medium">{assignment.title}</TableCell>
                         <TableCell><Badge variant="secondary" className="text-xs">{(assignment as any).category || 'Assignment'}</Badge></TableCell>
+                        <TableCell className="font-medium">{assignment.max_points ?? 100} pts</TableCell>
                         <TableCell>{cohorts.find(c => c.id === assignment.cohort_id)?.name || assignment.cohort_id}</TableCell>
                         <TableCell>{dueDate ? dueDate.toLocaleDateString() : 'No due date'}</TableCell>
                         <TableCell>
