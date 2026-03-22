@@ -5,6 +5,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import ThemeToggle from "@/components/ThemeToggle";
+import ScrollToTop from "@/components/ScrollToTop";
 import {
   LayoutDashboard,
   Users,
@@ -223,6 +224,7 @@ const AdminLayout = () => {
           </SheetContent>
         </Sheet>
       </nav>
+      <ScrollToTop />
     </div>
   );
 };

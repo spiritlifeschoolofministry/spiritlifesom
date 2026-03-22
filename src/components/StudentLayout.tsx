@@ -1,5 +1,6 @@
 import { useMemo, useState, useRef, useCallback } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
+import ScrollToTop from "@/components/ScrollToTop";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
 
@@ -313,6 +314,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
           </SheetContent>
         </Sheet>
       </nav>
+      <ScrollToTop />
     </div>
   );
 };
