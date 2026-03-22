@@ -427,12 +427,12 @@ const AdminCalendar = () => {
 
       {/* Create/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={handleCloseDialog}>
-        <DialogContent className="max-w-lg sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto">
+          <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
             <DialogTitle>{editingEvent ? 'Edit Event' : 'Create Event'}</DialogTitle>
             <DialogDescription>Add or update a calendar event</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
             <div>
               <label className="text-sm font-medium">Title *</label>
               <Input {...register('title', { required: true })} placeholder="Event title" className="mt-1" />
@@ -480,12 +480,14 @@ const AdminCalendar = () => {
                 </select>
               </div>
             </div>
-            <div className="flex gap-2 justify-end pt-2">
-              <Button type="button" variant="outline" onClick={handleCloseDialog}>Cancel</Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                {editingEvent ? 'Update' : 'Create'}
-              </Button>
+            <div className="sticky bottom-0 bg-background pt-4 border-t">
+              <div className="flex gap-2 justify-end">
+                <Button type="button" variant="outline" onClick={handleCloseDialog}>Cancel</Button>
+                <Button type="submit" disabled={submitting}>
+                  {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  {editingEvent ? 'Update' : 'Create'}
+                </Button>
+              </div>
             </div>
           </form>
         </DialogContent>

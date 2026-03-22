@@ -164,12 +164,12 @@ const AdminPayments = () => {
           <DialogTrigger asChild>
             <Button className="flex items-center gap-2"><Plus className="h-4 w-4" /> Add New Fee</Button>
           </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
+          <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto">
+            <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
               <DialogTitle>Add New Fee</DialogTitle>
               <DialogDescription>Create a new fee structure for a cohort</DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit(onAddFeeSubmit)} className="space-y-4">
+            <form onSubmit={handleSubmit(onAddFeeSubmit)} className="space-y-4 pt-4">
               <div className="space-y-2">
                 <Label>Cohort</Label>
                 <Select value={selectedCohort} onValueChange={(value) => setValue('cohort_id', value)}>
@@ -189,9 +189,11 @@ const AdminPayments = () => {
                 <Input type="number" step="0.01" placeholder="0.00" {...register('amount', { required: 'Amount is required' })} />
                 {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
               </div>
-              <Button type="submit" disabled={isProcessing} className="w-full">
-                {isProcessing ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Adding...</>) : 'Add Fee'}
-              </Button>
+              <div className="sticky bottom-0 bg-background pt-4 border-t">
+                <Button type="submit" disabled={isProcessing} className="w-full">
+                  {isProcessing ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Adding...</>) : 'Add Fee'}
+                </Button>
+              </div>
             </form>
           </DialogContent>
         </Dialog>
@@ -206,7 +208,7 @@ const AdminPayments = () => {
           {pendingPayments.length === 0 ? (
             <p className="text-center py-8 text-muted-foreground">No pending payments to verify</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -235,12 +237,12 @@ const AdminPayments = () => {
                             </Button>
                           </DialogTrigger>
                           {selectedPayment && (
-                            <DialogContent className="max-w-2xl">
-                              <DialogHeader>
+                            <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto">
+                              <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
                                 <DialogTitle>Review Payment</DialogTitle>
                                 <DialogDescription>Student: {selectedPayment.student_name} ({selectedPayment.student_email})</DialogDescription>
                               </DialogHeader>
-                              <div className="space-y-4">
+                              <div className="space-y-4 pt-4">
                                 <div className="grid grid-cols-2 gap-4">
                                   <div>
                                     <Label className="text-xs text-muted-foreground">Amount</Label>
@@ -275,13 +277,15 @@ const AdminPayments = () => {
                                   <Textarea placeholder="Provide reason for rejection..." value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} className="min-h-[80px]" />
                                 </div>
 
-                                <div className="flex gap-4">
-                                  <Button onClick={() => approvePayment(selectedPayment)} disabled={isProcessing} className="flex-1">
-                                    <CheckCircle className="mr-2 h-4 w-4" /> Approve
-                                  </Button>
-                                  <Button variant="destructive" onClick={() => rejectPayment(selectedPayment)} disabled={isProcessing} className="flex-1">
-                                    <XCircle className="mr-2 h-4 w-4" /> Reject
-                                  </Button>
+                                <div className="sticky bottom-0 bg-background pt-4 border-t">
+                                  <div className="flex gap-4">
+                                    <Button onClick={() => approvePayment(selectedPayment)} disabled={isProcessing} className="flex-1">
+                                      <CheckCircle className="mr-2 h-4 w-4" /> Approve
+                                    </Button>
+                                    <Button variant="destructive" onClick={() => rejectPayment(selectedPayment)} disabled={isProcessing} className="flex-1">
+                                      <XCircle className="mr-2 h-4 w-4" /> Reject
+                                    </Button>
+                                  </div>
                                 </div>
                               </div>
                             </DialogContent>

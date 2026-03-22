@@ -213,12 +213,12 @@ const AdminAssignments = () => {
           <DialogTrigger asChild>
             <Button className="flex items-center gap-2"><Plus className="h-4 w-4" /> Create Task</Button>
           </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
+          <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto">
+            <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
               <DialogTitle>Create New Task</DialogTitle>
               <DialogDescription>Add a new task for a cohort</DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit(onCreateAssignment)} className="space-y-4">
+            <form onSubmit={handleSubmit(onCreateAssignment)} className="space-y-4 pt-4">
               <div>
                 <Label>Title *</Label>
                 <Input {...register('title', { required: true })} placeholder="Assignment title" />
@@ -268,9 +268,11 @@ const AdminAssignments = () => {
                   max={1000}
                 />
               </div>
-              <Button type="submit" disabled={isCreating} className="w-full">
-                {isCreating ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</>) : (<><Plus className="h-4 w-4 mr-2" /> Create Task</>)}
-              </Button>
+              <div className="sticky bottom-0 bg-background pt-4 border-t">
+                <Button type="submit" disabled={isCreating} className="w-full">
+                  {isCreating ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Creating...</>) : (<><Plus className="h-4 w-4 mr-2" /> Create Task</>)}
+                </Button>
+              </div>
             </form>
           </DialogContent>
         </Dialog>
@@ -297,16 +299,16 @@ const AdminAssignments = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Max Points</TableHead>
-                    <TableHead>Cohort</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead>Action</TableHead>
+                    <TableHead className="min-w-[200px]">Title</TableHead>
+                    <TableHead className="min-w-[120px]">Category</TableHead>
+                    <TableHead className="min-w-[100px]">Max Points</TableHead>
+                    <TableHead className="min-w-[120px]">Cohort</TableHead>
+                    <TableHead className="min-w-[120px]">Due Date</TableHead>
+                    <TableHead className="min-w-[150px]">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -314,107 +316,118 @@ const AdminAssignments = () => {
                     const dueDate = assignment.due_date ? new Date(assignment.due_date) : null;
                     return (
                       <TableRow key={assignment.id}>
-                        <TableCell className="font-medium">{assignment.title}</TableCell>
+                        <TableCell className="font-medium text-sm">{assignment.title}</TableCell>
                         <TableCell><Badge variant="secondary" className="text-xs">{(assignment as any).category || 'Assignment'}</Badge></TableCell>
-                        <TableCell className="font-medium">{assignment.max_points ?? 100} pts</TableCell>
-                        <TableCell>{cohorts.find(c => c.id === assignment.cohort_id)?.name || assignment.cohort_id}</TableCell>
-                        <TableCell>{dueDate ? dueDate.toLocaleDateString() : 'No due date'}</TableCell>
+                        <TableCell className="font-medium text-sm">{assignment.max_points ?? 100} pts</TableCell>
+                        <TableCell className="text-sm">{cohorts.find(c => c.id === assignment.cohort_id)?.name || assignment.cohort_id}</TableCell>
+                        <TableCell className="text-sm">{dueDate ? dueDate.toLocaleDateString() : 'No due date'}</TableCell>
                         <TableCell>
-                          <div className="flex gap-2">
+                          <div className="flex flex-col sm:flex-row gap-2">
                             <Dialog open={editingAssignmentId === assignment.id} onOpenChange={(open) => {
                               if (open) { setEditingAssignmentId(assignment.id); setEditDueDate(assignment.due_date ? new Date(assignment.due_date).toISOString().slice(0, 16) : ''); }
                               else { setEditingAssignmentId(null); setEditDueDate(''); }
                             }}>
-                              <DialogTrigger asChild><Button variant="outline" size="sm"><Edit2 className="h-4 w-4 mr-1" /> Edit</Button></DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader><DialogTitle>Edit Due Date</DialogTitle><DialogDescription>{assignment.title}</DialogDescription></DialogHeader>
-                                <div className="space-y-4">
+                              <DialogTrigger asChild><Button variant="outline" size="sm" className="text-xs"><Edit2 className="h-3 w-3 mr-1" /> Edit</Button></DialogTrigger>
+                              <DialogContent className="max-h-[90vh] w-[95vw] max-w-md overflow-y-auto">
+                                <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
+                                  <DialogTitle>Edit Due Date</DialogTitle>
+                                  <DialogDescription>{assignment.title}</DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4 pt-4">
                                   <div>
                                     <Label>New Due Date & Time</Label>
                                     <Input type="datetime-local" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} className="mt-2" />
                                   </div>
-                                  <Button onClick={() => handleUpdateDueDate(assignment.id)} className="w-full">Update Due Date</Button>
+                                  <div className="sticky bottom-0 bg-background pt-4 border-t">
+                                    <Button onClick={() => handleUpdateDueDate(assignment.id)} className="w-full">Update Due Date</Button>
+                                  </div>
                                 </div>
                               </DialogContent>
                             </Dialog>
 
                             <Dialog open={selectedAssignment?.id === assignment.id} onOpenChange={(open) => { if (open) loadSubmissions(assignment); else setSelectedAssignment(null); }}>
-                              <DialogTrigger asChild><Button variant="outline" size="sm"><Eye className="h-4 w-4 mr-1" /> View</Button></DialogTrigger>
-                              <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-                                <DialogHeader>
+                              <DialogTrigger asChild><Button variant="outline" size="sm" className="text-xs"><Eye className="h-3 w-3 mr-1" /> View</Button></DialogTrigger>
+                              <DialogContent className="max-h-[90vh] w-[95vw] max-w-4xl overflow-y-auto">
+                                <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
                                   <DialogTitle>{selectedAssignment?.title}</DialogTitle>
                                   <DialogDescription>Review student submissions</DialogDescription>
                                 </DialogHeader>
-                                {loadingSubmissions ? (
-                                  <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
-                                ) : selectedAssignment?.submissions && selectedAssignment.submissions.length > 0 ? (
-                                  <div className="space-y-4">
-                                    {selectedAssignment.submissions.map((submission) => {
-                                      const isGraded = !!submission.reviewed_at;
-                                      return (
-                                        <Card key={submission.id} className="border-l-4 border-l-blue-500">
-                                          <CardHeader className="pb-2">
-                                            <div className="flex items-start justify-between">
-                                              <div>
-                                                <CardTitle className="text-base">
-                                                  {submission.student_profile?.first_name || ''} {submission.student_profile?.last_name || 'Unknown'}
-                                                </CardTitle>
-                                                <p className="text-sm text-muted-foreground">{submission.student_profile?.email || ''}</p>
+                                <div className="pt-4">
+                                  {loadingSubmissions ? (
+                                    <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
+                                  ) : selectedAssignment?.submissions && selectedAssignment.submissions.length > 0 ? (
+                                    <div className="space-y-4">
+                                      {selectedAssignment.submissions.map((submission) => {
+                                        const isGraded = !!submission.reviewed_at;
+                                        return (
+                                          <Card key={submission.id} className="border-l-4 border-l-blue-500">
+                                            <CardHeader className="pb-2">
+                                              <div className="flex items-start justify-between">
+                                                <div>
+                                                  <CardTitle className="text-base">
+                                                    {submission.student_profile?.first_name || ''} {submission.student_profile?.last_name || 'Unknown'}
+                                                  </CardTitle>
+                                                  <p className="text-sm text-muted-foreground">{submission.student_profile?.email || ''}</p>
+                                                </div>
+                                                {isGraded ? (
+                                                  <Badge className="bg-emerald-100 text-emerald-800"><CheckCircle2 className="h-3 w-3 mr-1" /> {submission.grade != null ? `${submission.grade}/${selectedAssignment?.max_points || 100}` : 'Graded'}</Badge>
+                                                ) : (
+                                                  <Badge className="bg-blue-100 text-blue-800">Submitted</Badge>
+                                                )}
                                               </div>
-                                              {isGraded ? (
-                                                <Badge className="bg-emerald-100 text-emerald-800"><CheckCircle2 className="h-3 w-3 mr-1" /> {submission.grade != null ? `${submission.grade}/${selectedAssignment?.max_points || 100}` : 'Graded'}</Badge>
-                                              ) : (
-                                                <Badge className="bg-blue-100 text-blue-800">Submitted</Badge>
+                                            </CardHeader>
+                                            <CardContent className="space-y-3">
+                                              <p className="text-sm text-muted-foreground">Submitted: {new Date(submission.submitted_at || '').toLocaleString()}</p>
+                                              {submission.file_url && (
+                                                <Button variant="outline" size="sm" asChild>
+                                                  <a href={`${submission.file_url}?download=`} download><File className="h-4 w-4 mr-1" /> Download Submission</a>
+                                                </Button>
                                               )}
-                                            </div>
-                                          </CardHeader>
-                                          <CardContent className="space-y-3">
-                                            <p className="text-sm text-muted-foreground">Submitted: {new Date(submission.submitted_at || '').toLocaleString()}</p>
-                                            {submission.file_url && (
-                                              <Button variant="outline" size="sm" asChild>
-                                                <a href={`${submission.file_url}?download=`} download><File className="h-4 w-4 mr-1" /> Download Submission</a>
-                                              </Button>
-                                            )}
-                                            {isGraded && (
-                                              <div className="bg-muted p-3 rounded border space-y-1">
-                                                {submission.grade != null && (
-                                                  <p className="text-sm font-medium">Score: <span className="text-primary">{submission.grade}/{selectedAssignment?.max_points || 100}</span></p>
-                                                )}
-                                                {submission.feedback && (
-                                                  <>
-                                                    <p className="text-sm font-medium">Feedback:</p>
-                                                    <p className="text-sm text-muted-foreground">{submission.feedback}</p>
-                                                  </>
-                                                )}
-                                              </div>
-                                            )}
-                                            {!isGraded && (
-                                              <Dialog open={gradingId === submission.id} onOpenChange={(open) => { if (!open) { setGradingId(null); setGradingFeedback(''); setGradingScore(''); } else setGradingId(submission.id); }}>
-                                                <DialogTrigger asChild><Button size="sm" variant="outline">Grade & Provide Feedback</Button></DialogTrigger>
-                                                <DialogContent>
-                                                  <DialogHeader><DialogTitle>Grade Submission</DialogTitle></DialogHeader>
-                                                  <div className="space-y-4">
-                                                    <div>
-                                                      <Label>Score (out of {selectedAssignment?.max_points || 100})</Label>
-                                                      <Input type="number" min="0" max={selectedAssignment?.max_points || 100} value={gradingScore} onChange={(e) => setGradingScore(e.target.value)} placeholder={`0 – ${selectedAssignment?.max_points || 100}`} className="mt-1" />
+                                              {isGraded && (
+                                                <div className="bg-muted p-3 rounded border space-y-1">
+                                                  {submission.grade != null && (
+                                                    <p className="text-sm font-medium">Score: <span className="text-primary">{submission.grade}/{selectedAssignment?.max_points || 100}</span></p>
+                                                  )}
+                                                  {submission.feedback && (
+                                                    <>
+                                                      <p className="text-sm font-medium">Feedback:</p>
+                                                      <p className="text-sm text-muted-foreground">{submission.feedback}</p>
+                                                    </>
+                                                  )}
+                                                </div>
+                                              )}
+                                              {!isGraded && (
+                                                <Dialog open={gradingId === submission.id} onOpenChange={(open) => { if (!open) { setGradingId(null); setGradingFeedback(''); setGradingScore(''); } else setGradingId(submission.id); }}>
+                                                  <DialogTrigger asChild><Button size="sm" variant="outline">Grade & Provide Feedback</Button></DialogTrigger>
+                                                  <DialogContent className="max-h-[90vh] w-[95vw] max-w-md overflow-y-auto">
+                                                    <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
+                                                      <DialogTitle>Grade Submission</DialogTitle>
+                                                    </DialogHeader>
+                                                    <div className="space-y-4 pt-4">
+                                                      <div>
+                                                        <Label>Score (out of {selectedAssignment?.max_points || 100})</Label>
+                                                        <Input type="number" min="0" max={selectedAssignment?.max_points || 100} value={gradingScore} onChange={(e) => setGradingScore(e.target.value)} placeholder={`0 – ${selectedAssignment?.max_points || 100}`} className="mt-1" />
+                                                      </div>
+                                                      <div>
+                                                        <Label>Feedback</Label>
+                                                        <Textarea value={gradingFeedback} onChange={(e) => setGradingFeedback(e.target.value)} placeholder="Provide feedback..." className="mt-1" />
+                                                      </div>
+                                                      <div className="sticky bottom-0 bg-background pt-4 border-t">
+                                                        <Button onClick={() => handleGradeSubmission(submission.id)} className="w-full" disabled={!gradingScore}>Submit Grade</Button>
+                                                      </div>
                                                     </div>
-                                                    <div>
-                                                      <Label>Feedback</Label>
-                                                      <Textarea value={gradingFeedback} onChange={(e) => setGradingFeedback(e.target.value)} placeholder="Provide feedback..." className="mt-1" />
-                                                    </div>
-                                                    <Button onClick={() => handleGradeSubmission(submission.id)} className="w-full" disabled={!gradingScore}>Submit Grade</Button>
-                                                  </div>
-                                                </DialogContent>
-                                              </Dialog>
-                                            )}
-                                          </CardContent>
-                                        </Card>
-                                      );
-                                    })}
-                                  </div>
-                                ) : (
-                                  <p className="text-center text-muted-foreground py-8">No submissions yet</p>
-                                )}
+                                                  </DialogContent>
+                                                </Dialog>
+                                              )}
+                                            </CardContent>
+                                          </Card>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <p className="text-center text-muted-foreground py-8">No submissions yet</p>
+                                  )}
+                                </div>
                               </DialogContent>
                             </Dialog>
                           </div>

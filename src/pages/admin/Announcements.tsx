@@ -142,7 +142,7 @@ const AdminAnnouncements = () => {
           {announcements.length === 0 ? (
             <p className="text-sm text-muted-foreground">No announcements yet</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>

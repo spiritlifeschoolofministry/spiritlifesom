@@ -156,11 +156,11 @@ const AdminCourses = () => {
                 <Plus className="w-4 h-4 mr-1" /> Add Course
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
+            <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto">
+              <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
                 <DialogTitle>{editingCourse ? "Edit Course" : "New Course"}</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 pt-2">
+              <div className="space-y-4 pt-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Course Code *</Label>
@@ -202,9 +202,11 @@ const AdminCourses = () => {
                     </div>
                   </div>
                 </div>
-                <Button onClick={handleSave} disabled={saving} className="w-full">
-                  {saving ? "Saving…" : editingCourse ? "Update Course" : "Create Course"}
-                </Button>
+                <div className="sticky bottom-0 bg-background pt-4 border-t">
+                  <Button onClick={handleSave} disabled={saving} className="w-full">
+                    {saving ? "Saving…" : editingCourse ? "Update Course" : "Create Course"}
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>

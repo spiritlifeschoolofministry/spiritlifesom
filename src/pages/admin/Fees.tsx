@@ -250,7 +250,7 @@ const AdminFees = () => {
               {feeStructures.length === 0 ? (
                 <p className="text-muted-foreground">No fee structures yet.</p>
               ) : (
-                <div className="overflow-x-auto mt-2">
+                <div className="overflow-x-auto rounded-md border mt-2">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -287,7 +287,7 @@ const AdminFees = () => {
               {pendingPayments.length === 0 ? (
                 <p className="text-muted-foreground">No pending payments</p>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto rounded-md border">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -329,10 +329,12 @@ const AdminFees = () => {
           </Card>
 
           <Dialog open={!!selectedReceipt} onOpenChange={() => setSelectedReceipt(null)}>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader><DialogTitle>Payment Receipt</DialogTitle></DialogHeader>
+            <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto">
+              <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
+                <DialogTitle>Payment Receipt</DialogTitle>
+              </DialogHeader>
               {selectedReceipt && (
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4 pt-4">
                   <img src={selectedReceipt} alt="Receipt" className="w-full max-h-96 object-contain rounded" />
                 </div>
               )}

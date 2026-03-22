@@ -152,12 +152,12 @@ const AdminMaterials = () => {
           <DialogTrigger asChild>
             <Button className="flex items-center gap-2"><Upload className="h-4 w-4" /> Upload New Material</Button>
           </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
+          <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto">
+            <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
               <DialogTitle>Upload New Material</DialogTitle>
               <DialogDescription>Add a course material for a cohort</DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
               <div>
                 <Label>Title *</Label>
                 <Input placeholder="e.g., Chapter 1 Notes" {...register('title', { required: true })} />
@@ -197,9 +197,11 @@ const AdminMaterials = () => {
                 <Label>File *</Label>
                 <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.gif" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} className="block w-full text-sm border border-border rounded px-3 py-2" />
               </div>
-              <Button type="submit" disabled={isUploading} className="w-full">
-                {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>) : 'Upload Material'}
-              </Button>
+              <div className="sticky bottom-0 bg-background pt-4 border-t">
+                <Button type="submit" disabled={isUploading} className="w-full">
+                  {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>) : 'Upload Material'}
+                </Button>
+              </div>
             </form>
           </DialogContent>
         </Dialog>
@@ -229,7 +231,7 @@ const AdminMaterials = () => {
             return filtered.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No materials found{cohortFilter !== 'all' ? ' for this cohort' : ''}</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
