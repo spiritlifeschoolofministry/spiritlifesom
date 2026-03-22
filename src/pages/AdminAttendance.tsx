@@ -4,6 +4,7 @@ import { downloadCSV } from "@/lib/csv-export";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -32,6 +33,9 @@ import {
   Power,
   Clock,
   Download,
+  Plus,
+  Edit2,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Json } from "@/integrations/supabase/types";
@@ -79,6 +83,120 @@ interface AttendanceHistoryRow {
   status: string;
   is_verified: boolean;
 }
+
+const getStatusBadgeClass = (status: string) => {
+  switch (status) {
+    case "Present":
+      return "bg-emerald-100 text-emerald-700 border border-emerald-200";
+    case "Absent":
+      return "bg-red-100 text-red-700 border border-red-200";
+    case "Late":
+      return "bg-amber-100 text-amber-700 border border-amber-200";
+    case "Excused":
+      return "bg-blue-100 text-blue-700 border border-blue-200";
+    default:
+      return "bg-gray-100 text-gray-700 border border-gray-200";
+  }
+};
+
+const formatAttendanceDate = (dateString: string | null) => {
+  if (!dateString) return "—";
+  const date = new Date(dateString);
+  return (
+    date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) +
+    " · " +
+    date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+  );
+};
+
+const AttendanceRecordRow = ({
+  record,
+  onSave,
+  onDelete,
+}: {
+  record: AttendanceHistoryRow;
+  onSave: (row: AttendanceHistoryRow) => Promise<void>;
+  onDelete: (row: AttendanceHistoryRow) => Promise<void>;
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editStatus, setEditStatus] = useState(record.status);
+  const [editVerified, setEditVerified] = useState(record.is_verified);
+
+  useEffect(() => {
+    setEditStatus(record.status);
+    setEditVerified(record.is_verified);
+  }, [record.status, record.is_verified]);
+
+  const handleSave = async () => {
+    await onSave({ ...record, status: editStatus, is_verified: editVerified });
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditStatus(record.status);
+    setEditVerified(record.is_verified);
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <div className="border-2 border-primary rounded-lg p-4 bg-primary/5">
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="min-w-[180px] text-sm text-muted-foreground">{formatAttendanceDate(record.marked_at)}</div>
+          <select
+            value={editStatus}
+            onChange={(e) => setEditStatus(e.target.value)}
+            className="h-9 rounded-md border border-input px-2 text-sm"
+          >
+            <option>Present</option>
+            <option>Absent</option>
+            <option>Late</option>
+            <option>Excused</option>
+          </select>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={editVerified} onCheckedChange={(checked) => setEditVerified(Boolean(checked))} />
+            Verified
+          </label>
+          <div className="ml-auto flex gap-2">
+            <Button size="sm" className="gap-1" onClick={handleSave}>
+              <CheckCircle className="h-4 w-4" /> Save
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleCancel}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border rounded-lg p-4 hover:bg-primary/5 transition-colors">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-[180px] text-sm text-muted-foreground">{formatAttendanceDate(record.marked_at)}</div>
+        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClass(record.status)}`}>
+          {record.status}
+        </span>
+        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${record.is_verified ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+          {record.is_verified ? "✓ Verified" : "Pending"}
+        </span>
+        <div className="ml-auto flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setIsEditing(true)} className="gap-1">
+            <Edit2 className="h-3.5 w-3.5" /> Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-destructive border-destructive/30 hover:bg-destructive/10 gap-1"
+            onClick={() => onDelete(record)}
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const AdminAttendance = () => {
   const [pending, setPending] = useState<PendingRow[]>([]);
@@ -488,10 +606,6 @@ const AdminAttendance = () => {
     } finally {
       setDetailLoading(false);
     }
-  };
-
-  const updateHistoryRow = (id: string, updater: (row: AttendanceHistoryRow) => AttendanceHistoryRow) => {
-    setDetailHistory((prev) => prev.map((row) => (row.id === id ? updater(row) : row)));
   };
 
   const saveHistoryRow = async (row: AttendanceHistoryRow) => {
@@ -932,110 +1046,82 @@ const AdminAttendance = () => {
 
       {/* Detail Dialog */}
       <Dialog open={!!detailStudentId} onOpenChange={() => setDetailStudentId(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Attendance – {detailStudentName}</DialogTitle>
+            <DialogTitle>Attendance Records - {detailStudentName}</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              View and manage all attendance records for this student
+            </p>
           </DialogHeader>
+
           {detailLoading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="border border-border rounded-lg p-3 space-y-3">
-                <h3 className="text-sm font-semibold">Add New Record</h3>
-                <div className="flex flex-col sm:flex-row gap-3 items-center">
-                  <Input
-                    type="date"
-                    value={newDate}
-                    onChange={(e) => setNewDate(e.target.value)}
-                    className="sm:w-40"
-                  />
-                  <select
-                    className="border border-input bg-background rounded-md px-2 py-1 text-sm"
-                    value={newStatus}
-                    onChange={(e) => setNewStatus(e.target.value)}
-                  >
-                    <option value="Present">Present</option>
-                    <option value="Absent">Absent</option>
-                    <option value="Late">Late</option>
-                  </select>
-                  <label className="flex items-center gap-2 text-xs sm:text-sm">
-                    <input
-                      type="checkbox"
-                      checked={newVerified}
-                      onChange={(e) => setNewVerified(e.target.checked)}
-                    />
-                    Mark as verified
-                  </label>
-                  <Button size="sm" onClick={addHistoryRow}>Add Record</Button>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  New records require an existing schedule entry for the selected date.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                {detailHistory.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No records.</p>
-                ) : (
-                  detailHistory.map((row) => (
-                    <div
-                      key={row.id}
-                      className="grid grid-cols-1 md:grid-cols-[1.7fr_1.4fr_1.2fr_auto] gap-3 items-center p-3 rounded-lg bg-secondary/50"
-                    >
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          {row.marked_at ? new Date(row.marked_at).toLocaleString() : "—"}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">Status:</span>
-                        <select
-                          className="border border-input bg-background rounded-md px-2 py-1 text-xs"
-                          value={row.status}
-                          onChange={(e) =>
-                            updateHistoryRow(row.id, (r) => ({ ...r, status: e.target.value }))
-                          }
-                        >
-                          <option value="Present">Present</option>
-                          <option value="Absent">Absent</option>
-                          <option value="Late">Late</option>
-                        </select>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <label className="flex items-center gap-2 text-xs">
-                          <input
-                            type="checkbox"
-                            checked={!!row.is_verified}
-                            onChange={(e) =>
-                              updateHistoryRow(row.id, (r) => ({ ...r, is_verified: e.target.checked }))
-                            }
-                          />
-                          Verified
-                        </label>
-                        <Badge
-                          variant={row.is_verified ? "default" : "secondary"}
-                          className={row.is_verified ? "bg-emerald-600" : "bg-amber-100 text-amber-800"}
-                        >
-                          {row.is_verified ? "Verified" : "Pending"}
-                        </Badge>
-                      </div>
-                      <div className="flex gap-2 justify-end">
-                        <Button size="sm" variant="outline" onClick={() => saveHistoryRow(row)}>
-                          Save
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-destructive border-destructive/30 hover:bg-destructive/10"
-                          onClick={() => deleteHistoryRow(row)}
-                        >
-                          <XCircle className="w-4 h-4 mr-1" /> Delete
-                        </Button>
-                      </div>
+            <div className="space-y-6">
+              <Card className="border-2 border-primary/30 bg-primary/5">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Plus className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-semibold">Add New Record</h3>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-3 items-end">
+                    <div className="flex-1 min-w-[150px]">
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Date</label>
+                      <Input
+                        type="date"
+                        value={newDate}
+                        onChange={(e) => setNewDate(e.target.value)}
+                        className="w-full"
+                      />
                     </div>
-                  ))
+                    <div className="flex-1 min-w-[120px]">
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
+                      <select
+                        className="h-10 w-full rounded-md border border-input px-3 text-sm"
+                        value={newStatus}
+                        onChange={(e) => setNewStatus(e.target.value)}
+                      >
+                        <option>Present</option>
+                        <option>Absent</option>
+                        <option>Late</option>
+                        <option>Excused</option>
+                      </select>
+                    </div>
+                    <label className="flex items-center gap-2">
+                      <Checkbox checked={newVerified} onCheckedChange={(checked) => setNewVerified(Boolean(checked))} />
+                      <span className="text-sm">Mark as verified</span>
+                    </label>
+                    <Button onClick={addHistoryRow} className="gap-2">
+                      <Plus className="h-4 w-4" /> Add Record
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    New records require an existing schedule entry for the selected date.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Attendance History</h3>
+                {detailHistory.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8 border rounded-lg">
+                    No attendance records found.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {detailHistory.map((row) => (
+                      <AttendanceRecordRow
+                        key={row.id}
+                        record={row}
+                        onSave={saveHistoryRow}
+                        onDelete={deleteHistoryRow}
+                      />
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
