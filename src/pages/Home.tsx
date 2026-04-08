@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Carousel, CarouselApi, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
+import { Carousel, CarouselApi, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { MapPin, Phone, Mail, ChevronRight, ArrowRight, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -62,13 +62,13 @@ const Home = () => {
     onSelect();
     emblaApi.on("select", onSelect);
 
-    return () => emblaApi.off("select", onSelect);
+    return () => { emblaApi.off("select", onSelect); };
   }, [emblaApi]);
 
   useEffect(() => {
     if (!emblaApi) return;
 
-    const interval = window.setInterval(() => emblaApi.scrollNext(), 6000);
+    const interval = window.setInterval(() => emblaApi.scrollNext(), 8000);
     return () => window.clearInterval(interval);
   }, [emblaApi]);
 
@@ -101,26 +101,26 @@ const Home = () => {
     <div>
     {/* ========== HERO ========== */}
     <section className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center text-center text-primary-foreground overflow-hidden">
-      <Carousel
-        className="absolute inset-0"
-        opts={{ loop: true, containScroll: "trimSnaps", align: "start", draggable: true }}
-        setApi={setEmblaApi}
-      >
-        <CarouselContent className="h-full">
-          {heroImages.map((src) => (
-            <CarouselItem key={src} className="h-full">
-              <img
-                src={src}
-                alt="Spirit Life School of Ministry"
-                className="h-full w-full object-cover"
-                loading="lazy"
-              />
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-        <CarouselPrevious className="hidden sm:inline-flex bg-primary/80 text-primary-foreground hover:bg-primary/90" />
-        <CarouselNext className="hidden sm:inline-flex bg-primary/80 text-primary-foreground hover:bg-primary/90" />
-      </Carousel>
+      <div className="absolute inset-0">
+        <Carousel
+          className="h-full"
+          opts={{ loop: true, containScroll: "trimSnaps", align: "start" }}
+          setApi={setEmblaApi}
+        >
+          <CarouselContent className="h-full">
+            {heroImages.map((src) => (
+              <CarouselItem key={src} className="h-full">
+                <img
+                  src={src}
+                  alt="Spirit Life School of Ministry"
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+        </Carousel>
+      </div>
       <div className="absolute inset-0 bg-primary/70" />
       <div className="relative z-10 max-w-3xl px-6 space-y-6">
         <div className="flex items-center justify-center gap-2 pt-4">
