@@ -101,26 +101,26 @@ const Home = () => {
     <div>
     {/* ========== HERO ========== */}
     <section className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center text-center text-primary-foreground overflow-hidden">
-      <Carousel
-        className="absolute inset-0"
-        opts={{ loop: true, containScroll: "trimSnaps", align: "start" }}
-        setApi={setEmblaApi}
-      >
-        <CarouselContent className="h-full">
-          {heroImages.map((src) => (
-            <CarouselItem key={src} className="h-full">
-              <img
-                src={src}
-                alt="Spirit Life School of Ministry"
-                className="h-full w-full object-cover"
-                loading="lazy"
-              />
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-        <CarouselPrevious className="hidden sm:inline-flex bg-primary/80 text-primary-foreground hover:bg-primary/90" />
-        <CarouselNext className="hidden sm:inline-flex bg-primary/80 text-primary-foreground hover:bg-primary/90" />
-      </Carousel>
+      <div className="absolute inset-0">
+        <Carousel
+          className="h-full"
+          opts={{ loop: true, containScroll: "trimSnaps", align: "start" }}
+          setApi={setEmblaApi}
+        >
+          <CarouselContent className="h-full">
+            {heroImages.map((src) => (
+              <CarouselItem key={src} className="h-full">
+                <img
+                  src={src}
+                  alt="Spirit Life School of Ministry"
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+        </Carousel>
+      </div>
       <div className="absolute inset-0 bg-primary/70" />
       <div className="relative z-10 max-w-3xl px-6 space-y-6">
         <div className="flex items-center justify-center gap-2 pt-4">
