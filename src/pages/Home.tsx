@@ -29,8 +29,7 @@ Section.displayName = "Section";
 
 const Home = () => {
   const [acceptingApplications, setAcceptingApplications] = useState(true);
-  const [emblaApi, setEmblaApi] = useState<CarouselApi | null>(null);
-  const [selectedSlide, setSelectedSlide] = useState(0);
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   useEffect(() => {
     const fetchEnrollmentStatus = async () => {
@@ -42,7 +41,6 @@ const Home = () => {
           .single();
 
         if (data) {
-          // value is jsonb - could be boolean true, string "true", or JSON string
           const val = data.value;
           setAcceptingApplications(val === true || val === 'true');
         }
@@ -53,23 +51,6 @@ const Home = () => {
 
     fetchEnrollmentStatus();
   }, []);
-
-  useEffect(() => {
-    if (!emblaApi) return;
-
-    const onSelect = () => setSelectedSlide(emblaApi.selectedScrollSnap());
-    onSelect();
-    emblaApi.on("select", onSelect);
-
-    return () => { emblaApi.off("select", onSelect); };
-  }, [emblaApi]);
-
-  useEffect(() => {
-    if (!emblaApi) return;
-
-    const interval = window.setInterval(() => emblaApi.scrollNext(), 8000);
-    return () => window.clearInterval(interval);
-  }, [emblaApi]);
 
   const RegisterButtons = () => (
     <>
