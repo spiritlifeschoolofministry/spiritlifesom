@@ -75,26 +75,26 @@ const Home = () => {
   );
 
   const heroImages = [
-    "/images/som1.jpeg",
-    "/images/som2.jpeg",
     "/images/som3.jpeg",
     "/images/som4.jpeg",
     "/images/som5.jpeg",
     "/images/som7.jpeg",
     "/images/som8.jpeg",
+    "/images/som1.jpeg",
+    "/images/som2.jpeg",
   ];
 
   return (
     <div>
     {/* ========== HERO ========== */}
     <section className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center text-center text-primary-foreground overflow-hidden">
-      {/* Crossfade background images */}
+      {/* Crossfade background images with Ken Burns effect */}
       {heroImages.map((src, index) => (
         <img
           key={src}
           src={src}
           alt=""
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-in-out ${index === currentSlide ? "opacity-100" : "opacity-0"}`}
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-in-out ${index === currentSlide ? "opacity-100 animate-ken-burns" : "opacity-0"}`}
         />
       ))}
       <div className="absolute inset-0 bg-primary/70" />
