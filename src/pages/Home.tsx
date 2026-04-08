@@ -52,6 +52,13 @@ const Home = () => {
     fetchEnrollmentStatus();
   }, []);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % 7);
+    }, 8000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   const RegisterButtons = () => (
     <>
       {acceptingApplications ? (
