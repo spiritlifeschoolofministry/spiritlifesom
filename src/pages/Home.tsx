@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Carousel, CarouselApi, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
 import { MapPin, Phone, Mail, ChevronRight, ArrowRight, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -29,6 +30,8 @@ Section.displayName = "Section";
 
 const Home = () => {
   const [acceptingApplications, setAcceptingApplications] = useState(true);
+  const [emblaApi, setEmblaApi] = useState<CarouselApi | null>(null);
+  const [selectedSlide, setSelectedSlide] = useState(0);
 
   useEffect(() => {
     const fetchEnrollmentStatus = async () => {
@@ -52,6 +55,23 @@ const Home = () => {
     fetchEnrollmentStatus();
   }, []);
 
+  useEffect(() => {
+    if (!emblaApi) return;
+
+    const onSelect = () => setSelectedSlide(emblaApi.selectedScrollSnap());
+    onSelect();
+    emblaApi.on("select", onSelect);
+
+    return () => emblaApi.off("select", onSelect);
+  }, [emblaApi]);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+
+    const interval = window.setInterval(() => emblaApi.scrollNext(), 6000);
+    return () => window.clearInterval(interval);
+  }, [emblaApi]);
+
   const RegisterButtons = () => (
     <>
       {acceptingApplications ? (
@@ -67,13 +87,53 @@ const Home = () => {
     </>
   );
 
+  const heroImages = [
+    "/images/som1.jpeg",
+    "/images/som2.jpeg",
+    "/images/som3.jpeg",
+    "/images/som4.jpeg",
+    "/images/som5.jpeg",
+    "/images/som7.jpeg",
+    "/images/som8.jpeg",
+  ];
+
   return (
     <div>
     {/* ========== HERO ========== */}
-    <section className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center text-center text-primary-foreground">
-      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/images/som1.jpeg)" }} />
+    <section className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center text-center text-primary-foreground overflow-hidden">
+      <Carousel
+        className="absolute inset-0"
+        opts={{ loop: true, containScroll: "trimSnaps", align: "start", draggable: true }}
+        setApi={setEmblaApi}
+      >
+        <CarouselContent className="h-full">
+          {heroImages.map((src) => (
+            <CarouselItem key={src} className="h-full">
+              <img
+                src={src}
+                alt="Spirit Life School of Ministry"
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            </CarouselItem>
+          ))}
+        </CarouselContent>
+        <CarouselPrevious className="hidden sm:inline-flex bg-primary/80 text-primary-foreground hover:bg-primary/90" />
+        <CarouselNext className="hidden sm:inline-flex bg-primary/80 text-primary-foreground hover:bg-primary/90" />
+      </Carousel>
       <div className="absolute inset-0 bg-primary/70" />
       <div className="relative z-10 max-w-3xl px-6 space-y-6">
+        <div className="flex items-center justify-center gap-2 pt-4">
+          {heroImages.map((_, index) => (
+            <button
+              key={index}
+              type="button"
+              onClick={() => emblaApi?.scrollTo(index)}
+              className={`h-2.5 w-2.5 rounded-full transition-all ${selectedSlide === index ? "bg-primary" : "bg-primary/40 hover:bg-primary/70"}`}
+              aria-label={`Go to slide ${index + 1}`}
+            />
+          ))}
+        </div>
         <img src="/images/school-logo.png" alt="" className="h-24 w-24 object-contain mx-auto" />
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight">
           Spirit Life School of Ministry
