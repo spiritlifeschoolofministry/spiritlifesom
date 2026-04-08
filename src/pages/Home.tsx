@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { MapPin, Phone, Mail, ChevronRight, ArrowRight, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
