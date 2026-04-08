@@ -101,7 +101,7 @@ const Home = () => {
     <div>
     {/* ========== HERO ========== */}
     <section className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center text-center text-primary-foreground overflow-hidden">
-      <div className="absolute inset-0">
+      <div className="absolute inset-0 [&_.overflow-hidden]:h-full">
         <Carousel
           className="h-full"
           opts={{ loop: true, containScroll: "trimSnaps", align: "start" }}
