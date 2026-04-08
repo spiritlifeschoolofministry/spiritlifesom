@@ -51,6 +51,7 @@ import AdminFees from "./pages/admin/Fees";
 import AdminCourses from "./pages/admin/Courses";
 import AdminApprove from "./pages/AdminApprove";
 import NotFound from "./pages/NotFound";
+import { InstallPWA } from "./components/InstallPWA";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <InstallPWA />
         <ScrollToTop />
         <BrowserRouter>
           <SessionManagerProvider>
