@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Carousel, CarouselApi, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import { MapPin, Phone, Mail, ChevronRight, ArrowRight, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -30,8 +29,7 @@ Section.displayName = "Section";
 
 const Home = () => {
   const [acceptingApplications, setAcceptingApplications] = useState(true);
-  const [emblaApi, setEmblaApi] = useState<CarouselApi | null>(null);
-  const [selectedSlide, setSelectedSlide] = useState(0);
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   useEffect(() => {
     const fetchEnrollmentStatus = async () => {
@@ -43,7 +41,6 @@ const Home = () => {
           .single();
 
         if (data) {
-          // value is jsonb - could be boolean true, string "true", or JSON string
           const val = data.value;
           setAcceptingApplications(val === true || val === 'true');
         }
@@ -56,21 +53,11 @@ const Home = () => {
   }, []);
 
   useEffect(() => {
-    if (!emblaApi) return;
-
-    const onSelect = () => setSelectedSlide(emblaApi.selectedScrollSnap());
-    onSelect();
-    emblaApi.on("select", onSelect);
-
-    return () => { emblaApi.off("select", onSelect); };
-  }, [emblaApi]);
-
-  useEffect(() => {
-    if (!emblaApi) return;
-
-    const interval = window.setInterval(() => emblaApi.scrollNext(), 8000);
+    const interval = window.setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % 7);
+    }, 8000);
     return () => window.clearInterval(interval);
-  }, [emblaApi]);
+  }, []);
 
   const RegisterButtons = () => (
     <>
@@ -101,26 +88,15 @@ const Home = () => {
     <div>
     {/* ========== HERO ========== */}
     <section className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center text-center text-primary-foreground overflow-hidden">
-      <div className="absolute inset-0 [&_.overflow-hidden]:h-full">
-        <Carousel
-          className="h-full"
-          opts={{ loop: true, containScroll: "trimSnaps", align: "start" }}
-          setApi={setEmblaApi}
-        >
-          <CarouselContent className="h-full">
-            {heroImages.map((src) => (
-              <CarouselItem key={src} className="h-full">
-                <img
-                  src={src}
-                  alt="Spirit Life School of Ministry"
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                />
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-        </Carousel>
-      </div>
+      {/* Crossfade background images */}
+      {heroImages.map((src, index) => (
+        <img
+          key={src}
+          src={src}
+          alt=""
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-in-out ${index === currentSlide ? "opacity-100" : "opacity-0"}`}
+        />
+      ))}
       <div className="absolute inset-0 bg-primary/70" />
       <div className="relative z-10 max-w-3xl px-6 space-y-6">
         <div className="flex items-center justify-center gap-2 pt-4">
@@ -128,8 +104,8 @@ const Home = () => {
             <button
               key={index}
               type="button"
-              onClick={() => emblaApi?.scrollTo(index)}
-              className={`h-2.5 w-2.5 rounded-full transition-all ${selectedSlide === index ? "bg-primary" : "bg-primary/40 hover:bg-primary/70"}`}
+              onClick={() => setCurrentSlide(index)}
+              className={`h-2.5 w-2.5 rounded-full transition-all ${currentSlide === index ? "bg-primary" : "bg-primary/40 hover:bg-primary/70"}`}
               aria-label={`Go to slide ${index + 1}`}
             />
           ))}
