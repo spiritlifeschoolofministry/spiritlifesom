@@ -62,13 +62,13 @@ const Home = () => {
     onSelect();
     emblaApi.on("select", onSelect);
 
-    return () => emblaApi.off("select", onSelect);
+    return () => { emblaApi.off("select", onSelect); };
   }, [emblaApi]);
 
   useEffect(() => {
     if (!emblaApi) return;
 
-    const interval = window.setInterval(() => emblaApi.scrollNext(), 6000);
+    const interval = window.setInterval(() => emblaApi.scrollNext(), 8000);
     return () => window.clearInterval(interval);
   }, [emblaApi]);
 
@@ -103,7 +103,7 @@ const Home = () => {
     <section className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center text-center text-primary-foreground overflow-hidden">
       <Carousel
         className="absolute inset-0"
-        opts={{ loop: true, containScroll: "trimSnaps", align: "start", draggable: true }}
+        opts={{ loop: true, containScroll: "trimSnaps", align: "start" }}
         setApi={setEmblaApi}
       >
         <CarouselContent className="h-full">
