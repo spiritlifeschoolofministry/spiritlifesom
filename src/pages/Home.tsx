@@ -134,7 +134,7 @@ const Home = () => {
       <div className="max-w-4xl mx-auto text-center space-y-6">
         <h2 className="text-3xl sm:text-4xl font-bold text-primary">About Spirit Life SOM</h2>
         <p className="text-muted-foreground leading-relaxed text-lg">
-          Spirit Life School of Ministry exists to thoroughly equip women, men and brethren who are genuinely
+          Spirit Life School of Ministry exists to thoroughly equip men, women and brethren who are genuinely
           called by God into Ministry with the accurate Word of God. Rooted in Scripture and led by the Holy Spirit,
           we are committed to raising men and women who are grounded in biblical truth and prepared for effective
           service in God's vineyard.
@@ -150,7 +150,7 @@ const Home = () => {
       <div className="max-w-4xl mx-auto text-center space-y-6">
         <h2 className="text-3xl sm:text-4xl font-bold text-primary">Our Programme</h2>
         <p className="text-muted-foreground text-lg">
-          11 comprehensive courses designed to ground you in biblical truth and prepare you for ministry.
+          Detailed comprehensive courses designed to ground you in biblical truth and prepare you for ministry.
         </p>
         <Button asChild variant="outline" className="border-primary text-primary hover:bg-primary/10">
           <Link to="/courses" className="flex items-center gap-2">View All Courses <ArrowRight size={16} /></Link>

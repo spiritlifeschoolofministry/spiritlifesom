@@ -8,16 +8,16 @@ const faculty = [
     bio: "A seasoned minister of the Gospel and leader of Spirit Life C&S Church, Prophet Obadare brings deep biblical insight and spiritual authority to guide students in their ministerial journey.",
   },
   {
+    initials: "FO",
+    name: "Pastor Folakemi Obadare",
+    title: "Co-director",
+    bio: "Pastor Folakemi Obadare serves alongside Prophet Cherub Obadare as Co-director of Spirit Life School of Ministry, offering nurturing leadership, spiritual care, and a heart for empowering students.",
+  },
+  {
     initials: "KO",
     name: "Prophet Kayode Olagunju",
     title: "School Coordinator",
     bio: "Prophet Olagunju oversees the academic and operational structure of the school, ensuring every student receives the support they need to thrive spiritually and academically.",
-  },
-  {
-    initials: "WF",
-    name: "Bro Williams Folorunsho",
-    title: "Teacher",
-    bio: "Bro Williams brings practical ministry experience and a passion for teaching the Word, helping students connect biblical knowledge to real-world ministry application.",
   },
 ];
 
