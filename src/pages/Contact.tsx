@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MapPin, Phone, Mail, Loader2, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import Reveal from "@/components/Reveal";
 
 const ContactPage = () => {
   const [name, setName] = useState("");
@@ -42,13 +43,15 @@ const ContactPage = () => {
       <section className="relative py-20 sm:py-28 text-center text-primary-foreground">
         <div className="absolute inset-0 gradient-purple" />
         <div className="relative z-10 max-w-3xl mx-auto px-4 space-y-3">
-          <h1 className="text-3xl sm:text-5xl font-extrabold">Get In Touch</h1>
-          <p className="text-primary-foreground/80 text-lg">We'd love to hear from you</p>
+          <Reveal>
+            <h1 className="text-3xl sm:text-5xl font-extrabold">Get In Touch</h1>
+            <p className="text-primary-foreground/80 text-lg">We'd love to hear from you</p>
+          </Reveal>
         </div>
       </section>
 
       {/* Contact content */}
-      <section className="py-20 px-4 sm:px-6 bg-background">
+      <Reveal className="py-20 px-4 sm:px-6 bg-background">
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12">
           {/* Contact info */}
           <div className="space-y-6">
@@ -72,45 +75,55 @@ const ContactPage = () => {
 
           {/* Contact form */}
           <div className="space-y-4">
-            <h2 className="text-2xl font-bold text-primary">Send a Message</h2>
-            <Input
-              placeholder="Full Name"
-              className="bg-card"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <Input
-              placeholder="Email"
-              type="email"
-              className="bg-card"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <Textarea
-              placeholder="Your message..."
-              rows={5}
-              className="bg-card"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-            />
-            <Button
-              className="w-full gradient-flame border-0 text-primary-foreground hover:opacity-90 gap-2"
-              onClick={handleSubmit}
-              disabled={sending}
-            >
-              {sending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Sending...
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4" /> Send Message
-                </>
-              )}
-            </Button>
+            <Reveal>
+              <h2 className="text-2xl font-bold text-primary">Send a Message</h2>
+            </Reveal>
+            <Reveal delay={60}>
+              <Input
+                placeholder="Full Name"
+                className="bg-card"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </Reveal>
+            <Reveal delay={120}>
+              <Input
+                placeholder="Email"
+                type="email"
+                className="bg-card"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </Reveal>
+            <Reveal delay={180}>
+              <Textarea
+                placeholder="Your message..."
+                rows={5}
+                className="bg-card"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+              />
+            </Reveal>
+            <Reveal delay={220}>
+              <Button
+                className="w-full gradient-flame border-0 text-primary-foreground hover:opacity-90 gap-2"
+                onClick={handleSubmit}
+                disabled={sending}
+              >
+                {sending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" /> Send Message
+                  </>
+                )}
+              </Button>
+            </Reveal>
           </div>
         </div>
-      </section>
+      </Reveal>
     </div>
   );
 };

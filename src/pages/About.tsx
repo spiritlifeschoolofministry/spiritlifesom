@@ -1,6 +1,6 @@
-import { useRef, useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { BookOpen, Flame, Users, Award } from "lucide-react";
+import Reveal from "@/components/Reveal";
 
 const whyCards = [
   { icon: BookOpen, title: "Biblical Foundation", desc: "Every lesson is rooted in the Word of God" },
@@ -17,24 +17,6 @@ const galleryImages = [
   "/images/som8.jpeg",
 ];
 
-function useFadeIn() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } }, { threshold: 0.15 });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-  return { ref, className: `transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}` };
-}
-
-function Section({ className, children }: { className?: string; children: React.ReactNode }) {
-  const fade = useFadeIn();
-  return <section ref={fade.ref} className={`${fade.className} ${className ?? ""}`}>{children}</section>;
-}
-
 const About = () => (
   <div>
     {/* Hero banner */}
@@ -42,13 +24,15 @@ const About = () => (
       <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/images/som2.jpeg)" }} />
       <div className="absolute inset-0 bg-primary/80" />
       <div className="relative z-10 max-w-3xl mx-auto px-4 space-y-3">
-        <h1 className="text-3xl sm:text-5xl font-extrabold">About Spirit Life School of Ministry</h1>
-        <p className="text-primary-foreground/80 text-lg italic">"Equipping The Saints..."</p>
+        <Reveal>
+          <h1 className="text-3xl sm:text-5xl font-extrabold">About Spirit Life School of Ministry</h1>
+          <p className="text-primary-foreground/80 text-lg italic">"Equipping The Saints..."</p>
+        </Reveal>
       </div>
     </section>
 
     {/* About content */}
-    <Section className="py-20 px-4 sm:px-6 bg-background">
+    <Reveal className="py-20 px-4 sm:px-6 bg-background">
       <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center">
         <div className="space-y-6">
           <h2 className="text-3xl sm:text-4xl font-bold text-primary">Our Mission</h2>
@@ -73,30 +57,32 @@ const About = () => (
           <img src="/images/som2.jpeg" alt="Spirit Life SOM Class" className="w-full h-auto object-cover" loading="lazy" />
         </div>
       </div>
-    </Section>
+    </Reveal>
 
     {/* Why Choose Us */}
-    <Section className="py-20 px-4 sm:px-6 bg-secondary/50">
+    <Reveal className="py-20 px-4 sm:px-6 bg-secondary/50">
       <div className="max-w-6xl mx-auto text-center space-y-12">
         <h2 className="text-3xl sm:text-4xl font-bold text-primary">Why Spirit Life SOM?</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {whyCards.map((c) => (
-            <Card key={c.title} className="border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-6 text-center space-y-4">
-                <div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                  <c.icon className="text-primary" size={28} />
-                </div>
-                <h3 className="font-semibold text-lg text-foreground">{c.title}</h3>
-                <p className="text-muted-foreground text-sm">{c.desc}</p>
-              </CardContent>
-            </Card>
+          {whyCards.map((c, i) => (
+            <Reveal key={c.title} className="w-full" delay={i * 80}>
+              <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
+                <CardContent className="p-6 text-center space-y-4">
+                  <div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                    <c.icon className="text-primary" size={28} />
+                  </div>
+                  <h3 className="font-semibold text-lg text-foreground">{c.title}</h3>
+                  <p className="text-muted-foreground text-sm">{c.desc}</p>
+                </CardContent>
+              </Card>
+            </Reveal>
           ))}
         </div>
       </div>
-    </Section>
+    </Reveal>
 
     {/* History & Gallery */}
-    <Section className="py-20 px-4 sm:px-6 bg-background">
+    <Reveal className="py-20 px-4 sm:px-6 bg-background">
       <div className="max-w-6xl mx-auto space-y-12">
         <div className="max-w-3xl mx-auto text-center space-y-4">
           <h2 className="text-3xl sm:text-4xl font-bold text-primary">Our Story</h2>
@@ -112,13 +98,13 @@ const About = () => (
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           {galleryImages.map((src, i) => (
-            <div key={i} className="rounded-lg overflow-hidden shadow-md aspect-square">
+            <Reveal key={src} delay={i * 60} className="rounded-lg overflow-hidden shadow-md aspect-square">
               <img src={src} alt={`SOM Gallery ${i + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" loading="lazy" />
-            </div>
+            </Reveal>
           ))}
         </div>
       </div>
-    </Section>
+    </Reveal>
   </div>
 );
 

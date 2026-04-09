@@ -1,31 +1,9 @@
 import { Link } from "react-router-dom";
-import { useRef, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { MapPin, Phone, Mail, ChevronRight, ArrowRight, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-
-function useFadeIn() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } }, { threshold: 0.15 });
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-  return { ref, className: `transition-all duration-700 ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}` };
-}
-
-import React from "react";
-
-const Section = React.forwardRef<HTMLElement, { className?: string; children: React.ReactNode }>(
-  ({ className, children }, _ref) => {
-    const fade = useFadeIn();
-    return <section ref={fade.ref} className={`${fade.className} ${className ?? ""}`}>{children}</section>;
-  }
-);
-Section.displayName = "Section";
+import Reveal from "@/components/Reveal";
 
 const Home = () => {
   const [acceptingApplications, setAcceptingApplications] = useState(true);
@@ -98,7 +76,7 @@ const Home = () => {
         />
       ))}
       <div className="absolute inset-0 bg-primary/70" />
-      <div className="relative z-10 max-w-3xl px-6 space-y-6">
+      <Reveal className="relative z-10 max-w-3xl px-6 space-y-6">
         <div className="flex items-center justify-center gap-2 pt-4">
           {heroImages.map((_, index) => (
             <button
@@ -126,11 +104,11 @@ const Home = () => {
             <Link to="/about">Learn More</Link>
           </Button>
         </div>
-      </div>
+      </Reveal>
     </section>
 
     {/* ========== BRIEF ABOUT ========== */}
-    <Section className="py-20 px-4 sm:px-6 bg-background">
+    <Reveal className="py-20 px-4 sm:px-6 bg-background">
       <div className="max-w-4xl mx-auto text-center space-y-6">
         <h2 className="text-3xl sm:text-4xl font-bold text-primary">About Spirit Life SOM</h2>
         <p className="text-muted-foreground leading-relaxed text-lg">
@@ -143,10 +121,10 @@ const Home = () => {
           <Link to="/about" className="flex items-center gap-2">Learn More <ArrowRight size={16} /></Link>
         </Button>
       </div>
-    </Section>
+    </Reveal>
 
     {/* ========== BRIEF COURSES ========== */}
-    <Section className="py-20 px-4 sm:px-6 bg-secondary/50">
+    <Reveal className="py-20 px-4 sm:px-6 bg-secondary/50">
       <div className="max-w-4xl mx-auto text-center space-y-6">
         <h2 className="text-3xl sm:text-4xl font-bold text-primary">Our Programme</h2>
         <p className="text-muted-foreground text-lg">
@@ -156,10 +134,10 @@ const Home = () => {
           <Link to="/courses" className="flex items-center gap-2">View All Courses <ArrowRight size={16} /></Link>
         </Button>
       </div>
-    </Section>
+    </Reveal>
 
     {/* ========== HOW TO APPLY ========== */}
-    <Section className="py-20 px-4 sm:px-6 bg-primary/5">
+    <Reveal className="py-20 px-4 sm:px-6 bg-primary/5">
       <div className="max-w-4xl mx-auto text-center space-y-12">
         <h2 className="text-3xl sm:text-4xl font-bold text-primary">Begin Your Ministry Journey</h2>
         <div className="grid sm:grid-cols-3 gap-6">
@@ -168,7 +146,7 @@ const Home = () => {
             { step: "2", title: "Get Admitted", desc: "Await your admission decision" },
             { step: "3", title: "Start Learning", desc: "Begin your transformation" },
           ].map((s, i) => (
-            <div key={s.step} className="flex flex-col items-center gap-3 relative">
+            <Reveal key={s.step} delay={i * 80} className="flex flex-col items-center gap-3 relative">
               <div className="w-14 h-14 rounded-full gradient-flame text-primary-foreground flex items-center justify-center text-xl font-bold">
                 {s.step}
               </div>
@@ -177,15 +155,15 @@ const Home = () => {
               {i < 2 && (
                 <ChevronRight className="hidden sm:block absolute -right-3 top-4 text-primary/40" size={28} />
               )}
-            </div>
+            </Reveal>
           ))}
         </div>
         <RegisterButtons />
       </div>
-    </Section>
+    </Reveal>
 
     {/* ========== CONTACT INFO ========== */}
-    <Section className="py-16 px-4 sm:px-6 bg-background">
+    <Reveal className="py-16 px-4 sm:px-6 bg-background">
       <div className="max-w-4xl mx-auto">
         <h2 className="text-2xl font-bold text-primary text-center mb-8">Contact Us</h2>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-muted-foreground text-sm">
@@ -203,7 +181,7 @@ const Home = () => {
           </div>
         </div>
       </div>
-    </Section>
+    </Reveal>
     </div>
   );
 };
