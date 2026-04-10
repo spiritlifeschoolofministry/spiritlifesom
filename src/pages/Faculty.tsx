@@ -20,6 +20,7 @@ const faculty = [
     name: "Prophet Kayode Olagunju",
     title: "School Coordinator",
     bio: "Prophet Olagunju oversees the academic and operational structure of the school, ensuring every student receives the support they need to thrive spiritually and academically.",
+    image: "PRO-KAY-IMG1.jpg",
   },
 ];
 
