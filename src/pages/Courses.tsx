@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Check, Clock, BookOpen, GraduationCap } from "lucide-react";
+import Reveal from "@/components/Reveal";
 
 const basicCourses = [
   { code: "SLSM101", title: "The Canon of Scriptures" },
@@ -35,8 +36,10 @@ const CoursesPage = () => (
     <section className="relative py-20 sm:py-28 text-center text-primary-foreground">
       <div className="absolute inset-0 gradient-purple" />
       <div className="relative z-10 max-w-3xl mx-auto px-4 space-y-3">
-        <h1 className="text-3xl sm:text-5xl font-extrabold">Our Programme</h1>
-        <p className="text-primary-foreground/80 text-lg">Equipping believers for ministry — 2025/26 Academic Session</p>
+        <Reveal>
+          <h1 className="text-3xl sm:text-5xl font-extrabold">Our Programme</h1>
+          <p className="text-primary-foreground/80 text-lg">Equipping believers for ministry — 2025/26 Academic Session</p>
+        </Reveal>
       </div>
     </section>
 
@@ -45,116 +48,136 @@ const CoursesPage = () => (
 
         {/* ── Basic Module ── */}
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="flex items-center gap-2">
-              <BookOpen className="w-6 h-6 text-primary" />
-              <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Basic Module</h2>
+          <Reveal>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-6 h-6 text-primary" />
+                <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Basic Module</h2>
+              </div>
+              <Badge variant="secondary" className="w-fit text-xs">11 Courses • Now Enrolling</Badge>
             </div>
-            <Badge variant="secondary" className="w-fit text-xs">11 Courses • Now Enrolling</Badge>
-          </div>
-          <p className="text-muted-foreground max-w-2xl">
-            A foundational programme designed to ground you in scripture, ministry principles, and spiritual maturity. Perfect for new ministers and those seeking deeper understanding.
-          </p>
+          </Reveal>
+          <Reveal delay={60}>
+            <p className="text-muted-foreground max-w-2xl">
+              A foundational programme designed to ground you in scripture, ministry principles, and spiritual maturity. Perfect for new ministers and those seeking deeper understanding.
+            </p>
+          </Reveal>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {basicCourses.map((c) => (
-              <Card key={c.code} className="border-primary/20 hover:border-primary/40 transition-colors">
-                <CardContent className="p-5 flex items-start gap-3">
-                  <span className="text-xs font-bold text-accent whitespace-nowrap">{c.code}</span>
-                  <span className="text-sm font-medium text-foreground">{c.title}</span>
-                </CardContent>
-              </Card>
+            {basicCourses.map((c, i) => (
+              <Reveal key={c.code} delay={80 + i * 40}>
+                <Card className="border-primary/20 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                  <CardContent className="p-5 flex items-start gap-3">
+                    <span className="text-xs font-bold text-accent whitespace-nowrap">{c.code}</span>
+                    <span className="text-sm font-medium text-foreground">{c.title}</span>
+                  </CardContent>
+                </Card>
+              </Reveal>
             ))}
           </div>
         </div>
 
         {/* ── Advanced Module ── */}
         <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="flex items-center gap-2">
-              <GraduationCap className="w-6 h-6 text-muted-foreground" />
-              <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Advanced Module</h2>
+          <Reveal>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <GraduationCap className="w-6 h-6 text-muted-foreground" />
+                <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Advanced Module</h2>
+              </div>
+              <Badge variant="outline" className="w-fit text-xs gap-1.5 border-muted-foreground/30 text-muted-foreground">
+                <Clock className="w-3 h-3" />
+                Coming Soon
+              </Badge>
             </div>
-            <Badge variant="outline" className="w-fit text-xs gap-1.5 border-muted-foreground/30 text-muted-foreground">
-              <Clock className="w-3 h-3" />
-              Coming Soon
-            </Badge>
-          </div>
-          <p className="text-muted-foreground max-w-2xl">
-            An in-depth programme for graduates of the Basic Module. Dive deeper into theology, pastoral practice, and leadership for effective ministry.
-          </p>
+          </Reveal>
+          <Reveal delay={60}>
+            <p className="text-muted-foreground max-w-2xl">
+              An in-depth programme for graduates of the Basic Module. Dive deeper into theology, pastoral practice, and leadership for effective ministry.
+            </p>
+          </Reveal>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 opacity-60">
-            {advancedCourses.map((c) => (
-              <Card key={c.code} className="border-border bg-muted/30">
-                <CardContent className="p-5 flex items-start gap-3">
-                  <span className="text-xs font-bold text-muted-foreground whitespace-nowrap">{c.code}</span>
-                  <span className="text-sm font-medium text-muted-foreground">{c.title}</span>
-                </CardContent>
-              </Card>
+            {advancedCourses.map((c, i) => (
+              <Reveal key={c.code} delay={80 + i * 40}>
+                <Card className="border-border bg-muted/30">
+                  <CardContent className="p-5 flex items-start gap-3">
+                    <span className="text-xs font-bold text-muted-foreground whitespace-nowrap">{c.code}</span>
+                    <span className="text-sm font-medium text-muted-foreground">{c.title}</span>
+                  </CardContent>
+                </Card>
+              </Reveal>
             ))}
           </div>
         </div>
 
         {/* ── Pricing ── */}
         <div className="space-y-6">
-          <h2 className="text-2xl sm:text-3xl font-bold text-foreground text-center">Tuition & Fees</h2>
+          <Reveal>
+            <h2 className="text-2xl sm:text-3xl font-bold text-foreground text-center">Tuition & Fees</h2>
+          </Reveal>
           <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
             {/* Physical */}
-            <Card className="border-primary/30 relative">
-              <CardContent className="p-8 space-y-6">
-                <div>
-                  <p className="text-sm font-semibold text-primary uppercase tracking-wide">Physical</p>
-                  <p className="text-4xl font-extrabold text-foreground mt-1">FREE</p>
-                </div>
-                <ul className="space-y-3 text-sm text-muted-foreground">
-                  {[
-                    "Weekly Saturday classes (9AM - 12PM)",
-                    "In-person lectures and practicals",
-                    "Access to course materials (fee applies)",
-                    "Project defense and graduation",
-                  ].map((f) => (
-                    <li key={f} className="flex gap-2"><Check size={16} className="text-primary shrink-0 mt-0.5" />{f}</li>
-                  ))}
-                </ul>
-                <Button asChild variant="outline" className="w-full border-primary text-primary hover:bg-primary/10">
-                  <Link to="/register">Register Free</Link>
-                </Button>
-              </CardContent>
-            </Card>
+            <Reveal delay={80}>
+              <Card className="border-primary/30 relative hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+                <CardContent className="p-8 space-y-6">
+                  <div>
+                    <p className="text-sm font-semibold text-primary uppercase tracking-wide">Physical</p>
+                    <p className="text-4xl font-extrabold text-foreground mt-1">FREE</p>
+                  </div>
+                  <ul className="space-y-3 text-sm text-muted-foreground">
+                    {[
+                      "Weekly Saturday classes (9AM - 12PM)",
+                      "In-person lectures and practicals",
+                      "Access to course materials (fee applies)",
+                      "Project defense and graduation",
+                    ].map((f) => (
+                      <li key={f} className="flex gap-2"><Check size={16} className="text-primary shrink-0 mt-0.5" />{f}</li>
+                    ))}
+                  </ul>
+                  <Button asChild variant="outline" className="w-full border-primary text-primary hover:bg-primary/10">
+                    <Link to="/register">Register Free</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            </Reveal>
 
             {/* Online */}
-            <Card className="border-0 gradient-flame text-primary-foreground relative overflow-hidden shadow-xl">
-              <div className="absolute top-4 right-4 bg-primary-foreground/20 text-primary-foreground text-xs font-bold px-3 py-1 rounded-full">
-                Most Popular
-              </div>
-              <CardContent className="p-8 space-y-6">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-wide text-primary-foreground/90">Online</p>
-                  <p className="text-4xl font-extrabold mt-1">₦30,000</p>
+            <Reveal delay={160}>
+              <Card className="border-0 gradient-flame text-primary-foreground relative overflow-hidden shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+                <div className="absolute top-4 right-4 bg-primary-foreground/20 text-primary-foreground text-xs font-bold px-3 py-1 rounded-full">
+                  Most Popular
                 </div>
-                <ul className="space-y-3 text-sm text-primary-foreground/90">
-                  {[
-                    "Live Zoom sessions every Saturday",
-                    "Full training materials included",
-                    "Class recordings access",
-                    "Must attend physically for project defense and graduation",
-                  ].map((f) => (
-                    <li key={f} className="flex gap-2"><Check size={16} className="shrink-0 mt-0.5" />{f}</li>
-                  ))}
-                </ul>
-                <Button asChild className="w-full bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-semibold">
-                  <Link to="/register">Register Now</Link>
-                </Button>
-              </CardContent>
-            </Card>
+                <CardContent className="p-8 space-y-6">
+                  <div>
+                    <p className="text-sm font-semibold uppercase tracking-wide text-primary-foreground/90">Online</p>
+                    <p className="text-4xl font-extrabold mt-1">₦30,000</p>
+                  </div>
+                  <ul className="space-y-3 text-sm text-primary-foreground/90">
+                    {[
+                      "Live Zoom sessions every Saturday",
+                      "Full training materials included",
+                      "Class recordings access",
+                      "Must attend physically for project defense and graduation",
+                    ].map((f) => (
+                      <li key={f} className="flex gap-2"><Check size={16} className="shrink-0 mt-0.5" />{f}</li>
+                    ))}
+                  </ul>
+                  <Button asChild className="w-full bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-semibold">
+                    <Link to="/register">Register Now</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            </Reveal>
           </div>
         </div>
 
         {/* CTA */}
-        <div className="text-center">
-          <Button asChild size="lg" className="gradient-flame border-0 text-primary-foreground text-base px-10 hover:opacity-90">
-            <Link to="/register">Register Now</Link>
-          </Button>
-        </div>
+        <Reveal>
+          <div className="text-center">
+            <Button asChild size="lg" className="gradient-flame border-0 text-primary-foreground text-base px-10 hover:opacity-90">
+              <Link to="/register">Register Now</Link>
+            </Button>
+          </div>
+        </Reveal>
       </div>
     </section>
   </div>
