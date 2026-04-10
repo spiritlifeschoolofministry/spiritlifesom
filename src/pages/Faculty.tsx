@@ -7,6 +7,7 @@ const faculty = [
     name: "Prophet Cherub Obadare",
     title: "Director, School of Ministry",
     bio: "A seasoned minister of the Gospel and leader of Spirit Life C&S Church, Prophet Obadare brings deep biblical insight and spiritual authority to guide students in their ministerial journey.",
+    image: "PRO-CHERUB-IMG1.jpg",
   },
   {
     initials: "FO",
@@ -42,9 +43,13 @@ const FacultyPage = () => (
           <Reveal key={f.name} delay={i * 120}>
             <Card className="border-0 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
               <CardContent className="p-8 text-center space-y-4">
-                <div className="mx-auto w-24 h-24 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-3xl font-bold">
-                  {f.initials}
-                </div>
+                {f.image ? (
+                  <img src={`/images/${f.image}`} alt={f.name} className="mx-auto w-24 h-24 rounded-full object-cover" />
+                ) : (
+                  <div className="mx-auto w-24 h-24 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-3xl font-bold">
+                    {f.initials}
+                  </div>
+                )}
                 <div>
                   <h3 className="font-semibold text-xl text-foreground">{f.name}</h3>
                   <p className="text-sm text-accent font-medium mt-1">{f.title}</p>
