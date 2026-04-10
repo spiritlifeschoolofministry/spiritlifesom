@@ -101,7 +101,7 @@ const Login = () => {
                 <li>Disable browser extensions temporarily</li>
                 <li>If the issue persists, contact the admin at{" "}
                   <a href="mailto:spiritlifeschoolofministry@gmail.com" 
-                     className="underline hover:text-blue-900">
+                     className="underline hover:text-blue-900 break-words">
                     spiritlifeschoolofministry@gmail.com
                   </a>
                 </li>
