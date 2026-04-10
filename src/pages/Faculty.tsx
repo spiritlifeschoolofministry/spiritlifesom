@@ -14,6 +14,7 @@ const faculty = [
     name: "Pastor Folakemi Obadare",
     title: "Co-director",
     bio: "Pastor Folakemi Obadare serves alongside Prophet Cherub Obadare as Co-director of Spirit Life School of Ministry, offering nurturing leadership, spiritual care, and a heart for empowering students.",
+    image: "PFO-IMG-2.png",
   },
   {
     initials: "KO",
