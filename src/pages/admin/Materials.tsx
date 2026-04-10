@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Upload, Pin, PinOff, Trash2, ExternalLink } from 'lucide-react';
+import { Loader2, Upload, Pin, PinOff, Trash2, ExternalLink, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -34,6 +34,12 @@ const AdminMaterials = () => {
   const [isPinningId, setIsPinningId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [cohortFilter, setCohortFilter] = useState('all');
+
+  // Share to cohort state
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [sharingMaterial, setSharingMaterial] = useState<Tables<'course_materials'> | null>(null);
+  const [shareTargetCohort, setShareTargetCohort] = useState('');
+  const [isSharing, setIsSharing] = useState(false);
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<UploadForm>({
     defaultValues: { title: '', description: '', cohort_id: '', course_id: '', material_type: '' },
@@ -136,9 +142,64 @@ const AdminMaterials = () => {
     }
   };
 
+  const openShareModal = (material: Tables<'course_materials'>) => {
+    setSharingMaterial(material);
+    setShareTargetCohort('');
+    setShareModalOpen(true);
+  };
+
+  const handleShare = async () => {
+    if (!sharingMaterial || !shareTargetCohort) {
+      toast.error('Please select a target cohort');
+      return;
+    }
+    if (shareTargetCohort === sharingMaterial.cohort_id) {
+      toast.error('Material already belongs to this cohort');
+      return;
+    }
+    // Check if already shared to this cohort
+    const existing = materials.find(
+      m => m.file_url === sharingMaterial.file_url && m.cohort_id === shareTargetCohort
+    );
+    if (existing) {
+      toast.error('This material is already shared with that cohort');
+      return;
+    }
+    try {
+      setIsSharing(true);
+      const { error } = await supabase.from('course_materials').insert({
+        cohort_id: shareTargetCohort,
+        course_id: sharingMaterial.course_id,
+        title: sharingMaterial.title,
+        description: sharingMaterial.description,
+        file_url: sharingMaterial.file_url,
+        file_type: sharingMaterial.file_type,
+        material_type: sharingMaterial.material_type,
+        is_paid: sharingMaterial.is_paid,
+        is_pinned: false,
+        uploaded_by: sharingMaterial.uploaded_by,
+      });
+      if (error) throw error;
+      toast.success('Material shared to cohort successfully');
+      setShareModalOpen(false);
+      setSharingMaterial(null);
+      await fetchData();
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to share material');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   if (loading) {
     return (<div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin" /></div>);
   }
+
+  // Cohorts available to share to (exclude the material's current cohort)
+  const shareableCohorts = sharingMaterial
+    ? cohorts.filter(c => c.id !== sharingMaterial.cohort_id)
+    : [];
 
   return (
     <div className="space-y-6">
@@ -207,6 +268,36 @@ const AdminMaterials = () => {
         </Dialog>
       </div>
 
+      {/* Share to Cohort Dialog */}
+      <Dialog open={shareModalOpen} onOpenChange={setShareModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share Material to Another Cohort</DialogTitle>
+            <DialogDescription>
+              This will make "<span className="font-medium text-foreground">{sharingMaterial?.title}</span>" available to another cohort without re-uploading the file.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label>Target Cohort</Label>
+              <Select value={shareTargetCohort} onValueChange={setShareTargetCohort}>
+                <SelectTrigger><SelectValue placeholder="Select cohort to share with" /></SelectTrigger>
+                <SelectContent>
+                  {shareableCohorts.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleShare} disabled={isSharing || !shareTargetCohort} className="w-full">
+              {isSharing ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sharing...</>) : (
+                <><Share2 className="mr-2 h-4 w-4" /> Share to Cohort</>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -257,6 +348,9 @@ const AdminMaterials = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
+                          <Button size="sm" variant="outline" onClick={() => openShareModal(m)} title="Share to another cohort">
+                            <Share2 className="h-4 w-4" />
+                          </Button>
                           <Button size="sm" variant="outline" onClick={() => togglePin(m.id, m.is_pinned)} disabled={isPinningId === m.id} title={m.is_pinned ? 'Unpin' : 'Pin'}>
                             {isPinningId === m.id ? <Loader2 className="h-4 w-4 animate-spin" /> : m.is_pinned ? <Pin className="h-4 w-4 text-amber-600" /> : <PinOff className="h-4 w-4" />}
                           </Button>
