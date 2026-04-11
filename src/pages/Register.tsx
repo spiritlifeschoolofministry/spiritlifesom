@@ -191,8 +191,32 @@ const Register = () => {
       const userId = authData.user.id;
       console.log("[Register] Auth user created:", userId);
 
-      // Wait briefly for the DB trigger to create the student record
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait for the DB trigger to create the student record, with retry
+      let studentExists = false;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        const { data: check } = await supabase
+          .from('students')
+          .select('id')
+          .eq('profile_id', userId)
+          .maybeSingle();
+        if (check) {
+          studentExists = true;
+          break;
+        }
+      }
+
+      if (!studentExists) {
+        console.error('[Register] Student record not created by trigger after retries');
+      }
+
+      // Fetch active cohort to auto-assign
+      const { data: activeCohort } = await supabase
+        .from('cohorts')
+        .select('id')
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle();
 
       // Update student record with all registration fields
       const dob = form.dobDay && form.dobMonth && form.dobYear
@@ -209,6 +233,7 @@ const Register = () => {
         educational_background: form.educationalBackground || null,
         preferred_language: form.preferredLanguage || null,
         date_of_birth: dob,
+        ...(activeCohort?.id ? { cohort_id: activeCohort.id } : {}),
       };
 
       const { error: studentUpdateError } = await supabase
@@ -217,9 +242,7 @@ const Register = () => {
         .eq('profile_id', userId);
 
       if (studentUpdateError) {
-        console.warn('[Register] Student update failed (non-critical):', studentUpdateError.message);
-      } else {
-        console.log('[Register] Student record updated with registration details');
+        console.error('[Register] Student update failed:', studentUpdateError.message);
       }
 
       // Upload passport photo (non-blocking — doesn't fail registration)
