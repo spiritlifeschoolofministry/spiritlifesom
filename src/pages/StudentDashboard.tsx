@@ -10,8 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Loader2, AlertCircle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Loader2, AlertCircle, TrendingUp, ChevronRight, Sparkles, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
+import Reveal from "@/components/Reveal";
 
 interface FeeBreakdown {
   paid: number;
@@ -77,8 +79,6 @@ const StudentDashboard = () => {
         return;
       }
 
-      console.log("[Dashboard] Loading for user:", authUser.id);
-
       const [profileRes, studentRes, coursesRes, announcementsRes, cohortsRes] = await Promise.all([
         supabase.from("profiles").select("first_name, middle_name, last_name").eq("id", authUser.id).maybeSingle(),
         supabase.from("students").select("id, profile_id, cohort_id, admission_status, is_approved, gender, age").eq("profile_id", authUser.id).maybeSingle(),
@@ -87,8 +87,6 @@ const StudentDashboard = () => {
         supabase.from("cohorts").select("id, name").eq("is_active", true).order("created_at", { ascending: false }),
       ]);
 
-      console.log("[Dashboard] Profile:", profileRes.data, "Student:", studentRes.data);
-
       const firstName = profileRes.data ? [profileRes.data.first_name, profileRes.data.middle_name, profileRes.data.last_name].filter(Boolean).join(' ') : authUser.user_metadata?.full_name || "Student";
       const studentRecord = studentRes.data;
       const studentId = studentRecord?.id || null;
@@ -96,7 +94,6 @@ const StudentDashboard = () => {
       const admissionStatus = studentRecord?.admission_status || null;
       const statusUpper = normalizeStatus(admissionStatus);
       const isAdmitted = statusUpper === "ADMITTED" || statusUpper === "APPROVED";
-      const isGraduate = statusUpper === "GRADUATE";
 
       if (cohortsRes.data) {
         setCohortOptions(cohortsRes.data as CohortOption[]);
@@ -119,12 +116,11 @@ const StudentDashboard = () => {
       let completedCourses = 0;
       let upcomingEvents: DashboardData["upcomingEvents"] = [];
 
-      // Completed courses
       if (cohortId) {
         try {
           const { data: completedData } = await supabase.from("courses").select("id").eq("cohort_id", cohortId).eq("is_completed", true);
           completedCourses = completedData?.length ?? 0;
-        } catch (e) { console.warn("[Dashboard] Completed courses fetch failed:", e); }
+        } catch (e) {}
       }
 
       if (studentId) {
@@ -134,9 +130,7 @@ const StudentDashboard = () => {
             const present = attendance.filter((a) => a.status === "Present").length;
             attendanceRate = Math.round((present / attendance.length) * 100);
           }
-        } catch (e) {
-          console.warn("[Dashboard] Attendance fetch failed:", e);
-        }
+        } catch (e) {}
 
         if (isAdmitted && cohortId) {
           try {
@@ -148,9 +142,7 @@ const StudentDashboard = () => {
             const submittedIds = new Set((submissionRes.data ?? []).map((s) => s.assignment_id));
             totalAssignments = allIds.size;
             pendingAssignments = [...allIds].filter((id) => !submittedIds.has(id)).length;
-          } catch (e) {
-            console.warn("[Dashboard] Assignments fetch failed:", e);
-          }
+          } catch (e) {}
         }
 
         try {
@@ -166,12 +158,9 @@ const StudentDashboard = () => {
             else status = "Partial";
             fees = { paid, unpaid, partial, total, status };
           }
-        } catch (e) {
-          console.warn("[Dashboard] Fees fetch failed:", e);
-        }
+        } catch (e) {}
       }
 
-      // Upcoming events from school_events
       try {
         const cohortId = studentRecord?.cohort_id;
         const orQuery = cohortId
@@ -187,9 +176,7 @@ const StudentDashboard = () => {
         if (eventsData) {
           upcomingEvents = eventsData;
         }
-      } catch (e) {
-        console.warn("[Dashboard] Events fetch failed:", e);
-      }
+      } catch (e) {}
 
       setData({
         firstName,
@@ -205,7 +192,6 @@ const StudentDashboard = () => {
       });
 
     } catch (err) {
-      console.error("[Dashboard] Load error:", err);
       setData(EMPTY_DATA);
     } finally {
       setLoading(false);
@@ -234,14 +220,13 @@ const StudentDashboard = () => {
         cohort_id: profileCompletionForm.cohort_id,
       };
 
-      const { error, count } = await supabase
+      const { error } = await supabase
         .from("students")
         .update(updatePayload)
         .eq("profile_id", authUser.id)
         .select();
 
       if (error) {
-        console.error('[Dashboard] Profile completion error:', error.message, error.details, error.hint);
         throw new Error(error.message);
       }
 
@@ -249,7 +234,6 @@ const StudentDashboard = () => {
       setShowProfileCompletion(false);
       await load();
     } catch (err) {
-      console.error('[Dashboard] Profile completion failed:', err);
       toast.error(err instanceof Error ? err.message : "Failed to save profile details.");
     } finally {
       setSavingProfileCompletion(false);
@@ -258,6 +242,24 @@ const StudentDashboard = () => {
 
   const statusUpper = normalizeStatus(data?.admissionStatus);
   const isPending = statusUpper === "PENDING";
+  const isAdmitted = statusUpper === "ADMITTED" || statusUpper === "APPROVED";
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  };
+
+  const getCategoryColor = (cat: string | null) => {
+    switch ((cat || '').toUpperCase()) {
+      case 'HOLIDAY': return 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300';
+      case 'EXAM': return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
+      case 'EVENT': return 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300';
+      case 'BREAK': return 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300';
+      default: return 'bg-primary/10 text-primary';
+    }
+  };
 
   return (
     <StudentLayout admissionStatus={data?.admissionStatus}>
@@ -296,186 +298,270 @@ const StudentDashboard = () => {
       </Dialog>
 
       <div className="space-y-6 pb-20 md:pb-0">
-        {/* Welcome */}
-        {loading ? (
-          <Skeleton className="h-10 w-64" />
-        ) : (
-          <h1 className="text-2xl font-bold text-foreground">Welcome back, {data?.firstName ?? "Student"} 👋</h1>
-        )}
+        {/* Welcome Banner */}
+        <Reveal>
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/70 p-6 sm:p-8 text-primary-foreground">
+            <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+            <div className="relative z-10">
+              {loading ? (
+                <Skeleton className="h-8 w-64 bg-white/20" />
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Sparkles className="h-4 w-4 opacity-80" />
+                    <span className="text-sm opacity-80">{getGreeting()}</span>
+                  </div>
+                  <h1 className="text-2xl sm:text-3xl font-bold">{data?.firstName ?? "Student"} 👋</h1>
+                  {data?.admissionStatus && (
+                    <div className="mt-3 inline-flex items-center gap-2">
+                      <GraduationCap className="h-4 w-4" />
+                      <Badge variant="secondary" className="bg-white/20 text-primary-foreground border-0 hover:bg-white/30">
+                        {data.admissionStatus}
+                      </Badge>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </Reveal>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {/* Attendance Card */}
-          {(() => {
-            const rate = data?.attendanceRate;
-            const isGood = rate != null && rate >= 75;
-            const isWarning = rate != null && rate >= 50 && rate < 75;
-            const isDanger = rate != null && rate < 50;
-            const borderColor = loading ? "border-border" : isGood ? "border-emerald-500" : isWarning ? "border-amber-500" : isDanger ? "border-red-500" : "border-border";
-            const bgColor = loading ? "" : isGood ? "bg-emerald-50 dark:bg-emerald-950/20" : isWarning ? "bg-amber-50 dark:bg-amber-950/20" : isDanger ? "bg-red-50 dark:bg-red-950/20" : "";
-            const iconColor = loading ? "text-muted-foreground" : isGood ? "text-emerald-600" : isWarning ? "text-amber-600" : isDanger ? "text-red-600" : "text-muted-foreground";
-            const valueColor = loading ? "" : isGood ? "text-emerald-700 dark:text-emerald-400" : isWarning ? "text-amber-700 dark:text-amber-400" : isDanger ? "text-red-700 dark:text-red-400" : "";
-            return (
-              <Card className={`border-l-4 ${borderColor} ${bgColor} transition-colors`}>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Attendance</CardTitle>
-                  <CalendarCheck className={`h-4 w-4 ${iconColor}`} />
-                </CardHeader>
-                <CardContent>
-                  <div className={`text-2xl font-bold ${valueColor}`}>
-                    {loading ? <Skeleton className="h-7 w-16" /> : (rate != null ? `${rate}%` : "—")}
-                  </div>
-                  {!loading && rate != null && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {isGood ? "Good standing" : isWarning ? "Needs improvement" : "At risk"}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })()}
+          <Reveal delay={0}>
+            {(() => {
+              const rate = data?.attendanceRate;
+              const isGood = rate != null && rate >= 75;
+              const isWarning = rate != null && rate >= 50 && rate < 75;
+              const isDanger = rate != null && rate < 50;
+              return (
+                <Card className="group relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 cursor-pointer" onClick={() => navigate('/student/attendance')}>
+                  <div className={`absolute inset-0 opacity-[0.07] ${isGood ? 'bg-emerald-500' : isWarning ? 'bg-amber-500' : isDanger ? 'bg-red-500' : 'bg-muted'}`} />
+                  <div className={`absolute top-0 left-0 w-1 h-full ${loading ? 'bg-muted' : isGood ? 'bg-emerald-500' : isWarning ? 'bg-amber-500' : isDanger ? 'bg-red-500' : 'bg-muted'}`} />
+                  <CardHeader className="flex flex-row items-center justify-between pb-2 relative">
+                    <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Attendance</CardTitle>
+                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${loading ? 'bg-muted' : isGood ? 'bg-emerald-100 dark:bg-emerald-900/40' : isWarning ? 'bg-amber-100 dark:bg-amber-900/40' : isDanger ? 'bg-red-100 dark:bg-red-900/40' : 'bg-muted'}`}>
+                      <CalendarCheck className={`h-4 w-4 ${loading ? 'text-muted-foreground' : isGood ? 'text-emerald-600 dark:text-emerald-400' : isWarning ? 'text-amber-600 dark:text-amber-400' : isDanger ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`} />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="relative">
+                    <div className={`text-2xl sm:text-3xl font-bold ${loading ? '' : isGood ? 'text-emerald-700 dark:text-emerald-400' : isWarning ? 'text-amber-700 dark:text-amber-400' : isDanger ? 'text-red-700 dark:text-red-400' : ''}`}>
+                      {loading ? <Skeleton className="h-8 w-16" /> : (rate != null ? `${rate}%` : "—")}
+                    </div>
+                    {!loading && rate != null && (
+                      <>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {isGood ? "Great standing ✨" : isWarning ? "Needs improvement" : "At risk ⚠️"}
+                        </p>
+                        <Progress value={rate} className="mt-2 h-1.5" />
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })()}
+          </Reveal>
 
           {/* Courses Card */}
-          {(() => {
-            const total = data?.totalCourses ?? 0;
-            const completed = data?.completedCourses ?? 0;
-            const hasData = !loading && total > 0;
-            const allDone = hasData && completed === total;
-            const borderColor = !hasData ? "border-border" : allDone ? "border-emerald-500" : "border-primary";
-            const bgColor = !hasData ? "" : allDone ? "bg-emerald-50 dark:bg-emerald-950/20" : "bg-primary/5";
-            const iconColor = !hasData ? "text-muted-foreground" : allDone ? "text-emerald-600" : "text-primary";
-            return (
-              <Card className={`border-l-4 ${borderColor} ${bgColor} transition-colors`}>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Courses</CardTitle>
-                  <BookOpen className={`h-4 w-4 ${iconColor}`} />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{loading ? <Skeleton className="h-7 w-16" /> : total}</div>
-                  {!loading && total > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {completed} completed · {total - completed} ongoing
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })()}
+          <Reveal delay={80}>
+            {(() => {
+              const total = data?.totalCourses ?? 0;
+              const completed = data?.completedCourses ?? 0;
+              const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+              const allDone = total > 0 && completed === total;
+              return (
+                <Card className="group relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 cursor-pointer" onClick={() => navigate('/student/courses')}>
+                  <div className={`absolute inset-0 opacity-[0.07] ${allDone ? 'bg-emerald-500' : 'bg-primary'}`} />
+                  <div className={`absolute top-0 left-0 w-1 h-full ${!loading && total > 0 ? (allDone ? 'bg-emerald-500' : 'bg-primary') : 'bg-muted'}`} />
+                  <CardHeader className="flex flex-row items-center justify-between pb-2 relative">
+                    <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Courses</CardTitle>
+                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${allDone ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-primary/10'}`}>
+                      <BookOpen className={`h-4 w-4 ${allDone ? 'text-emerald-600 dark:text-emerald-400' : 'text-primary'}`} />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="relative">
+                    <div className="text-2xl sm:text-3xl font-bold">{loading ? <Skeleton className="h-8 w-16" /> : total}</div>
+                    {!loading && total > 0 && (
+                      <>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {completed}/{total} completed
+                        </p>
+                        <Progress value={progress} className="mt-2 h-1.5" />
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })()}
+          </Reveal>
 
           {/* Pending Tasks Card */}
-          {(() => {
-            const pending = data?.pendingAssignments ?? 0;
-            const total = data?.totalAssignments ?? 0;
-            const hasTasks = !loading && !isPending && total > 0;
-            const allDone = hasTasks && pending === 0;
-            const borderColor = !hasTasks ? "border-border" : allDone ? "border-emerald-500" : pending > 3 ? "border-red-500" : "border-amber-500";
-            const bgColor = !hasTasks ? "" : allDone ? "bg-emerald-50 dark:bg-emerald-950/20" : pending > 3 ? "bg-red-50 dark:bg-red-950/20" : "bg-amber-50 dark:bg-amber-950/20";
-            const iconColor = !hasTasks ? "text-muted-foreground" : allDone ? "text-emerald-600" : pending > 3 ? "text-red-600" : "text-amber-600";
-            const valueColor = !hasTasks ? "" : allDone ? "text-emerald-700 dark:text-emerald-400" : pending > 3 ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400";
-            return (
-              <Card className={`border-l-4 ${borderColor} ${bgColor} transition-colors`}>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Pending Tasks</CardTitle>
-                  <ClipboardList className={`h-4 w-4 ${iconColor}`} />
-                </CardHeader>
-                <CardContent>
-                  <div className={`text-2xl font-bold ${valueColor}`}>
-                    {loading ? <Skeleton className="h-7 w-16" /> : (isPending ? "—" : pending)}
-                  </div>
-                  {!loading && !isPending && total > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {total - pending} submitted · {total} total
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })()}
+          <Reveal delay={160}>
+            {(() => {
+              const pending = data?.pendingAssignments ?? 0;
+              const total = data?.totalAssignments ?? 0;
+              const hasTasks = !loading && !isPending && total > 0;
+              const allDone = hasTasks && pending === 0;
+              const submitted = total - pending;
+              const progress = total > 0 ? Math.round((submitted / total) * 100) : 0;
+              return (
+                <Card className="group relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 cursor-pointer" onClick={() => navigate('/student/assignments')}>
+                  <div className={`absolute inset-0 opacity-[0.07] ${!hasTasks ? 'bg-muted' : allDone ? 'bg-emerald-500' : pending > 3 ? 'bg-red-500' : 'bg-amber-500'}`} />
+                  <div className={`absolute top-0 left-0 w-1 h-full ${!hasTasks ? 'bg-muted' : allDone ? 'bg-emerald-500' : pending > 3 ? 'bg-red-500' : 'bg-amber-500'}`} />
+                  <CardHeader className="flex flex-row items-center justify-between pb-2 relative">
+                    <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Pending Tasks</CardTitle>
+                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${!hasTasks ? 'bg-muted' : allDone ? 'bg-emerald-100 dark:bg-emerald-900/40' : pending > 3 ? 'bg-red-100 dark:bg-red-900/40' : 'bg-amber-100 dark:bg-amber-900/40'}`}>
+                      <ClipboardList className={`h-4 w-4 ${!hasTasks ? 'text-muted-foreground' : allDone ? 'text-emerald-600 dark:text-emerald-400' : pending > 3 ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`} />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="relative">
+                    <div className={`text-2xl sm:text-3xl font-bold ${!hasTasks ? '' : allDone ? 'text-emerald-700 dark:text-emerald-400' : pending > 3 ? 'text-red-700 dark:text-red-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                      {loading ? <Skeleton className="h-8 w-16" /> : (isPending ? "—" : pending)}
+                    </div>
+                    {!loading && !isPending && total > 0 && (
+                      <>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {submitted} submitted · {total} total
+                        </p>
+                        <Progress value={progress} className="mt-2 h-1.5" />
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })()}
+          </Reveal>
 
           {/* Fees Card */}
-          {(() => {
-            const f = data?.fees ?? EMPTY_DATA.fees;
-            const isPaid = f.status === "Paid";
-            const isUnpaid = f.status === "Unpaid";
-            const isPartial = f.status === "Partial";
-            const borderColor = loading ? "border-border" : isPaid ? "border-emerald-500" : isUnpaid ? "border-red-500" : isPartial ? "border-amber-500" : "border-border";
-            const bgColor = loading ? "" : isPaid ? "bg-emerald-50 dark:bg-emerald-950/20" : isUnpaid ? "bg-red-50 dark:bg-red-950/20" : isPartial ? "bg-amber-50 dark:bg-amber-950/20" : "";
-            const iconColor = loading ? "text-muted-foreground" : isPaid ? "text-emerald-600" : isUnpaid ? "text-red-600" : isPartial ? "text-amber-600" : "text-muted-foreground";
-            const valueColor = loading ? "" : isPaid ? "text-emerald-700 dark:text-emerald-400" : isUnpaid ? "text-red-700 dark:text-red-400" : isPartial ? "text-amber-700 dark:text-amber-400" : "";
-            return (
-              <Card className={`border-l-4 ${borderColor} ${bgColor} transition-colors`}>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Fees</CardTitle>
-                  <CreditCard className={`h-4 w-4 ${iconColor}`} />
-                </CardHeader>
-                <CardContent>
-                  <div className={`text-2xl font-bold ${valueColor}`}>
-                    {loading ? <Skeleton className="h-7 w-16" /> : f.status}
-                  </div>
-                  {!loading && f.total > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {f.paid} paid · {f.unpaid + f.partial} pending
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })()}
+          <Reveal delay={240}>
+            {(() => {
+              const f = data?.fees ?? EMPTY_DATA.fees;
+              const isPaid = f.status === "Paid";
+              const isUnpaid = f.status === "Unpaid";
+              const isPartial = f.status === "Partial";
+              const progress = f.total > 0 ? Math.round((f.paid / f.total) * 100) : 0;
+              return (
+                <Card className="group relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 cursor-pointer" onClick={() => navigate('/student/fees')}>
+                  <div className={`absolute inset-0 opacity-[0.07] ${loading ? 'bg-muted' : isPaid ? 'bg-emerald-500' : isUnpaid ? 'bg-red-500' : isPartial ? 'bg-amber-500' : 'bg-muted'}`} />
+                  <div className={`absolute top-0 left-0 w-1 h-full ${loading ? 'bg-muted' : isPaid ? 'bg-emerald-500' : isUnpaid ? 'bg-red-500' : isPartial ? 'bg-amber-500' : 'bg-muted'}`} />
+                  <CardHeader className="flex flex-row items-center justify-between pb-2 relative">
+                    <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Fees</CardTitle>
+                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${loading ? 'bg-muted' : isPaid ? 'bg-emerald-100 dark:bg-emerald-900/40' : isUnpaid ? 'bg-red-100 dark:bg-red-900/40' : isPartial ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-muted'}`}>
+                      <CreditCard className={`h-4 w-4 ${loading ? 'text-muted-foreground' : isPaid ? 'text-emerald-600 dark:text-emerald-400' : isUnpaid ? 'text-red-600 dark:text-red-400' : isPartial ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`} />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="relative">
+                    <div className={`text-2xl sm:text-3xl font-bold ${loading ? '' : isPaid ? 'text-emerald-700 dark:text-emerald-400' : isUnpaid ? 'text-red-700 dark:text-red-400' : isPartial ? 'text-amber-700 dark:text-amber-400' : ''}`}>
+                      {loading ? <Skeleton className="h-8 w-16" /> : f.status}
+                    </div>
+                    {!loading && f.total > 0 && (
+                      <>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {f.paid} paid · {f.unpaid + f.partial} pending
+                        </p>
+                        <Progress value={progress} className="mt-2 h-1.5" />
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })()}
+          </Reveal>
         </div>
 
-        {/* Upcoming Events — always visible */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Calendar className="h-4 w-4" /> Upcoming Schedule & Events
-            </CardTitle>
-            <Button variant="link" size="sm" className="text-xs p-0 h-auto" onClick={() => navigate("/student/calendar")}>View All Events →</Button>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
-            ) : data?.upcomingEvents && data.upcomingEvents.length > 0 ? (
-              <div className="space-y-3">
-                {data.upcomingEvents.map((ev) => (
-                  <div key={ev.id} className="flex items-center justify-between border-b border-border pb-2 last:border-0">
-                    <div>
-                      <p className="font-medium text-sm text-foreground">{ev.title}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(ev.start_date).toLocaleDateString()}</p>
-                    </div>
-                    <Badge variant="secondary" className="text-xs">{ev.category || "General"}</Badge>
+        {/* Bottom Section: Events + Announcements */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Upcoming Events */}
+          <Reveal delay={100}>
+            <Card className="border-0 shadow-md h-full">
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Calendar className="h-4 w-4 text-primary" />
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No upcoming events scheduled.</p>
-            )}
-          </CardContent>
-        </Card>
+                  Upcoming Events
+                </CardTitle>
+                <Button variant="ghost" size="sm" className="text-xs gap-1 text-primary hover:text-primary" onClick={() => navigate("/student/calendar")}>
+                  View All <ChevronRight className="h-3 w-3" />
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}</div>
+                ) : data?.upcomingEvents && data.upcomingEvents.length > 0 ? (
+                  <div className="space-y-2">
+                    {data.upcomingEvents.map((ev) => (
+                      <div key={ev.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors">
+                        <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-primary/10 flex flex-col items-center justify-center">
+                          <span className="text-[10px] font-medium text-primary uppercase">
+                            {new Date(ev.start_date).toLocaleDateString('en', { month: 'short' })}
+                          </span>
+                          <span className="text-sm font-bold text-primary leading-none">
+                            {new Date(ev.start_date).getDate()}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-foreground truncate">{ev.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(ev.start_date).toLocaleDateString('en', { weekday: 'long' })}
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className={`text-[10px] shrink-0 ${getCategoryColor(ev.category)}`}>
+                          {ev.category || "General"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Calendar className="h-10 w-10 mx-auto text-muted-foreground/40 mb-2" />
+                    <p className="text-sm text-muted-foreground">No upcoming events scheduled.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </Reveal>
 
-        {/* Announcements — always visible */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Megaphone className="h-4 w-4" /> Announcements
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
-            ) : data?.announcements && data.announcements.length > 0 ? (
-              <div className="space-y-3">
-                {data.announcements.map((a, i) => (
-                  <div key={i} className="border-b border-border pb-2 last:border-0">
-                    <p className="font-medium text-sm text-foreground">{a?.title}</p>
-                    <p className="text-xs text-muted-foreground line-clamp-2">{a?.body}</p>
+          {/* Announcements */}
+          <Reveal delay={180}>
+            <Card className="border-0 shadow-md h-full">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                  <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                    <Megaphone className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No announcements at this time.</p>
-            )}
-          </CardContent>
-        </Card>
+                  Announcements
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}</div>
+                ) : data?.announcements && data.announcements.length > 0 ? (
+                  <div className="space-y-2">
+                    {data.announcements.map((a, i) => (
+                      <div key={i} className="p-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors cursor-pointer" onClick={() => navigate('/student/announcements')}>
+                        <p className="font-medium text-sm text-foreground">{a?.title}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{a?.body}</p>
+                        {a?.published_at && (
+                          <p className="text-[10px] text-muted-foreground/60 mt-1.5">
+                            {new Date(a.published_at).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Megaphone className="h-10 w-10 mx-auto text-muted-foreground/40 mb-2" />
+                    <p className="text-sm text-muted-foreground">No announcements at this time.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </Reveal>
+        </div>
       </div>
     </StudentLayout>
   );
