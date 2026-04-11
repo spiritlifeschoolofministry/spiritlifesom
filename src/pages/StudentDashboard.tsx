@@ -228,15 +228,28 @@ const StudentDashboard = () => {
 
     setSavingProfileCompletion(true);
     try {
-      const { error } = await supabase
+      const updatePayload: Record<string, any> = {
+        gender: profileCompletionForm.gender,
+        age: parsedAge,
+        cohort_id: profileCompletionForm.cohort_id,
+      };
+
+      const { error, count } = await supabase
         .from("students")
-        .update({ gender: profileCompletionForm.gender, age: parsedAge, cohort_id: profileCompletionForm.cohort_id })
-        .eq("profile_id", authUser.id);
-      if (error) throw error;
+        .update(updatePayload)
+        .eq("profile_id", authUser.id)
+        .select();
+
+      if (error) {
+        console.error('[Dashboard] Profile completion error:', error.message, error.details, error.hint);
+        throw new Error(error.message);
+      }
+
       toast.success("Profile details saved.");
       setShowProfileCompletion(false);
       await load();
     } catch (err) {
+      console.error('[Dashboard] Profile completion failed:', err);
       toast.error(err instanceof Error ? err.message : "Failed to save profile details.");
     } finally {
       setSavingProfileCompletion(false);
