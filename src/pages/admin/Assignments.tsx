@@ -16,6 +16,7 @@ import type { Tables } from '@/integrations/supabase/types';
 
 const ASSIGNMENT_CATEGORIES = [
   'Assignment',
+  'Exam',
   'Project',
   'Class Work',
   'Group Activity',
