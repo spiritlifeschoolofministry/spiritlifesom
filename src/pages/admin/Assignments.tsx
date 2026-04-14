@@ -12,10 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, Plus, Eye, File, CheckCircle2, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
+import BulkGradeImport from '@/components/BulkGradeImport';
 import type { Tables } from '@/integrations/supabase/types';
 
 const ASSIGNMENT_CATEGORIES = [
   'Assignment',
+  'Exam',
   'Project',
   'Class Work',
   'Group Activity',
@@ -209,10 +211,12 @@ const AdminAssignments = () => {
           <p className="text-sm text-muted-foreground mt-1">Create and manage tasks for cohorts</p>
         </div>
 
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2"><Plus className="h-4 w-4" /> Create Task</Button>
-          </DialogTrigger>
+        <div className="flex gap-2 flex-wrap">
+          <BulkGradeImport assignments={assignments.map(a => ({ id: a.id, title: a.title, max_points: a.max_points, cohort_id: a.cohort_id }))} onImportComplete={loadData} />
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2"><Plus className="h-4 w-4" /> Create Task</Button>
+            </DialogTrigger>
           <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto">
             <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
               <DialogTitle>Create New Task</DialogTitle>
@@ -276,6 +280,7 @@ const AdminAssignments = () => {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {(() => {
