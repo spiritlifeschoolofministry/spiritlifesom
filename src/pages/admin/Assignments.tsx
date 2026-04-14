@@ -280,6 +280,7 @@ const AdminAssignments = () => {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {(() => {
