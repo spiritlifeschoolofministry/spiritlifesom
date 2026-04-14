@@ -5,7 +5,7 @@ import StudentLayout from "@/components/StudentLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download, GraduationCap, Award, Lock } from "lucide-react";
+import { Download, Award, Lock } from "lucide-react";
 
 const StudentCertificate = () => {
   const { student, profile } = useAuth();
@@ -74,75 +74,49 @@ const StudentCertificate = () => {
           </Button>
         </div>
 
-        {/* Certificate */}
+        {/* Certificate - matches the official design */}
         <div ref={certRef} className="print:m-0">
-          <div className="relative bg-background border-[3px] border-primary/20 rounded-2xl overflow-hidden max-w-3xl mx-auto shadow-xl print:shadow-none print:border-2 print:max-w-none">
-            {/* Decorative border */}
-            <div className="absolute inset-3 border-2 border-primary/10 rounded-xl pointer-events-none" />
-
-            {/* Top accent */}
-            <div className="h-3 gradient-flame" />
-            
-            <div className="px-8 sm:px-16 py-12 sm:py-16 text-center relative">
-              {/* Logo area */}
-              <div className="mb-6">
-                <img src="/images/school-logo.png" alt="" className="h-20 w-20 object-contain mx-auto mb-4" />
-                <h2 className="text-lg font-bold text-primary tracking-widest uppercase">
-                  Spirit Life School of Ministry
-                </h2>
+          <div
+            className="relative overflow-hidden max-w-4xl mx-auto shadow-2xl print:shadow-none print:max-w-none"
+            style={{
+              aspectRatio: "1.414 / 1",
+              backgroundImage: "url(/images/certificate-bg.png)",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              borderRadius: "12px",
+            }}
+          >
+            {/* Content overlay - positioned to match the certificate layout */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center px-8 sm:px-20 text-center">
+              {/* Name area - positioned roughly where the name goes */}
+              <div className="mt-[28%] sm:mt-[26%]">
+                <h1
+                  className="text-2xl sm:text-4xl lg:text-5xl font-bold italic"
+                  style={{
+                    fontFamily: "'Lucida Handwriting', 'Brush Script MT', 'Dancing Script', cursive",
+                    color: "#1a1a2e",
+                  }}
+                >
+                  {fullName}
+                </h1>
               </div>
 
-              <p className="text-muted-foreground text-sm tracking-wider uppercase mb-8">
-                Certificate of Completion
-              </p>
-
-              <p className="text-muted-foreground text-sm mb-2">This is to certify that</p>
-
-              <h1 className="text-3xl sm:text-4xl font-black text-foreground mb-2 py-3 border-b-2 border-primary/20 inline-block px-8">
-                {fullName}
-              </h1>
-
-              <p className="text-muted-foreground text-sm mt-6 mb-2">
-                has successfully completed the program of study at
-              </p>
-              <p className="text-foreground font-semibold text-lg mb-1">
-                Spirit Life School of Ministry
-              </p>
-              {cohortName && (
-                <p className="text-muted-foreground text-sm mb-8">
-                  Cohort: {cohortName}
-                </p>
-              )}
-
+              {/* Student code - positioned to the right of name */}
               {student?.student_code && (
-                <p className="text-xs text-muted-foreground mb-8 font-mono">
-                  Student ID: {student.student_code}
+                <p
+                  className="text-xs sm:text-sm font-bold italic mt-1"
+                  style={{ color: "#1a1a2e", fontFamily: "serif" }}
+                >
+                  {student.student_code}
                 </p>
               )}
-
-              {/* Signature line */}
-              <div className="flex justify-center gap-16 sm:gap-24 mt-12">
-                <div className="text-center">
-                  <div className="w-32 border-b border-foreground/30 mb-2" />
-                  <p className="text-xs text-muted-foreground">Director</p>
-                </div>
-                <div className="text-center">
-                  <div className="w-32 border-b border-foreground/30 mb-2" />
-                  <p className="text-xs text-muted-foreground">Date</p>
-                </div>
-              </div>
-
-              {/* Decorative corners */}
-              <div className="absolute top-6 left-6 w-8 h-8 border-t-2 border-l-2 border-primary/30 rounded-tl-lg" />
-              <div className="absolute top-6 right-6 w-8 h-8 border-t-2 border-r-2 border-primary/30 rounded-tr-lg" />
-              <div className="absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-primary/30 rounded-bl-lg" />
-              <div className="absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-primary/30 rounded-br-lg" />
             </div>
-
-            {/* Bottom accent */}
-            <div className="h-3 gradient-purple" />
           </div>
         </div>
+
+        <p className="text-center text-xs text-muted-foreground print:hidden">
+          Use "Print / Save PDF" to download a high-quality copy of your certificate.
+        </p>
       </div>
     </StudentLayout>
   );

@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Loader2, AlertCircle, TrendingUp, ChevronRight, Sparkles, GraduationCap } from "lucide-react";
+import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Loader2, AlertCircle, TrendingUp, ChevronRight, Sparkles, GraduationCap, Award, FileText, Zap } from "lucide-react";
 import { toast } from "sonner";
 import Reveal from "@/components/Reveal";
 

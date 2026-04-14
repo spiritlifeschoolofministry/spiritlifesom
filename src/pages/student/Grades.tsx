@@ -7,23 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  GraduationCap,
-  Award,
-  TrendingUp,
-  BookOpen,
-  FileText,
-  Users,
-  Briefcase,
-  ClipboardList,
+  GraduationCap, Award, BookOpen, Users, Briefcase, ClipboardList, FileText,
 } from "lucide-react";
+import { getLetterGrade } from "@/lib/grading";
 
 interface GradedItem {
   id: string;
@@ -54,15 +43,6 @@ const CATEGORY_ICONS: Record<string, React.ElementType> = {
   "Group Assignment": FileText,
 };
 
-const getLetterGrade = (pct: number) => {
-  if (pct >= 90) return { letter: "A", color: "text-emerald-600", description: "Excellent", isPassing: true };
-  if (pct >= 80) return { letter: "B", color: "text-blue-600", description: "Very Good", isPassing: true };
-  if (pct >= 70) return { letter: "C", color: "text-cyan-600", description: "Good", isPassing: true };
-  if (pct >= 60) return { letter: "D", color: "text-yellow-600", description: "Satisfactory", isPassing: true };
-  if (pct >= 50) return { letter: "E", color: "text-orange-600", description: "Needs Improvement", isPassing: true, needsRemedial: true };
-  return { letter: "F", color: "text-red-600", description: "Unsatisfactory", isPassing: false };
-};
-
 const StudentGrades = () => {
   const { student } = useAuth();
   const [items, setItems] = useState<GradedItem[]>([]);
@@ -77,26 +57,19 @@ const StudentGrades = () => {
     if (!student?.id || !student?.cohort_id) return;
     try {
       setLoading(true);
-
-      // Get all assignments for this cohort
       const { data: assignments, error: aErr } = await supabase
         .from("assignments")
         .select("id, title, max_points, course_id, courses(title)")
         .eq("cohort_id", student.cohort_id);
-
       if (aErr) throw aErr;
 
-      // Get student's submissions
       const { data: submissions, error: sErr } = await supabase
         .from("assignment_submissions")
         .select("assignment_id, grade, feedback, reviewed_at")
         .eq("student_id", student.id);
-
       if (sErr) throw sErr;
 
-      const subMap = new Map(
-        (submissions || []).map((s) => [s.assignment_id, s])
-      );
+      const subMap = new Map((submissions || []).map((s) => [s.assignment_id, s]));
 
       const gradedItems: GradedItem[] = (assignments || []).map((a: any) => {
         const sub = subMap.get(a.id);
@@ -111,16 +84,14 @@ const StudentGrades = () => {
           course_title: a.courses?.title || "—",
         };
       });
-
       setItems(gradedItems);
     } catch (err) {
-      console.error("[StudentGrades] Load error:", err);
+      // silent
     } finally {
       setLoading(false);
     }
   };
 
-  // Build category summaries
   const categories = Object.entries(
     items.reduce<Record<string, GradedItem[]>>((acc, item) => {
       const cat = item.category || "Assignment";
@@ -144,7 +115,6 @@ const StudentGrades = () => {
     };
   });
 
-  // Overall
   const allGraded = items.filter((i) => i.grade != null);
   const overallTotal = allGraded.reduce((s, i) => s + i.max_points, 0);
   const overallEarned = allGraded.reduce((s, i) => s + (i.grade || 0), 0);
@@ -157,9 +127,7 @@ const StudentGrades = () => {
         <div className="space-y-6">
           <Skeleton className="h-10 w-64" />
           <div className="grid grid-cols-2 gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-28 rounded-xl" />
-            ))}
+            {[1, 2, 3, 4].map((i) => (<Skeleton key={i} className="h-28 rounded-xl" />))}
           </div>
           <Skeleton className="h-64 rounded-xl" />
         </div>
@@ -198,7 +166,7 @@ const StudentGrades = () => {
             <div className="flex items-center justify-center p-6 sm:border-l border-t sm:border-t-0 border-border bg-secondary/30">
               <div className="text-center">
                 <p className={`text-6xl font-black ${overallGrade.color}`}>{overallGrade.letter}</p>
-                <p className="text-xs text-muted-foreground mt-1">Letter Grade</p>
+                <p className="text-xs text-muted-foreground mt-1">{overallGrade.label} · Point {overallGrade.point}</p>
               </div>
             </div>
           </div>
@@ -243,9 +211,7 @@ const StudentGrades = () => {
           </CardHeader>
           <CardContent>
             {items.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                No assignments or grades yet.
-              </p>
+              <p className="text-sm text-muted-foreground text-center py-8">No assignments or grades yet.</p>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -260,16 +226,12 @@ const StudentGrades = () => {
                   </TableHeader>
                   <TableBody>
                     {items.map((item) => {
-                      const pct = item.grade != null
-                        ? Math.round((item.grade / item.max_points) * 100)
-                        : null;
+                      const pct = item.grade != null ? Math.round((item.grade / item.max_points) * 100) : null;
                       const lg = pct != null ? getLetterGrade(pct) : null;
                       return (
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">{item.title}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary" className="text-xs">{item.category}</Badge>
-                          </TableCell>
+                          <TableCell><Badge variant="secondary" className="text-xs">{item.category}</Badge></TableCell>
                           <TableCell className="text-muted-foreground text-sm">{item.course_title}</TableCell>
                           <TableCell>
                             {item.grade != null ? (
@@ -292,6 +254,32 @@ const StudentGrades = () => {
                 </Table>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Grading Scale Reference */}
+        <Card className="shadow-[var(--shadow-card)] border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Grading Scale</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-center text-xs">
+              {[
+                { letter: "A", range: "70%+", label: "Excellent", point: 5, color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20" },
+                { letter: "B", range: "60-69%", label: "Very Good", point: 4, color: "text-blue-600 bg-blue-50 dark:bg-blue-900/20" },
+                { letter: "C", range: "50-59%", label: "Good", point: 3, color: "text-cyan-600 bg-cyan-50 dark:bg-cyan-900/20" },
+                { letter: "D", range: "45-49%", label: "Satisfactory", point: 2, color: "text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20" },
+                { letter: "E", range: "40-44%", label: "Pass", point: 1, color: "text-orange-600 bg-orange-50 dark:bg-orange-900/20" },
+                { letter: "F", range: "0-39%", label: "Fail", point: 0, color: "text-red-600 bg-red-50 dark:bg-red-900/20" },
+              ].map(g => (
+                <div key={g.letter} className={`rounded-lg p-3 ${g.color}`}>
+                  <p className="text-2xl font-black">{g.letter}</p>
+                  <p className="font-semibold">{g.range}</p>
+                  <p className="opacity-70">{g.label}</p>
+                  <p className="opacity-50">Point {g.point}</p>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>
