@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Loader2, AlertCircle, TrendingUp, ChevronRight, Sparkles, GraduationCap } from "lucide-react";
+import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Loader2, AlertCircle, TrendingUp, ChevronRight, Sparkles, GraduationCap, Award, FileText, Zap } from "lucide-react";
 import { toast } from "sonner";
 import Reveal from "@/components/Reveal";
 
@@ -470,6 +470,41 @@ const StudentDashboard = () => {
             })()}
           </Reveal>
         </div>
+
+        {/* Quick Actions */}
+        <Reveal delay={300}>
+          <Card className="border-0 shadow-md">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Zap className="h-4 w-4 text-primary" />
+                </div>
+                Quick Actions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: "Submit Task", icon: ClipboardList, path: "/student/assignments", color: "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400" },
+                  { label: "View Grades", icon: Award, path: "/student/grades", color: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400" },
+                  { label: "Materials", icon: FileText, path: "/student/materials", color: "bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400" },
+                  { label: "Transcript", icon: GraduationCap, path: "/student/transcript", color: "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" },
+                ].map((action) => (
+                  <button
+                    key={action.label}
+                    onClick={() => navigate(action.path)}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl bg-muted/50 hover:bg-muted transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
+                  >
+                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${action.color}`}>
+                      <action.icon className="h-5 w-5" />
+                    </div>
+                    <span className="text-xs font-medium text-foreground">{action.label}</span>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </Reveal>
 
         {/* Bottom Section: Events + Announcements */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
