@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +10,7 @@ import PublicLayout from "./components/PublicLayout";
 import AdminLayout from "./components/AdminLayout";
 import { SessionManagerProvider } from "./components/SessionManagerProvider";
 import ScrollToTop from "./components/ScrollToTop";
+import { App as CapApp } from "@capacitor/app";
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Courses from "./pages/Courses";
@@ -55,7 +57,21 @@ import { InstallPWA } from "./components/InstallPWA";
 
 const queryClient = new QueryClient();
 
-const App = () => (
+const App = () => {
+  useEffect(() => {
+    const backHandler = CapApp.addListener('backButton', ({ canGoBack }) => {
+      if (canGoBack) {
+        window.history.back();
+      } else {
+        CapApp.exitApp();
+      }
+    });
+    return () => {
+      backHandler.then(h => h.remove());
+    };
+  }, []);
+
+  return (
   <AuthProvider>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -124,6 +140,7 @@ const App = () => (
       </TooltipProvider>
     </QueryClientProvider>
   </AuthProvider>
-);
+  );
+};
 
 export default App;
