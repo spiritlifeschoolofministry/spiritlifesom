@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2, Plus, Eye, File, CheckCircle2, Edit2 } from 'lucide-react';
 import { toast } from 'sonner';
 import BulkGradeImport from '@/components/BulkGradeImport';
+import { downloadCSV } from '@/lib/csv-export';
 import type { Tables } from '@/integrations/supabase/types';
 
 const ASSIGNMENT_CATEGORIES = [
@@ -199,6 +200,27 @@ const AdminAssignments = () => {
     }
   };
 
+  const handleExportGrades = () => {
+    if (!selectedAssignment?.submissions) {
+      toast.error('No submissions to export');
+      return;
+    }
+
+    const csvData = selectedAssignment.submissions.map(submission => ({
+      'Student Name': `${submission.student_profile?.first_name || ''} ${submission.student_profile?.last_name || ''}`.trim() || 'Unknown',
+      'Email': submission.student_profile?.email || '',
+      'Grade': submission.grade != null ? submission.grade : '',
+      'Max Points': selectedAssignment.max_points || 100,
+      'Percentage': submission.grade != null ? `${((submission.grade / (selectedAssignment.max_points || 100)) * 100).toFixed(1)}%` : '',
+      'Feedback': submission.feedback || '',
+      'Submitted At': submission.submitted_at ? new Date(submission.submitted_at).toLocaleString() : '',
+      'Reviewed At': submission.reviewed_at ? new Date(submission.reviewed_at).toLocaleString() : '',
+      'Status': submission.reviewed_at ? 'Graded' : 'Submitted'
+    }));
+
+    downloadCSV(csvData, `${selectedAssignment.title}_grades`);
+  };
+
   if (loading) {
     return (<div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin" /></div>);
   }
@@ -354,8 +376,15 @@ const AdminAssignments = () => {
                               <DialogTrigger asChild><Button variant="outline" size="sm" className="text-xs"><Eye className="h-3 w-3 mr-1" /> View</Button></DialogTrigger>
                               <DialogContent className="max-h-[90vh] w-[95vw] max-w-4xl overflow-y-auto">
                                 <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
-                                  <DialogTitle>{selectedAssignment?.title}</DialogTitle>
-                                  <DialogDescription>Review student submissions</DialogDescription>
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <DialogTitle>{selectedAssignment?.title}</DialogTitle>
+                                      <DialogDescription>Review student submissions</DialogDescription>
+                                    </div>
+                                    <Button variant="outline" size="sm" onClick={handleExportGrades} className="flex items-center gap-2">
+                                      <File className="h-4 w-4" /> Export Grades
+                                    </Button>
+                                  </div>
                                 </DialogHeader>
                                 <div className="pt-4">
                                   {loadingSubmissions ? (
