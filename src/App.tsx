@@ -132,7 +132,7 @@ const App = () => {
           </Route>
 
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="/admin/approve" element={<AdminApprove />} />
+          <Route path="/admin/approve" element={<ProtectedRoute requiredRole="admin"><AdminApprove /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
           </SessionManagerProvider>
