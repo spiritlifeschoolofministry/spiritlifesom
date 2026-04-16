@@ -474,6 +474,9 @@ const AdminSettings = () => {
         </CardContent>
       </Card>
 
+      {/* Site Content CMS */}
+      <SiteContentEditor />
+
       {/* Promote Dialog */}
       <Dialog open={showPromoteDialog} onOpenChange={setShowPromoteDialog}>
         <DialogContent className="max-w-md">
