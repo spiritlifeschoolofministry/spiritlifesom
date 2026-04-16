@@ -6,12 +6,14 @@ import { MapPin, Phone, Mail, Loader2, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import Reveal from "@/components/Reveal";
+import { useSiteContent } from "@/hooks/use-site-content";
 
 const ContactPage = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const { get } = useSiteContent("contact");
 
   const handleSubmit = async () => {
     if (!name.trim() || !email.trim() || !message.trim()) {
@@ -44,8 +46,8 @@ const ContactPage = () => {
         <div className="absolute inset-0 gradient-purple" />
         <div className="relative z-10 max-w-3xl mx-auto px-4 space-y-3">
           <Reveal>
-            <h1 className="text-3xl sm:text-5xl font-extrabold">Get In Touch</h1>
-            <p className="text-primary-foreground/80 text-lg">We'd love to hear from you</p>
+            <h1 className="text-3xl sm:text-5xl font-extrabold">{get("hero_title", "Get In Touch")}</h1>
+            <p className="text-primary-foreground/80 text-lg">{get("hero_subtitle", "We'd love to hear from you")}</p>
           </Reveal>
         </div>
       </section>
@@ -56,24 +58,24 @@ const ContactPage = () => {
           {/* Contact info */}
           <div className="space-y-6">
             <Reveal>
-              <h2 className="text-2xl font-bold text-primary">Contact Details</h2>
+              <h2 className="text-2xl font-bold text-primary">{get("details_title", "Contact Details")}</h2>
             </Reveal>
             <Reveal delay={60}>
               <div className="flex gap-3">
                 <MapPin className="text-accent shrink-0 mt-1" size={20} />
-                <p className="text-muted-foreground text-sm sm:text-base">Spirit Life C&S Church, John Olorombo Street, Balogun Isale, 200258, Ibadan, Nigeria</p>
+                <p className="text-muted-foreground text-sm sm:text-base">{get("address", "Spirit Life C&S Church, John Olorombo Street, Balogun Isale, 200258, Ibadan, Nigeria")}</p>
               </div>
             </Reveal>
             <Reveal delay={120}>
               <div className="flex gap-3">
                 <Phone className="text-accent shrink-0 mt-1" size={20} />
-                <p className="text-muted-foreground text-sm sm:text-base">+234 809 092 5555</p>
+                <p className="text-muted-foreground text-sm sm:text-base">{get("phone", "+234 809 092 5555")}</p>
               </div>
             </Reveal>
             <Reveal delay={180}>
               <div className="flex gap-3">
                 <Mail className="text-accent shrink-0 mt-1" size={20} />
-                <p className="text-muted-foreground text-sm sm:text-base break-all">spiritlifeschoolofministry@gmail.com</p>
+                <p className="text-muted-foreground text-sm sm:text-base break-all">{get("email", "spiritlifeschoolofministry@gmail.com")}</p>
               </div>
             </Reveal>
             <Reveal delay={240}>
@@ -86,33 +88,16 @@ const ContactPage = () => {
           {/* Contact form */}
           <div className="space-y-4">
             <Reveal>
-              <h2 className="text-2xl font-bold text-primary">Send a Message</h2>
+              <h2 className="text-2xl font-bold text-primary">{get("form_title", "Send a Message")}</h2>
             </Reveal>
             <Reveal delay={60}>
-              <Input
-                placeholder="Full Name"
-                className="bg-card"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+              <Input placeholder="Full Name" className="bg-card" value={name} onChange={(e) => setName(e.target.value)} />
             </Reveal>
             <Reveal delay={120}>
-              <Input
-                placeholder="Email"
-                type="email"
-                className="bg-card"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+              <Input placeholder="Email" type="email" className="bg-card" value={email} onChange={(e) => setEmail(e.target.value)} />
             </Reveal>
             <Reveal delay={180}>
-              <Textarea
-                placeholder="Your message..."
-                rows={5}
-                className="bg-card"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-              />
+              <Textarea placeholder="Your message..." rows={5} className="bg-card" value={message} onChange={(e) => setMessage(e.target.value)} />
             </Reveal>
             <Reveal delay={220}>
               <Button
@@ -121,13 +106,9 @@ const ContactPage = () => {
                 disabled={sending}
               >
                 {sending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Sending...
-                  </>
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Sending...</>
                 ) : (
-                  <>
-                    <Send className="h-4 w-4" /> Send Message
-                  </>
+                  <><Send className="h-4 w-4" /> Send Message</>
                 )}
               </Button>
             </Reveal>

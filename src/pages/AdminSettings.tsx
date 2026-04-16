@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2, Check, X, Plus, Trash2, Star } from 'lucide-react';
 import { toast } from 'sonner';
+import SiteContentEditor from '@/components/admin/SiteContentEditor';
 
 interface SystemSettings {
   accepting_applications: boolean;
@@ -472,6 +473,9 @@ const AdminSettings = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Site Content CMS */}
+      <SiteContentEditor />
 
       {/* Promote Dialog */}
       <Dialog open={showPromoteDialog} onOpenChange={setShowPromoteDialog}>
