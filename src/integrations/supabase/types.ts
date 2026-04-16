@@ -834,6 +834,36 @@ export type Database = {
           },
         ]
       }
+      site_content: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          label: string
+          page: string
+          section_key: string
+          updated_at: string | null
+        }
+        Insert: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          label?: string
+          page: string
+          section_key: string
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          label?: string
+          page?: string
+          section_key?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       students: {
         Row: {
           address: string | null
