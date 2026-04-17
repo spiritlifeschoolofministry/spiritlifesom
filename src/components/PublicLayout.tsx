@@ -1,7 +1,7 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Facebook, Youtube, Instagram } from "lucide-react";
+import { Menu, X, Facebook, Youtube, Instagram, Twitter } from "lucide-react";
 
 const navLinks = [
   { label: "Home", to: "/" },
@@ -120,9 +120,10 @@ const PublicLayout = () => {
               <Link to="/login" className="hover:text-primary-foreground transition-colors">Login</Link>
             </div>
             <div className="flex gap-4">
-              <a href="#" className="hover:text-primary-foreground transition-colors"><Facebook size={20} /></a>
-              <a href="#" className="hover:text-primary-foreground transition-colors"><Youtube size={20} /></a>
-              <a href="#" className="hover:text-primary-foreground transition-colors"><Instagram size={20} /></a>
+              <a href="https://www.facebook.com/spiritlifeschoolofministry" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer"><Facebook size={20} /></a>
+              <a href="https://www.youtube.com/@SpiritLifeSchoolofMinistry" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer"><Youtube size={20} /></a>
+              <a href="https://www.instagram.com/spiritlifeschoolofministry" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer"><Instagram size={20} /></a>
+              <a href="https://x.com/spiritlifesom" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer"><Twitter size={20} /></a>
             </div>
           </div>
 
