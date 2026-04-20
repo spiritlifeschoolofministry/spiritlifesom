@@ -392,7 +392,7 @@ const AdminSettings = () => {
                         <Button
                           variant="destructive"
                           size="sm"
-                          onClick={() => deleteCohort(cohort.id)}
+                          onClick={() => requestDeleteCohort(cohort)}
                           disabled={deletingCohortId === cohort.id || cohort.is_active}
                           className="gap-1"
                           title={cohort.is_active ? "Cannot delete active cohort" : "Delete cohort"}
