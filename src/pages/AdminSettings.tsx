@@ -70,6 +70,22 @@ const AdminSettings = () => {
   const [deletingCohortId, setDeletingCohortId] = useState<string | null>(null);
   const [settingActiveCohortId, setSettingActiveCohortId] = useState<string | null>(null);
 
+  // Delete confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [cohortToDelete, setCohortToDelete] = useState<Cohort | null>(null);
+  const [deleteChallenge, setDeleteChallenge] = useState('');
+  const [deleteInput, setDeleteInput] = useState('');
+
+  // Pool of ~12-letter Bible words used for the deletion challenge
+  const BIBLE_WORDS = [
+    'RIGHTEOUSNESS', 'SANCTIFICATION', 'TRANSFIGURATION', 'LAMENTATIONS',
+    'DEUTERONOMY', 'THESSALONIANS', 'PHILADELPHIA', 'NEBUCHADNEZZAR',
+    'MELCHIZEDEK', 'JERUSALEM', 'BETHLEHEM', 'CORINTHIANS',
+    'REVELATIONS', 'TABERNACLE', 'PRIESTHOOD', 'COVENANTAL',
+    'INTERCESSION', 'REDEMPTION', 'GETHSEMANE', 'PENTECOSTAL',
+  ];
+  const pickChallengeWord = () => BIBLE_WORDS[Math.floor(Math.random() * BIBLE_WORDS.length)];
+
   useEffect(() => {
     loadAll();
   }, []);
@@ -228,13 +244,27 @@ const AdminSettings = () => {
     }
   };
 
-  const deleteCohort = async (cohortId: string) => {
-    if (!confirm('Are you sure you want to delete this cohort? This cannot be undone.')) return;
+  const requestDeleteCohort = (cohort: Cohort) => {
+    setCohortToDelete(cohort);
+    setDeleteChallenge(pickChallengeWord());
+    setDeleteInput('');
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteCohort = async () => {
+    if (!cohortToDelete) return;
+    if (deleteInput.trim().toUpperCase() !== deleteChallenge) {
+      toast.error(`Please type "${deleteChallenge}" exactly to confirm deletion`);
+      return;
+    }
     try {
-      setDeletingCohortId(cohortId);
-      const { error } = await supabase.from('cohorts').delete().eq('id', cohortId);
+      setDeletingCohortId(cohortToDelete.id);
+      const { error } = await supabase.from('cohorts').delete().eq('id', cohortToDelete.id);
       if (error) throw error;
       toast.success('Cohort deleted');
+      setDeleteDialogOpen(false);
+      setCohortToDelete(null);
+      setDeleteInput('');
       await loadCohorts();
     } catch (err) {
       console.error('Delete cohort error:', err);
@@ -247,11 +277,12 @@ const AdminSettings = () => {
   const setActiveCohort = async (cohortId: string) => {
     try {
       setSettingActiveCohortId(cohortId);
-      // Deactivate all cohorts first
+      // Deactivate currently active cohorts (filter on is_active, not a fake UUID).
+      // The previous .neq('id','placeholder') failed UUID type-check and aborted the whole flow.
       const { error: deactivateError } = await supabase
         .from('cohorts')
         .update({ is_active: false })
-        .neq('id', 'placeholder');
+        .eq('is_active', true);
       if (deactivateError) throw deactivateError;
 
       // Activate selected cohort
@@ -361,7 +392,7 @@ const AdminSettings = () => {
                         <Button
                           variant="destructive"
                           size="sm"
-                          onClick={() => deleteCohort(cohort.id)}
+                          onClick={() => requestDeleteCohort(cohort)}
                           disabled={deletingCohortId === cohort.id || cohort.is_active}
                           className="gap-1"
                           title={cohort.is_active ? "Cannot delete active cohort" : "Delete cohort"}
@@ -557,6 +588,46 @@ const AdminSettings = () => {
             <Button onClick={createCohort} disabled={creatingCohort} className="gap-2">
               {creatingCohort ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {creatingCohort ? 'Creating...' : 'Create Cohort'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Cohort Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => { if (!deletingCohortId) setDeleteDialogOpen(open); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Cohort</DialogTitle>
+            <DialogDescription>
+              This permanently deletes <strong>{cohortToDelete?.name}</strong> and cannot be undone.
+              To confirm, type the word below exactly.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="p-3 rounded-md bg-muted border text-center">
+              <p className="text-xs text-muted-foreground mb-1">Type this word to confirm:</p>
+              <p className="font-mono text-lg font-bold tracking-widest select-all">{deleteChallenge}</p>
+            </div>
+            <Input
+              autoFocus
+              placeholder="Type the word here"
+              value={deleteInput}
+              onChange={(e) => setDeleteInput(e.target.value)}
+              className="font-mono"
+            />
+          </div>
+          <div className="flex gap-2 justify-end pt-4 border-t">
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={!!deletingCohortId}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteCohort}
+              disabled={!!deletingCohortId || deleteInput.trim().toUpperCase() !== deleteChallenge}
+              className="gap-2"
+            >
+              {deletingCohortId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {deletingCohortId ? 'Deleting...' : 'Delete Permanently'}
             </Button>
           </div>
         </DialogContent>
