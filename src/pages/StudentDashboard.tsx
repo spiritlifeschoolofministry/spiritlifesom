@@ -303,11 +303,36 @@ const StudentDashboard = () => {
               <Input type="number" value={profileCompletionForm.age} onChange={(e) => setProfileCompletionForm(p => ({...p, age: e.target.value}))} />
             </div>
             <div className="space-y-2">
-              <Label>Cohort</Label>
-              <select className="w-full border border-border bg-background p-2 rounded" value={profileCompletionForm.cohort_id} onChange={(e) => setProfileCompletionForm(p => ({...p, cohort_id: e.target.value}))}>
-                <option value="">Select cohort</option>
-                {cohortOptions?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <div className="flex items-center justify-between gap-2">
+                <Label>Cohort</Label>
+                <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5 accent-primary"
+                    checked={isReturningStudent}
+                    onChange={(e) => handleReturningToggle(e.target.checked)}
+                  />
+                  I'm a returning student
+                </label>
+              </div>
+              <select
+                className="w-full border border-border bg-background p-2 rounded"
+                value={profileCompletionForm.cohort_id}
+                onChange={(e) => setProfileCompletionForm(p => ({...p, cohort_id: e.target.value}))}
+                disabled={loadingAllCohorts}
+              >
+                <option value="">
+                  {loadingAllCohorts ? "Loading cohorts..." : "Select cohort"}
+                </option>
+                {(isReturningStudent ? allCohortOptions : cohortOptions)?.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
               </select>
+              {isReturningStudent && (
+                <p className="text-xs text-muted-foreground">
+                  Showing all past and current cohorts. Your selection will still require admin approval.
+                </p>
+              )}
             </div>
             <Button className="w-full" onClick={saveProfileCompletion} disabled={savingProfileCompletion}>
               {savingProfileCompletion ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : "Save and continue"}
