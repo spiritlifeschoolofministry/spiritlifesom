@@ -592,6 +592,46 @@ const AdminSettings = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Cohort Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => { if (!deletingCohortId) setDeleteDialogOpen(open); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Cohort</DialogTitle>
+            <DialogDescription>
+              This permanently deletes <strong>{cohortToDelete?.name}</strong> and cannot be undone.
+              To confirm, type the word below exactly.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="p-3 rounded-md bg-muted border text-center">
+              <p className="text-xs text-muted-foreground mb-1">Type this word to confirm:</p>
+              <p className="font-mono text-lg font-bold tracking-widest select-all">{deleteChallenge}</p>
+            </div>
+            <Input
+              autoFocus
+              placeholder="Type the word here"
+              value={deleteInput}
+              onChange={(e) => setDeleteInput(e.target.value)}
+              className="font-mono"
+            />
+          </div>
+          <div className="flex gap-2 justify-end pt-4 border-t">
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={!!deletingCohortId}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteCohort}
+              disabled={!!deletingCohortId || deleteInput.trim().toUpperCase() !== deleteChallenge}
+              className="gap-2"
+            >
+              {deletingCohortId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {deletingCohortId ? 'Deleting...' : 'Delete Permanently'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
