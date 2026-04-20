@@ -239,7 +239,7 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
               <Textarea value={form.ministry_description} onChange={e => set("ministry_description", e.target.value)} className="mt-1" rows={3} placeholder="Ministry involvement" />
             </div>
             <div className="flex gap-2 pt-1">
-              <Button onClick={handleSave} disabled={saving} size="sm">
+              <Button onClick={() => setConfirmOpen(true)} disabled={saving} size="sm">
                 {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
                 Save
               </Button>
