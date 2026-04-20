@@ -174,12 +174,18 @@ export default function StudentExamsList() {
                         if (o) loadBreakdown(e);
                       }}
                     >
-                      <CollapsibleTrigger asChild>
-                        <Button variant="ghost" size="sm" className="mt-3 -ml-2 text-xs">
-                          <ChevronDown className={`w-3.5 h-3.5 mr-1 transition-transform ${isOpen ? "rotate-180" : ""}`} />
-                          {isOpen ? "Hide" : "View"} result details
+                      <div className="flex items-center gap-1 mt-3 -ml-2">
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm" className="text-xs">
+                            <ChevronDown className={`w-3.5 h-3.5 mr-1 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                            {isOpen ? "Hide" : "View"} result details
+                          </Button>
+                        </CollapsibleTrigger>
+                        <Button variant="ghost" size="sm" className="text-xs" onClick={() => exportBreakdown(e)}>
+                          <Download className="w-3.5 h-3.5 mr-1" />
+                          Export CSV
                         </Button>
-                      </CollapsibleTrigger>
+                      </div>
                       <CollapsibleContent className="mt-3 pt-3 border-t border-border space-y-3">
                         {!breakdown ? (
                           <p className="text-xs text-muted-foreground">Loading…</p>
