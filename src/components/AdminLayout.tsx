@@ -29,6 +29,7 @@ import {
   BarChart3,
   ShieldCheck,
   MoreHorizontal,
+  ClipboardCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -39,6 +40,7 @@ const NAV_ITEMS = [
   { label: "Courses", icon: BookOpen, path: "/admin/courses" },
   { label: "Attendance", icon: CalendarCheck, path: "/admin/attendance" },
   { label: "Tasks", icon: FileText, path: "/admin/assignments" },
+  { label: "Exams", icon: ClipboardCheck, path: "/admin/exams" },
   { label: "Materials", icon: Folder, path: "/admin/materials" },
   { label: "Fees", icon: CreditCard, path: "/admin/fees" },
   { label: "Announcements", icon: Bell, path: "/admin/announcements" },
