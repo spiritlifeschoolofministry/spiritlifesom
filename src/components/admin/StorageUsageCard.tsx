@@ -83,7 +83,7 @@ export default function StorageUsageCard() {
 
             <p className="text-[11px] text-muted-foreground italic">
               {data.plan ? <>Detected plan: <span className="font-semibold uppercase">{data.plan}</span> ({data.limit_source}). </> : null}
-              Auto-detects via Management API when <code>SUPABASE_ACCESS_TOKEN</code> is set. Override with <code>SUPABASE_PLAN</code> (free/pro/team) or <code>STORAGE_LIMIT_BYTES</code>.
+              Auto-detects via Management API using <code>SB_MGMT_ACCESS_TOKEN</code>. Override with <code>SUPABASE_PLAN</code> (free/pro/team) or <code>STORAGE_LIMIT_BYTES</code>.
             </p>
           </>
         )}
