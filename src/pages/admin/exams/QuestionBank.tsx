@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { RichTextEditor } from "@/components/exam/RichTextEditor";
+import { Skeleton } from "@/components/ui/skeleton";
+const RichTextEditor = lazy(() =>
+  import("@/components/exam/RichTextEditor").then((m) => ({ default: m.RichTextEditor }))
+);
 import { QUESTION_TYPE_LABELS, QuestionType, parseQuestionCSV, sanitizeHtml } from "@/lib/exam-utils";
 import { toast } from "sonner";
 import { Plus, Upload, Archive, Edit, Trash2, Search } from "lucide-react";
