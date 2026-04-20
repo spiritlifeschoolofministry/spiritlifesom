@@ -268,7 +268,7 @@ const AdminAdmissions = () => {
           <span className="text-sm font-medium text-foreground mr-1">{selectedIds.size} selected</span>
           <Button
             size="sm"
-            onClick={handleBulkApprove}
+            onClick={() => setConfirmAction({ type: "bulkApprove" })}
             disabled={bulkApproving}
             className="gap-1.5 text-xs h-8 bg-emerald-600 hover:bg-emerald-700"
           >
@@ -353,7 +353,7 @@ const AdminAdmissions = () => {
                   <Button
                     size="sm"
                     className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-primary-foreground"
-                    onClick={() => handleApprove(app.id)}
+                    onClick={() => setConfirmAction({ type: "approve", student: app })}
                   >
                     <Check className="w-4 h-4" /> Admit
                   </Button>
@@ -361,7 +361,7 @@ const AdminAdmissions = () => {
                     variant="outline"
                     size="sm"
                     className="gap-1 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10"
-                    onClick={() => handleReject(app.id)}
+                    onClick={() => setConfirmAction({ type: "reject", student: app })}
                   >
                     <X className="w-4 h-4" /> Reject
                   </Button>
@@ -399,14 +399,14 @@ const AdminAdmissions = () => {
               <div className="flex gap-2 pt-4 border-t border-border">
                 <Button
                   className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                  onClick={() => handleApprove(selectedApp.id)}
+                  onClick={() => setConfirmAction({ type: "approve", student: selectedApp })}
                 >
                   <Check className="w-4 h-4 mr-2" /> Admit Student
                 </Button>
                 <Button
                   variant="destructive"
                   className="flex-1"
-                  onClick={() => handleReject(selectedApp.id)}
+                  onClick={() => setConfirmAction({ type: "reject", student: selectedApp })}
                 >
                   <X className="w-4 h-4 mr-2" /> Reject Application
                 </Button>
