@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import ThemeToggle from "@/components/ThemeToggle";
 import ScrollToTop from "@/components/ScrollToTop";
+import { Badge } from "@/components/ui/badge";
+import { usePendingAdmissionsCount } from "@/hooks/use-pending-admissions";
 import {
   LayoutDashboard,
   Users,
@@ -48,6 +50,8 @@ const AdminLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile: authProfile, signOut, student, role } = useAuth();
+  const isAdmin = (role ?? "").toLowerCase() === "admin" || (role ?? "").toLowerCase() === "teacher";
+  const pendingCount = usePendingAdmissionsCount(isAdmin);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const touchStartX = useRef<number | null>(null);
@@ -134,6 +138,7 @@ const AdminLayout = () => {
           <nav className="flex-1 py-4 space-y-1 px-2">
             {NAV_ITEMS.map((item) => {
               const active = location.pathname === item.path;
+              const showBadge = item.path === "/admin/admissions" && pendingCount > 0;
               return (
                 <Link
                   key={item.path}
@@ -143,7 +148,12 @@ const AdminLayout = () => {
                   }`}
                 >
                   <item.icon className="w-4 h-4 shrink-0" />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {showBadge && (
+                    <Badge className="bg-destructive text-destructive-foreground hover:bg-destructive h-5 min-w-5 px-1.5 text-[10px] font-bold">
+                      {pendingCount}
+                    </Badge>
+                  )}
                 </Link>
               );
             })}
@@ -157,6 +167,7 @@ const AdminLayout = () => {
               <nav className="py-4 space-y-1 px-2">
                 {NAV_ITEMS.map((item) => {
                   const active = location.pathname === item.path;
+                  const showBadge = item.path === "/admin/admissions" && pendingCount > 0;
                   return (
                     <Link
                       key={item.path}
@@ -167,7 +178,12 @@ const AdminLayout = () => {
                       }`}
                     >
                       <item.icon className="w-4 h-4 shrink-0" />
-                      {item.label}
+                      <span className="flex-1">{item.label}</span>
+                      {showBadge && (
+                        <Badge className="bg-destructive text-destructive-foreground hover:bg-destructive h-5 min-w-5 px-1.5 text-[10px] font-bold">
+                          {pendingCount}
+                        </Badge>
+                      )}
                     </Link>
                   );
                 })}
@@ -185,10 +201,16 @@ const AdminLayout = () => {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border flex justify-around py-2 z-30">
         {NAV_ITEMS.slice(0, 4).map((item) => {
           const active = location.pathname === item.path;
+          const showBadge = item.path === "/admin/admissions" && pendingCount > 0;
           return (
-            <Link key={item.path} to={item.path} className={`flex flex-col items-center gap-0.5 text-[10px] ${active ? "text-accent" : "text-muted-foreground"}`}>
+            <Link key={item.path} to={item.path} className={`relative flex flex-col items-center gap-0.5 text-[10px] ${active ? "text-accent" : "text-muted-foreground"}`}>
               <item.icon className="w-5 h-5" />
               {item.label.split(" ")[0]}
+              {showBadge && (
+                <span className="absolute -top-1 right-2 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full h-4 min-w-4 px-1 flex items-center justify-center">
+                  {pendingCount}
+                </span>
+              )}
             </Link>
           );
         })}

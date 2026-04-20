@@ -47,6 +47,8 @@ interface FormData {
   learningMode: string;
   affirmStatement: boolean;
   signatureFullName: string;
+  isReturningStudent: boolean;
+  cohortId: string;
 }
 
 const calculateAge = (day: string, month: string, year: string): number | null => {
@@ -67,6 +69,8 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [acceptingApplications, setAcceptingApplications] = useState<boolean | null>(null);
+  const [cohorts, setCohorts] = useState<{ id: string; name: string; is_active: boolean }[]>([]);
+  const [activeCohortId, setActiveCohortId] = useState<string>("");
 
   useEffect(() => {
     const checkAdmissions = async () => {
@@ -83,6 +87,22 @@ const Register = () => {
       }
     };
     checkAdmissions();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("cohorts")
+        .select("id, name, is_active")
+        .order("created_at", { ascending: false });
+      const list = data || [];
+      setCohorts(list);
+      const active = list.find((c) => c.is_active);
+      if (active) {
+        setActiveCohortId(active.id);
+        setForm((prev) => ({ ...prev, cohortId: prev.cohortId || active.id }));
+      }
+    })();
   }, []);
 
   const [form, setForm] = useState<FormData>({
@@ -108,6 +128,8 @@ const Register = () => {
     learningMode: "",
     affirmStatement: false,
     signatureFullName: "",
+    isReturningStudent: false,
+    cohortId: "",
   });
 
   const updateForm = (field: keyof FormData, value: any) => {
@@ -176,6 +198,7 @@ const Register = () => {
             phone: form.phone,
             gender: form.gender || null,
             age: age ?? null,
+            cohort_id: form.cohortId || activeCohortId || null,
           },
         },
       });
@@ -210,13 +233,8 @@ const Register = () => {
         console.error('[Register] Student record not created by trigger after retries');
       }
 
-      // Fetch active cohort to auto-assign
-      const { data: activeCohort } = await supabase
-        .from('cohorts')
-        .select('id')
-        .eq('is_active', true)
-        .limit(1)
-        .maybeSingle();
+      // Use selected cohort (or active cohort fallback)
+      const chosenCohortId = form.cohortId || activeCohortId || null;
 
       // Update student record with all registration fields
       const dob = form.dobDay && form.dobMonth && form.dobYear
@@ -233,7 +251,7 @@ const Register = () => {
         educational_background: form.educationalBackground || null,
         preferred_language: form.preferredLanguage || null,
         date_of_birth: dob,
-        ...(activeCohort?.id ? { cohort_id: activeCohort.id } : {}),
+        ...(chosenCohortId ? { cohort_id: chosenCohortId } : {}),
       };
 
       const { error: studentUpdateError } = await supabase
@@ -500,6 +518,48 @@ const Register = () => {
           {/* Step 3 */}
           {step === 3 && (
             <div className="space-y-5">
+              <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="returningStudent"
+                    checked={form.isReturningStudent}
+                    onCheckedChange={(v) => {
+                      const isReturning = !!v;
+                      updateForm("isReturningStudent", isReturning);
+                      // Reset to active cohort if unchecked
+                      if (!isReturning) updateForm("cohortId", activeCohortId);
+                    }}
+                    className="mt-1"
+                  />
+                  <Label htmlFor="returningStudent" className="text-sm font-normal leading-relaxed cursor-pointer">
+                    I am a <strong>returning / past student</strong> registering for an earlier cohort
+                  </Label>
+                </div>
+
+                <div>
+                  <Label>Cohort *</Label>
+                  {form.isReturningStudent ? (
+                    <Select value={form.cohortId} onValueChange={(v) => updateForm("cohortId", v)}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select your cohort" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cohorts.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name} {c.is_active ? "(Current)" : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="mt-1 px-3 py-2 rounded-md border border-border bg-card text-sm text-muted-foreground">
+                      {cohorts.find((c) => c.id === activeCohortId)?.name || "Loading active cohort..."}
+                      <span className="ml-2 text-xs text-primary font-medium">(Current active cohort)</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <Label htmlFor="eduBg">Educational Background</Label>
                 <Textarea id="eduBg" value={form.educationalBackground} onChange={(e) => updateForm("educationalBackground", e.target.value)} rows={3} placeholder="List institutions, dates, and qualifications..." />
