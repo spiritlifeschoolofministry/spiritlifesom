@@ -11,6 +11,7 @@ import AdminLayout from "./components/AdminLayout";
 import { SessionManagerProvider } from "./components/SessionManagerProvider";
 import { MaintenanceGate } from "./components/MaintenanceGate";
 import ScrollToTop from "./components/ScrollToTop";
+import DomainRedirect from "./components/DomainRedirect";
 import { App as CapApp } from "@capacitor/app";
 import Home from "./pages/Home";
 import About from "./pages/About";
