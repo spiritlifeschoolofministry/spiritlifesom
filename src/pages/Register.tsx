@@ -408,10 +408,15 @@ const Register = () => {
                 <Input id="phone" type="tel" name="phone" autoComplete="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="+234..." />
               </div>
               <div>
-                <Label>Passport Photo *</Label>
+                <Label>Passport Photo <span className="text-muted-foreground font-normal">(optional)</span></Label>
                 <div className="mt-2 flex items-center gap-4">
-                  {photoPreview ? (
-                    <img src={photoPreview} alt="Preview" className="w-20 h-20 rounded-xl object-cover border-2 border-primary/20" />
+                  {photoPreview || form.photoUrl ? (
+                    <img
+                      src={photoPreview || form.photoUrl}
+                      alt="Preview"
+                      className="w-20 h-20 rounded-xl object-cover border-2 border-primary/20"
+                      onError={() => { /* invalid URL — ignore preview */ }}
+                    />
                   ) : (
                     <div className="w-20 h-20 rounded-xl bg-muted flex items-center justify-center border-2 border-dashed border-border">
                       <Upload className="w-6 h-6 text-muted-foreground" />
@@ -423,6 +428,22 @@ const Register = () => {
                     </span>
                     <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
                   </label>
+                </div>
+                <div className="mt-3">
+                  <Label htmlFor="photo-url" className="text-xs text-muted-foreground">
+                    Or paste an image URL
+                  </Label>
+                  <Input
+                    id="photo-url"
+                    type="url"
+                    placeholder="https://example.com/photo.jpg"
+                    value={form.photoUrl}
+                    onChange={(e) => updateForm("photoUrl", e.target.value)}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    You can also skip this and add a photo later from your profile.
+                  </p>
                 </div>
               </div>
             </div>
