@@ -11,8 +11,7 @@ interface SEOProps {
 }
 
 export const SITE_ORIGIN = "https://spiritlifesom.org";
-const DEFAULT_IMAGE =
-  "https://storage.googleapis.com/gpt-engineer-file-uploads/ULLaLM8DoVeitFfBuaq3YvmsyD12/social-images/social-1776329526133-Screenshot_2026-04-09_130948.webp";
+const DEFAULT_IMAGE = "https://spiritlifesom.org/og-image.png";
 
 /**
  * Per-page SEO. Sets <title>, meta description, canonical, OG/Twitter tags,
