@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { QuestionRenderer } from "@/components/exam/QuestionRenderer";
+import WebcamProctor from "@/components/exam/WebcamProctor";
 import { formatDuration, generateFingerprint, generateSessionId } from "@/lib/exam-utils";
 import { AlertTriangle, ChevronLeft, ChevronRight, Send, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
@@ -202,6 +203,14 @@ export default function ExamRunner() {
 
   return (
     <div className="min-h-screen bg-background select-none" onCopy={(e) => e.preventDefault()}>
+      {exam.enable_webcam_proctoring && (
+        <WebcamProctor
+          attemptId={attempt.id}
+          examId={exam.id}
+          studentId={attempt.student_id}
+          intervalSeconds={exam.snapshot_interval_seconds ?? 30}
+        />
+      )}
       {/* Top bar */}
       <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">

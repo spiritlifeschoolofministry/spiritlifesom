@@ -13,6 +13,7 @@ import { Loader2, Check, X, Plus, Trash2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import SiteContentEditor from '@/components/admin/SiteContentEditor';
 import FacultyManager from '@/components/admin/FacultyManager';
+import StorageUsageCard from '@/components/admin/StorageUsageCard';
 
 interface SystemSettings {
   accepting_applications: boolean;
@@ -338,7 +339,8 @@ const AdminSettings = () => {
         </CardContent>
       </Card>
 
-      {/* Cohort Management */}
+      {/* Storage Usage */}
+      <StorageUsageCard />
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Cohort Management</CardTitle>

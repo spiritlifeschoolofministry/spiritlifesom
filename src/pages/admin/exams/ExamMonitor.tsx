@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Download, AlertTriangle, CheckCircle2, Send } from "lucide-react";
+import { ArrowLeft, Download, AlertTriangle, CheckCircle2, Send, Camera, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { sanitizeHtml } from "@/lib/exam-utils";
 
@@ -19,6 +19,9 @@ export default function ExamMonitor() {
   const [loading, setLoading] = useState(true);
   const [grading, setGrading] = useState<any | null>(null);
   const [gradeData, setGradeData] = useState<{ answers: any[]; questions: any[]; override: string }>({ answers: [], questions: [], override: "" });
+  const [snapshots, setSnapshots] = useState<Record<string, Array<{ id: string; storage_path: string; captured_at: string; signedUrl?: string }>>>({});
+  const [snapshotViewer, setSnapshotViewer] = useState<{ url: string; meta: string } | null>(null);
+  const [loadingSnapsFor, setLoadingSnapsFor] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -108,6 +111,46 @@ export default function ExamMonitor() {
     load();
   };
 
+  const loadSnapshots = async (attemptId: string) => {
+    setLoadingSnapsFor(attemptId);
+    const { data, error } = await supabase
+      .from("exam_snapshots")
+      .select("id, storage_path, captured_at")
+      .eq("attempt_id", attemptId)
+      .order("captured_at", { ascending: false });
+    if (error) { toast.error(error.message); setLoadingSnapsFor(null); return; }
+    const withUrls = await Promise.all((data ?? []).map(async (s) => {
+      const { data: signed } = await supabase.storage.from("proctor-snapshots").createSignedUrl(s.storage_path, 3600);
+      return { ...s, signedUrl: signed?.signedUrl };
+    }));
+    setSnapshots((prev) => ({ ...prev, [attemptId]: withUrls }));
+    setLoadingSnapsFor(null);
+  };
+
+  const deleteSnapshot = async (attemptId: string, snap: { id: string; storage_path: string }) => {
+    if (!confirm("Delete this snapshot permanently?")) return;
+    const { error: sErr } = await supabase.storage.from("proctor-snapshots").remove([snap.storage_path]);
+    if (sErr) { toast.error(sErr.message); return; }
+    const { error: dErr } = await supabase.from("exam_snapshots").delete().eq("id", snap.id);
+    if (dErr) { toast.error(dErr.message); return; }
+    setSnapshots((prev) => ({
+      ...prev,
+      [attemptId]: (prev[attemptId] ?? []).filter((s) => s.id !== snap.id),
+    }));
+    toast.success("Snapshot deleted");
+  };
+
+  const deleteAllSnapshots = async (attemptId: string) => {
+    const list = snapshots[attemptId] ?? [];
+    if (list.length === 0) return;
+    if (!confirm(`Delete all ${list.length} snapshots for this attempt?`)) return;
+    const paths = list.map((s) => s.storage_path);
+    await supabase.storage.from("proctor-snapshots").remove(paths);
+    await supabase.from("exam_snapshots").delete().eq("attempt_id", attemptId);
+    setSnapshots((prev) => ({ ...prev, [attemptId]: [] }));
+    toast.success("All snapshots deleted");
+  };
+
   if (loading) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
   if (!exam) return <p className="p-6">Exam not found</p>;
 
@@ -154,7 +197,8 @@ export default function ExamMonitor() {
           </thead>
           <tbody>
             {attempts.map((a) => (
-              <tr key={a.id} className="border-b border-border/50">
+              <Fragment key={a.id}>
+              <tr className="border-b border-border/50">
                 <td className="py-2 pr-3">
                   <p className="font-medium">{a.students?.profiles?.first_name} {a.students?.profiles?.last_name}</p>
                   <p className="text-xs text-muted-foreground">{a.students?.student_code}</p>
@@ -175,12 +219,60 @@ export default function ExamMonitor() {
                 </td>
                 <td className="py-2 pr-3 text-xs">{a.submitted_at ? new Date(a.submitted_at).toLocaleString() : "—"}</td>
                 <td className="py-2 pr-3">
-                  {a.status !== "in_progress" && (
-                    <Button size="sm" variant="outline" onClick={() => openGrading(a)}>Grade / Review</Button>
-                  )}
+                  <div className="flex flex-wrap gap-1.5">
+                    {a.status !== "in_progress" && (
+                      <Button size="sm" variant="outline" onClick={() => openGrading(a)}>Grade / Review</Button>
+                    )}
+                    <Button size="sm" variant="outline" onClick={() => loadSnapshots(a.id)} disabled={loadingSnapsFor === a.id}>
+                      {loadingSnapsFor === a.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Camera className="w-3 h-3 mr-1" />}
+                      Snapshots
+                    </Button>
+                  </div>
                 </td>
               </tr>
-            ))}
+              {snapshots[a.id] && (
+                <tr key={`${a.id}-snaps`}>
+                  <td colSpan={6} className="py-2 px-3 bg-muted/30">
+                    {snapshots[a.id].length === 0 ? (
+                      <p className="text-xs text-muted-foreground py-2">No snapshots captured for this attempt.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-medium">{snapshots[a.id].length} snapshots</p>
+                          <Button size="sm" variant="destructive" onClick={() => deleteAllSnapshots(a.id)}>
+                            <Trash2 className="w-3 h-3 mr-1" /> Delete all
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                          {snapshots[a.id].map((s) => (
+                            <div key={s.id} className="relative group">
+                              <button
+                                onClick={() => s.signedUrl && setSnapshotViewer({ url: s.signedUrl, meta: new Date(s.captured_at).toLocaleString() })}
+                                className="block w-full aspect-[4/3] rounded overflow-hidden border border-border hover:border-primary"
+                              >
+                                {s.signedUrl ? (
+                                  <img src={s.signedUrl} alt="snapshot" className="w-full h-full object-cover" loading="lazy" />
+                                ) : (
+                                  <div className="w-full h-full bg-muted flex items-center justify-center text-[10px] text-muted-foreground">…</div>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => deleteSnapshot(a.id, s)}
+                                className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Delete snapshot"
+                              >
+                                <Trash2 className="w-2.5 h-2.5" />
+                              </button>
+                              <p className="text-[9px] text-muted-foreground mt-0.5 truncate">{new Date(s.captured_at).toLocaleTimeString()}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              )}
+            </Fragment>))}
           </tbody>
         </table>
       </Card>
@@ -238,6 +330,13 @@ export default function ExamMonitor() {
             <Button variant="outline" onClick={() => setGrading(null)}>Cancel</Button>
             <Button onClick={saveGrading}>Save grading</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!snapshotViewer} onOpenChange={(v) => !v && setSnapshotViewer(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Snapshot · {snapshotViewer?.meta}</DialogTitle></DialogHeader>
+          {snapshotViewer && <img src={snapshotViewer.url} alt="snapshot" className="w-full rounded" />}
         </DialogContent>
       </Dialog>
     </div>

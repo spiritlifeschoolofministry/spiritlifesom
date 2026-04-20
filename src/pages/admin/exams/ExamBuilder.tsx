@@ -41,6 +41,8 @@ const DEFAULT: any = {
   target_audience: "cohort",
   target_student_ids: [],
   questions_per_attempt: null,
+  enable_webcam_proctoring: false,
+  snapshot_interval_seconds: 30,
 };
 
 export default function ExamBuilder() {
@@ -339,6 +341,7 @@ export default function ExamBuilder() {
               { k: "block_shortcuts", label: "Block keyboard shortcuts (copy/paste/devtools)" },
               { k: "allow_mobile", label: "Allow mobile devices (with reduced security)" },
               { k: "show_correct_answers", label: "Show correct answers after release" },
+              { k: "enable_webcam_proctoring", label: "Webcam proctoring (snapshots every 30s)" },
             ].map((row) => (
               <div key={row.k} className="flex items-center justify-between">
                 <Label>{row.label}</Label>
@@ -347,6 +350,9 @@ export default function ExamBuilder() {
             ))}
             <div><Label>Max tab switches before auto-submit</Label><Input type="number" min={0} value={exam.max_tab_switches} onChange={(e) => setExam({ ...exam, max_tab_switches: Number(e.target.value) })} /></div>
             <div><Label>Autosave interval (seconds)</Label><Input type="number" min={5} value={exam.autosave_interval_seconds} onChange={(e) => setExam({ ...exam, autosave_interval_seconds: Number(e.target.value) })} /></div>
+            {exam.enable_webcam_proctoring && (
+              <div><Label>Snapshot interval (seconds, min 10)</Label><Input type="number" min={10} value={exam.snapshot_interval_seconds ?? 30} onChange={(e) => setExam({ ...exam, snapshot_interval_seconds: Number(e.target.value) })} /></div>
+            )}
           </Card>
         </TabsContent>
 

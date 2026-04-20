@@ -741,6 +741,61 @@ export type Database = {
           },
         ]
       }
+      exam_snapshots: {
+        Row: {
+          attempt_id: string
+          captured_at: string
+          exam_id: string
+          flagged: boolean
+          id: string
+          notes: string | null
+          storage_path: string
+          student_id: string
+        }
+        Insert: {
+          attempt_id: string
+          captured_at?: string
+          exam_id: string
+          flagged?: boolean
+          id?: string
+          notes?: string | null
+          storage_path: string
+          student_id: string
+        }
+        Update: {
+          attempt_id?: string
+          captured_at?: string
+          exam_id?: string
+          flagged?: boolean
+          id?: string
+          notes?: string | null
+          storage_path?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_snapshots_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "exam_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_snapshots_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_snapshots_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exams: {
         Row: {
           allow_late_entry: boolean
@@ -753,6 +808,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           duration_minutes: number
+          enable_webcam_proctoring: boolean
           end_at: string
           enforce_fullscreen: boolean
           id: string
@@ -766,6 +822,7 @@ export type Database = {
           randomize_questions: boolean
           results_released: boolean
           show_correct_answers: boolean
+          snapshot_interval_seconds: number
           start_at: string
           status: string
           target_audience: string
@@ -785,6 +842,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           duration_minutes?: number
+          enable_webcam_proctoring?: boolean
           end_at: string
           enforce_fullscreen?: boolean
           id?: string
@@ -798,6 +856,7 @@ export type Database = {
           randomize_questions?: boolean
           results_released?: boolean
           show_correct_answers?: boolean
+          snapshot_interval_seconds?: number
           start_at: string
           status?: string
           target_audience?: string
@@ -817,6 +876,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           duration_minutes?: number
+          enable_webcam_proctoring?: boolean
           end_at?: string
           enforce_fullscreen?: boolean
           id?: string
@@ -830,6 +890,7 @@ export type Database = {
           randomize_questions?: boolean
           results_released?: boolean
           show_correct_answers?: boolean
+          snapshot_interval_seconds?: number
           start_at?: string
           status?: string
           target_audience?: string
