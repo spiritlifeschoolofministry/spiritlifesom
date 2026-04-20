@@ -288,6 +288,39 @@ export default function StorageBrowserCard() {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        <div className="rounded-lg border bg-gradient-to-br from-primary/5 to-transparent p-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+              Total storage (all buckets)
+            </div>
+            {totalsLoading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+            ) : grandTotal ? (
+              <div className="text-sm font-bold tabular-nums">
+                {fmt(grandTotal.bytes)}{" "}
+                <span className="text-muted-foreground font-normal">
+                  · {grandTotal.files.toLocaleString()} files
+                </span>
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground">—</span>
+            )}
+          </div>
+          {grandTotal && buckets.length > 0 && (
+            <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1 text-[11px]">
+              {buckets.map((b) => {
+                const s = grandTotal.perBucket[b.name];
+                if (!s) return null;
+                return (
+                  <div key={b.name} className="flex items-center justify-between gap-2 truncate">
+                    <span className="truncate text-muted-foreground">{b.name}</span>
+                    <span className="tabular-nums shrink-0">{fmt(s.bytes)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
           <Button size="sm" variant="ghost" onClick={goUp} disabled={!prefix} className="h-7 px-2 gap-1">
             <ChevronLeft className="h-3.5 w-3.5" /> Up
