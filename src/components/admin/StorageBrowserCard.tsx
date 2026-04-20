@@ -63,8 +63,56 @@ export default function StorageBrowserCard() {
   const [pendingPaths, setPendingPaths] = useState<string[]>([]);
   const [challenge, setChallenge] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [grandTotal, setGrandTotal] = useState<{ files: number; bytes: number; perBucket: Record<string, { files: number; bytes: number }> } | null>(null);
+  const [totalsLoading, setTotalsLoading] = useState(false);
 
   const currentBucket = useMemo(() => buckets.find((b) => b.name === bucket), [buckets, bucket]);
+
+  // Recursively walk every folder in a bucket and tally file count + size
+  const walkBucket = async (bucketName: string): Promise<{ files: number; bytes: number }> => {
+    let files = 0;
+    let bytes = 0;
+    const queue: string[] = [""];
+    let safety = 0;
+    while (queue.length > 0 && safety < 5000) {
+      safety++;
+      const current = queue.shift()!;
+      const { data, error } = await supabase.storage.from(bucketName).list(current, {
+        limit: 1000,
+        sortBy: { column: "name", order: "asc" },
+      });
+      if (error || !data) continue;
+      for (const entry of data as StorageItem[]) {
+        const isDir = entry.id === null || entry.metadata == null;
+        const path = current ? `${current}/${entry.name}` : entry.name;
+        if (isDir) {
+          queue.push(path);
+        } else {
+          files++;
+          bytes += Number(entry.metadata?.size ?? 0);
+        }
+      }
+    }
+    return { files, bytes };
+  };
+
+  const loadGrandTotal = async (bucketList: { name: string; public: boolean }[]) => {
+    if (bucketList.length === 0) return;
+    setTotalsLoading(true);
+    const perBucket: Record<string, { files: number; bytes: number }> = {};
+    let files = 0;
+    let bytes = 0;
+    await Promise.all(
+      bucketList.map(async (b) => {
+        const stats = await walkBucket(b.name);
+        perBucket[b.name] = stats;
+        files += stats.files;
+        bytes += stats.bytes;
+      }),
+    );
+    setGrandTotal({ files, bytes, perBucket });
+    setTotalsLoading(false);
+  };
 
   const loadBuckets = async () => {
     const { data, error } = await supabase.storage.listBuckets();
@@ -75,6 +123,7 @@ export default function StorageBrowserCard() {
     const list = (data || []).map((b: any) => ({ name: b.name, public: !!b.public }));
     setBuckets(list);
     if (!bucket && list[0]) setBucket(list[0].name);
+    loadGrandTotal(list);
   };
 
   const loadItems = async () => {
@@ -239,6 +288,39 @@ export default function StorageBrowserCard() {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        <div className="rounded-lg border bg-gradient-to-br from-primary/5 to-transparent p-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+              Total storage (all buckets)
+            </div>
+            {totalsLoading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+            ) : grandTotal ? (
+              <div className="text-sm font-bold tabular-nums">
+                {fmt(grandTotal.bytes)}{" "}
+                <span className="text-muted-foreground font-normal">
+                  · {grandTotal.files.toLocaleString()} files
+                </span>
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground">—</span>
+            )}
+          </div>
+          {grandTotal && buckets.length > 0 && (
+            <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1 text-[11px]">
+              {buckets.map((b) => {
+                const s = grandTotal.perBucket[b.name];
+                if (!s) return null;
+                return (
+                  <div key={b.name} className="flex items-center justify-between gap-2 truncate">
+                    <span className="truncate text-muted-foreground">{b.name}</span>
+                    <span className="tabular-nums shrink-0">{fmt(s.bytes)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
           <Button size="sm" variant="ghost" onClick={goUp} disabled={!prefix} className="h-7 px-2 gap-1">
             <ChevronLeft className="h-3.5 w-3.5" /> Up
