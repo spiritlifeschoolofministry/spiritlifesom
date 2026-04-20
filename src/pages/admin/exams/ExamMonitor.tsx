@@ -218,12 +218,60 @@ export default function ExamMonitor() {
                 </td>
                 <td className="py-2 pr-3 text-xs">{a.submitted_at ? new Date(a.submitted_at).toLocaleString() : "—"}</td>
                 <td className="py-2 pr-3">
-                  {a.status !== "in_progress" && (
-                    <Button size="sm" variant="outline" onClick={() => openGrading(a)}>Grade / Review</Button>
-                  )}
+                  <div className="flex flex-wrap gap-1.5">
+                    {a.status !== "in_progress" && (
+                      <Button size="sm" variant="outline" onClick={() => openGrading(a)}>Grade / Review</Button>
+                    )}
+                    <Button size="sm" variant="outline" onClick={() => loadSnapshots(a.id)} disabled={loadingSnapsFor === a.id}>
+                      {loadingSnapsFor === a.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Camera className="w-3 h-3 mr-1" />}
+                      Snapshots
+                    </Button>
+                  </div>
                 </td>
               </tr>
-            ))}
+              {snapshots[a.id] && (
+                <tr key={`${a.id}-snaps`}>
+                  <td colSpan={6} className="py-2 px-3 bg-muted/30">
+                    {snapshots[a.id].length === 0 ? (
+                      <p className="text-xs text-muted-foreground py-2">No snapshots captured for this attempt.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-medium">{snapshots[a.id].length} snapshots</p>
+                          <Button size="sm" variant="destructive" onClick={() => deleteAllSnapshots(a.id)}>
+                            <Trash2 className="w-3 h-3 mr-1" /> Delete all
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                          {snapshots[a.id].map((s) => (
+                            <div key={s.id} className="relative group">
+                              <button
+                                onClick={() => s.signedUrl && setSnapshotViewer({ url: s.signedUrl, meta: new Date(s.captured_at).toLocaleString() })}
+                                className="block w-full aspect-[4/3] rounded overflow-hidden border border-border hover:border-primary"
+                              >
+                                {s.signedUrl ? (
+                                  <img src={s.signedUrl} alt="snapshot" className="w-full h-full object-cover" loading="lazy" />
+                                ) : (
+                                  <div className="w-full h-full bg-muted flex items-center justify-center text-[10px] text-muted-foreground">…</div>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => deleteSnapshot(a.id, s)}
+                                className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Delete snapshot"
+                              >
+                                <Trash2 className="w-2.5 h-2.5" />
+                              </button>
+                              <p className="text-[9px] text-muted-foreground mt-0.5 truncate">{new Date(s.captured_at).toLocaleTimeString()}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              )}
+            </>))}
           </tbody>
         </table>
       </Card>
