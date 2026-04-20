@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Loader2, Check, X, Plus, Trash2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import SiteContentEditor from '@/components/admin/SiteContentEditor';
+import FacultyManager from '@/components/admin/FacultyManager';
 
 interface SystemSettings {
   accepting_applications: boolean;
@@ -473,6 +474,9 @@ const AdminSettings = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Faculty CMS */}
+      <FacultyManager />
 
       {/* Site Content CMS */}
       <SiteContentEditor />
