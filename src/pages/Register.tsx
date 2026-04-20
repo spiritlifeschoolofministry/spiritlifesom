@@ -47,6 +47,8 @@ interface FormData {
   learningMode: string;
   affirmStatement: boolean;
   signatureFullName: string;
+  isReturningStudent: boolean;
+  cohortId: string;
 }
 
 const calculateAge = (day: string, month: string, year: string): number | null => {
@@ -67,6 +69,8 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [acceptingApplications, setAcceptingApplications] = useState<boolean | null>(null);
+  const [cohorts, setCohorts] = useState<{ id: string; name: string; is_active: boolean }[]>([]);
+  const [activeCohortId, setActiveCohortId] = useState<string>("");
 
   useEffect(() => {
     const checkAdmissions = async () => {
@@ -83,6 +87,22 @@ const Register = () => {
       }
     };
     checkAdmissions();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("cohorts")
+        .select("id, name, is_active")
+        .order("created_at", { ascending: false });
+      const list = data || [];
+      setCohorts(list);
+      const active = list.find((c) => c.is_active);
+      if (active) {
+        setActiveCohortId(active.id);
+        setForm((prev) => ({ ...prev, cohortId: prev.cohortId || active.id }));
+      }
+    })();
   }, []);
 
   const [form, setForm] = useState<FormData>({
@@ -108,6 +128,8 @@ const Register = () => {
     learningMode: "",
     affirmStatement: false,
     signatureFullName: "",
+    isReturningStudent: false,
+    cohortId: "",
   });
 
   const updateForm = (field: keyof FormData, value: any) => {
