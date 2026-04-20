@@ -163,19 +163,15 @@ const Register = () => {
     return null;
   };
 
-  const handleNext = () => {
-    if (step === 1) {
-      const err = validateStep1();
-      if (err) { toast.error(err); return; }
-    }
-    setStep((s) => Math.min(s + 1, 3));
-  };
-
+  const handleNext = () => setStep((s) => Math.min(s + 1, 3));
   const handleBack = () => setStep((s) => Math.max(s - 1, 1));
+  const goToStep = (n: number) => setStep(Math.max(1, Math.min(3, n)));
 
   const handleSubmit = async () => {
-    const err = validateStep3();
-    if (err) { toast.error(err); return; }
+    const err1 = validateStep1();
+    if (err1) { toast.error(err1); setStep(1); return; }
+    const err3 = validateStep3();
+    if (err3) { toast.error(err3); setStep(3); return; }
 
     setLoading(true);
     try {
@@ -324,7 +320,7 @@ const Register = () => {
       <div className="w-full max-w-2xl">
         <div className="bg-card rounded-2xl shadow-[var(--shadow-card)] border border-border p-6 sm:p-10">
 
-          <StepIndicator currentStep={step} steps={STEPS} />
+          <StepIndicator currentStep={step} steps={STEPS} onStepClick={goToStep} />
 
           {/* Step 1 */}
           {step === 1 && (
