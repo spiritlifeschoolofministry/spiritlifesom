@@ -39,6 +39,9 @@ interface DashboardData {
 interface CohortOption {
   id: string;
   name: string;
+  is_active?: boolean | null;
+  start_date?: string | null;
+  end_date?: string | null;
 }
 
 const EMPTY_DATA: DashboardData = {
@@ -80,7 +83,7 @@ const StudentDashboard = () => {
       try {
         const { data } = await supabase
           .from("cohorts")
-          .select("id, name")
+          .select("id, name, is_active, start_date, end_date")
           .order("start_date", { ascending: false });
         if (data) setAllCohortOptions(data as CohortOption[]);
       } finally {
@@ -324,9 +327,17 @@ const StudentDashboard = () => {
                 <option value="">
                   {loadingAllCohorts ? "Loading cohorts..." : "Select cohort"}
                 </option>
-                {(isReturningStudent ? allCohortOptions : cohortOptions)?.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
+                {(isReturningStudent ? allCohortOptions : cohortOptions)?.map(c => {
+                  const isPast = isReturningStudent && c.is_active === false;
+                  const yearRange = c.start_date && c.end_date 
+                    ? `${new Date(c.start_date).getFullYear()}/${new Date(c.end_date).getFullYear().toString().slice(-2)}`
+                    : null;
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {c.name}{isPast ? ` (Past${yearRange ? ` - ${yearRange}` : ''})` : ''}
+                    </option>
+                  );
+                })}
               </select>
               {isReturningStudent && (
                 <p className="text-xs text-muted-foreground">
