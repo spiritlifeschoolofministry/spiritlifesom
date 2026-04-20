@@ -55,6 +55,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 interface Student {
   id: string;
@@ -137,6 +138,15 @@ const AdminStudents = () => {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
+
+  // Generic confirmation dialog state
+  const [confirmAction, setConfirmAction] = useState<
+    | { type: "statusChange"; student: Student; newStatus: string }
+    | { type: "graduate"; student: Student }
+    | { type: "bulkApprove" }
+    | null
+  >(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => { loadStudents(); loadCohorts(); }, []);
   useEffect(() => { filterStudents(); }, [students, searchQuery, statusFilter, cohortFilter]);
