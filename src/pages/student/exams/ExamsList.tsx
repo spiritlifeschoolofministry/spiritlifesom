@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import StudentLayout from "@/components/StudentLayout";
 import { format, isAfter, isBefore } from "date-fns";
-import { ChevronDown, CheckCircle2, XCircle, Trophy } from "lucide-react";
+import { ChevronDown, CheckCircle2, XCircle, Trophy, Download } from "lucide-react";
 import { sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType } from "@/lib/exam-utils";
+import { downloadCSV } from "@/lib/csv-export";
 
 export default function StudentExamsList() {
   const { student } = useAuth();
