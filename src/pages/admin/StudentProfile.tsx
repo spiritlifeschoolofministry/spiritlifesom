@@ -269,6 +269,38 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
           </div>
         )}
       </CardContent>
+
+      {/* Confirmation before saving sensitive academic changes */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={(o) => { if (!saving) setConfirmOpen(o); }}
+        loading={saving}
+        title="Save academic changes?"
+        description={(() => {
+          const changes: string[] = [];
+          if (form.admission_status !== (student.admission_status || "Pending")) {
+            changes.push(`Status: "${student.admission_status || "Pending"}" → "${form.admission_status}"`);
+          }
+          if (form.cohort_id !== (student.cohort_id || "")) changes.push("Cohort will change");
+          if (form.student_code !== (student.student_code || "")) {
+            changes.push(`Student code: "${student.student_code || "—"}" → "${form.student_code || "—"}"`);
+          }
+          return (
+            <>
+              <p>You're about to update <strong>{student.profile.first_name} {student.profile.last_name}</strong>.</p>
+              {changes.length > 0 && (
+                <ul className="list-disc list-inside text-xs">
+                  {changes.map((c, i) => <li key={i}>{c}</li>)}
+                </ul>
+              )}
+              <p className="text-xs">Please confirm you want to apply these changes.</p>
+            </>
+          );
+        })()}
+        confirmLabel="Save Changes"
+        variant={form.admission_status === "REJECTED" ? "destructive" : "default"}
+        onConfirm={async () => { await handleSave(); setConfirmOpen(false); }}
+      />
     </Card>
   );
 };
