@@ -20,3 +20,8 @@ entrypoint = "./functions/delete-user/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/send-contact-email/index.ts"
+
+[functions.storage-usage]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/storage-usage/index.ts"
