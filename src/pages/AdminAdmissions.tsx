@@ -96,6 +96,7 @@ const AdminAdmissions = () => {
 
   const handleApprove = async (studentId: string) => {
     try {
+      setActionLoading(true);
       const { error } = await supabase
         .from("students")
         .update({ admission_status: "ADMITTED", is_approved: true })
@@ -106,14 +107,18 @@ const AdminAdmissions = () => {
       await loadApplications();
       setSelectedApp(null);
       setSelectedIds((prev) => { const n = new Set(prev); n.delete(studentId); return n; });
+      setConfirmAction(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to approve application";
       toast.error(msg);
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleReject = async (studentId: string) => {
     try {
+      setActionLoading(true);
       const { error } = await supabase
         .from("students")
         .update({ admission_status: "REJECTED", is_approved: false })
@@ -124,15 +129,19 @@ const AdminAdmissions = () => {
       await loadApplications();
       setSelectedApp(null);
       setSelectedIds((prev) => { const n = new Set(prev); n.delete(studentId); return n; });
+      setConfirmAction(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to reject application";
       toast.error(msg);
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleBulkApprove = async () => {
     if (selectedIds.size === 0) return;
     setBulkApproving(true);
+    setActionLoading(true);
     try {
       const ids = Array.from(selectedIds);
       const { error } = await supabase
@@ -144,12 +153,21 @@ const AdminAdmissions = () => {
       toast.success(`${ids.length} student(s) admitted successfully`);
       setSelectedIds(new Set());
       await loadApplications();
+      setConfirmAction(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to approve students";
       toast.error(msg);
     } finally {
       setBulkApproving(false);
+      setActionLoading(false);
     }
+  };
+
+  const runConfirmedAction = () => {
+    if (!confirmAction) return;
+    if (confirmAction.type === "approve") handleApprove(confirmAction.student.id);
+    else if (confirmAction.type === "reject") handleReject(confirmAction.student.id);
+    else if (confirmAction.type === "bulkApprove") handleBulkApprove();
   };
 
   const toggleSelect = (id: string) => {
