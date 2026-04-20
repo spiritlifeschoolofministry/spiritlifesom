@@ -213,8 +213,92 @@ export default function ExamBuilder() {
 
         <TabsContent value="questions" className="space-y-3">
           <Card className="p-4">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <p className="text-sm">Select questions from the bank ({picked.length} selected, {totalPoints} pts total)</p>
+              <Dialog open={importOpen} onOpenChange={async (o) => {
+                setImportOpen(o);
+                if (o && otherExams.length === 0) {
+                  const { data } = await supabase
+                    .from("exams")
+                    .select("id, title, course_id, courses(code)")
+                    .neq("id", id ?? "00000000-0000-0000-0000-000000000000")
+                    .order("created_at", { ascending: false });
+                  setOtherExams(data ?? []);
+                }
+              }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm"><Download className="w-3.5 h-3.5 mr-1.5" /> Import from previous exam</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader><DialogTitle>Import questions from another exam</DialogTitle></DialogHeader>
+                  <div className="space-y-3">
+                    <div>
+                      <Label>Source exam</Label>
+                      <Select value={importExamId} onValueChange={async (v) => {
+                        setImportExamId(v);
+                        setImportQids([]);
+                        const { data: eq } = await supabase
+                          .from("exam_questions")
+                          .select("question_id, display_order, question_bank(*)")
+                          .eq("exam_id", v)
+                          .order("display_order");
+                        setImportQuestions((eq ?? []).map((r: any) => r.question_bank).filter(Boolean));
+                      }}>
+                        <SelectTrigger><SelectValue placeholder="Pick an exam to import from" /></SelectTrigger>
+                        <SelectContent>
+                          {otherExams.map((e: any) => (
+                            <SelectItem key={e.id} value={e.id}>{e.courses?.code ? `${e.courses.code} — ` : ""}{e.title}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {importQuestions.length > 0 && (
+                      <>
+                        <div className="flex items-center justify-between text-xs">
+                          <span>{importQids.length} of {importQuestions.length} selected</span>
+                          <Button size="sm" variant="ghost" onClick={() => setImportQids(
+                            importQids.length === importQuestions.length ? [] : importQuestions.map((q) => q.id)
+                          )}>{importQids.length === importQuestions.length ? "Clear all" : "Select all"}</Button>
+                        </div>
+                        <div className="space-y-2 max-h-[40vh] overflow-y-auto">
+                          {importQuestions.map((q: any) => {
+                            const already = picked.includes(q.id);
+                            const checked = importQids.includes(q.id) || already;
+                            return (
+                              <div key={q.id} className="flex items-start gap-3 p-2 rounded-md border border-border">
+                                <Checkbox checked={checked} disabled={already} onCheckedChange={(v) => {
+                                  setImportQids(v ? [...importQids, q.id] : importQids.filter((x) => x !== q.id));
+                                }} className="mt-0.5" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex gap-1.5 mb-1">
+                                    <Badge variant="secondary" className="text-[10px]">{QUESTION_TYPE_LABELS[q.question_type as QuestionType]}</Badge>
+                                    <Badge variant="outline" className="text-[10px]">{q.points} pt</Badge>
+                                    {already && <Badge variant="outline" className="text-[10px] bg-muted">Already added</Badge>}
+                                  </div>
+                                  <div className="prose prose-sm dark:prose-invert max-w-none line-clamp-2 text-xs"
+                                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(q.question_text) }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setImportOpen(false)}>Cancel</Button>
+                    <Button disabled={importQids.length === 0} onClick={() => {
+                      const merged = Array.from(new Set([...picked, ...importQids]));
+                      setPicked(merged);
+                      toast.success(`Imported ${importQids.length} question${importQids.length === 1 ? "" : "s"}`);
+                      setImportOpen(false);
+                      setImportQids([]);
+                      setImportExamId("");
+                      setImportQuestions([]);
+                    }}>Import {importQids.length || ""}</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
             <div className="space-y-2 max-h-[60vh] overflow-y-auto">
               {bank
