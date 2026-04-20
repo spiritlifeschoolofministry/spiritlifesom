@@ -70,6 +70,22 @@ const AdminSettings = () => {
   const [deletingCohortId, setDeletingCohortId] = useState<string | null>(null);
   const [settingActiveCohortId, setSettingActiveCohortId] = useState<string | null>(null);
 
+  // Delete confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [cohortToDelete, setCohortToDelete] = useState<Cohort | null>(null);
+  const [deleteChallenge, setDeleteChallenge] = useState('');
+  const [deleteInput, setDeleteInput] = useState('');
+
+  // Pool of ~12-letter Bible words used for the deletion challenge
+  const BIBLE_WORDS = [
+    'RIGHTEOUSNESS', 'SANCTIFICATION', 'TRANSFIGURATION', 'LAMENTATIONS',
+    'DEUTERONOMY', 'THESSALONIANS', 'PHILADELPHIA', 'NEBUCHADNEZZAR',
+    'MELCHIZEDEK', 'JERUSALEM', 'BETHLEHEM', 'CORINTHIANS',
+    'REVELATIONS', 'TABERNACLE', 'PRIESTHOOD', 'COVENANTAL',
+    'INTERCESSION', 'REDEMPTION', 'GETHSEMANE', 'PENTECOSTAL',
+  ];
+  const pickChallengeWord = () => BIBLE_WORDS[Math.floor(Math.random() * BIBLE_WORDS.length)];
+
   useEffect(() => {
     loadAll();
   }, []);
