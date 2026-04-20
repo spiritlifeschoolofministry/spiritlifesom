@@ -67,8 +67,27 @@ const StudentDashboard = () => {
     cohort_id: "",
   });
   const [cohortOptions, setCohortOptions] = useState<CohortOption[]>([]);
+  const [allCohortOptions, setAllCohortOptions] = useState<CohortOption[]>([]);
+  const [isReturningStudent, setIsReturningStudent] = useState(false);
+  const [loadingAllCohorts, setLoadingAllCohorts] = useState(false);
 
   const normalizeStatus = (s: string | null | undefined) => (s ?? "").toUpperCase();
+
+  const handleReturningToggle = useCallback(async (checked: boolean) => {
+    setIsReturningStudent(checked);
+    if (checked && allCohortOptions.length === 0) {
+      setLoadingAllCohorts(true);
+      try {
+        const { data } = await supabase
+          .from("cohorts")
+          .select("id, name")
+          .order("start_date", { ascending: false });
+        if (data) setAllCohortOptions(data as CohortOption[]);
+      } finally {
+        setLoadingAllCohorts(false);
+      }
+    }
+  }, [allCohortOptions.length]);
 
   const load = useCallback(async () => {
     setLoading(true);
