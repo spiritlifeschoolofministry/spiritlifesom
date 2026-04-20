@@ -33,6 +33,7 @@ interface FormData {
   confirmPassword: string;
   phone: string;
   passportPhoto: File | null;
+  photoUrl: string;
   gender: string;
   dobDay: string;
   dobMonth: string;
