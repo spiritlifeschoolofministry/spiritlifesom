@@ -51,6 +51,7 @@ import AdminAssignments from "./pages/admin/Assignments";
 import AdminAnalytics from "./pages/admin/Analytics";
 import AdminFees from "./pages/admin/Fees";
 import AdminCourses from "./pages/admin/Courses";
+import AdminAuditLog from "./pages/admin/AuditLog";
 import AdminApprove from "./pages/AdminApprove";
 import NotFound from "./pages/NotFound";
 import { InstallPWA } from "./components/InstallPWA";
@@ -128,6 +129,7 @@ const App = () => {
             <Route path="/admin/announcements" element={<ProtectedRoute requiredRole="admin"><AdminAnnouncements /></ProtectedRoute>} />
             <Route path="/admin/calendar" element={<ProtectedRoute requiredRole="admin"><AdminCalendar /></ProtectedRoute>} />
             <Route path="/admin/analytics" element={<ProtectedRoute requiredRole="admin"><AdminAnalytics /></ProtectedRoute>} />
+            <Route path="/admin/audit" element={<ProtectedRoute requiredRole="admin"><AdminAuditLog /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettings /></ProtectedRoute>} />
           </Route>
 

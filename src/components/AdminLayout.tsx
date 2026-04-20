@@ -27,6 +27,7 @@ import {
   X,
   Eye,
   BarChart3,
+  ShieldCheck,
   MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -43,6 +44,7 @@ const NAV_ITEMS = [
   { label: "Announcements", icon: Bell, path: "/admin/announcements" },
   { label: "Calendar", icon: CalendarDays, path: "/admin/calendar" },
   { label: "Analytics", icon: BarChart3, path: "/admin/analytics" },
+  { label: "Audit Log", icon: ShieldCheck, path: "/admin/audit" },
   { label: "Settings", icon: Settings, path: "/admin/settings" },
   { label: "Profile", icon: UserCircle, path: "/admin/profile" },
 ];
