@@ -70,7 +70,7 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [acceptingApplications, setAcceptingApplications] = useState<boolean | null>(null);
-  const [cohorts, setCohorts] = useState<{ id: string; name: string; is_active: boolean }[]>([]);
+  const [cohorts, setCohorts] = useState<{ id: string; name: string; is_active: boolean; start_date?: string | null; end_date?: string | null }[]>([]);
   const [activeCohortId, setActiveCohortId] = useState<string>("");
 
   useEffect(() => {
@@ -94,8 +94,8 @@ const Register = () => {
     (async () => {
       const { data } = await supabase
         .from("cohorts")
-        .select("id, name, is_active")
-        .order("created_at", { ascending: false });
+        .select("id, name, is_active, start_date, end_date")
+        .order("start_date", { ascending: false });
       const list = data || [];
       setCohorts(list);
       const active = list.find((c) => c.is_active);
@@ -573,11 +573,17 @@ const Register = () => {
                         <SelectValue placeholder="Select your cohort" />
                       </SelectTrigger>
                       <SelectContent>
-                        {cohorts.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name} {c.is_active ? "(Current)" : ""}
-                          </SelectItem>
-                        ))}
+                        {cohorts.map((c) => {
+                          const yearRange = c.start_date && c.end_date
+                            ? `${new Date(c.start_date).getFullYear()}/${new Date(c.end_date).getFullYear().toString().slice(-2)}`
+                            : null;
+                          const tag = c.is_active ? "(Current)" : `(Past${yearRange ? ` - ${yearRange}` : ""})`;
+                          return (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name} {tag}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   ) : (
