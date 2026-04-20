@@ -89,6 +89,7 @@ const App = () => {
         <Sonner />
         <InstallPWA />
         <ScrollToTop />
+        <DomainRedirect />
         <BrowserRouter>
           <SessionManagerProvider>
           <MaintenanceGate>
