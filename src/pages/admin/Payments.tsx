@@ -281,10 +281,10 @@ const AdminPayments = () => {
 
                                 <div className="sticky bottom-0 bg-background pt-4 border-t">
                                   <div className="flex gap-4">
-                                    <Button onClick={() => approvePayment(selectedPayment)} disabled={isProcessing} className="flex-1">
+                                    <Button onClick={() => setPendingConfirm("approve")} disabled={isProcessing} className="flex-1">
                                       <CheckCircle className="mr-2 h-4 w-4" /> Approve
                                     </Button>
-                                    <Button variant="destructive" onClick={() => rejectPayment(selectedPayment)} disabled={isProcessing} className="flex-1">
+                                    <Button variant="destructive" onClick={() => setPendingConfirm("reject")} disabled={isProcessing} className="flex-1">
                                       <XCircle className="mr-2 h-4 w-4" /> Reject
                                     </Button>
                                   </div>
@@ -302,6 +302,27 @@ const AdminPayments = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Confirmation dialog for verify / reject */}
+      <ConfirmDialog
+        open={!!pendingConfirm}
+        onOpenChange={(open) => { if (!open) setPendingConfirm(null); }}
+        loading={isProcessing}
+        title={pendingConfirm === "approve" ? "Verify this payment?" : "Reject this payment?"}
+        description={
+          pendingConfirm === "approve"
+            ? `Mark ${selectedPayment?.student_name || "this student"}'s payment of ₦${selectedPayment?.amount_paid?.toLocaleString() || 0} as VERIFIED. Their fee balance will be updated.`
+            : `Reject ${selectedPayment?.student_name || "this student"}'s payment. Make sure you've entered a clear rejection reason.`
+        }
+        confirmLabel={pendingConfirm === "approve" ? "Verify Payment" : "Reject Payment"}
+        variant={pendingConfirm === "reject" ? "destructive" : "default"}
+        onConfirm={async () => {
+          if (!selectedPayment) return;
+          if (pendingConfirm === "approve") await approvePayment(selectedPayment);
+          else if (pendingConfirm === "reject") await rejectPayment(selectedPayment);
+          setPendingConfirm(null);
+        }}
+      />
     </div>
   );
 };
