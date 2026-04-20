@@ -111,7 +111,7 @@ const Register = () => {
   const [form, setForm] = useState<FormData>(() => {
     const defaults: FormData = {
       firstName: "", lastName: "", middleName: "", email: "",
-      password: "", confirmPassword: "", phone: "", passportPhoto: null,
+      password: "", confirmPassword: "", phone: "", passportPhoto: null, photoUrl: "",
       gender: "", dobDay: "", dobMonth: "", dobYear: "",
       maritalStatus: "", address: "", isBornAgain: "",
       hasDiscoveredMinistry: "", ministryDescription: "",
