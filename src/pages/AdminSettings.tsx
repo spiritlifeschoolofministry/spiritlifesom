@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import SiteContentEditor from '@/components/admin/SiteContentEditor';
 import FacultyManager from '@/components/admin/FacultyManager';
 import StorageUsageCard from '@/components/admin/StorageUsageCard';
+import MaintenanceModeCard from '@/components/admin/MaintenanceModeCard';
 
 interface SystemSettings {
   accepting_applications: boolean;
@@ -338,6 +339,9 @@ const AdminSettings = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Maintenance Mode */}
+      <MaintenanceModeCard />
 
       {/* Storage Usage */}
       <StorageUsageCard />
