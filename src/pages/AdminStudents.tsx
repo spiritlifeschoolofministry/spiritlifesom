@@ -305,13 +305,29 @@ const AdminStudents = () => {
   const handleBulkApprove = async () => {
     if (selectedIds.size === 0) return;
     try {
+      setActionLoading(true);
       const ids = Array.from(selectedIds);
       const { error } = await supabase.from("students").update({ admission_status: "ADMITTED", is_approved: true }).in("id", ids);
       if (error) throw error;
       setStudents((p) => p.map((s) => selectedIds.has(s.id) ? { ...s, admission_status: "ADMITTED" } : s));
       setSelectedIds(new Set());
       toast.success(`${ids.length} student(s) approved`);
+      setConfirmAction(null);
     } catch { toast.error("Failed to approve students"); }
+    finally { setActionLoading(false); }
+  };
+
+  const runConfirmedAction = () => {
+    if (!confirmAction) return;
+    if (confirmAction.type === "statusChange") {
+      handleStatusChange(confirmAction.student.id, confirmAction.newStatus);
+      setConfirmAction(null);
+    } else if (confirmAction.type === "graduate") {
+      handleGraduateSingle(confirmAction.student.id);
+      setConfirmAction(null);
+    } else if (confirmAction.type === "bulkApprove") {
+      handleBulkApprove();
+    }
   };
 
   const toggleSelect = (id: string) => {
