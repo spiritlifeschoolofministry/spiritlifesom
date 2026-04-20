@@ -42,6 +42,17 @@ const FacultyPage = () => {
 
   return (
     <div>
+      <SEO
+        title="Faculty | Spirit Life School of Ministry"
+        description="Meet the faculty of Spirit Life School of Ministry — pastors, scholars and ministers equipping the next generation of Christian leaders."
+        path="/faculty"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: "SLSOM Faculty",
+          url: "https://spiritlifesom.org/faculty",
+        }}
+      />
       {/* Hero */}
       <section className="relative py-20 sm:py-28 text-center text-primary-foreground">
         <div className="absolute inset-0 gradient-purple" />

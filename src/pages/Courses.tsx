@@ -37,6 +37,17 @@ const CoursesPage = () => {
 
   return (
     <div>
+      <SEO
+        title="Courses & Curriculum | Spirit Life School of Ministry"
+        description="Explore SLSOM's Basic and Advanced ministry curriculum — 19 courses covering scripture, theology, leadership, pastoral care, evangelism and ministerial ethics."
+        path="/courses"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "ItemList",
+          name: "Spirit Life School of Ministry — Courses",
+          url: "https://spiritlifesom.org/courses",
+        }}
+      />
       {/* Hero */}
       <section className="relative py-20 sm:py-28 text-center text-primary-foreground">
         <div className="absolute inset-0 gradient-purple" />
