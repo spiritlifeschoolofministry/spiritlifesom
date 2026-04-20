@@ -9,6 +9,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import PublicLayout from "./components/PublicLayout";
 import AdminLayout from "./components/AdminLayout";
 import { SessionManagerProvider } from "./components/SessionManagerProvider";
+import { MaintenanceGate } from "./components/MaintenanceGate";
 import ScrollToTop from "./components/ScrollToTop";
 import { App as CapApp } from "@capacitor/app";
 import Home from "./pages/Home";
@@ -89,6 +90,7 @@ const App = () => {
         <ScrollToTop />
         <BrowserRouter>
           <SessionManagerProvider>
+          <MaintenanceGate>
         <Routes>
           {/* Public pages with shared nav + footer */}
           <Route element={<PublicLayout />}>
@@ -152,6 +154,7 @@ const App = () => {
           <Route path="/admin/approve" element={<ProtectedRoute requiredRole="admin"><AdminApprove /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+          </MaintenanceGate>
           </SessionManagerProvider>
         </BrowserRouter>
       </TooltipProvider>
