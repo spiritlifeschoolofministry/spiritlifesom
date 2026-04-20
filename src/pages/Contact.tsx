@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import Reveal from "@/components/Reveal";
 import { useSiteContent } from "@/hooks/use-site-content";
+import SEO from "@/components/SEO";
 
 const ContactPage = () => {
   const [name, setName] = useState("");

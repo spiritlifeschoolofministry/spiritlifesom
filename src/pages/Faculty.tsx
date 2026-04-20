@@ -4,6 +4,7 @@ import Reveal from "@/components/Reveal";
 import { useSiteContent } from "@/hooks/use-site-content";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import SEO from "@/components/SEO";
 
 interface FacultyMember {
   id: string;

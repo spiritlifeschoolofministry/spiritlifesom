@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Check, Clock, BookOpen, GraduationCap } from "lucide-react";
 import Reveal from "@/components/Reveal";
 import { useSiteContent } from "@/hooks/use-site-content";
+import SEO from "@/components/SEO";
 
 const basicCourses = [
   { code: "SLSM101", title: "The Canon of Scriptures" },
