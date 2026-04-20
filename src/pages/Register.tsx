@@ -158,7 +158,11 @@ const Register = () => {
     if (form.password.length < 6) return "Password must be at least 6 characters";
     if (form.password !== form.confirmPassword) return "Passwords do not match";
     if (!form.phone.trim()) return "Phone number is required";
-    if (!form.passportPhoto) return "Passport photo is required";
+    // Passport photo is optional — users can add it later from their profile.
+    // If a URL is provided, do a basic sanity check.
+    if (form.photoUrl && !/^https?:\/\//i.test(form.photoUrl.trim())) {
+      return "Photo URL must start with http:// or https://";
+    }
     return null;
   };
 
