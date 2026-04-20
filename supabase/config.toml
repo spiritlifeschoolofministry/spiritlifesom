@@ -25,3 +25,8 @@ entrypoint = "./functions/send-contact-email/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/storage-usage/index.ts"
+
+[functions.purge-old-snapshots]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/purge-old-snapshots/index.ts"
