@@ -874,6 +874,40 @@ const AdminStudents = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation dialog for status / approval / graduation actions */}
+      <ConfirmDialog
+        open={!!confirmAction}
+        onOpenChange={(open) => { if (!open) setConfirmAction(null); }}
+        loading={actionLoading}
+        title={
+          confirmAction?.type === "statusChange"
+            ? `Change status to ${confirmAction.newStatus}?`
+            : confirmAction?.type === "graduate"
+            ? "Mark as Graduate?"
+            : "Approve all selected?"
+        }
+        description={
+          confirmAction?.type === "statusChange"
+            ? `${confirmAction.student.profile.first_name} ${confirmAction.student.profile.last_name} will be set to "${confirmAction.newStatus}".`
+            : confirmAction?.type === "graduate"
+            ? `${confirmAction.student.profile.first_name} ${confirmAction.student.profile.last_name} will be marked as a Graduate. 🎓`
+            : `Approve ${selectedIds.size} selected student(s) at once.`
+        }
+        confirmLabel={
+          confirmAction?.type === "graduate"
+            ? "Graduate"
+            : confirmAction?.type === "statusChange" && confirmAction.newStatus === "Rejected"
+            ? "Reject"
+            : "Confirm"
+        }
+        variant={
+          confirmAction?.type === "statusChange" && confirmAction.newStatus === "Rejected"
+            ? "destructive"
+            : "default"
+        }
+        onConfirm={runConfirmedAction}
+      />
     </div>
   );
 };
