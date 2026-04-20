@@ -97,8 +97,16 @@ export default function QuestionBank() {
     if (!importCourse) return toast.error("Pick a course");
     const rows = parseQuestionCSV(csvText);
     if (!rows.length) return toast.error("No rows parsed");
-    const payload = rows.map((r) => ({ ...r, course_id: importCourse }));
-    const { error } = await supabase.from("question_bank").insert(payload);
+    const payload = rows.map((r: any) => ({
+      course_id: importCourse,
+      question_type: r.question_type,
+      question_text: r.question_text,
+      options: r.options,
+      correct_answer: r.correct_answer,
+      points: r.points,
+      explanation: r.explanation,
+    }));
+    const { error } = await supabase.from("question_bank").insert(payload as any);
     if (error) return toast.error(error.message);
     toast.success(`Imported ${rows.length} question(s)`);
     setImportOpen(false);

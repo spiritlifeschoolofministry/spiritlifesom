@@ -53,6 +53,13 @@ import AdminFees from "./pages/admin/Fees";
 import AdminCourses from "./pages/admin/Courses";
 import AdminAuditLog from "./pages/admin/AuditLog";
 import AdminApprove from "./pages/AdminApprove";
+import AdminExamsList from "./pages/admin/exams/ExamsList";
+import AdminExamBuilder from "./pages/admin/exams/ExamBuilder";
+import AdminExamMonitor from "./pages/admin/exams/ExamMonitor";
+import AdminQuestionBank from "./pages/admin/exams/QuestionBank";
+import StudentExamsList from "./pages/student/exams/ExamsList";
+import StudentExamLobby from "./pages/student/exams/ExamLobby";
+import StudentExamRunner from "./pages/student/exams/ExamRunner";
 import NotFound from "./pages/NotFound";
 import { InstallPWA } from "./components/InstallPWA";
 
@@ -111,6 +118,9 @@ const App = () => {
           <Route path="/student/graduates" element={<ProtectedRoute><Graduates /></ProtectedRoute>} />
           <Route path="/student/transcript" element={<ProtectedRoute><StudentTranscript /></ProtectedRoute>} />
           <Route path="/student/certificate" element={<ProtectedRoute><StudentCertificate /></ProtectedRoute>} />
+          <Route path="/student/exams" element={<ProtectedRoute><StudentExamsList /></ProtectedRoute>} />
+          <Route path="/student/exams/:id/lobby" element={<ProtectedRoute><StudentExamLobby /></ProtectedRoute>} />
+          <Route path="/student/exams/:id/take" element={<ProtectedRoute><StudentExamRunner /></ProtectedRoute>} />
 
           {/* Admin portal */}
           <Route element={<AdminLayout />}>
@@ -131,6 +141,11 @@ const App = () => {
             <Route path="/admin/analytics" element={<ProtectedRoute requiredRole="admin"><AdminAnalytics /></ProtectedRoute>} />
             <Route path="/admin/audit" element={<ProtectedRoute requiredRole="admin"><AdminAuditLog /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettings /></ProtectedRoute>} />
+            <Route path="/admin/exams" element={<ProtectedRoute requiredRole="admin"><AdminExamsList /></ProtectedRoute>} />
+            <Route path="/admin/exams/questions" element={<ProtectedRoute requiredRole="admin"><AdminQuestionBank /></ProtectedRoute>} />
+            <Route path="/admin/exams/new" element={<ProtectedRoute requiredRole="admin"><AdminExamBuilder /></ProtectedRoute>} />
+            <Route path="/admin/exams/:id/edit" element={<ProtectedRoute requiredRole="admin"><AdminExamBuilder /></ProtectedRoute>} />
+            <Route path="/admin/exams/:id/monitor" element={<ProtectedRoute requiredRole="admin"><AdminExamMonitor /></ProtectedRoute>} />
           </Route>
 
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
