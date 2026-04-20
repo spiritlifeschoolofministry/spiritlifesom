@@ -518,6 +518,328 @@ export type Database = {
         }
         Relationships: []
       }
+      exam_answers: {
+        Row: {
+          answer: Json | null
+          attempt_id: string
+          autosaved_at: string
+          id: string
+          is_correct: boolean | null
+          manual_feedback: string | null
+          points_awarded: number | null
+          question_id: string
+          time_spent_seconds: number
+        }
+        Insert: {
+          answer?: Json | null
+          attempt_id: string
+          autosaved_at?: string
+          id?: string
+          is_correct?: boolean | null
+          manual_feedback?: string | null
+          points_awarded?: number | null
+          question_id: string
+          time_spent_seconds?: number
+        }
+        Update: {
+          answer?: Json | null
+          attempt_id?: string
+          autosaved_at?: string
+          id?: string
+          is_correct?: boolean | null
+          manual_feedback?: string | null
+          points_awarded?: number | null
+          question_id?: string
+          time_spent_seconds?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_answers_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "exam_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_attempts: {
+        Row: {
+          active_session_id: string | null
+          auto_submitted: boolean
+          created_at: string
+          device_fingerprint: string | null
+          duration_used_seconds: number
+          exam_id: string
+          fullscreen_exits: number
+          graded_at: string | null
+          graded_by: string | null
+          id: string
+          ip_address: string | null
+          last_heartbeat_at: string | null
+          manual_score_override: number | null
+          option_orders: Json
+          question_order: Json
+          regrade_history: Json
+          score: number | null
+          server_deadline_at: string
+          started_at: string
+          status: string
+          student_id: string
+          submission_reason: string | null
+          submitted_at: string | null
+          suspicious_events: Json
+          tab_switch_count: number
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          active_session_id?: string | null
+          auto_submitted?: boolean
+          created_at?: string
+          device_fingerprint?: string | null
+          duration_used_seconds?: number
+          exam_id: string
+          fullscreen_exits?: number
+          graded_at?: string | null
+          graded_by?: string | null
+          id?: string
+          ip_address?: string | null
+          last_heartbeat_at?: string | null
+          manual_score_override?: number | null
+          option_orders?: Json
+          question_order?: Json
+          regrade_history?: Json
+          score?: number | null
+          server_deadline_at: string
+          started_at?: string
+          status?: string
+          student_id: string
+          submission_reason?: string | null
+          submitted_at?: string | null
+          suspicious_events?: Json
+          tab_switch_count?: number
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          active_session_id?: string | null
+          auto_submitted?: boolean
+          created_at?: string
+          device_fingerprint?: string | null
+          duration_used_seconds?: number
+          exam_id?: string
+          fullscreen_exits?: number
+          graded_at?: string | null
+          graded_by?: string | null
+          id?: string
+          ip_address?: string | null
+          last_heartbeat_at?: string | null
+          manual_score_override?: number | null
+          option_orders?: Json
+          question_order?: Json
+          regrade_history?: Json
+          score?: number | null
+          server_deadline_at?: string
+          started_at?: string
+          status?: string
+          student_id?: string
+          submission_reason?: string | null
+          submitted_at?: string | null
+          suspicious_events?: Json
+          tab_switch_count?: number
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_attempts_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_events: {
+        Row: {
+          attempt_id: string
+          event_data: Json | null
+          event_type: string
+          id: string
+          occurred_at: string
+        }
+        Insert: {
+          attempt_id: string
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          occurred_at?: string
+        }
+        Update: {
+          attempt_id?: string
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          occurred_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_events_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "exam_attempts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_questions: {
+        Row: {
+          created_at: string
+          display_order: number
+          exam_id: string
+          id: string
+          points_override: number | null
+          question_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          exam_id: string
+          id?: string
+          points_override?: number | null
+          question_id: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          exam_id?: string
+          id?: string
+          points_override?: number | null
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_questions_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exams: {
+        Row: {
+          allow_late_entry: boolean
+          allow_mobile: boolean
+          autosave_interval_seconds: number
+          block_shortcuts: boolean
+          cohort_id: string
+          course_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          duration_minutes: number
+          end_at: string
+          enforce_fullscreen: boolean
+          id: string
+          instructions: string
+          late_entry_cutoff_minutes: number | null
+          locked_at: string | null
+          max_tab_switches: number
+          passing_score: number
+          questions_per_attempt: number | null
+          randomize_options: boolean
+          randomize_questions: boolean
+          results_released: boolean
+          show_correct_answers: boolean
+          start_at: string
+          status: string
+          target_audience: string
+          target_student_ids: string[] | null
+          title: string
+          total_points: number
+          updated_at: string
+        }
+        Insert: {
+          allow_late_entry?: boolean
+          allow_mobile?: boolean
+          autosave_interval_seconds?: number
+          block_shortcuts?: boolean
+          cohort_id: string
+          course_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_minutes?: number
+          end_at: string
+          enforce_fullscreen?: boolean
+          id?: string
+          instructions?: string
+          late_entry_cutoff_minutes?: number | null
+          locked_at?: string | null
+          max_tab_switches?: number
+          passing_score?: number
+          questions_per_attempt?: number | null
+          randomize_options?: boolean
+          randomize_questions?: boolean
+          results_released?: boolean
+          show_correct_answers?: boolean
+          start_at: string
+          status?: string
+          target_audience?: string
+          target_student_ids?: string[] | null
+          title: string
+          total_points?: number
+          updated_at?: string
+        }
+        Update: {
+          allow_late_entry?: boolean
+          allow_mobile?: boolean
+          autosave_interval_seconds?: number
+          block_shortcuts?: boolean
+          cohort_id?: string
+          course_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_minutes?: number
+          end_at?: string
+          enforce_fullscreen?: boolean
+          id?: string
+          instructions?: string
+          late_entry_cutoff_minutes?: number | null
+          locked_at?: string | null
+          max_tab_switches?: number
+          passing_score?: number
+          questions_per_attempt?: number | null
+          randomize_options?: boolean
+          randomize_questions?: boolean
+          results_released?: boolean
+          show_correct_answers?: boolean
+          start_at?: string
+          status?: string
+          target_audience?: string
+          target_student_ids?: string[] | null
+          title?: string
+          total_points?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       faculty_members: {
         Row: {
           bio: string
@@ -829,6 +1151,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      question_bank: {
+        Row: {
+          archived: boolean
+          code_language: string | null
+          code_snippet: string | null
+          cohort_id: string | null
+          correct_answer: Json | null
+          course_id: string
+          created_at: string
+          created_by: string | null
+          explanation: string | null
+          id: string
+          image_url: string | null
+          options: Json | null
+          points: number
+          question_text: string
+          question_type: string
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          archived?: boolean
+          code_language?: string | null
+          code_snippet?: string | null
+          cohort_id?: string | null
+          correct_answer?: Json | null
+          course_id: string
+          created_at?: string
+          created_by?: string | null
+          explanation?: string | null
+          id?: string
+          image_url?: string | null
+          options?: Json | null
+          points?: number
+          question_text: string
+          question_type: string
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          archived?: boolean
+          code_language?: string | null
+          code_snippet?: string | null
+          cohort_id?: string | null
+          correct_answer?: Json | null
+          course_id?: string
+          created_at?: string
+          created_by?: string | null
+          explanation?: string | null
+          id?: string
+          image_url?: string | null
+          options?: Json | null
+          points?: number
+          question_text?: string
+          question_type?: string
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       schedule: {
         Row: {
