@@ -12,6 +12,8 @@ interface UsageData {
   total_files: number;
   limit_bytes: number;
   percent_used: number;
+  plan?: string | null;
+  limit_source?: string;
   buckets: BucketStat[];
 }
 
@@ -80,7 +82,8 @@ export default function StorageUsageCard() {
             </div>
 
             <p className="text-[11px] text-muted-foreground italic">
-              Limit defaults to 1 GB (Supabase Free). Set <code>STORAGE_LIMIT_BYTES</code> secret to match your plan.
+              {data.plan ? <>Detected plan: <span className="font-semibold uppercase">{data.plan}</span> ({data.limit_source}). </> : null}
+              Auto-detects via Management API when <code>SUPABASE_ACCESS_TOKEN</code> is set. Override with <code>SUPABASE_PLAN</code> (free/pro/team) or <code>STORAGE_LIMIT_BYTES</code>.
             </p>
           </>
         )}
