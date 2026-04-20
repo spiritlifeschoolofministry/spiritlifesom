@@ -415,6 +415,32 @@ const AdminAdmissions = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation dialog for sensitive actions */}
+      <ConfirmDialog
+        open={!!confirmAction}
+        onOpenChange={(open) => { if (!open) setConfirmAction(null); }}
+        loading={actionLoading}
+        title={
+          confirmAction?.type === "approve"
+            ? "Admit Student?"
+            : confirmAction?.type === "reject"
+            ? "Reject Application?"
+            : "Admit All Selected?"
+        }
+        description={
+          confirmAction?.type === "approve"
+            ? `Mark ${getFullName(confirmAction.student)} as ADMITTED. They will gain full portal access.`
+            : confirmAction?.type === "reject"
+            ? `Reject ${getFullName(confirmAction.student)}'s application. This will set their status to REJECTED.`
+            : `Admit ${selectedIds.size} selected student(s) at once.`
+        }
+        confirmLabel={
+          confirmAction?.type === "reject" ? "Reject" : "Admit"
+        }
+        variant={confirmAction?.type === "reject" ? "destructive" : "default"}
+        onConfirm={runConfirmedAction}
+      />
     </div>
   );
 };
