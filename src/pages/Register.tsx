@@ -269,9 +269,10 @@ const Register = () => {
         console.error('[Register] Student update failed:', studentUpdateError.message);
       }
 
-      // Upload passport photo (non-blocking — doesn't fail registration)
-      if (form.passportPhoto) {
-        try {
+      // Save passport photo (non-blocking — doesn't fail registration).
+      // Priority: uploaded File > pasted URL. If neither, user can add it from profile later.
+      try {
+        if (form.passportPhoto) {
           const fileExt = form.passportPhoto.name.split(".").pop();
           const fileName = `${userId}.${fileExt}`;
           const { error: uploadError } = await supabase.storage
@@ -282,9 +283,11 @@ const Register = () => {
             const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(fileName);
             await supabase.from("profiles").update({ avatar_url: urlData.publicUrl }).eq("id", userId);
           }
-        } catch (photoErr) {
-          console.warn("[Register] Photo upload failed (non-critical):", photoErr);
+        } else if (form.photoUrl.trim()) {
+          await supabase.from("profiles").update({ avatar_url: form.photoUrl.trim() }).eq("id", userId);
         }
+      } catch (photoErr) {
+        console.warn("[Register] Photo save failed (non-critical):", photoErr);
       }
 
       toast.success("Registration successful! Redirecting to your dashboard...");
