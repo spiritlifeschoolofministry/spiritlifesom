@@ -320,7 +320,7 @@ const Register = () => {
       <div className="w-full max-w-2xl">
         <div className="bg-card rounded-2xl shadow-[var(--shadow-card)] border border-border p-6 sm:p-10">
 
-          <StepIndicator currentStep={step} steps={STEPS} />
+          <StepIndicator currentStep={step} steps={STEPS} onStepClick={goToStep} />
 
           {/* Step 1 */}
           {step === 1 && (
