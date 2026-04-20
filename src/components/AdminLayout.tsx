@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import ThemeToggle from "@/components/ThemeToggle";
 import ScrollToTop from "@/components/ScrollToTop";
+import NotificationsBell from "@/components/NotificationsBell";
 import { Badge } from "@/components/ui/badge";
 import { usePendingAdmissionsCount } from "@/hooks/use-pending-admissions";
 import {
@@ -126,6 +127,7 @@ const AdminLayout = () => {
               </Button>
             </>
           )}
+          <NotificationsBell />
           <ThemeToggle />
           <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
             <LogOut className="w-4 h-4" />
