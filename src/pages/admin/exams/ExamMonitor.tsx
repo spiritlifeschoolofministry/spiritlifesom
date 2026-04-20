@@ -332,6 +332,13 @@ export default function ExamMonitor() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!snapshotViewer} onOpenChange={(v) => !v && setSnapshotViewer(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>Snapshot · {snapshotViewer?.meta}</DialogTitle></DialogHeader>
+          {snapshotViewer && <img src={snapshotViewer.url} alt="snapshot" className="w-full rounded" />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
