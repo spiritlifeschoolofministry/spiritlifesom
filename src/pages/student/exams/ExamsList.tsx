@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import StudentLayout from "@/components/StudentLayout";
 import { format, isAfter, isBefore } from "date-fns";
-import { ChevronDown, CheckCircle2, XCircle, Trophy } from "lucide-react";
+import { ChevronDown, CheckCircle2, XCircle, Trophy, Download } from "lucide-react";
 import { sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType } from "@/lib/exam-utils";
+import { downloadCSV } from "@/lib/csv-export";
 
 export default function StudentExamsList() {
   const { student } = useAuth();
@@ -59,6 +60,48 @@ export default function StudentExamsList() {
     }
     if (q.question_type === "true_false") return val ? "True" : "False";
     return String(val);
+  };
+
+  const answerToText = (val: unknown, q: any): string => {
+    if (val === null || val === undefined || val === "") return "";
+    if (q.question_type === "mcq_single" && Array.isArray(q.options)) return String(q.options[val as number] ?? val);
+    if (q.question_type === "mcq_multi" && Array.isArray(q.options) && Array.isArray(val)) {
+      return (val as number[]).map((i) => q.options[i]).filter(Boolean).join("; ");
+    }
+    if (q.question_type === "true_false") return val ? "True" : "False";
+    return String(val);
+  };
+
+  const stripHtml = (html: string) => (html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
+  const exportBreakdown = async (exam: any) => {
+    let rows = breakdowns[exam.id];
+    if (!rows) {
+      const attempt = attempts[exam.id];
+      if (!attempt) return;
+      const { data: ans } = await supabase
+        .from("exam_answers")
+        .select("*, question_bank(question_text, question_type, options, correct_answer, explanation, points)")
+        .eq("attempt_id", attempt.id);
+      rows = ans ?? [];
+      setBreakdowns((b) => ({ ...b, [exam.id]: rows! }));
+    }
+    const csv = rows.map((a, i) => {
+      const q = a.question_bank;
+      return {
+        "Q#": i + 1,
+        Type: q ? QUESTION_TYPE_LABELS[q.question_type as QuestionType] : "",
+        Question: q ? stripHtml(q.question_text) : "",
+        "Your Answer": q ? answerToText(a.answer, q) : "",
+        "Correct Answer": q && exam.show_correct_answers ? answerToText(q.correct_answer, q) : "",
+        "Points Awarded": a.points_awarded ?? 0,
+        "Max Points": q?.points ?? 0,
+        Correct: a.is_correct === null ? "" : a.is_correct ? "Yes" : "No",
+        Feedback: a.manual_feedback ?? "",
+        Explanation: exam.show_correct_answers ? (q?.explanation ?? "") : "",
+      };
+    });
+    downloadCSV(csv, `exam_${exam.title.replace(/\s+/g, "_")}_results`);
   };
 
   return (
@@ -131,12 +174,18 @@ export default function StudentExamsList() {
                         if (o) loadBreakdown(e);
                       }}
                     >
-                      <CollapsibleTrigger asChild>
-                        <Button variant="ghost" size="sm" className="mt-3 -ml-2 text-xs">
-                          <ChevronDown className={`w-3.5 h-3.5 mr-1 transition-transform ${isOpen ? "rotate-180" : ""}`} />
-                          {isOpen ? "Hide" : "View"} result details
+                      <div className="flex items-center gap-1 mt-3 -ml-2">
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm" className="text-xs">
+                            <ChevronDown className={`w-3.5 h-3.5 mr-1 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                            {isOpen ? "Hide" : "View"} result details
+                          </Button>
+                        </CollapsibleTrigger>
+                        <Button variant="ghost" size="sm" className="text-xs" onClick={() => exportBreakdown(e)}>
+                          <Download className="w-3.5 h-3.5 mr-1" />
+                          Export CSV
                         </Button>
-                      </CollapsibleTrigger>
+                      </div>
                       <CollapsibleContent className="mt-3 pt-3 border-t border-border space-y-3">
                         {!breakdown ? (
                           <p className="text-xs text-muted-foreground">Loading…</p>
