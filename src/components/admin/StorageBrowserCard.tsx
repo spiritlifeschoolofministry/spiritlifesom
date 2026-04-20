@@ -63,8 +63,56 @@ export default function StorageBrowserCard() {
   const [pendingPaths, setPendingPaths] = useState<string[]>([]);
   const [challenge, setChallenge] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [grandTotal, setGrandTotal] = useState<{ files: number; bytes: number; perBucket: Record<string, { files: number; bytes: number }> } | null>(null);
+  const [totalsLoading, setTotalsLoading] = useState(false);
 
   const currentBucket = useMemo(() => buckets.find((b) => b.name === bucket), [buckets, bucket]);
+
+  // Recursively walk every folder in a bucket and tally file count + size
+  const walkBucket = async (bucketName: string): Promise<{ files: number; bytes: number }> => {
+    let files = 0;
+    let bytes = 0;
+    const queue: string[] = [""];
+    let safety = 0;
+    while (queue.length > 0 && safety < 5000) {
+      safety++;
+      const current = queue.shift()!;
+      const { data, error } = await supabase.storage.from(bucketName).list(current, {
+        limit: 1000,
+        sortBy: { column: "name", order: "asc" },
+      });
+      if (error || !data) continue;
+      for (const entry of data as StorageItem[]) {
+        const isDir = entry.id === null || entry.metadata == null;
+        const path = current ? `${current}/${entry.name}` : entry.name;
+        if (isDir) {
+          queue.push(path);
+        } else {
+          files++;
+          bytes += Number(entry.metadata?.size ?? 0);
+        }
+      }
+    }
+    return { files, bytes };
+  };
+
+  const loadGrandTotal = async (bucketList: { name: string; public: boolean }[]) => {
+    if (bucketList.length === 0) return;
+    setTotalsLoading(true);
+    const perBucket: Record<string, { files: number; bytes: number }> = {};
+    let files = 0;
+    let bytes = 0;
+    await Promise.all(
+      bucketList.map(async (b) => {
+        const stats = await walkBucket(b.name);
+        perBucket[b.name] = stats;
+        files += stats.files;
+        bytes += stats.bytes;
+      }),
+    );
+    setGrandTotal({ files, bytes, perBucket });
+    setTotalsLoading(false);
+  };
 
   const loadBuckets = async () => {
     const { data, error } = await supabase.storage.listBuckets();
