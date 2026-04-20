@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Download, AlertTriangle, CheckCircle2, Send } from "lucide-react";
+import { ArrowLeft, Download, AlertTriangle, CheckCircle2, Send, Camera, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { sanitizeHtml } from "@/lib/exam-utils";
 
@@ -19,6 +19,9 @@ export default function ExamMonitor() {
   const [loading, setLoading] = useState(true);
   const [grading, setGrading] = useState<any | null>(null);
   const [gradeData, setGradeData] = useState<{ answers: any[]; questions: any[]; override: string }>({ answers: [], questions: [], override: "" });
+  const [snapshots, setSnapshots] = useState<Record<string, Array<{ id: string; storage_path: string; captured_at: string; signedUrl?: string }>>>({});
+  const [snapshotViewer, setSnapshotViewer] = useState<{ url: string; meta: string } | null>(null);
+  const [loadingSnapsFor, setLoadingSnapsFor] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
