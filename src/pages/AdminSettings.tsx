@@ -244,13 +244,27 @@ const AdminSettings = () => {
     }
   };
 
-  const deleteCohort = async (cohortId: string) => {
-    if (!confirm('Are you sure you want to delete this cohort? This cannot be undone.')) return;
+  const requestDeleteCohort = (cohort: Cohort) => {
+    setCohortToDelete(cohort);
+    setDeleteChallenge(pickChallengeWord());
+    setDeleteInput('');
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteCohort = async () => {
+    if (!cohortToDelete) return;
+    if (deleteInput.trim().toUpperCase() !== deleteChallenge) {
+      toast.error(`Please type "${deleteChallenge}" exactly to confirm deletion`);
+      return;
+    }
     try {
-      setDeletingCohortId(cohortId);
-      const { error } = await supabase.from('cohorts').delete().eq('id', cohortId);
+      setDeletingCohortId(cohortToDelete.id);
+      const { error } = await supabase.from('cohorts').delete().eq('id', cohortToDelete.id);
       if (error) throw error;
       toast.success('Cohort deleted');
+      setDeleteDialogOpen(false);
+      setCohortToDelete(null);
+      setDeleteInput('');
       await loadCohorts();
     } catch (err) {
       console.error('Delete cohort error:', err);
@@ -263,11 +277,12 @@ const AdminSettings = () => {
   const setActiveCohort = async (cohortId: string) => {
     try {
       setSettingActiveCohortId(cohortId);
-      // Deactivate all cohorts first
+      // Deactivate currently active cohorts (filter on is_active, not a fake UUID).
+      // The previous .neq('id','placeholder') failed UUID type-check and aborted the whole flow.
       const { error: deactivateError } = await supabase
         .from('cohorts')
         .update({ is_active: false })
-        .neq('id', 'placeholder');
+        .eq('is_active', true);
       if (deactivateError) throw deactivateError;
 
       // Activate selected cohort
