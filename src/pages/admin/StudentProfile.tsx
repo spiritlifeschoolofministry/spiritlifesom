@@ -23,6 +23,7 @@ import {
   ArrowLeft, Mail, Phone, MapPin, Calendar, BookOpen,
   GraduationCap, CreditCard, ClipboardCheck, User2, Pencil, Save, Loader2, X
 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 interface StudentDetail {
   id: string;
@@ -93,6 +94,7 @@ interface CohortOption {
 const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; onSaved: (s: StudentDetail) => void }) => {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
   const [form, setForm] = useState({
     learning_mode: student.learning_mode || "",
