@@ -244,6 +244,12 @@ export default function StorageBrowserCard() {
             <ChevronLeft className="h-3.5 w-3.5" /> Up
           </Button>
           <span className="font-mono truncate flex-1">/{prefix}</span>
+          {!loading && selectableFiles.length > 0 && (
+            <span className="shrink-0 tabular-nums">
+              {selectableFiles.length} file{selectableFiles.length === 1 ? "" : "s"} ·{" "}
+              {fmt(selectableFiles.reduce((s, it) => s + Number(it.metadata?.size ?? 0), 0))}
+            </span>
+          )}
           {selectableFiles.length > 0 && (
             <label className="flex items-center gap-1.5 cursor-pointer select-none">
               <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} />
