@@ -283,6 +283,7 @@ const Register = () => {
       }
 
       toast.success("Registration successful! Redirecting to your dashboard...");
+      try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
       await new Promise(resolve => setTimeout(resolve, 1500));
       navigate("/student/dashboard", { replace: true });
     } catch (error: any) {
