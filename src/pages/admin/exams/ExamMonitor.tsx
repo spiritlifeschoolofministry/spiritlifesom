@@ -111,6 +111,46 @@ export default function ExamMonitor() {
     load();
   };
 
+  const loadSnapshots = async (attemptId: string) => {
+    setLoadingSnapsFor(attemptId);
+    const { data, error } = await supabase
+      .from("exam_snapshots")
+      .select("id, storage_path, captured_at")
+      .eq("attempt_id", attemptId)
+      .order("captured_at", { ascending: false });
+    if (error) { toast.error(error.message); setLoadingSnapsFor(null); return; }
+    const withUrls = await Promise.all((data ?? []).map(async (s) => {
+      const { data: signed } = await supabase.storage.from("proctor-snapshots").createSignedUrl(s.storage_path, 3600);
+      return { ...s, signedUrl: signed?.signedUrl };
+    }));
+    setSnapshots((prev) => ({ ...prev, [attemptId]: withUrls }));
+    setLoadingSnapsFor(null);
+  };
+
+  const deleteSnapshot = async (attemptId: string, snap: { id: string; storage_path: string }) => {
+    if (!confirm("Delete this snapshot permanently?")) return;
+    const { error: sErr } = await supabase.storage.from("proctor-snapshots").remove([snap.storage_path]);
+    if (sErr) { toast.error(sErr.message); return; }
+    const { error: dErr } = await supabase.from("exam_snapshots").delete().eq("id", snap.id);
+    if (dErr) { toast.error(dErr.message); return; }
+    setSnapshots((prev) => ({
+      ...prev,
+      [attemptId]: (prev[attemptId] ?? []).filter((s) => s.id !== snap.id),
+    }));
+    toast.success("Snapshot deleted");
+  };
+
+  const deleteAllSnapshots = async (attemptId: string) => {
+    const list = snapshots[attemptId] ?? [];
+    if (list.length === 0) return;
+    if (!confirm(`Delete all ${list.length} snapshots for this attempt?`)) return;
+    const paths = list.map((s) => s.storage_path);
+    await supabase.storage.from("proctor-snapshots").remove(paths);
+    await supabase.from("exam_snapshots").delete().eq("attempt_id", attemptId);
+    setSnapshots((prev) => ({ ...prev, [attemptId]: [] }));
+    toast.success("All snapshots deleted");
+  };
+
   if (loading) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
   if (!exam) return <p className="p-6">Exam not found</p>;
 
