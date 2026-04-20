@@ -481,7 +481,7 @@ const AdminStudents = () => {
           <Button
             size="sm"
             className="gap-1.5 text-xs h-8 bg-emerald-600 hover:bg-emerald-700 text-primary-foreground"
-            onClick={handleBulkApprove}
+            onClick={() => setConfirmAction({ type: "bulkApprove" })}
           >
             <UserCheck className="h-3.5 w-3.5" /> Approve
           </Button>
@@ -609,7 +609,10 @@ const AdminStudents = () => {
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Select
                           value={uiStatus}
-                          onValueChange={(value) => handleStatusChange(student.id, value)}
+                          onValueChange={(value) => {
+                            if (value === uiStatus) return;
+                            setConfirmAction({ type: "statusChange", student, newStatus: value });
+                          }}
                         >
                           <SelectTrigger className={`w-32 h-8 text-xs border ${cfg.color}`}>
                             <div className="flex items-center gap-1.5">
@@ -643,7 +646,7 @@ const AdminStudents = () => {
                               <Mail className="mr-2 h-4 w-4" /> Send Email
                             </DropdownMenuItem>
                             {uiStatus !== "Graduate" && (
-                              <DropdownMenuItem onClick={() => handleGraduateSingle(student.id)} disabled={graduatingId === student.id}>
+                              <DropdownMenuItem onClick={() => setConfirmAction({ type: "graduate", student })} disabled={graduatingId === student.id}>
                                 <GraduationCap className="mr-2 h-4 w-4" />
                                 {graduatingId === student.id ? "Graduating..." : "Graduate"}
                               </DropdownMenuItem>
@@ -735,11 +738,11 @@ const AdminStudents = () => {
                           <DropdownMenuItem onClick={() => openEmailForStudent(student)}>
                             <Mail className="mr-2 h-4 w-4" /> Send Email
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange(student.id, "Approved")}>
+                          <DropdownMenuItem onClick={() => setConfirmAction({ type: "statusChange", student, newStatus: "Approved" })}>
                             <UserCheck className="mr-2 h-4 w-4" /> Approve
                           </DropdownMenuItem>
                           {uiStatus !== "Graduate" && (
-                            <DropdownMenuItem onClick={() => handleGraduateSingle(student.id)}>
+                            <DropdownMenuItem onClick={() => setConfirmAction({ type: "graduate", student })}>
                               <GraduationCap className="mr-2 h-4 w-4" /> Graduate
                             </DropdownMenuItem>
                           )}
