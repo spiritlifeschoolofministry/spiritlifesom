@@ -48,6 +48,15 @@ const AdminAdmissions = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkApproving, setBulkApproving] = useState(false);
 
+  // Confirmation dialog state
+  const [confirmAction, setConfirmAction] = useState<
+    | { type: "approve"; student: Application }
+    | { type: "reject"; student: Application }
+    | { type: "bulkApprove" }
+    | null
+  >(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
   useEffect(() => {
     loadApplications();
   }, []);
