@@ -197,6 +197,7 @@ export default function ExamMonitor() {
           </thead>
           <tbody>
             {attempts.map((a) => (
+              <>
               <tr key={a.id} className="border-b border-border/50">
                 <td className="py-2 pr-3">
                   <p className="font-medium">{a.students?.profiles?.first_name} {a.students?.profiles?.last_name}</p>
