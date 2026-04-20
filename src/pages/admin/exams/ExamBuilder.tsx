@@ -57,6 +57,11 @@ export default function ExamBuilder() {
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState(params.get("tab") || "settings");
   const [previewIdx, setPreviewIdx] = useState(0);
+  const [importOpen, setImportOpen] = useState(false);
+  const [otherExams, setOtherExams] = useState<any[]>([]);
+  const [importExamId, setImportExamId] = useState<string>("");
+  const [importQids, setImportQids] = useState<string[]>([]);
+  const [importQuestions, setImportQuestions] = useState<any[]>([]);
 
   useEffect(() => {
     (async () => {
