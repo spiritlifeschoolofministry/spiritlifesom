@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import ThemeToggle from "@/components/ThemeToggle";
 import ScrollToTop from "@/components/ScrollToTop";
+import { Badge } from "@/components/ui/badge";
+import { usePendingAdmissionsCount } from "@/hooks/use-pending-admissions";
 import {
   LayoutDashboard,
   Users,
@@ -48,6 +50,8 @@ const AdminLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile: authProfile, signOut, student, role } = useAuth();
+  const isAdmin = (role ?? "").toLowerCase() === "admin" || (role ?? "").toLowerCase() === "teacher";
+  const pendingCount = usePendingAdmissionsCount(isAdmin);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const touchStartX = useRef<number | null>(null);
