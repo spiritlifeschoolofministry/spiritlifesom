@@ -518,6 +518,48 @@ const Register = () => {
           {/* Step 3 */}
           {step === 3 && (
             <div className="space-y-5">
+              <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="returningStudent"
+                    checked={form.isReturningStudent}
+                    onCheckedChange={(v) => {
+                      const isReturning = !!v;
+                      updateForm("isReturningStudent", isReturning);
+                      // Reset to active cohort if unchecked
+                      if (!isReturning) updateForm("cohortId", activeCohortId);
+                    }}
+                    className="mt-1"
+                  />
+                  <Label htmlFor="returningStudent" className="text-sm font-normal leading-relaxed cursor-pointer">
+                    I am a <strong>returning / past student</strong> registering for an earlier cohort
+                  </Label>
+                </div>
+
+                <div>
+                  <Label>Cohort *</Label>
+                  {form.isReturningStudent ? (
+                    <Select value={form.cohortId} onValueChange={(v) => updateForm("cohortId", v)}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select your cohort" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cohorts.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name} {c.is_active ? "(Current)" : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="mt-1 px-3 py-2 rounded-md border border-border bg-card text-sm text-muted-foreground">
+                      {cohorts.find((c) => c.id === activeCohortId)?.name || "Loading active cohort..."}
+                      <span className="ml-2 text-xs text-primary font-medium">(Current active cohort)</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <Label htmlFor="eduBg">Educational Background</Label>
                 <Textarea id="eduBg" value={form.educationalBackground} onChange={(e) => updateForm("educationalBackground", e.target.value)} rows={3} placeholder="List institutions, dates, and qualifications..." />
