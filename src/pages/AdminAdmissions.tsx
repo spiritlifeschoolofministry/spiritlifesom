@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 interface Application {
   id: string;
@@ -46,6 +47,15 @@ const AdminAdmissions = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkApproving, setBulkApproving] = useState(false);
+
+  // Confirmation dialog state
+  const [confirmAction, setConfirmAction] = useState<
+    | { type: "approve"; student: Application }
+    | { type: "reject"; student: Application }
+    | { type: "bulkApprove" }
+    | null
+  >(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     loadApplications();
@@ -86,6 +96,7 @@ const AdminAdmissions = () => {
 
   const handleApprove = async (studentId: string) => {
     try {
+      setActionLoading(true);
       const { error } = await supabase
         .from("students")
         .update({ admission_status: "ADMITTED", is_approved: true })
@@ -96,14 +107,18 @@ const AdminAdmissions = () => {
       await loadApplications();
       setSelectedApp(null);
       setSelectedIds((prev) => { const n = new Set(prev); n.delete(studentId); return n; });
+      setConfirmAction(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to approve application";
       toast.error(msg);
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleReject = async (studentId: string) => {
     try {
+      setActionLoading(true);
       const { error } = await supabase
         .from("students")
         .update({ admission_status: "REJECTED", is_approved: false })
@@ -114,15 +129,19 @@ const AdminAdmissions = () => {
       await loadApplications();
       setSelectedApp(null);
       setSelectedIds((prev) => { const n = new Set(prev); n.delete(studentId); return n; });
+      setConfirmAction(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to reject application";
       toast.error(msg);
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleBulkApprove = async () => {
     if (selectedIds.size === 0) return;
     setBulkApproving(true);
+    setActionLoading(true);
     try {
       const ids = Array.from(selectedIds);
       const { error } = await supabase
@@ -134,12 +153,21 @@ const AdminAdmissions = () => {
       toast.success(`${ids.length} student(s) admitted successfully`);
       setSelectedIds(new Set());
       await loadApplications();
+      setConfirmAction(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to approve students";
       toast.error(msg);
     } finally {
       setBulkApproving(false);
+      setActionLoading(false);
     }
+  };
+
+  const runConfirmedAction = () => {
+    if (!confirmAction) return;
+    if (confirmAction.type === "approve") handleApprove(confirmAction.student.id);
+    else if (confirmAction.type === "reject") handleReject(confirmAction.student.id);
+    else if (confirmAction.type === "bulkApprove") handleBulkApprove();
   };
 
   const toggleSelect = (id: string) => {
@@ -240,7 +268,7 @@ const AdminAdmissions = () => {
           <span className="text-sm font-medium text-foreground mr-1">{selectedIds.size} selected</span>
           <Button
             size="sm"
-            onClick={handleBulkApprove}
+            onClick={() => setConfirmAction({ type: "bulkApprove" })}
             disabled={bulkApproving}
             className="gap-1.5 text-xs h-8 bg-emerald-600 hover:bg-emerald-700"
           >
@@ -325,7 +353,7 @@ const AdminAdmissions = () => {
                   <Button
                     size="sm"
                     className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-primary-foreground"
-                    onClick={() => handleApprove(app.id)}
+                    onClick={() => setConfirmAction({ type: "approve", student: app })}
                   >
                     <Check className="w-4 h-4" /> Admit
                   </Button>
@@ -333,7 +361,7 @@ const AdminAdmissions = () => {
                     variant="outline"
                     size="sm"
                     className="gap-1 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10"
-                    onClick={() => handleReject(app.id)}
+                    onClick={() => setConfirmAction({ type: "reject", student: app })}
                   >
                     <X className="w-4 h-4" /> Reject
                   </Button>
@@ -371,14 +399,14 @@ const AdminAdmissions = () => {
               <div className="flex gap-2 pt-4 border-t border-border">
                 <Button
                   className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                  onClick={() => handleApprove(selectedApp.id)}
+                  onClick={() => setConfirmAction({ type: "approve", student: selectedApp })}
                 >
                   <Check className="w-4 h-4 mr-2" /> Admit Student
                 </Button>
                 <Button
                   variant="destructive"
                   className="flex-1"
-                  onClick={() => handleReject(selectedApp.id)}
+                  onClick={() => setConfirmAction({ type: "reject", student: selectedApp })}
                 >
                   <X className="w-4 h-4 mr-2" /> Reject Application
                 </Button>
@@ -387,6 +415,32 @@ const AdminAdmissions = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation dialog for sensitive actions */}
+      <ConfirmDialog
+        open={!!confirmAction}
+        onOpenChange={(open) => { if (!open) setConfirmAction(null); }}
+        loading={actionLoading}
+        title={
+          confirmAction?.type === "approve"
+            ? "Admit Student?"
+            : confirmAction?.type === "reject"
+            ? "Reject Application?"
+            : "Admit All Selected?"
+        }
+        description={
+          confirmAction?.type === "approve"
+            ? `Mark ${getFullName(confirmAction.student)} as ADMITTED. They will gain full portal access.`
+            : confirmAction?.type === "reject"
+            ? `Reject ${getFullName(confirmAction.student)}'s application. This will set their status to REJECTED.`
+            : `Admit ${selectedIds.size} selected student(s) at once.`
+        }
+        confirmLabel={
+          confirmAction?.type === "reject" ? "Reject" : "Admit"
+        }
+        variant={confirmAction?.type === "reject" ? "destructive" : "default"}
+        onConfirm={runConfirmedAction}
+      />
     </div>
   );
 };

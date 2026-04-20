@@ -23,6 +23,7 @@ import {
   ArrowLeft, Mail, Phone, MapPin, Calendar, BookOpen,
   GraduationCap, CreditCard, ClipboardCheck, User2, Pencil, Save, Loader2, X
 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 interface StudentDetail {
   id: string;
@@ -93,6 +94,7 @@ interface CohortOption {
 const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; onSaved: (s: StudentDetail) => void }) => {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
   const [form, setForm] = useState({
     learning_mode: student.learning_mode || "",
@@ -237,7 +239,7 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
               <Textarea value={form.ministry_description} onChange={e => set("ministry_description", e.target.value)} className="mt-1" rows={3} placeholder="Ministry involvement" />
             </div>
             <div className="flex gap-2 pt-1">
-              <Button onClick={handleSave} disabled={saving} size="sm">
+              <Button onClick={() => setConfirmOpen(true)} disabled={saving} size="sm">
                 {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
                 Save
               </Button>
@@ -267,6 +269,38 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
           </div>
         )}
       </CardContent>
+
+      {/* Confirmation before saving sensitive academic changes */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={(o) => { if (!saving) setConfirmOpen(o); }}
+        loading={saving}
+        title="Save academic changes?"
+        description={(() => {
+          const changes: string[] = [];
+          if (form.admission_status !== (student.admission_status || "Pending")) {
+            changes.push(`Status: "${student.admission_status || "Pending"}" → "${form.admission_status}"`);
+          }
+          if (form.cohort_id !== (student.cohort_id || "")) changes.push("Cohort will change");
+          if (form.student_code !== (student.student_code || "")) {
+            changes.push(`Student code: "${student.student_code || "—"}" → "${form.student_code || "—"}"`);
+          }
+          return (
+            <>
+              <p>You're about to update <strong>{student.profile.first_name} {student.profile.last_name}</strong>.</p>
+              {changes.length > 0 && (
+                <ul className="list-disc list-inside text-xs">
+                  {changes.map((c, i) => <li key={i}>{c}</li>)}
+                </ul>
+              )}
+              <p className="text-xs">Please confirm you want to apply these changes.</p>
+            </>
+          );
+        })()}
+        confirmLabel="Save Changes"
+        variant={form.admission_status === "REJECTED" ? "destructive" : "default"}
+        onConfirm={async () => { await handleSave(); setConfirmOpen(false); }}
+      />
     </Card>
   );
 };

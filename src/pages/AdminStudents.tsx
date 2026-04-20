@@ -55,6 +55,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 interface Student {
   id: string;
@@ -137,6 +138,15 @@ const AdminStudents = () => {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
+
+  // Generic confirmation dialog state
+  const [confirmAction, setConfirmAction] = useState<
+    | { type: "statusChange"; student: Student; newStatus: string }
+    | { type: "graduate"; student: Student }
+    | { type: "bulkApprove" }
+    | null
+  >(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => { loadStudents(); loadCohorts(); }, []);
   useEffect(() => { filterStudents(); }, [students, searchQuery, statusFilter, cohortFilter]);
@@ -295,13 +305,29 @@ const AdminStudents = () => {
   const handleBulkApprove = async () => {
     if (selectedIds.size === 0) return;
     try {
+      setActionLoading(true);
       const ids = Array.from(selectedIds);
       const { error } = await supabase.from("students").update({ admission_status: "ADMITTED", is_approved: true }).in("id", ids);
       if (error) throw error;
       setStudents((p) => p.map((s) => selectedIds.has(s.id) ? { ...s, admission_status: "ADMITTED" } : s));
       setSelectedIds(new Set());
       toast.success(`${ids.length} student(s) approved`);
+      setConfirmAction(null);
     } catch { toast.error("Failed to approve students"); }
+    finally { setActionLoading(false); }
+  };
+
+  const runConfirmedAction = () => {
+    if (!confirmAction) return;
+    if (confirmAction.type === "statusChange") {
+      handleStatusChange(confirmAction.student.id, confirmAction.newStatus);
+      setConfirmAction(null);
+    } else if (confirmAction.type === "graduate") {
+      handleGraduateSingle(confirmAction.student.id);
+      setConfirmAction(null);
+    } else if (confirmAction.type === "bulkApprove") {
+      handleBulkApprove();
+    }
   };
 
   const toggleSelect = (id: string) => {
@@ -455,7 +481,7 @@ const AdminStudents = () => {
           <Button
             size="sm"
             className="gap-1.5 text-xs h-8 bg-emerald-600 hover:bg-emerald-700 text-primary-foreground"
-            onClick={handleBulkApprove}
+            onClick={() => setConfirmAction({ type: "bulkApprove" })}
           >
             <UserCheck className="h-3.5 w-3.5" /> Approve
           </Button>
@@ -583,7 +609,10 @@ const AdminStudents = () => {
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Select
                           value={uiStatus}
-                          onValueChange={(value) => handleStatusChange(student.id, value)}
+                          onValueChange={(value) => {
+                            if (value === uiStatus) return;
+                            setConfirmAction({ type: "statusChange", student, newStatus: value });
+                          }}
                         >
                           <SelectTrigger className={`w-32 h-8 text-xs border ${cfg.color}`}>
                             <div className="flex items-center gap-1.5">
@@ -617,7 +646,7 @@ const AdminStudents = () => {
                               <Mail className="mr-2 h-4 w-4" /> Send Email
                             </DropdownMenuItem>
                             {uiStatus !== "Graduate" && (
-                              <DropdownMenuItem onClick={() => handleGraduateSingle(student.id)} disabled={graduatingId === student.id}>
+                              <DropdownMenuItem onClick={() => setConfirmAction({ type: "graduate", student })} disabled={graduatingId === student.id}>
                                 <GraduationCap className="mr-2 h-4 w-4" />
                                 {graduatingId === student.id ? "Graduating..." : "Graduate"}
                               </DropdownMenuItem>
@@ -709,11 +738,11 @@ const AdminStudents = () => {
                           <DropdownMenuItem onClick={() => openEmailForStudent(student)}>
                             <Mail className="mr-2 h-4 w-4" /> Send Email
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange(student.id, "Approved")}>
+                          <DropdownMenuItem onClick={() => setConfirmAction({ type: "statusChange", student, newStatus: "Approved" })}>
                             <UserCheck className="mr-2 h-4 w-4" /> Approve
                           </DropdownMenuItem>
                           {uiStatus !== "Graduate" && (
-                            <DropdownMenuItem onClick={() => handleGraduateSingle(student.id)}>
+                            <DropdownMenuItem onClick={() => setConfirmAction({ type: "graduate", student })}>
                               <GraduationCap className="mr-2 h-4 w-4" /> Graduate
                             </DropdownMenuItem>
                           )}
@@ -845,6 +874,40 @@ const AdminStudents = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation dialog for status / approval / graduation actions */}
+      <ConfirmDialog
+        open={!!confirmAction}
+        onOpenChange={(open) => { if (!open) setConfirmAction(null); }}
+        loading={actionLoading}
+        title={
+          confirmAction?.type === "statusChange"
+            ? `Change status to ${confirmAction.newStatus}?`
+            : confirmAction?.type === "graduate"
+            ? "Mark as Graduate?"
+            : "Approve all selected?"
+        }
+        description={
+          confirmAction?.type === "statusChange"
+            ? `${confirmAction.student.profile.first_name} ${confirmAction.student.profile.last_name} will be set to "${confirmAction.newStatus}".`
+            : confirmAction?.type === "graduate"
+            ? `${confirmAction.student.profile.first_name} ${confirmAction.student.profile.last_name} will be marked as a Graduate. 🎓`
+            : `Approve ${selectedIds.size} selected student(s) at once.`
+        }
+        confirmLabel={
+          confirmAction?.type === "graduate"
+            ? "Graduate"
+            : confirmAction?.type === "statusChange" && confirmAction.newStatus === "Rejected"
+            ? "Reject"
+            : "Confirm"
+        }
+        variant={
+          confirmAction?.type === "statusChange" && confirmAction.newStatus === "Rejected"
+            ? "destructive"
+            : "default"
+        }
+        onConfirm={runConfirmedAction}
+      />
     </div>
   );
 };
