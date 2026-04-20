@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -197,7 +197,7 @@ export default function ExamMonitor() {
           </thead>
           <tbody>
             {attempts.map((a) => (
-              <FragmentRow key={a.id}>
+              <Fragment key={a.id}>
               <tr className="border-b border-border/50">
                 <td className="py-2 pr-3">
                   <p className="font-medium">{a.students?.profiles?.first_name} {a.students?.profiles?.last_name}</p>
@@ -272,7 +272,7 @@ export default function ExamMonitor() {
                   </td>
                 </tr>
               )}
-            </>))}
+            </Fragment>))}
           </tbody>
         </table>
       </Card>
