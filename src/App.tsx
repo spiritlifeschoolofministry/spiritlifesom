@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,6 +13,8 @@ import { MaintenanceGate } from "./components/MaintenanceGate";
 import ScrollToTop from "./components/ScrollToTop";
 import DomainRedirect from "./components/DomainRedirect";
 import { App as CapApp } from "@capacitor/app";
+
+// Public pages — eager (small, needed for SEO/first paint)
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Courses from "./pages/Courses";
@@ -22,50 +24,60 @@ import Register from "./pages/Register";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
-import StudentDashboard from "./pages/StudentDashboard";
-import StudentCourses from "./pages/StudentCourses";
-import StudentAttendance from "./pages/StudentAttendance";
-import StudentProfile from "./pages/student/Profile";
-import StudentMaterials from "./pages/StudentMaterials";
-import StudentFees from "./pages/StudentFees";
-import Coursemates from "./pages/student/Coursemates";
-import StudentAssignments from "./pages/student/Assignments";
-import StudentGrades from "./pages/student/Grades";
-import ComingSoon from "./pages/ComingSoon";
-import AdminComingSoon from "./pages/AdminComingSoon";
-import AdminAnnouncements from "./pages/admin/Announcements";
-import StudentAnnouncements from "./pages/student/Announcements";
-import AdminCalendar from "./pages/admin/Calendar";
-import StudentCalendar from "./pages/student/Calendar";
-import Graduates from "./pages/student/Graduates";
-import StudentTranscript from "./pages/student/Transcript";
-import StudentCertificate from "./pages/student/Certificate";
-import AdminDashboard from "./pages/AdminDashboard";
-import AdminProfile from "./pages/admin/Profile";
-import AdminStudentProfile from "./pages/admin/StudentProfile";
-import AdminPayments from "./pages/admin/Payments";
-import AdminStudents from "./pages/AdminStudents";
-import AdminAdmissions from "./pages/AdminAdmissions";
-import AdminSettings from "./pages/AdminSettings";
-import AdminAttendance from "./pages/AdminAttendance";
-import AdminMaterials from "./pages/admin/Materials";
-import AdminAssignments from "./pages/admin/Assignments";
-import AdminAnalytics from "./pages/admin/Analytics";
-import AdminFees from "./pages/admin/Fees";
-import AdminCourses from "./pages/admin/Courses";
-import AdminAuditLog from "./pages/admin/AuditLog";
-import AdminApprove from "./pages/AdminApprove";
-import AdminExamsList from "./pages/admin/exams/ExamsList";
-import AdminExamBuilder from "./pages/admin/exams/ExamBuilder";
-import AdminExamMonitor from "./pages/admin/exams/ExamMonitor";
-import AdminQuestionBank from "./pages/admin/exams/QuestionBank";
-import StudentExamsList from "./pages/student/exams/ExamsList";
-import StudentExamLobby from "./pages/student/exams/ExamLobby";
-import StudentExamRunner from "./pages/student/exams/ExamRunner";
 import NotFound from "./pages/NotFound";
 import { InstallPWA } from "./components/InstallPWA";
 
+// Student portal — lazy
+const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
+const StudentCourses = lazy(() => import("./pages/StudentCourses"));
+const StudentAttendance = lazy(() => import("./pages/StudentAttendance"));
+const StudentProfile = lazy(() => import("./pages/student/Profile"));
+const StudentMaterials = lazy(() => import("./pages/StudentMaterials"));
+const StudentFees = lazy(() => import("./pages/StudentFees"));
+const Coursemates = lazy(() => import("./pages/student/Coursemates"));
+const StudentAssignments = lazy(() => import("./pages/student/Assignments"));
+const StudentGrades = lazy(() => import("./pages/student/Grades"));
+const StudentAnnouncements = lazy(() => import("./pages/student/Announcements"));
+const StudentCalendar = lazy(() => import("./pages/student/Calendar"));
+const Graduates = lazy(() => import("./pages/student/Graduates"));
+const StudentTranscript = lazy(() => import("./pages/student/Transcript"));
+const StudentCertificate = lazy(() => import("./pages/student/Certificate"));
+const StudentExamsList = lazy(() => import("./pages/student/exams/ExamsList"));
+const StudentExamLobby = lazy(() => import("./pages/student/exams/ExamLobby"));
+const StudentExamRunner = lazy(() => import("./pages/student/exams/ExamRunner"));
+
+// Admin portal — lazy
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminProfile = lazy(() => import("./pages/admin/Profile"));
+const AdminStudentProfile = lazy(() => import("./pages/admin/StudentProfile"));
+const AdminPayments = lazy(() => import("./pages/admin/Payments"));
+const AdminStudents = lazy(() => import("./pages/AdminStudents"));
+const AdminAdmissions = lazy(() => import("./pages/AdminAdmissions"));
+const AdminSettings = lazy(() => import("./pages/AdminSettings"));
+const AdminAttendance = lazy(() => import("./pages/AdminAttendance"));
+const AdminMaterials = lazy(() => import("./pages/admin/Materials"));
+const AdminAssignments = lazy(() => import("./pages/admin/Assignments"));
+const AdminAnalytics = lazy(() => import("./pages/admin/Analytics"));
+const AdminFees = lazy(() => import("./pages/admin/Fees"));
+const AdminCourses = lazy(() => import("./pages/admin/Courses"));
+const AdminAuditLog = lazy(() => import("./pages/admin/AuditLog"));
+const AdminApprove = lazy(() => import("./pages/AdminApprove"));
+const AdminAnnouncements = lazy(() => import("./pages/admin/Announcements"));
+const AdminCalendar = lazy(() => import("./pages/admin/Calendar"));
+const AdminExamsList = lazy(() => import("./pages/admin/exams/ExamsList"));
+const AdminExamBuilder = lazy(() => import("./pages/admin/exams/ExamBuilder"));
+const AdminExamMonitor = lazy(() => import("./pages/admin/exams/ExamMonitor"));
+const AdminQuestionBank = lazy(() => import("./pages/admin/exams/QuestionBank"));
+const ComingSoon = lazy(() => import("./pages/ComingSoon"));
+const AdminComingSoon = lazy(() => import("./pages/AdminComingSoon"));
+
 const queryClient = new QueryClient();
+
+const RouteFallback = () => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" aria-label="Loading" />
+  </div>
+);
 
 const App = () => {
   useEffect(() => {
@@ -93,6 +105,7 @@ const App = () => {
         <BrowserRouter>
           <SessionManagerProvider>
           <MaintenanceGate>
+        <Suspense fallback={<RouteFallback />}>
         <Routes>
           {/* Public pages with shared nav + footer */}
           <Route element={<PublicLayout />}>
@@ -156,6 +169,7 @@ const App = () => {
           <Route path="/admin/approve" element={<ProtectedRoute requiredRole="admin"><AdminApprove /></ProtectedRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
           </MaintenanceGate>
           </SessionManagerProvider>
         </BrowserRouter>
