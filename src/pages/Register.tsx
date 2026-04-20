@@ -105,32 +105,37 @@ const Register = () => {
     })();
   }, []);
 
-  const [form, setForm] = useState<FormData>({
-    firstName: "",
-    lastName: "",
-    middleName: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    phone: "",
-    passportPhoto: null,
-    gender: "",
-    dobDay: "",
-    dobMonth: "",
-    dobYear: "",
-    maritalStatus: "",
-    address: "",
-    isBornAgain: "",
-    hasDiscoveredMinistry: "",
-    ministryDescription: "",
-    educationalBackground: "",
-    preferredLanguage: "",
-    learningMode: "",
-    affirmStatement: false,
-    signatureFullName: "",
-    isReturningStudent: false,
-    cohortId: "",
+  const STORAGE_KEY = "slsom_register_draft";
+
+  const [form, setForm] = useState<FormData>(() => {
+    const defaults: FormData = {
+      firstName: "", lastName: "", middleName: "", email: "",
+      password: "", confirmPassword: "", phone: "", passportPhoto: null,
+      gender: "", dobDay: "", dobMonth: "", dobYear: "",
+      maritalStatus: "", address: "", isBornAgain: "",
+      hasDiscoveredMinistry: "", ministryDescription: "",
+      educationalBackground: "", preferredLanguage: "", learningMode: "",
+      affirmStatement: false, signatureFullName: "",
+      isReturningStudent: false, cohortId: "",
+    };
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // never restore passwords or file blobs
+        return { ...defaults, ...parsed, password: "", confirmPassword: "", passportPhoto: null };
+      }
+    } catch { /* ignore */ }
+    return defaults;
   });
+
+  // Persist form (excluding sensitive/non-serializable fields) on change
+  useEffect(() => {
+    try {
+      const { password: _p, confirmPassword: _c, passportPhoto: _f, ...safe } = form;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
+    } catch { /* ignore quota */ }
+  }, [form]);
 
   const updateForm = (field: keyof FormData, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -278,6 +283,7 @@ const Register = () => {
       }
 
       toast.success("Registration successful! Redirecting to your dashboard...");
+      try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
       await new Promise(resolve => setTimeout(resolve, 1500));
       navigate("/student/dashboard", { replace: true });
     } catch (error: any) {
