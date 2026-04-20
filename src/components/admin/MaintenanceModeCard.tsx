@@ -5,12 +5,14 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Wrench, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 export default function MaintenanceModeCard() {
   const [enabled, setEnabled] = useState(false);
   const [message, setMessage] = useState("We'll be back shortly. Thank you for your patience.");
+  const [returnAt, setReturnAt] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -19,7 +21,7 @@ export default function MaintenanceModeCard() {
     const { data } = await supabase
       .from("system_settings")
       .select("key, value")
-      .in("key", ["maintenance_mode", "maintenance_message"]);
+      .in("key", ["maintenance_mode", "maintenance_message", "maintenance_return_at"]);
     const map = Object.fromEntries((data || []).map((r: any) => [r.key, r.value]));
     const raw = map.maintenance_mode;
     setEnabled(raw === true || raw === "true" || (typeof raw === "string" && raw.toLowerCase() === "true"));
@@ -27,16 +29,19 @@ export default function MaintenanceModeCard() {
       const m = typeof map.maintenance_message === "string" ? map.maintenance_message : JSON.stringify(map.maintenance_message);
       setMessage(m.replace(/^"|"$/g, ""));
     }
+    const eta = map.maintenance_return_at;
+    setReturnAt(typeof eta === "string" ? eta.slice(0, 16) : "");
     setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
 
-  const save = async (next: boolean, nextMsg?: string) => {
+  const save = async (next: boolean, nextMsg?: string, nextReturnAt?: string) => {
     setSaving(true);
     const upserts = [
       { key: "maintenance_mode", value: next as any, updated_at: new Date().toISOString() },
       { key: "maintenance_message", value: (nextMsg ?? message) as any, updated_at: new Date().toISOString() },
+      { key: "maintenance_return_at", value: (nextReturnAt ? new Date(nextReturnAt).toISOString() : null) as any, updated_at: new Date().toISOString() },
     ];
     for (const u of upserts) {
       const { error } = await supabase.from("system_settings").upsert(u, { onConflict: "key" });
@@ -47,6 +52,7 @@ export default function MaintenanceModeCard() {
       }
     }
     setEnabled(next);
+    if (typeof nextReturnAt === "string") setReturnAt(nextReturnAt);
     toast.success(next ? "Maintenance mode ENABLED — students locked out" : "Maintenance mode disabled");
     setSaving(false);
   };
@@ -91,11 +97,25 @@ export default function MaintenanceModeCard() {
                 placeholder="We'll be back shortly. Thank you for your patience."
               />
               <div className="flex justify-end mt-2">
-                <Button size="sm" variant="outline" onClick={() => save(enabled, message)} disabled={saving}>
+                <Button size="sm" variant="outline" onClick={() => save(enabled, message, returnAt)} disabled={saving}>
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
                   Save Message
                 </Button>
               </div>
+            </div>
+
+            <div>
+              <Label htmlFor="maint-return-at">Estimated return time</Label>
+              <Input
+                id="maint-return-at"
+                type="datetime-local"
+                value={returnAt}
+                onChange={(e) => setReturnAt(e.target.value)}
+                className="mt-2"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Leave blank if you do not want to show a countdown on the maintenance screen.
+              </p>
             </div>
           </>
         )}
