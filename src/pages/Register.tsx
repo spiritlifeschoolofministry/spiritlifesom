@@ -360,7 +360,6 @@ const Register = () => {
                       autoComplete="new-password"
                       value={form.password}
                       onChange={(e) => updateForm("password", e.target.value)}
-                      required
                       className="pr-10"
                     />
                     <button
@@ -383,7 +382,6 @@ const Register = () => {
                       autoComplete="new-password"
                       value={form.confirmPassword}
                       onChange={(e) => updateForm("confirmPassword", e.target.value)}
-                      required
                       className="pr-10"
                     />
                     <button
