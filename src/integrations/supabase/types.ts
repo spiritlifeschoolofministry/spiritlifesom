@@ -473,6 +473,42 @@ export type Database = {
         }
         Relationships: []
       }
+      faculty_members: {
+        Row: {
+          bio: string
+          created_at: string
+          display_order: number
+          id: string
+          is_active: boolean
+          name: string
+          photo_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          bio?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          photo_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          bio?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          photo_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fee_structures: {
         Row: {
           amount: number
