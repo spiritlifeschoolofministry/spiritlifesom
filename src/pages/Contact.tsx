@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import Reveal from "@/components/Reveal";
 import { useSiteContent } from "@/hooks/use-site-content";
+import SEO from "@/components/SEO";
 
 const ContactPage = () => {
   const [name, setName] = useState("");
@@ -41,6 +42,17 @@ const ContactPage = () => {
 
   return (
     <div>
+      <SEO
+        title="Contact SLSOM | Spirit Life School of Ministry"
+        description="Get in touch with Spirit Life School of Ministry. Reach our admissions team by email or phone, or send a message directly through our contact form."
+        path="/contact"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "ContactPage",
+          name: "Contact Spirit Life School of Ministry",
+          url: "https://spiritlifesom.org/contact",
+        }}
+      />
       {/* Hero */}
       <section className="relative py-20 sm:py-28 text-center text-primary-foreground">
         <div className="absolute inset-0 gradient-purple" />

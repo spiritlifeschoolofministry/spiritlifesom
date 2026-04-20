@@ -1,8 +1,23 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /student
+Disallow: /student/
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+
 User-agent: Googlebot
 Allow: /
+Disallow: /admin/
+Disallow: /student/
 
 User-agent: Bingbot
 Allow: /
+Disallow: /admin/
+Disallow: /student/
 
 User-agent: Twitterbot
 Allow: /
@@ -10,7 +25,5 @@ Allow: /
 User-agent: facebookexternalhit
 Allow: /
 
-User-agent: *
-Allow: /
-
+Host: https://spiritlifesom.org
 Sitemap: https://spiritlifesom.org/sitemap.xml

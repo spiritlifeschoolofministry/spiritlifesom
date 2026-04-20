@@ -5,6 +5,7 @@ import { MapPin, Phone, Mail, ChevronRight, ArrowRight, Lock } from "lucide-reac
 import { supabase } from "@/integrations/supabase/client";
 import Reveal from "@/components/Reveal";
 import { useSiteContent } from "@/hooks/use-site-content";
+import SEO from "@/components/SEO";
 
 const Home = () => {
   const [acceptingApplications, setAcceptingApplications] = useState(true);
@@ -72,6 +73,22 @@ const Home = () => {
 
   return (
     <div>
+      <SEO
+        title="Spirit Life School of Ministry | SLSOM Official"
+        description="A Spirit-led ministry training school in Ibadan, Nigeria, equipping believers for effective Christian ministry through biblical, practical and pastoral training."
+        path="/"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "Spirit Life School of Ministry",
+          url: "https://spiritlifesom.org/",
+          potentialAction: {
+            "@type": "SearchAction",
+            target: "https://spiritlifesom.org/?q={search_term_string}",
+            "query-input": "required name=search_term_string",
+          },
+        }}
+      />
     {/* ========== HERO ========== */}
     <section className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center text-center text-primary-foreground overflow-hidden">
       {heroImages.map((src, index) => (

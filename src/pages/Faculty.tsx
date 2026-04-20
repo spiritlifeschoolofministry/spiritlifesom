@@ -4,6 +4,7 @@ import Reveal from "@/components/Reveal";
 import { useSiteContent } from "@/hooks/use-site-content";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import SEO from "@/components/SEO";
 
 interface FacultyMember {
   id: string;
@@ -41,6 +42,17 @@ const FacultyPage = () => {
 
   return (
     <div>
+      <SEO
+        title="Faculty | Spirit Life School of Ministry"
+        description="Meet the faculty of Spirit Life School of Ministry — pastors, scholars and ministers equipping the next generation of Christian leaders."
+        path="/faculty"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: "SLSOM Faculty",
+          url: "https://spiritlifesom.org/faculty",
+        }}
+      />
       {/* Hero */}
       <section className="relative py-20 sm:py-28 text-center text-primary-foreground">
         <div className="absolute inset-0 gradient-purple" />

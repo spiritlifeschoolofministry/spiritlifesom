@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, EyeOff, Info, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import SEO from "@/components/SEO";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -85,6 +86,7 @@ const Login = () => {
 
   return (
     <div className="flex flex-col items-center px-4 py-12 sm:py-16">
+      <SEO title="Sign in | SLSOM" description="Sign in to your Spirit Life School of Ministry account." path="/login" noindex />
       <div className="text-center mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">Sign In</h1>
         <p className="text-sm text-muted-foreground mt-1">Welcome back to Spirit Life SOM</p>

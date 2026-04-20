@@ -2,6 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { BookOpen, Flame, Users, Award } from "lucide-react";
 import Reveal from "@/components/Reveal";
 import { useSiteContent } from "@/hooks/use-site-content";
+import SEO from "@/components/SEO";
 
 const whyCards = [
   { icon: BookOpen, title: "Biblical Foundation", desc: "Every lesson is rooted in the Word of God" },
@@ -23,6 +24,18 @@ const About = () => {
 
   return (
     <div>
+      <SEO
+        title="About SLSOM | Spirit Life School of Ministry"
+        description="Learn about Spirit Life School of Ministry — our biblical foundation, Spirit-led teaching philosophy, community of believers and practical ministry training in Ibadan."
+        path="/about"
+        type="website"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "AboutPage",
+          name: "About Spirit Life School of Ministry",
+          url: "https://spiritlifesom.org/about",
+        }}
+      />
       {/* Hero banner */}
       <section className="relative py-20 sm:py-28 text-center text-primary-foreground">
         <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/images/som2.jpeg)" }} />
