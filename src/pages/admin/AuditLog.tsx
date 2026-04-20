@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { Loader2, ShieldCheck, Download } from "lucide-react";
 import { toast } from "sonner";
+import { downloadCSV } from "@/lib/csv-export";
 
 interface AuditRow {
   id: string;
@@ -32,6 +34,9 @@ const ACTION_OPTIONS = [
   { value: "payment.verified", label: "Payment verified" },
   { value: "payment.rejected", label: "Payment rejected" },
   { value: "payment.deleted", label: "Payment deleted" },
+  { value: "fee.adjusted", label: "Fee adjusted" },
+  { value: "fee.deleted", label: "Fee deleted" },
+  { value: "announcement.deleted", label: "Announcement deleted" },
   { value: "profile.role_change", label: "Role change" },
 ];
 
@@ -92,15 +97,44 @@ const AdminAuditLog = () => {
     return true;
   });
 
+  const handleExport = () => {
+    if (!filtered.length) {
+      toast.error("No entries to export");
+      return;
+    }
+    const rowsForCsv = filtered.map((r) => ({
+      timestamp: new Date(r.created_at).toISOString(),
+      action: r.action,
+      summary: r.summary || "",
+      entity_type: r.entity_type,
+      entity_id: r.entity_id || "",
+      admin_email: r.actor_email || "System",
+      admin_role: r.actor_role || "",
+      old_values: r.old_values ? JSON.stringify(r.old_values) : "",
+      new_values: r.new_values ? JSON.stringify(r.new_values) : "",
+      metadata: r.metadata ? JSON.stringify(r.metadata) : "",
+    }));
+    downloadCSV(rowsForCsv, "audit_log");
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
-          <ShieldCheck className="h-7 w-7 text-primary" /> Audit Log
-        </h1>
-        <p className="text-muted-foreground">
-          Append-only record of every admin status change, payment verification, and deletion.
-        </p>
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
+            <ShieldCheck className="h-7 w-7 text-primary" /> Audit Log
+          </h1>
+          <p className="text-muted-foreground">
+            Append-only record of every admin status change, payment verification, and deletion.
+          </p>
+        </div>
+        <Button
+          onClick={handleExport}
+          disabled={loading || filtered.length === 0}
+          className="gap-2 self-start md:self-auto"
+        >
+          <Download className="h-4 w-4" /> Export CSV
+        </Button>
       </div>
 
       <Card>
