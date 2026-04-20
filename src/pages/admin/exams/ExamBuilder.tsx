@@ -11,10 +11,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { QuestionRenderer } from "@/components/exam/QuestionRenderer";
 import { sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType } from "@/lib/exam-utils";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Send, Lock } from "lucide-react";
+import { ArrowLeft, Save, Send, Lock, Download } from "lucide-react";
 
 const DEFAULT: any = {
   title: "",
