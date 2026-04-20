@@ -123,6 +123,7 @@ export default function StorageBrowserCard() {
     const list = (data || []).map((b: any) => ({ name: b.name, public: !!b.public }));
     setBuckets(list);
     if (!bucket && list[0]) setBucket(list[0].name);
+    loadGrandTotal(list);
   };
 
   const loadItems = async () => {
