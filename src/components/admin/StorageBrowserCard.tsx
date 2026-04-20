@@ -348,36 +348,34 @@ export default function StorageBrowserCard() {
               <AlertTriangle className="h-5 w-5" />
               Permanently delete {pendingPaths.length} file{pendingPaths.length === 1 ? "" : "s"}?
             </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3 text-sm text-muted-foreground">
-                <p>
-                  This will permanently remove the selected file{pendingPaths.length === 1 ? "" : "s"} from
-                  bucket <span className="font-mono font-semibold text-foreground">{bucket}</span>. This action
-                  cannot be undone.
-                </p>
-                {pendingPaths.length <= 5 ? (
-                  <ul className="rounded border bg-muted/40 p-2 font-mono text-xs space-y-0.5 max-h-32 overflow-y-auto">
-                    {pendingPaths.map((p) => <li key={p} className="truncate">{p}</li>)}
-                  </ul>
-                ) : (
-                  <p className="text-xs italic">{pendingPaths.length} files selected.</p>
-                )}
-                <div className="space-y-1.5">
-                  <Label htmlFor="del-challenge" className="text-foreground">
-                    Type <span className="font-mono font-bold">{CHALLENGE}</span> to confirm
-                  </Label>
-                  <Input
-                    id="del-challenge"
-                    value={challenge}
-                    onChange={(e) => setChallenge(e.target.value)}
-                    placeholder={CHALLENGE}
-                    autoComplete="off"
-                    disabled={deleting}
-                  />
-                </div>
-              </div>
+            <AlertDialogDescription>
+              This will permanently remove the selected file{pendingPaths.length === 1 ? "" : "s"} from
+              bucket <span className="font-mono font-semibold text-foreground">{bucket}</span>. This action
+              cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-3 text-sm text-muted-foreground">
+            {pendingPaths.length <= 5 ? (
+              <ul className="rounded border bg-muted/40 p-2 font-mono text-xs space-y-0.5 max-h-32 overflow-y-auto">
+                {pendingPaths.map((p) => <li key={p} className="truncate">{p}</li>)}
+              </ul>
+            ) : (
+              <p className="text-xs italic">{pendingPaths.length} files selected.</p>
+            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="del-challenge" className="text-foreground">
+                Type <span className="font-mono font-bold">{CHALLENGE}</span> to confirm
+              </Label>
+              <Input
+                id="del-challenge"
+                value={challenge}
+                onChange={(e) => setChallenge(e.target.value)}
+                placeholder={CHALLENGE}
+                autoComplete="off"
+                disabled={deleting}
+              />
+            </div>
+          </div>
           <AlertDialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={deleting}>
               Cancel
