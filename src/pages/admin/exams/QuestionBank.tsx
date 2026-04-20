@@ -230,7 +230,9 @@ export default function QuestionBank() {
 
               <div>
                 <Label>Question</Label>
-                <RichTextEditor value={editing.question_text} onChange={(v) => setEditing({ ...editing, question_text: v })} />
+                <Suspense fallback={<Skeleton className="h-32 w-full" />}>
+                  <RichTextEditor value={editing.question_text} onChange={(v) => setEditing({ ...editing, question_text: v })} />
+                </Suspense>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
