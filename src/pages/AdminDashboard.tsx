@@ -48,7 +48,7 @@ const AdminDashboard = () => {
         supabase
           .from("students")
           .select("id", { count: "exact", head: true })
-          .eq("admission_status", "PENDING"),
+          .ilike("admission_status", "pending"),
         supabase.from("courses").select("id", { count: "exact", head: true }),
         supabase.from("cohorts").select("name").eq("is_active", true).maybeSingle(),
         supabase
@@ -60,7 +60,7 @@ const AdminDashboard = () => {
         supabase
           .from("students")
           .select("id, learning_mode, profile:profiles(first_name, last_name, avatar_url)")
-          .eq("admission_status", "PENDING")
+          .ilike("admission_status", "pending")
           .order("created_at", { ascending: false })
           .limit(10),
       ]);
