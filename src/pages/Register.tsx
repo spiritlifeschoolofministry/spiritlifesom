@@ -33,6 +33,7 @@ interface FormData {
   confirmPassword: string;
   phone: string;
   passportPhoto: File | null;
+  photoUrl: string;
   gender: string;
   dobDay: string;
   dobMonth: string;
@@ -110,7 +111,7 @@ const Register = () => {
   const [form, setForm] = useState<FormData>(() => {
     const defaults: FormData = {
       firstName: "", lastName: "", middleName: "", email: "",
-      password: "", confirmPassword: "", phone: "", passportPhoto: null,
+      password: "", confirmPassword: "", phone: "", passportPhoto: null, photoUrl: "",
       gender: "", dobDay: "", dobMonth: "", dobYear: "",
       maritalStatus: "", address: "", isBornAgain: "",
       hasDiscoveredMinistry: "", ministryDescription: "",
@@ -157,7 +158,11 @@ const Register = () => {
     if (form.password.length < 6) return "Password must be at least 6 characters";
     if (form.password !== form.confirmPassword) return "Passwords do not match";
     if (!form.phone.trim()) return "Phone number is required";
-    if (!form.passportPhoto) return "Passport photo is required";
+    // Passport photo is optional — users can add it later from their profile.
+    // If a URL is provided, do a basic sanity check.
+    if (form.photoUrl && !/^https?:\/\//i.test(form.photoUrl.trim())) {
+      return "Photo URL must start with http:// or https://";
+    }
     return null;
   };
 
@@ -264,9 +269,10 @@ const Register = () => {
         console.error('[Register] Student update failed:', studentUpdateError.message);
       }
 
-      // Upload passport photo (non-blocking — doesn't fail registration)
-      if (form.passportPhoto) {
-        try {
+      // Save passport photo (non-blocking — doesn't fail registration).
+      // Priority: uploaded File > pasted URL. If neither, user can add it from profile later.
+      try {
+        if (form.passportPhoto) {
           const fileExt = form.passportPhoto.name.split(".").pop();
           const fileName = `${userId}.${fileExt}`;
           const { error: uploadError } = await supabase.storage
@@ -277,9 +283,11 @@ const Register = () => {
             const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(fileName);
             await supabase.from("profiles").update({ avatar_url: urlData.publicUrl }).eq("id", userId);
           }
-        } catch (photoErr) {
-          console.warn("[Register] Photo upload failed (non-critical):", photoErr);
+        } else if (form.photoUrl.trim()) {
+          await supabase.from("profiles").update({ avatar_url: form.photoUrl.trim() }).eq("id", userId);
         }
+      } catch (photoErr) {
+        console.warn("[Register] Photo save failed (non-critical):", photoErr);
       }
 
       toast.success("Registration successful! Redirecting to your dashboard...");
@@ -400,10 +408,15 @@ const Register = () => {
                 <Input id="phone" type="tel" name="phone" autoComplete="tel" value={form.phone} onChange={(e) => updateForm("phone", e.target.value)} placeholder="+234..." />
               </div>
               <div>
-                <Label>Passport Photo *</Label>
+                <Label>Passport Photo <span className="text-muted-foreground font-normal">(optional)</span></Label>
                 <div className="mt-2 flex items-center gap-4">
-                  {photoPreview ? (
-                    <img src={photoPreview} alt="Preview" className="w-20 h-20 rounded-xl object-cover border-2 border-primary/20" />
+                  {photoPreview || form.photoUrl ? (
+                    <img
+                      src={photoPreview || form.photoUrl}
+                      alt="Preview"
+                      className="w-20 h-20 rounded-xl object-cover border-2 border-primary/20"
+                      onError={() => { /* invalid URL — ignore preview */ }}
+                    />
                   ) : (
                     <div className="w-20 h-20 rounded-xl bg-muted flex items-center justify-center border-2 border-dashed border-border">
                       <Upload className="w-6 h-6 text-muted-foreground" />
@@ -415,6 +428,22 @@ const Register = () => {
                     </span>
                     <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
                   </label>
+                </div>
+                <div className="mt-3">
+                  <Label htmlFor="photo-url" className="text-xs text-muted-foreground">
+                    Or paste an image URL
+                  </Label>
+                  <Input
+                    id="photo-url"
+                    type="url"
+                    placeholder="https://example.com/photo.jpg"
+                    value={form.photoUrl}
+                    onChange={(e) => updateForm("photoUrl", e.target.value)}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    You can also skip this and add a photo later from your profile.
+                  </p>
                 </div>
               </div>
             </div>
