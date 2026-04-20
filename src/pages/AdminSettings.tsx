@@ -15,6 +15,8 @@ import SiteContentEditor from '@/components/admin/SiteContentEditor';
 import FacultyManager from '@/components/admin/FacultyManager';
 import StorageUsageCard from '@/components/admin/StorageUsageCard';
 import MaintenanceModeCard from '@/components/admin/MaintenanceModeCard';
+import PurgeSnapshotsCard from '@/components/admin/PurgeSnapshotsCard';
+import StorageBrowserCard from '@/components/admin/StorageBrowserCard';
 
 interface SystemSettings {
   accepting_applications: boolean;
@@ -345,6 +347,12 @@ const AdminSettings = () => {
 
       {/* Storage Usage */}
       <StorageUsageCard />
+
+      {/* Proctor snapshot purge */}
+      <PurgeSnapshotsCard />
+
+      {/* Storage browser & file deletion */}
+      <StorageBrowserCard />
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Cohort Management</CardTitle>

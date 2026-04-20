@@ -145,6 +145,12 @@ const Register = () => {
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const MAX_BYTES = 500 * 1024;
+      if (file.size > MAX_BYTES) {
+        toast.error(`Passport photo must be 500KB or smaller. Selected file is ${(file.size / 1024).toFixed(0)}KB.`);
+        e.target.value = "";
+        return;
+      }
       updateForm("passportPhoto", file);
       setPhotoPreview(URL.createObjectURL(file));
     }
