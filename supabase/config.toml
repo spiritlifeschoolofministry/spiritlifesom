@@ -3,7 +3,6 @@ project_id = "siirpzuflcimkhnzvass"
 [functions.send-registration-email]
 enabled = true
 verify_jwt = false
-import_map = "./functions/send-registration-email/deno.json"
 entrypoint = "./functions/send-registration-email/index.ts"
 
 [functions.send-student-email]
