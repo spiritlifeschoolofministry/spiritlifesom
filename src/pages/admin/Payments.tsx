@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle, XCircle, Eye, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 type PaymentReview = Tables<'payments'> & {
   student_name?: string;
@@ -34,6 +35,7 @@ const AdminPayments = () => {
   const [isAddFeeModalOpen, setIsAddFeeModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [pendingConfirm, setPendingConfirm] = useState<null | "approve" | "reject">(null);
 
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<AddFeeFormData>({
     defaultValues: { cohort_id: '', fee_name: '', amount: '' },
