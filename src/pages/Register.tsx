@@ -198,6 +198,7 @@ const Register = () => {
             phone: form.phone,
             gender: form.gender || null,
             age: age ?? null,
+            cohort_id: form.cohortId || activeCohortId || null,
           },
         },
       });
@@ -232,13 +233,8 @@ const Register = () => {
         console.error('[Register] Student record not created by trigger after retries');
       }
 
-      // Fetch active cohort to auto-assign
-      const { data: activeCohort } = await supabase
-        .from('cohorts')
-        .select('id')
-        .eq('is_active', true)
-        .limit(1)
-        .maybeSingle();
+      // Use selected cohort (or active cohort fallback)
+      const chosenCohortId = form.cohortId || activeCohortId || null;
 
       // Update student record with all registration fields
       const dob = form.dobDay && form.dobMonth && form.dobYear
@@ -255,7 +251,7 @@ const Register = () => {
         educational_background: form.educationalBackground || null,
         preferred_language: form.preferredLanguage || null,
         date_of_birth: dob,
-        ...(activeCohort?.id ? { cohort_id: activeCohort.id } : {}),
+        ...(chosenCohortId ? { cohort_id: chosenCohortId } : {}),
       };
 
       const { error: studentUpdateError } = await supabase
