@@ -5,6 +5,7 @@ import { MapPin, Phone, Mail, ChevronRight, ArrowRight, Lock } from "lucide-reac
 import { supabase } from "@/integrations/supabase/client";
 import Reveal from "@/components/Reveal";
 import { useSiteContent } from "@/hooks/use-site-content";
+import SEO from "@/components/SEO";
 
 const Home = () => {
   const [acceptingApplications, setAcceptingApplications] = useState(true);
