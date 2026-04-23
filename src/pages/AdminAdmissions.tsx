@@ -395,6 +395,37 @@ const AdminAdmissions = () => {
                   >
                     <X className="w-4 h-4" /> Reject
                   </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1"
+                        disabled={resendingId === app.id}
+                        title="Re-send email"
+                      >
+                        {resendingId === app.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Mail className="w-4 h-4" />
+                        )}
+                        Email
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel>Re-send email</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => resendEmail(app.id, "welcome", "Welcome email")}>
+                        Welcome / Registration
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => resendEmail(app.id, "admission_approved", "Admission approval email")}>
+                        Admission Approved
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => resendEmail(app.id, "admission_rejected", "Admission rejection email")}>
+                        Admission Rejected
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             ))
