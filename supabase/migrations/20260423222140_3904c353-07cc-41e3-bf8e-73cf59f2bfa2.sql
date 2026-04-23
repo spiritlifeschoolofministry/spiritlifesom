@@ -1,0 +1,1 @@
+UPDATE public.site_content SET content = '+234 916 582 2262', updated_at = now() WHERE (page = 'home' AND section_key = 'contact_phone') OR (page = 'contact' AND section_key = 'phone');
