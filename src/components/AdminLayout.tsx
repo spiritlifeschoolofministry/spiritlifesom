@@ -30,6 +30,7 @@ import {
   ShieldCheck,
   MoreHorizontal,
   ClipboardCheck,
+  Mail,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -47,6 +48,7 @@ const NAV_ITEMS = [
   { label: "Calendar", icon: CalendarDays, path: "/admin/calendar" },
   { label: "Analytics", icon: BarChart3, path: "/admin/analytics" },
   { label: "Audit Log", icon: ShieldCheck, path: "/admin/audit" },
+  { label: "Email History", icon: Mail, path: "/admin/email-history" },
   { label: "Settings", icon: Settings, path: "/admin/settings" },
   { label: "Profile", icon: UserCircle, path: "/admin/profile" },
 ];
