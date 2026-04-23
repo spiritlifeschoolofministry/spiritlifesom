@@ -1,16 +1,23 @@
 // Floating WhatsApp contact button shown on public pages.
+// The greeting message is editable from the admin Site Content panel
+// (page=global, section_key=whatsapp_message).
+import { useSiteContent } from "@/hooks/use-site-content";
+
 const WHATSAPP_NUMBER = "2349165822262";
-const MESSAGE = "Hello Spirit Life SOM, I'd like to make an enquiry.";
+const DEFAULT_MESSAGE = "Hello Spirit Life SOM, I'd like to make an enquiry.";
 
 const WhatsAppButton = () => {
-  const href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(MESSAGE)}`;
+  const { get } = useSiteContent("global");
+  const message = get("whatsapp_message", DEFAULT_MESSAGE);
+  const href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+
   return (
     <a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with us on WhatsApp"
-      className="fixed bottom-5 right-5 z-50 group flex items-center gap-2 bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-full shadow-lg shadow-black/20 transition-all hover:scale-105 active:scale-95 p-3.5 sm:p-4"
+      className="fixed bottom-5 right-5 z-50 group flex items-center gap-2 bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-full shadow-lg shadow-black/20 transition-all hover:scale-105 active:scale-95 p-3.5 sm:p-4 print:hidden"
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
