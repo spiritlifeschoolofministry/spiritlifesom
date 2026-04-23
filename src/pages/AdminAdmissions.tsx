@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Check, X, Eye, Search, Users, Clock, Loader2, UserCheck } from "lucide-react";
+import { Check, X, Eye, Search, Users, Clock, Loader2, UserCheck, Mail } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -15,6 +15,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 interface Application {
@@ -47,6 +55,28 @@ const AdminAdmissions = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkApproving, setBulkApproving] = useState(false);
+  const [resendingId, setResendingId] = useState<string | null>(null);
+
+  const resendEmail = async (
+    studentId: string,
+    emailType: "welcome" | "admission_approved" | "admission_rejected",
+    label: string
+  ) => {
+    setResendingId(studentId);
+    try {
+      const { data, error } = await supabase.functions.invoke("resend-student-email", {
+        body: { student_id: studentId, email_type: emailType },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast.success(`${label} sent to ${(data as any)?.sent_to || "student"}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to send email";
+      toast.error(msg);
+    } finally {
+      setResendingId(null);
+    }
+  };
 
   // Confirmation dialog state
   const [confirmAction, setConfirmAction] = useState<
