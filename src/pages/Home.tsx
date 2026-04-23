@@ -190,7 +190,7 @@ const Home = () => {
           </div>
           <div className="flex items-center gap-2">
             <Phone className="text-accent shrink-0" size={18} />
-            <span>{get("contact_phone", "+234 809 092 5555")}</span>
+            <span>{get("contact_phone", "+234 916 582 2262")}</span>
           </div>
           <div className="flex items-center gap-2 min-w-0">
             <Mail className="text-accent shrink-0" size={18} />

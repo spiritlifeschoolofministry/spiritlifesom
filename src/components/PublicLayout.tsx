@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Facebook, Youtube, Instagram, Twitter } from "lucide-react";
+import WhatsAppButton from "@/components/WhatsAppButton";
 
 const navLinks = [
   { label: "Home", to: "/" },
@@ -141,6 +142,8 @@ const PublicLayout = () => {
           </div>
         </div>
       </footer>
+
+      <WhatsAppButton />
     </div>
   );
 };
