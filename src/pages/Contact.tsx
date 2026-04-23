@@ -81,7 +81,7 @@ const ContactPage = () => {
             <Reveal delay={120}>
               <div className="flex gap-3">
                 <Phone className="text-accent shrink-0 mt-1" size={20} />
-                <p className="text-muted-foreground text-sm sm:text-base">{get("phone", "+234 809 092 5555")}</p>
+                <p className="text-muted-foreground text-sm sm:text-base">{get("phone", "+234 916 582 2262")}</p>
               </div>
             </Reveal>
             <Reveal delay={180}>
