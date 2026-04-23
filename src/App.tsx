@@ -61,6 +61,7 @@ const AdminAnalytics = lazy(() => import("./pages/admin/Analytics"));
 const AdminFees = lazy(() => import("./pages/admin/Fees"));
 const AdminCourses = lazy(() => import("./pages/admin/Courses"));
 const AdminAuditLog = lazy(() => import("./pages/admin/AuditLog"));
+const AdminEmailHistory = lazy(() => import("./pages/admin/EmailHistory"));
 const AdminApprove = lazy(() => import("./pages/AdminApprove"));
 const AdminAnnouncements = lazy(() => import("./pages/admin/Announcements"));
 const AdminCalendar = lazy(() => import("./pages/admin/Calendar"));
@@ -157,6 +158,7 @@ const App = () => {
             <Route path="/admin/calendar" element={<ProtectedRoute requiredRole="admin"><AdminCalendar /></ProtectedRoute>} />
             <Route path="/admin/analytics" element={<ProtectedRoute requiredRole="admin"><AdminAnalytics /></ProtectedRoute>} />
             <Route path="/admin/audit" element={<ProtectedRoute requiredRole="admin"><AdminAuditLog /></ProtectedRoute>} />
+            <Route path="/admin/email-history" element={<ProtectedRoute requiredRole="admin"><AdminEmailHistory /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute requiredRole="admin"><AdminSettings /></ProtectedRoute>} />
             <Route path="/admin/exams" element={<ProtectedRoute requiredRole="admin"><AdminExamsList /></ProtectedRoute>} />
             <Route path="/admin/exams/questions" element={<ProtectedRoute requiredRole="admin"><AdminQuestionBank /></ProtectedRoute>} />

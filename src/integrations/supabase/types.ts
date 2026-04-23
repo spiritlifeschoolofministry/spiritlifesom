@@ -518,6 +518,57 @@ export type Database = {
         }
         Relationships: []
       }
+      email_send_history: {
+        Row: {
+          attempts: number
+          created_at: string
+          email_type: string
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          recipient_email: string
+          resend_message_id: string | null
+          status: string
+          student_id: string | null
+          trigger_source: string
+          triggered_by: string | null
+          triggered_by_email: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          email_type: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          recipient_email: string
+          resend_message_id?: string | null
+          status?: string
+          student_id?: string | null
+          trigger_source?: string
+          triggered_by?: string | null
+          triggered_by_email?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          email_type?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          recipient_email?: string
+          resend_message_id?: string | null
+          status?: string
+          student_id?: string | null
+          trigger_source?: string
+          triggered_by?: string | null
+          triggered_by_email?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       exam_answers: {
         Row: {
           answer: Json | null
