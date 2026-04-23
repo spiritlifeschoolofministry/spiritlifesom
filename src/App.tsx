@@ -61,6 +61,7 @@ const AdminAnalytics = lazy(() => import("./pages/admin/Analytics"));
 const AdminFees = lazy(() => import("./pages/admin/Fees"));
 const AdminCourses = lazy(() => import("./pages/admin/Courses"));
 const AdminAuditLog = lazy(() => import("./pages/admin/AuditLog"));
+const AdminEmailHistory = lazy(() => import("./pages/admin/EmailHistory"));
 const AdminApprove = lazy(() => import("./pages/AdminApprove"));
 const AdminAnnouncements = lazy(() => import("./pages/admin/Announcements"));
 const AdminCalendar = lazy(() => import("./pages/admin/Calendar"));
