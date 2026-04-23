@@ -19,7 +19,7 @@ interface ContentItem {
   content: string;
 }
 
-const PAGES = ["home", "about", "courses", "faculty", "contact"];
+const PAGES = ["global", "home", "about", "courses", "faculty", "contact"];
 
 const SiteContentEditor = () => {
   const [items, setItems] = useState<ContentItem[]>([]);

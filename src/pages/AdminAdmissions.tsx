@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Check, X, Eye, Search, Users, Clock, Loader2, UserCheck } from "lucide-react";
+import { Check, X, Eye, Search, Users, Clock, Loader2, UserCheck, Mail } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -15,6 +15,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 interface Application {
@@ -47,6 +55,28 @@ const AdminAdmissions = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkApproving, setBulkApproving] = useState(false);
+  const [resendingId, setResendingId] = useState<string | null>(null);
+
+  const resendEmail = async (
+    studentId: string,
+    emailType: "welcome" | "admission_approved" | "admission_rejected",
+    label: string
+  ) => {
+    setResendingId(studentId);
+    try {
+      const { data, error } = await supabase.functions.invoke("resend-student-email", {
+        body: { student_id: studentId, email_type: emailType },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast.success(`${label} sent to ${(data as any)?.sent_to || "student"}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to send email";
+      toast.error(msg);
+    } finally {
+      setResendingId(null);
+    }
+  };
 
   // Confirmation dialog state
   const [confirmAction, setConfirmAction] = useState<
@@ -365,6 +395,37 @@ const AdminAdmissions = () => {
                   >
                     <X className="w-4 h-4" /> Reject
                   </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1"
+                        disabled={resendingId === app.id}
+                        title="Re-send email"
+                      >
+                        {resendingId === app.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Mail className="w-4 h-4" />
+                        )}
+                        Email
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel>Re-send email</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => resendEmail(app.id, "welcome", "Welcome email")}>
+                        Welcome / Registration
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => resendEmail(app.id, "admission_approved", "Admission approval email")}>
+                        Admission Approved
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => resendEmail(app.id, "admission_rejected", "Admission rejection email")}>
+                        Admission Rejected
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             ))
