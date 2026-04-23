@@ -56,23 +56,40 @@ const AdminAdmissions = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkApproving, setBulkApproving] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  // Client-side throttle: minimum 1.5s between sends
+  const lastSendAtRef = useState<{ t: number }>({ t: 0 })[0];
 
   const resendEmail = async (
     studentId: string,
     emailType: "welcome" | "admission_approved" | "admission_rejected",
     label: string
   ) => {
+    // Throttle
+    const now = Date.now();
+    const elapsed = now - lastSendAtRef.t;
+    const MIN_GAP = 1500;
+    if (elapsed < MIN_GAP) {
+      const wait = Math.ceil((MIN_GAP - elapsed) / 1000);
+      toast.warning(`Please wait ${wait}s before sending another email (rate-limit guard).`);
+      return;
+    }
+    lastSendAtRef.t = now;
+
     setResendingId(studentId);
+    const toastId = toast.loading(`Sending ${label}…`);
     try {
       const { data, error } = await supabase.functions.invoke("resend-student-email", {
         body: { student_id: studentId, email_type: emailType },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
-      toast.success(`${label} sent to ${(data as any)?.sent_to || "student"}`);
+      const payload = (data as { error?: string; sent_to?: string; attempts?: number }) || {};
+      if (payload.error) throw new Error(payload.error);
+      const recipient = payload.sent_to || "student";
+      const attemptsNote = payload.attempts && payload.attempts > 1 ? ` (after ${payload.attempts} attempts)` : "";
+      toast.success(`✉ ${label} sent to ${recipient}${attemptsNote}`, { id: toastId });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to send email";
-      toast.error(msg);
+      toast.error(`Failed to send ${label}: ${msg}`, { id: toastId });
     } finally {
       setResendingId(null);
     }
