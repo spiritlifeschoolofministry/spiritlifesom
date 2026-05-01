@@ -124,7 +124,8 @@ const PublicLayout = () => {
               <a href="https://www.facebook.com/spiritlifeschoolofministry" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer"><Facebook size={20} /></a>
               <a href="https://www.youtube.com/@SpiritLifeSchoolofMinistry" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer"><Youtube size={20} /></a>
               <a href="https://www.instagram.com/spiritlifeschoolofministry" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer"><Instagram size={20} /></a>
-              <a href="https://x.com/spiritlifesom" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer"><Twitter size={20} /></a>
+              <a href="https://x.com/spiritlifesom" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer" aria-label="X (Twitter)"><Twitter size={20} /></a>
+              <a href="https://tiktok.com/@spiritlifesom" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer" aria-label="TikTok"><Music2 size={20} /></a>
             </div>
           </div>
 
