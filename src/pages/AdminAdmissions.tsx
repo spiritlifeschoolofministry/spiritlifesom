@@ -76,7 +76,7 @@ const AdminAdmissions = () => {
     emailType: "welcome" | "admission_approved" | "admission_rejected",
     label: string
   ) => {
-    // Throttle
+    // Throttle (rate-limit guard)
     const now = Date.now();
     const elapsed = now - lastSendAtRef.t;
     const MIN_GAP = 1500;
@@ -87,11 +87,14 @@ const AdminAdmissions = () => {
     }
     lastSendAtRef.t = now;
 
+    // Idempotency key — same student+type within 30s is treated as duplicate click
+    const idempotencyKey = `resend:${studentId}:${emailType}:${Math.floor(Date.now() / 30000)}`;
+
     setResendingId(studentId);
     const toastId = toast.loading(`Sending ${label}…`);
     try {
       const { data, error } = await supabase.functions.invoke("resend-student-email", {
-        body: { student_id: studentId, email_type: emailType },
+        body: { student_id: studentId, email_type: emailType, idempotency_key: idempotencyKey },
       });
       if (error) throw error;
       const payload = (data as { error?: string; sent_to?: string; attempts?: number }) || {};
