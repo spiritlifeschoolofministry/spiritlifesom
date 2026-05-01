@@ -245,14 +245,46 @@ const AdminAdmissions = () => {
   };
 
   const filteredApplications = applications.filter((app) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      app.profile.first_name.toLowerCase().includes(q) ||
-      app.profile.last_name.toLowerCase().includes(q) ||
-      app.profile.email.toLowerCase().includes(q)
-    );
+    // Search
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const matchesQ =
+        app.profile.first_name.toLowerCase().includes(q) ||
+        app.profile.last_name.toLowerCase().includes(q) ||
+        app.profile.email.toLowerCase().includes(q);
+      if (!matchesQ) return false;
+    }
+    // Learning mode
+    if (filterMode !== "all") {
+      const mode = (app.learning_mode || "").toLowerCase();
+      if (mode !== filterMode.toLowerCase()) return false;
+    }
+    // Cohort
+    if (filterCohort !== "all") {
+      if ((app.cohort_id || "") !== filterCohort) return false;
+    }
+    // Date range (created_at)
+    if (filterFrom && app.created_at) {
+      if (new Date(app.created_at) < new Date(filterFrom + "T00:00:00")) return false;
+    }
+    if (filterTo && app.created_at) {
+      if (new Date(app.created_at) > new Date(filterTo + "T23:59:59")) return false;
+    }
+    return true;
   });
+
+  const activeFilterCount =
+    (filterMode !== "all" ? 1 : 0) +
+    (filterCohort !== "all" ? 1 : 0) +
+    (filterFrom ? 1 : 0) +
+    (filterTo ? 1 : 0);
+
+  const clearFilters = () => {
+    setFilterMode("all");
+    setFilterCohort("all");
+    setFilterFrom("");
+    setFilterTo("");
+  };
 
   const getFullName = (app: Application) => {
     return [app.profile.first_name, app.profile.middle_name, app.profile.last_name].filter(Boolean).join(" ");
@@ -345,15 +377,58 @@ const AdminAdmissions = () => {
         </div>
       )}
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search by name or email..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
+      {/* Search + Filters */}
+      <div className="space-y-3">
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name or email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Filter className="w-3.5 h-3.5" /> Filters:
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">Mode</label>
+            <Select value={filterMode} onValueChange={setFilterMode}>
+              <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All modes</SelectItem>
+                <SelectItem value="physical">Physical</SelectItem>
+                <SelectItem value="online">Online</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">Cohort</label>
+            <Select value={filterCohort} onValueChange={setFilterCohort}>
+              <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All cohorts</SelectItem>
+                {cohorts.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">From</label>
+            <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} className="h-8 w-[140px] text-xs" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">To</label>
+            <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} className="h-8 w-[140px] text-xs" />
+          </div>
+          {activeFilterCount > 0 && (
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs gap-1">
+              <X className="w-3.5 h-3.5" /> Clear ({activeFilterCount})
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Applications list */}
