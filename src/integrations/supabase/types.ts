@@ -462,6 +462,7 @@ export type Database = {
           id: string
           is_completed: boolean | null
           lecturer: string | null
+          semester: number
           start_date: string | null
           title: string
         }
@@ -473,6 +474,7 @@ export type Database = {
           id?: string
           is_completed?: boolean | null
           lecturer?: string | null
+          semester?: number
           start_date?: string | null
           title: string
         }
@@ -484,6 +486,7 @@ export type Database = {
           id?: string
           is_completed?: boolean | null
           lecturer?: string | null
+          semester?: number
           start_date?: string | null
           title?: string
         }
