@@ -462,6 +462,7 @@ export type Database = {
           id: string
           is_completed: boolean | null
           lecturer: string | null
+          semester: number
           start_date: string | null
           title: string
         }
@@ -473,6 +474,7 @@ export type Database = {
           id?: string
           is_completed?: boolean | null
           lecturer?: string | null
+          semester?: number
           start_date?: string | null
           title: string
         }
@@ -484,6 +486,7 @@ export type Database = {
           id?: string
           is_completed?: boolean | null
           lecturer?: string | null
+          semester?: number
           start_date?: string | null
           title?: string
         }
@@ -525,6 +528,7 @@ export type Database = {
           email_type: string
           error_message: string | null
           id: string
+          idempotency_key: string | null
           metadata: Json | null
           recipient_email: string
           resend_message_id: string | null
@@ -541,6 +545,7 @@ export type Database = {
           email_type: string
           error_message?: string | null
           id?: string
+          idempotency_key?: string | null
           metadata?: Json | null
           recipient_email: string
           resend_message_id?: string | null
@@ -557,6 +562,7 @@ export type Database = {
           email_type?: string
           error_message?: string | null
           id?: string
+          idempotency_key?: string | null
           metadata?: Json | null
           recipient_email?: string
           resend_message_id?: string | null
@@ -1157,6 +1163,7 @@ export type Database = {
           created_at: string | null
           fee_id: string | null
           id: string
+          idempotency_key: string | null
           payment_date: string | null
           payment_proof_url: string | null
           status: string | null
@@ -1168,6 +1175,7 @@ export type Database = {
           created_at?: string | null
           fee_id?: string | null
           id?: string
+          idempotency_key?: string | null
           payment_date?: string | null
           payment_proof_url?: string | null
           status?: string | null
@@ -1179,6 +1187,7 @@ export type Database = {
           created_at?: string | null
           fee_id?: string | null
           id?: string
+          idempotency_key?: string | null
           payment_date?: string | null
           payment_proof_url?: string | null
           status?: string | null

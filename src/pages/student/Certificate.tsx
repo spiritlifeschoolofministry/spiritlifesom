@@ -142,16 +142,16 @@ const StudentCertificate = () => {
               {/* Header: Logo + School Name */}
               <div className="flex items-center gap-3 sm:gap-4 mb-2" style={{ marginTop: "2%" }}>
                 <img
-                  src="/logo.png"
-                  alt="SLSM Logo"
-                  className="w-12 h-12 sm:w-16 sm:h-16 lg:w-20 lg:h-20 rounded-full object-contain bg-white/80 p-1"
-                  style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}
+                  src="/certificate-logo.png"
+                  alt="Spirit Life School of Ministry"
+                  className="w-16 h-16 sm:w-20 sm:h-20 lg:w-28 lg:h-28 object-contain"
+                  style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.12))" }}
                 />
                 <h2
                   className="text-xl sm:text-3xl lg:text-4xl font-black uppercase tracking-wide"
-                  style={{ color: "#1a1a2e", fontFamily: "'Georgia', serif", letterSpacing: "2px" }}
+                  style={{ color: "#5B2D8E", fontFamily: "'Georgia', serif", letterSpacing: "2px" }}
                 >
-                  School of<br />Ministry
+                  The Spirit Life<br />School of Ministry
                 </h2>
               </div>
 
