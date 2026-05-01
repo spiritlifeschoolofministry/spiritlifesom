@@ -56,7 +56,7 @@ const AdminCourses = () => {
   const fetchData = async () => {
     setLoading(true);
     const [coursesRes, cohortsRes] = await Promise.all([
-      supabase.from("courses").select("*").order("created_at", { ascending: false }),
+      supabase.from("courses").select("*").order("semester", { ascending: true }).order("code", { ascending: true }),
       supabase.from("cohorts").select("id, name").order("name"),
     ]);
     if (coursesRes.data) setCourses(coursesRes.data as Course[]);
