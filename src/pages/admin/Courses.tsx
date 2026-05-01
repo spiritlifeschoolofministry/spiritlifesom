@@ -24,6 +24,7 @@ interface Course {
   is_completed: boolean | null;
   start_date: string | null;
   created_at: string | null;
+  semester: number | null;
 }
 
 interface Cohort {
@@ -39,6 +40,7 @@ const emptyCourse = {
   lecturer: "",
   is_completed: false,
   start_date: "",
+  semester: 1 as number,
 };
 
 const AdminCourses = () => {
@@ -80,6 +82,7 @@ const AdminCourses = () => {
       lecturer: course.lecturer || "",
       is_completed: course.is_completed || false,
       start_date: course.start_date || "",
+      semester: (course.semester ?? 1) as number,
     });
     setDialogOpen(true);
   };
@@ -98,6 +101,7 @@ const AdminCourses = () => {
       lecturer: form.lecturer.trim() || null,
       is_completed: form.is_completed,
       start_date: form.start_date || null,
+      semester: form.semester || 1,
     };
 
     if (editingCourse) {
@@ -195,12 +199,20 @@ const AdminCourses = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2 flex items-end gap-3">
-                    <div className="flex items-center gap-2">
-                      <Switch checked={form.is_completed} onCheckedChange={v => setForm(f => ({ ...f, is_completed: v }))} />
-                      <Label>Completed</Label>
-                    </div>
+                  <div className="space-y-2">
+                    <Label>Semester</Label>
+                    <Select value={String(form.semester)} onValueChange={v => setForm(f => ({ ...f, semester: Number(v) }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">First Semester</SelectItem>
+                        <SelectItem value="2">Second Semester</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch checked={form.is_completed} onCheckedChange={v => setForm(f => ({ ...f, is_completed: v }))} />
+                  <Label>Completed</Label>
                 </div>
                 <div className="sticky bottom-0 bg-background pt-4 border-t">
                   <Button onClick={handleSave} disabled={saving} className="w-full">
@@ -231,6 +243,7 @@ const AdminCourses = () => {
                 <TableRow>
                   <TableHead>Code</TableHead>
                   <TableHead>Title</TableHead>
+                  <TableHead>Sem</TableHead>
                   <TableHead className="hidden md:table-cell">Lecturer</TableHead>
                   <TableHead className="hidden lg:table-cell">Cohort</TableHead>
                   <TableHead className="hidden lg:table-cell">Start Date</TableHead>
@@ -243,6 +256,11 @@ const AdminCourses = () => {
                   <TableRow key={course.id}>
                     <TableCell className="font-mono text-xs font-semibold text-primary">{course.code}</TableCell>
                     <TableCell className="font-medium">{course.title}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[10px]">
+                        {course.semester === 2 ? "2nd" : "1st"}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="hidden md:table-cell text-muted-foreground">{course.lecturer || "—"}</TableCell>
                     <TableCell className="hidden lg:table-cell text-muted-foreground">{getCohortName(course.cohort_id)}</TableCell>
                     <TableCell className="hidden lg:table-cell text-muted-foreground">
