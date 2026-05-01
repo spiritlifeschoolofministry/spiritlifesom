@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Check, X, Eye, Search, Users, Clock, Loader2, UserCheck, Mail } from "lucide-react";
+import { Check, X, Eye, Search, Users, Clock, Loader2, UserCheck, Mail, Filter } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -39,6 +40,7 @@ interface Application {
   preferred_language: string | null;
   ministry_description: string | null;
   marital_status: string | null;
+  cohort_id: string | null;
   profile: {
     first_name: string;
     last_name: string;
@@ -46,6 +48,11 @@ interface Application {
     email: string;
     phone: string | null;
   };
+}
+
+interface CohortOption {
+  id: string;
+  name: string;
 }
 
 const AdminAdmissions = () => {
@@ -56,6 +63,11 @@ const AdminAdmissions = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkApproving, setBulkApproving] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [cohorts, setCohorts] = useState<CohortOption[]>([]);
+  const [filterMode, setFilterMode] = useState<string>("all");
+  const [filterCohort, setFilterCohort] = useState<string>("all");
+  const [filterFrom, setFilterFrom] = useState<string>("");
+  const [filterTo, setFilterTo] = useState<string>("");
   // Client-side throttle: minimum 1.5s between sends
   const lastSendAtRef = useState<{ t: number }>({ t: 0 })[0];
 
@@ -110,29 +122,34 @@ const AdminAdmissions = () => {
 
   const loadApplications = async () => {
     try {
-      const { data, error } = await supabase
-        .from("students")
-        .select(`
-          id,
-          admission_status,
-          created_at,
-          learning_mode,
-          is_born_again,
-          has_discovered_ministry,
-          gender,
-          age,
-          address,
-          educational_background,
-          preferred_language,
-          ministry_description,
-          marital_status,
-          profile:profiles(first_name, last_name, middle_name, email, phone)
-        `)
-        .in("admission_status", ["Pending", "PENDING"])
-        .order("created_at", { ascending: false });
+      const [appsRes, cohortsRes] = await Promise.all([
+        supabase
+          .from("students")
+          .select(`
+            id,
+            admission_status,
+            created_at,
+            learning_mode,
+            is_born_again,
+            has_discovered_ministry,
+            gender,
+            age,
+            address,
+            educational_background,
+            preferred_language,
+            ministry_description,
+            marital_status,
+            cohort_id,
+            profile:profiles(first_name, last_name, middle_name, email, phone)
+          `)
+          .in("admission_status", ["Pending", "PENDING"])
+          .order("created_at", { ascending: false }),
+        supabase.from("cohorts").select("id, name").order("name"),
+      ]);
 
-      if (error) throw error;
-      setApplications((data as any) || []);
+      if (appsRes.error) throw appsRes.error;
+      setApplications((appsRes.data as any) || []);
+      if (cohortsRes.data) setCohorts(cohortsRes.data as CohortOption[]);
     } catch (err) {
       console.error("Load applications error:", err);
       toast.error("Failed to load applications");
