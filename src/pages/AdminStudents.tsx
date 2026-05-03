@@ -190,6 +190,13 @@ const AdminStudents = () => {
     if (cohortFilter !== "all") {
       filtered = filtered.filter((s) => s.cohort_id === cohortFilter);
     }
+    if (languageFilter !== "all") {
+      filtered = filtered.filter((s) => {
+        const lang = (s.preferred_language || "").trim().toLowerCase();
+        if (languageFilter === "__none__") return !lang;
+        return lang === languageFilter.toLowerCase();
+      });
+    }
     setFilteredStudents(filtered);
   };
 
