@@ -151,7 +151,7 @@ const AdminStudents = () => {
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => { loadStudents(); loadCohorts(); }, []);
-  useEffect(() => { filterStudents(); }, [students, searchQuery, statusFilter, cohortFilter]);
+  useEffect(() => { filterStudents(); }, [students, searchQuery, statusFilter, cohortFilter, languageFilter]);
 
   const loadCohorts = async () => {
     const { data } = await supabase.from("cohorts").select("id, name").order("name");
