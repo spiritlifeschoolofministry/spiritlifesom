@@ -66,6 +66,7 @@ const AdminAdmissions = () => {
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
   const [filterMode, setFilterMode] = useState<string>("all");
   const [filterCohort, setFilterCohort] = useState<string>("all");
+  const [filterLanguage, setFilterLanguage] = useState<string>("all");
   const [filterFrom, setFilterFrom] = useState<string>("");
   const [filterTo, setFilterTo] = useState<string>("");
   // Client-side throttle: minimum 1.5s between sends
@@ -266,6 +267,15 @@ const AdminAdmissions = () => {
     if (filterCohort !== "all") {
       if ((app.cohort_id || "") !== filterCohort) return false;
     }
+    // Preferred language
+    if (filterLanguage !== "all") {
+      const lang = (app.preferred_language || "").trim().toLowerCase();
+      if (filterLanguage === "__none__") {
+        if (lang) return false;
+      } else if (lang !== filterLanguage.toLowerCase()) {
+        return false;
+      }
+    }
     // Date range (created_at)
     if (filterFrom && app.created_at) {
       if (new Date(app.created_at) < new Date(filterFrom + "T00:00:00")) return false;
@@ -276,15 +286,27 @@ const AdminAdmissions = () => {
     return true;
   });
 
+  const languageOptions = Array.from(
+    new Set(
+      applications
+        .map((a) => (a.preferred_language || "").trim())
+        .filter((v) => v.length > 0)
+    )
+  ).sort((a, b) => a.localeCompare(b));
+
+  const hasUnspecifiedLanguage = applications.some((a) => !(a.preferred_language || "").trim());
+
   const activeFilterCount =
     (filterMode !== "all" ? 1 : 0) +
     (filterCohort !== "all" ? 1 : 0) +
+    (filterLanguage !== "all" ? 1 : 0) +
     (filterFrom ? 1 : 0) +
     (filterTo ? 1 : 0);
 
   const clearFilters = () => {
     setFilterMode("all");
     setFilterCohort("all");
+    setFilterLanguage("all");
     setFilterFrom("");
     setFilterTo("");
   };
@@ -415,6 +437,21 @@ const AdminAdmissions = () => {
                 {cohorts.map((c) => (
                   <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">Language</label>
+            <Select value={filterLanguage} onValueChange={setFilterLanguage}>
+              <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All languages</SelectItem>
+                {languageOptions.map((lang) => (
+                  <SelectItem key={lang} value={lang}>{lang}</SelectItem>
+                ))}
+                {hasUnspecifiedLanguage && (
+                  <SelectItem value="__none__">Not specified</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>

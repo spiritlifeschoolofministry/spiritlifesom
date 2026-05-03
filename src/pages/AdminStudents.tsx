@@ -63,6 +63,7 @@ interface Student {
   created_at: string | null;
   profile_id?: string;
   cohort_id: string | null;
+  preferred_language?: string | null;
   profile: {
     first_name: string;
     last_name: string;
@@ -121,6 +122,7 @@ const AdminStudents = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [cohortFilter, setCohortFilter] = useState("all");
+  const [languageFilter, setLanguageFilter] = useState("all");
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -149,7 +151,7 @@ const AdminStudents = () => {
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => { loadStudents(); loadCohorts(); }, []);
-  useEffect(() => { filterStudents(); }, [students, searchQuery, statusFilter, cohortFilter]);
+  useEffect(() => { filterStudents(); }, [students, searchQuery, statusFilter, cohortFilter, languageFilter]);
 
   const loadCohorts = async () => {
     const { data } = await supabase.from("cohorts").select("id, name").order("name");
@@ -160,7 +162,7 @@ const AdminStudents = () => {
     try {
       const { data, error } = await supabase
         .from("students")
-        .select(`id, admission_status, created_at, profile_id, cohort_id, profile:profiles(first_name, last_name, email), cohort:cohorts(name)`)
+        .select(`id, admission_status, created_at, profile_id, cohort_id, preferred_language, profile:profiles(first_name, last_name, email), cohort:cohorts(name)`)
         .order("created_at", { ascending: false });
       if (error) throw error;
       setStudents((data as any) || []);
@@ -187,6 +189,13 @@ const AdminStudents = () => {
     }
     if (cohortFilter !== "all") {
       filtered = filtered.filter((s) => s.cohort_id === cohortFilter);
+    }
+    if (languageFilter !== "all") {
+      filtered = filtered.filter((s) => {
+        const lang = (s.preferred_language || "").trim().toLowerCase();
+        if (languageFilter === "__none__") return !lang;
+        return lang === languageFilter.toLowerCase();
+      });
     }
     setFilteredStudents(filtered);
   };
@@ -536,6 +545,28 @@ const AdminStudents = () => {
             ))}
           </SelectContent>
         </Select>
+        <Select value={languageFilter} onValueChange={setLanguageFilter}>
+          <SelectTrigger className="w-full sm:w-44">
+            <SelectValue placeholder="Filter by language" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Languages</SelectItem>
+            {Array.from(
+              new Set(
+                students
+                  .map((s) => (s.preferred_language || "").trim())
+                  .filter((v) => v.length > 0)
+              )
+            )
+              .sort((a, b) => a.localeCompare(b))
+              .map((lang) => (
+                <SelectItem key={lang} value={lang}>{lang}</SelectItem>
+              ))}
+            {students.some((s) => !(s.preferred_language || "").trim()) && (
+              <SelectItem value="__none__">Not specified</SelectItem>
+            )}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Results count */}
@@ -543,6 +574,7 @@ const AdminStudents = () => {
         Showing {filteredStudents.length} of {totalCount} students
         {statusFilter !== "all" && <span> · Status: <span className="font-medium text-foreground">{statusFilter}</span></span>}
         {cohortFilter !== "all" && <span> · Cohort: <span className="font-medium text-foreground">{cohorts.find(c => c.id === cohortFilter)?.name}</span></span>}
+        {languageFilter !== "all" && <span> · Language: <span className="font-medium text-foreground">{languageFilter === "__none__" ? "Not specified" : languageFilter}</span></span>}
       </p>
 
       {/* Desktop Table */}
