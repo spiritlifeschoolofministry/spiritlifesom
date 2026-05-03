@@ -545,6 +545,28 @@ const AdminStudents = () => {
             ))}
           </SelectContent>
         </Select>
+        <Select value={languageFilter} onValueChange={setLanguageFilter}>
+          <SelectTrigger className="w-full sm:w-44">
+            <SelectValue placeholder="Filter by language" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Languages</SelectItem>
+            {Array.from(
+              new Set(
+                students
+                  .map((s) => (s.preferred_language || "").trim())
+                  .filter((v) => v.length > 0)
+              )
+            )
+              .sort((a, b) => a.localeCompare(b))
+              .map((lang) => (
+                <SelectItem key={lang} value={lang}>{lang}</SelectItem>
+              ))}
+            {students.some((s) => !(s.preferred_language || "").trim()) && (
+              <SelectItem value="__none__">Not specified</SelectItem>
+            )}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Results count */}
@@ -552,6 +574,7 @@ const AdminStudents = () => {
         Showing {filteredStudents.length} of {totalCount} students
         {statusFilter !== "all" && <span> · Status: <span className="font-medium text-foreground">{statusFilter}</span></span>}
         {cohortFilter !== "all" && <span> · Cohort: <span className="font-medium text-foreground">{cohorts.find(c => c.id === cohortFilter)?.name}</span></span>}
+        {languageFilter !== "all" && <span> · Language: <span className="font-medium text-foreground">{languageFilter === "__none__" ? "Not specified" : languageFilter}</span></span>}
       </p>
 
       {/* Desktop Table */}
