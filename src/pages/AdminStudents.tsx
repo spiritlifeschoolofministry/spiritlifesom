@@ -63,6 +63,7 @@ interface Student {
   created_at: string | null;
   profile_id?: string;
   cohort_id: string | null;
+  preferred_language?: string | null;
   profile: {
     first_name: string;
     last_name: string;
