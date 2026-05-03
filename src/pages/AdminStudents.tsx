@@ -122,6 +122,7 @@ const AdminStudents = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [cohortFilter, setCohortFilter] = useState("all");
+  const [languageFilter, setLanguageFilter] = useState("all");
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
