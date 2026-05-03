@@ -441,6 +441,21 @@ const AdminAdmissions = () => {
             </Select>
           </div>
           <div className="space-y-1">
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">Language</label>
+            <Select value={filterLanguage} onValueChange={setFilterLanguage}>
+              <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All languages</SelectItem>
+                {languageOptions.map((lang) => (
+                  <SelectItem key={lang} value={lang}>{lang}</SelectItem>
+                ))}
+                {hasUnspecifiedLanguage && (
+                  <SelectItem value="__none__">Not specified</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
             <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">From</label>
             <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} className="h-8 w-[140px] text-xs" />
           </div>
