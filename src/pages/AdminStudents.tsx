@@ -162,7 +162,7 @@ const AdminStudents = () => {
     try {
       const { data, error } = await supabase
         .from("students")
-        .select(`id, admission_status, created_at, profile_id, cohort_id, profile:profiles(first_name, last_name, email), cohort:cohorts(name)`)
+        .select(`id, admission_status, created_at, profile_id, cohort_id, preferred_language, profile:profiles(first_name, last_name, email), cohort:cohorts(name)`)
         .order("created_at", { ascending: false });
       if (error) throw error;
       setStudents((data as any) || []);
