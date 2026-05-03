@@ -66,6 +66,7 @@ const AdminAdmissions = () => {
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
   const [filterMode, setFilterMode] = useState<string>("all");
   const [filterCohort, setFilterCohort] = useState<string>("all");
+  const [filterLanguage, setFilterLanguage] = useState<string>("all");
   const [filterFrom, setFilterFrom] = useState<string>("");
   const [filterTo, setFilterTo] = useState<string>("");
   // Client-side throttle: minimum 1.5s between sends
