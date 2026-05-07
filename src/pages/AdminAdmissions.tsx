@@ -286,12 +286,14 @@ const AdminAdmissions = () => {
     return true;
   });
 
+  const STATIC_LANGUAGES = ["English", "French", "Yoruba", "Igbo", "Hausa", "Other"];
   const languageOptions = Array.from(
-    new Set(
-      applications
+    new Set([
+      ...STATIC_LANGUAGES,
+      ...applications
         .map((a) => (a.preferred_language || "").trim())
-        .filter((v) => v.length > 0)
-    )
+        .filter((v) => v.length > 0),
+    ])
   ).sort((a, b) => a.localeCompare(b));
 
   const hasUnspecifiedLanguage = applications.some((a) => !(a.preferred_language || "").trim());
