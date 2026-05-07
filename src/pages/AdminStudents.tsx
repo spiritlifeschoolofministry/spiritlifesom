@@ -371,6 +371,8 @@ const AdminStudents = () => {
   const handleExportCSV = async () => {
     try {
       toast.info("Preparing export...");
+      const ids = filteredStudents.map((s) => s.id);
+      if (ids.length === 0) { toast.error("No students to export"); return; }
       const { data, error } = await supabase
         .from("students")
         .select(`
@@ -380,6 +382,7 @@ const AdminStudents = () => {
           profile:profiles(first_name, middle_name, last_name, email, phone),
           cohort:cohorts(name)
         `)
+        .in("id", ids)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -552,11 +555,10 @@ const AdminStudents = () => {
           <SelectContent>
             <SelectItem value="all">All Languages</SelectItem>
             {Array.from(
-              new Set(
-                students
-                  .map((s) => (s.preferred_language || "").trim())
-                  .filter((v) => v.length > 0)
-              )
+              new Set([
+                "English", "French", "Yoruba", "Igbo", "Hausa", "Other",
+                ...students.map((s) => (s.preferred_language || "").trim()).filter((v) => v.length > 0),
+              ])
             )
               .sort((a, b) => a.localeCompare(b))
               .map((lang) => (
