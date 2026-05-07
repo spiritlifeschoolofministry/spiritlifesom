@@ -555,11 +555,10 @@ const AdminStudents = () => {
           <SelectContent>
             <SelectItem value="all">All Languages</SelectItem>
             {Array.from(
-              new Set(
-                students
-                  .map((s) => (s.preferred_language || "").trim())
-                  .filter((v) => v.length > 0)
-              )
+              new Set([
+                "English", "French", "Yoruba", "Igbo", "Hausa", "Other",
+                ...students.map((s) => (s.preferred_language || "").trim()).filter((v) => v.length > 0),
+              ])
             )
               .sort((a, b) => a.localeCompare(b))
               .map((lang) => (
