@@ -371,6 +371,8 @@ const AdminStudents = () => {
   const handleExportCSV = async () => {
     try {
       toast.info("Preparing export...");
+      const ids = filteredStudents.map((s) => s.id);
+      if (ids.length === 0) { toast.error("No students to export"); return; }
       const { data, error } = await supabase
         .from("students")
         .select(`
@@ -380,6 +382,7 @@ const AdminStudents = () => {
           profile:profiles(first_name, middle_name, last_name, email, phone),
           cohort:cohorts(name)
         `)
+        .in("id", ids)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
