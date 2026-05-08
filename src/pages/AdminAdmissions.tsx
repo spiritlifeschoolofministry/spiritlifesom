@@ -172,6 +172,8 @@ const AdminAdmissions = () => {
 
       if (error) throw error;
       toast.success("Student Admitted Successfully");
+      // Fire-and-forget automatic admission approval email
+      sendAutomaticApprovalEmail(studentId);
       await loadApplications();
       setSelectedApp(null);
       setSelectedIds((prev) => { const n = new Set(prev); n.delete(studentId); return n; });
