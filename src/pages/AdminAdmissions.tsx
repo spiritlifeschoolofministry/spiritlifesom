@@ -111,6 +111,28 @@ const AdminAdmissions = () => {
     }
   };
 
+  // Automatic admission-approval email (silent, no toast spam, with idempotency).
+  const sendAutomaticApprovalEmail = async (studentId: string) => {
+    try {
+      const idempotencyKey = `auto-approve:${studentId}:admission_approved`;
+      const { data, error } = await supabase.functions.invoke("resend-student-email", {
+        body: {
+          student_id: studentId,
+          email_type: "admission_approved",
+          idempotency_key: idempotencyKey,
+          trigger_source: "automatic",
+        },
+      });
+      if (error) throw error;
+      const payload = (data as { error?: string; sent_to?: string }) || {};
+      if (payload.error) throw new Error(payload.error);
+      if (payload.sent_to) toast.success(`✉ Approval email sent to ${payload.sent_to}`);
+    } catch (err) {
+      console.error("Auto approval email failed:", err);
+      toast.error("Approval email failed to send — you can resend manually from the Email menu.");
+    }
+  };
+
   // Confirmation dialog state
   const [confirmAction, setConfirmAction] = useState<
     | { type: "approve"; student: Application }
@@ -172,6 +194,8 @@ const AdminAdmissions = () => {
 
       if (error) throw error;
       toast.success("Student Admitted Successfully");
+      // Fire-and-forget automatic admission approval email
+      sendAutomaticApprovalEmail(studentId);
       await loadApplications();
       setSelectedApp(null);
       setSelectedIds((prev) => { const n = new Set(prev); n.delete(studentId); return n; });
@@ -219,6 +243,8 @@ const AdminAdmissions = () => {
 
       if (error) throw error;
       toast.success(`${ids.length} student(s) admitted successfully`);
+      // Fire-and-forget automatic approval emails for each
+      ids.forEach((id, i) => setTimeout(() => sendAutomaticApprovalEmail(id), i * 1600));
       setSelectedIds(new Set());
       await loadApplications();
       setConfirmAction(null);
