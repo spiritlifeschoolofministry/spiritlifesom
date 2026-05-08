@@ -221,6 +221,8 @@ const AdminAdmissions = () => {
 
       if (error) throw error;
       toast.success(`${ids.length} student(s) admitted successfully`);
+      // Fire-and-forget automatic approval emails for each
+      ids.forEach((id, i) => setTimeout(() => sendAutomaticApprovalEmail(id), i * 1600));
       setSelectedIds(new Set());
       await loadApplications();
       setConfirmAction(null);
