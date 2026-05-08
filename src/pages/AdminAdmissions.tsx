@@ -111,6 +111,28 @@ const AdminAdmissions = () => {
     }
   };
 
+  // Automatic admission-approval email (silent, no toast spam, with idempotency).
+  const sendAutomaticApprovalEmail = async (studentId: string) => {
+    try {
+      const idempotencyKey = `auto-approve:${studentId}:admission_approved`;
+      const { data, error } = await supabase.functions.invoke("resend-student-email", {
+        body: {
+          student_id: studentId,
+          email_type: "admission_approved",
+          idempotency_key: idempotencyKey,
+          trigger_source: "automatic",
+        },
+      });
+      if (error) throw error;
+      const payload = (data as { error?: string; sent_to?: string }) || {};
+      if (payload.error) throw new Error(payload.error);
+      if (payload.sent_to) toast.success(`✉ Approval email sent to ${payload.sent_to}`);
+    } catch (err) {
+      console.error("Auto approval email failed:", err);
+      toast.error("Approval email failed to send — you can resend manually from the Email menu.");
+    }
+  };
+
   // Confirmation dialog state
   const [confirmAction, setConfirmAction] = useState<
     | { type: "approve"; student: Application }
