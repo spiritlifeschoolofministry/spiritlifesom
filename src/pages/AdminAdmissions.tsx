@@ -111,26 +111,12 @@ const AdminAdmissions = () => {
     }
   };
 
-  // Automatic admission-approval email (silent, no toast spam, with idempotency).
-  const sendAutomaticApprovalEmail = async (studentId: string) => {
-    try {
-      const idempotencyKey = `auto-approve:${studentId}:admission_approved`;
-      const { data, error } = await supabase.functions.invoke("resend-student-email", {
-        body: {
-          student_id: studentId,
-          email_type: "admission_approved",
-          idempotency_key: idempotencyKey,
-          trigger_source: "automatic",
-        },
-      });
-      if (error) throw error;
-      const payload = (data as { error?: string; sent_to?: string }) || {};
-      if (payload.error) throw new Error(payload.error);
-      if (payload.sent_to) toast.success(`✉ Approval email sent to ${payload.sent_to}`);
-    } catch (err) {
-      console.error("Auto approval email failed:", err);
-      toast.error("Approval email failed to send — you can resend manually from the Email menu.");
-    }
+  // Automatic approval email is handled by the Make.com webhook fired from the
+  // `notify_admission_status_change` DB trigger when admission_status changes.
+  // Each webhook call is logged to email_send_history (trigger_source = 'automatic',
+  // metadata.channel = 'make_webhook') and visible in Admin → Email History.
+  const sendAutomaticApprovalEmail = async (_studentId: string) => {
+    // no-op
   };
 
   // Confirmation dialog state
