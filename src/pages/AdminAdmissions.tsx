@@ -227,6 +227,8 @@ const AdminAdmissions = () => {
       // Fire-and-forget automatic admission approval email
       sendAutomaticApprovalEmail(studentId);
       await loadApplications();
+      // Webhook fires from DB trigger; refresh email statuses after a short delay
+      setTimeout(loadEmailStatuses, 1500);
       setSelectedApp(null);
       setSelectedIds((prev) => { const n = new Set(prev); n.delete(studentId); return n; });
       setConfirmAction(null);
@@ -249,6 +251,7 @@ const AdminAdmissions = () => {
       if (error) throw error;
       toast.success("Application rejected");
       await loadApplications();
+      setTimeout(loadEmailStatuses, 1500);
       setSelectedApp(null);
       setSelectedIds((prev) => { const n = new Set(prev); n.delete(studentId); return n; });
       setConfirmAction(null);
@@ -277,6 +280,7 @@ const AdminAdmissions = () => {
       ids.forEach((id, i) => setTimeout(() => sendAutomaticApprovalEmail(id), i * 1600));
       setSelectedIds(new Set());
       await loadApplications();
+      setTimeout(loadEmailStatuses, 1500);
       setConfirmAction(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to approve students";
