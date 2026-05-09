@@ -107,6 +107,23 @@ const AdminAdmissions = () => {
       const recipient = payload.sent_to || "student";
       const attemptsNote = payload.attempts && payload.attempts > 1 ? ` (after ${payload.attempts} attempts)` : "";
       toast.success(`✉ ${label} sent to ${recipient}${attemptsNote}`, { id: toastId });
+
+      // Audit log: manual email trigger
+      try {
+        await supabase.rpc("log_manual_admission_email", {
+          p_student_id: studentId,
+          p_email_type: emailType,
+          p_recipient_email: recipient,
+        });
+      } catch (auditErr) {
+        // Non-fatal — log to console only
+        console.error("audit log (manual email) failed:", auditErr);
+      }
+
+      // Refresh badge if this was an admission email
+      if (emailType === "admission_approved" || emailType === "admission_rejected") {
+        loadEmailStatuses();
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to send email";
       toast.error(`Failed to send ${label}: ${msg}`, { id: toastId });
