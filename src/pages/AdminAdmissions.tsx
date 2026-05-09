@@ -69,6 +69,10 @@ const AdminAdmissions = () => {
   const [filterLanguage, setFilterLanguage] = useState<string>("all");
   const [filterFrom, setFilterFrom] = useState<string>("");
   const [filterTo, setFilterTo] = useState<string>("");
+  const [emailStatusByStudent, setEmailStatusByStudent] = useState<
+    Record<string, { status: string; sent_at: string | null }>
+  >({});
+  const [previewApp, setPreviewApp] = useState<Application | null>(null);
   // Client-side throttle: minimum 1.5s between sends
   const lastSendAtRef = useState<{ t: number }>({ t: 0 })[0];
 
