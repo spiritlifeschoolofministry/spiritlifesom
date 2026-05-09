@@ -625,7 +625,8 @@ const AdminAdmissions = () => {
                       </>
                     );
                   })()}
-                <div className="flex gap-2 shrink-0">
+                </div>
+                <div className="flex gap-2 shrink-0 flex-wrap">
                   <Button variant="outline" size="sm" onClick={() => setSelectedApp(app)} className="gap-1">
                     <Eye className="w-4 h-4" /> View
                   </Button>
