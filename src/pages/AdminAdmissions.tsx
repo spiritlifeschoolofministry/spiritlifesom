@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Check, X, Eye, Search, Users, Clock, Loader2, UserCheck, Mail, Filter } from "lucide-react";
+import { Check, X, Eye, Search, Users, Clock, Loader2, UserCheck, Mail, Filter, FileJson, CheckCircle2, XCircle, MailCheck } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
@@ -69,6 +69,10 @@ const AdminAdmissions = () => {
   const [filterLanguage, setFilterLanguage] = useState<string>("all");
   const [filterFrom, setFilterFrom] = useState<string>("");
   const [filterTo, setFilterTo] = useState<string>("");
+  const [emailStatusByStudent, setEmailStatusByStudent] = useState<
+    Record<string, { status: string; sent_at: string | null }>
+  >({});
+  const [previewApp, setPreviewApp] = useState<Application | null>(null);
   // Client-side throttle: minimum 1.5s between sends
   const lastSendAtRef = useState<{ t: number }>({ t: 0 })[0];
 
@@ -103,6 +107,23 @@ const AdminAdmissions = () => {
       const recipient = payload.sent_to || "student";
       const attemptsNote = payload.attempts && payload.attempts > 1 ? ` (after ${payload.attempts} attempts)` : "";
       toast.success(`✉ ${label} sent to ${recipient}${attemptsNote}`, { id: toastId });
+
+      // Audit log: manual email trigger
+      try {
+        await supabase.rpc("log_manual_admission_email", {
+          p_student_id: studentId,
+          p_email_type: emailType,
+          p_recipient_email: recipient,
+        });
+      } catch (auditErr) {
+        // Non-fatal — log to console only
+        console.error("audit log (manual email) failed:", auditErr);
+      }
+
+      // Refresh badge if this was an admission email
+      if (emailType === "admission_approved" || emailType === "admission_rejected") {
+        loadEmailStatuses();
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to send email";
       toast.error(`Failed to send ${label}: ${msg}`, { id: toastId });
@@ -130,7 +151,30 @@ const AdminAdmissions = () => {
 
   useEffect(() => {
     loadApplications();
+    loadEmailStatuses();
   }, []);
+
+  // Fetch the latest admission_approved/rejected email status per student
+  const loadEmailStatuses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("email_send_history")
+        .select("student_id, email_type, status, created_at")
+        .in("email_type", ["admission_approved", "admission_rejected"])
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      const map: Record<string, { status: string; sent_at: string | null }> = {};
+      (data || []).forEach((row: any) => {
+        if (row.student_id && !map[row.student_id]) {
+          map[row.student_id] = { status: row.status, sent_at: row.created_at };
+        }
+      });
+      setEmailStatusByStudent(map);
+    } catch (err) {
+      console.error("loadEmailStatuses error:", err);
+    }
+  };
 
   const loadApplications = async () => {
     try {
@@ -183,6 +227,8 @@ const AdminAdmissions = () => {
       // Fire-and-forget automatic admission approval email
       sendAutomaticApprovalEmail(studentId);
       await loadApplications();
+      // Webhook fires from DB trigger; refresh email statuses after a short delay
+      setTimeout(loadEmailStatuses, 1500);
       setSelectedApp(null);
       setSelectedIds((prev) => { const n = new Set(prev); n.delete(studentId); return n; });
       setConfirmAction(null);
@@ -205,6 +251,7 @@ const AdminAdmissions = () => {
       if (error) throw error;
       toast.success("Application rejected");
       await loadApplications();
+      setTimeout(loadEmailStatuses, 1500);
       setSelectedApp(null);
       setSelectedIds((prev) => { const n = new Set(prev); n.delete(studentId); return n; });
       setConfirmAction(null);
@@ -233,6 +280,7 @@ const AdminAdmissions = () => {
       ids.forEach((id, i) => setTimeout(() => sendAutomaticApprovalEmail(id), i * 1600));
       setSelectedIds(new Set());
       await loadApplications();
+      setTimeout(loadEmailStatuses, 1500);
       setConfirmAction(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to approve students";
@@ -533,6 +581,28 @@ const AdminAdmissions = () => {
                       {app.is_born_again && (
                         <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200">Born Again</Badge>
                       )}
+                      {(() => {
+                        const e = emailStatusByStudent[app.id];
+                        if (!e) {
+                          return (
+                            <Badge variant="outline" className="text-xs text-muted-foreground">
+                              <Mail className="w-3 h-3 mr-1" /> No approval email yet
+                            </Badge>
+                          );
+                        }
+                        if (e.status === "sent") {
+                          return (
+                            <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800" title={e.sent_at ? new Date(e.sent_at).toLocaleString() : ""}>
+                              <CheckCircle2 className="w-3 h-3 mr-1" /> Approval email sent
+                            </Badge>
+                          );
+                        }
+                        return (
+                          <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800" title={e.sent_at ? new Date(e.sent_at).toLocaleString() : ""}>
+                            <XCircle className="w-3 h-3 mr-1" /> Approval email failed
+                          </Badge>
+                        );
+                      })()}
                       {app.created_at && (
                         <span className="text-[11px] text-muted-foreground self-center">{timeAgo(app.created_at)}</span>
                       )}
@@ -586,6 +656,10 @@ const AdminAdmissions = () => {
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => resendEmail(app.id, "admission_rejected", "Admission rejection email")}>
                         Admission Rejected
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setPreviewApp(app)}>
+                        <FileJson className="w-4 h-4 mr-2" /> Preview approval email
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -665,6 +739,69 @@ const AdminAdmissions = () => {
         variant={confirmAction?.type === "reject" ? "destructive" : "default"}
         onConfirm={runConfirmedAction}
       />
+
+      {/* Email Preview Dialog — shows the JSON payload that will be sent to Make.com */}
+      <Dialog open={!!previewApp} onOpenChange={(open) => { if (!open) setPreviewApp(null); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MailCheck className="w-5 h-5 text-primary" /> Approval Email Preview
+            </DialogTitle>
+            <DialogDescription>
+              Approval emails are composed and sent by the Make.com scenario. This is the exact webhook payload that will be POSTed when the student is admitted — Make.com uses these fields to build the email (including the WhatsApp join link).
+            </DialogDescription>
+          </DialogHeader>
+          {previewApp && (() => {
+            const cohortName = cohorts.find((c) => c.id === previewApp.cohort_id)?.name || null;
+            const payload = {
+              student_id: previewApp.id,
+              old_status: previewApp.admission_status,
+              new_status: "ADMITTED",
+              email: previewApp.profile.email,
+              first_name: previewApp.profile.first_name,
+              last_name: previewApp.profile.last_name,
+              phone: previewApp.profile.phone,
+              cohort_id: previewApp.cohort_id,
+              cohort_name: cohortName,
+              whatsapp_link: "https://chat.whatsapp.com/F2uoXQS5UFs3tfuQslVL5b",
+              changed_at: "<set at trigger time>",
+            };
+            const json = JSON.stringify(payload, null, 2);
+            return (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div><span className="text-muted-foreground">Recipient:</span> <span className="font-medium">{previewApp.profile.email}</span></div>
+                  <div><span className="text-muted-foreground">Webhook:</span> <span className="font-mono text-xs">hook.eu1.make.com/…fy1o</span></div>
+                </div>
+                <div className="rounded-lg border border-border bg-muted/40">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                    <span className="text-xs font-medium text-muted-foreground">POST body</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        navigator.clipboard.writeText(json);
+                        toast.success("Payload copied");
+                      }}
+                    >
+                      Copy JSON
+                    </Button>
+                  </div>
+                  <pre className="text-xs p-3 overflow-x-auto font-mono whitespace-pre">{json}</pre>
+                </div>
+                <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-xs text-amber-900 dark:text-amber-200">
+                  <strong>WhatsApp link included:</strong>{" "}
+                  <a href="https://chat.whatsapp.com/F2uoXQS5UFs3tfuQslVL5b" target="_blank" rel="noreferrer" className="underline">
+                    chat.whatsapp.com/F2uoXQS5UFs3tfuQslVL5b
+                  </a>
+                  <p className="mt-1 text-amber-800 dark:text-amber-300">Confirm the Make.com email body uses the <code>whatsapp_link</code> field at the end of the message.</p>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

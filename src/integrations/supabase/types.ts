@@ -1624,6 +1624,14 @@ export type Database = {
       }
       get_my_role: { Args: never; Returns: string }
       get_my_student_id: { Args: never; Returns: string }
+      log_manual_admission_email: {
+        Args: {
+          p_email_type: string
+          p_recipient_email: string
+          p_student_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
