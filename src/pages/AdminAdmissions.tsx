@@ -581,35 +581,52 @@ const AdminAdmissions = () => {
                       {app.is_born_again && (
                         <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200">Born Again</Badge>
                       )}
-                      {(() => {
-                        const e = emailStatusByStudent[app.id];
-                        if (!e) {
-                          return (
-                            <Badge variant="outline" className="text-xs text-muted-foreground">
-                              <Mail className="w-3 h-3 mr-1" /> No approval email yet
-                            </Badge>
-                          );
-                        }
-                        if (e.status === "sent") {
-                          return (
-                            <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800" title={e.sent_at ? new Date(e.sent_at).toLocaleString() : ""}>
-                              <CheckCircle2 className="w-3 h-3 mr-1" /> Approval email sent
-                            </Badge>
-                          );
-                        }
-                        return (
-                          <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800" title={e.sent_at ? new Date(e.sent_at).toLocaleString() : ""}>
-                            <XCircle className="w-3 h-3 mr-1" /> Approval email failed
-                          </Badge>
-                        );
-                      })()}
                       {app.created_at && (
                         <span className="text-[11px] text-muted-foreground self-center">{timeAgo(app.created_at)}</span>
                       )}
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-2 shrink-0">
+                {/* Admission email status column */}
+                <div className="flex flex-col items-start sm:items-center gap-0.5 sm:min-w-[150px] sm:px-2 sm:border-l sm:border-border sm:py-1">
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Approval email</span>
+                  {(() => {
+                    const e = emailStatusByStudent[app.id];
+                    if (!e) {
+                      return (
+                        <>
+                          <Badge variant="outline" className="text-xs text-muted-foreground">
+                            <Mail className="w-3 h-3 mr-1" /> Not sent
+                          </Badge>
+                          <span className="text-[10px] text-muted-foreground">—</span>
+                        </>
+                      );
+                    }
+                    if (e.status === "sent") {
+                      return (
+                        <>
+                          <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
+                            <CheckCircle2 className="w-3 h-3 mr-1" /> Sent
+                          </Badge>
+                          {e.sent_at && (
+                            <span className="text-[10px] text-muted-foreground">{new Date(e.sent_at).toLocaleString()}</span>
+                          )}
+                        </>
+                      );
+                    }
+                    return (
+                      <>
+                        <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800">
+                          <XCircle className="w-3 h-3 mr-1" /> Failed
+                        </Badge>
+                        {e.sent_at && (
+                          <span className="text-[10px] text-muted-foreground">{new Date(e.sent_at).toLocaleString()}</span>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+                <div className="flex gap-2 shrink-0 flex-wrap">
                   <Button variant="outline" size="sm" onClick={() => setSelectedApp(app)} className="gap-1">
                     <Eye className="w-4 h-4" /> View
                   </Button>
