@@ -739,6 +739,69 @@ const AdminAdmissions = () => {
         variant={confirmAction?.type === "reject" ? "destructive" : "default"}
         onConfirm={runConfirmedAction}
       />
+
+      {/* Email Preview Dialog — shows the JSON payload that will be sent to Make.com */}
+      <Dialog open={!!previewApp} onOpenChange={(open) => { if (!open) setPreviewApp(null); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MailCheck className="w-5 h-5 text-primary" /> Approval Email Preview
+            </DialogTitle>
+            <DialogDescription>
+              Approval emails are composed and sent by the Make.com scenario. This is the exact webhook payload that will be POSTed when the student is admitted — Make.com uses these fields to build the email (including the WhatsApp join link).
+            </DialogDescription>
+          </DialogHeader>
+          {previewApp && (() => {
+            const cohortName = cohorts.find((c) => c.id === previewApp.cohort_id)?.name || null;
+            const payload = {
+              student_id: previewApp.id,
+              old_status: previewApp.admission_status,
+              new_status: "ADMITTED",
+              email: previewApp.profile.email,
+              first_name: previewApp.profile.first_name,
+              last_name: previewApp.profile.last_name,
+              phone: previewApp.profile.phone,
+              cohort_id: previewApp.cohort_id,
+              cohort_name: cohortName,
+              whatsapp_link: "https://chat.whatsapp.com/F2uoXQS5UFs3tfuQslVL5b",
+              changed_at: "<set at trigger time>",
+            };
+            const json = JSON.stringify(payload, null, 2);
+            return (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div><span className="text-muted-foreground">Recipient:</span> <span className="font-medium">{previewApp.profile.email}</span></div>
+                  <div><span className="text-muted-foreground">Webhook:</span> <span className="font-mono text-xs">hook.eu1.make.com/…fy1o</span></div>
+                </div>
+                <div className="rounded-lg border border-border bg-muted/40">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                    <span className="text-xs font-medium text-muted-foreground">POST body</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        navigator.clipboard.writeText(json);
+                        toast.success("Payload copied");
+                      }}
+                    >
+                      Copy JSON
+                    </Button>
+                  </div>
+                  <pre className="text-xs p-3 overflow-x-auto font-mono whitespace-pre">{json}</pre>
+                </div>
+                <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 text-xs text-amber-900 dark:text-amber-200">
+                  <strong>WhatsApp link included:</strong>{" "}
+                  <a href="https://chat.whatsapp.com/F2uoXQS5UFs3tfuQslVL5b" target="_blank" rel="noreferrer" className="underline">
+                    chat.whatsapp.com/F2uoXQS5UFs3tfuQslVL5b
+                  </a>
+                  <p className="mt-1 text-amber-800 dark:text-amber-300">Confirm the Make.com email body uses the <code>whatsapp_link</code> field at the end of the message.</p>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
