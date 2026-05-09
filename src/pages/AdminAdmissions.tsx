@@ -657,6 +657,10 @@ const AdminAdmissions = () => {
                       <DropdownMenuItem onClick={() => resendEmail(app.id, "admission_rejected", "Admission rejection email")}>
                         Admission Rejected
                       </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setPreviewApp(app)}>
+                        <FileJson className="w-4 h-4 mr-2" /> Preview approval email
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
