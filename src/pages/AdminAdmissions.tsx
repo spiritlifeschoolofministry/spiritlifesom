@@ -151,7 +151,30 @@ const AdminAdmissions = () => {
 
   useEffect(() => {
     loadApplications();
+    loadEmailStatuses();
   }, []);
+
+  // Fetch the latest admission_approved/rejected email status per student
+  const loadEmailStatuses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("email_send_history")
+        .select("student_id, email_type, status, created_at")
+        .in("email_type", ["admission_approved", "admission_rejected"])
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      const map: Record<string, { status: string; sent_at: string | null }> = {};
+      (data || []).forEach((row: any) => {
+        if (row.student_id && !map[row.student_id]) {
+          map[row.student_id] = { status: row.status, sent_at: row.created_at };
+        }
+      });
+      setEmailStatusByStudent(map);
+    } catch (err) {
+      console.error("loadEmailStatuses error:", err);
+    }
+  };
 
   const loadApplications = async () => {
     try {
