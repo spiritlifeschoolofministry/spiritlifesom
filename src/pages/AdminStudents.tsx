@@ -149,8 +149,12 @@ const AdminStudents = () => {
     | null
   >(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [emailStatusByStudent, setEmailStatusByStudent] = useState<
+    Record<string, { status: string; sent_at: string | null }>
+  >({});
+  const lastSendAtRef = useState<{ t: number }>({ t: 0 })[0];
 
-  useEffect(() => { loadStudents(); loadCohorts(); }, []);
+  useEffect(() => { loadStudents(); loadCohorts(); loadEmailStatuses(); }, []);
   useEffect(() => { filterStudents(); }, [students, searchQuery, statusFilter, cohortFilter, languageFilter]);
 
   const loadCohorts = async () => {
@@ -198,6 +202,73 @@ const AdminStudents = () => {
       });
     }
     setFilteredStudents(filtered);
+  };
+
+  const loadEmailStatuses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("email_send_history")
+        .select("student_id, status, created_at")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const latestStatuses: Record<string, { status: string; sent_at: string | null }> = {};
+      (data || []).forEach((entry) => {
+        if (entry.student_id && !latestStatuses[entry.student_id]) {
+          latestStatuses[entry.student_id] = {
+            status: entry.status,
+            sent_at: entry.created_at,
+          };
+        }
+      });
+      setEmailStatusByStudent(latestStatuses);
+    } catch (err) {
+      console.error("Failed to load email statuses:", err);
+    }
+  };
+
+  const resendEmail = async (
+    studentId: string,
+    emailType: "welcome" | "admission_approved" | "admission_rejected",
+    label: string
+  ) => {
+    const now = Date.now();
+    const elapsed = now - lastSendAtRef.t;
+    const MIN_GAP = 1500;
+    if (elapsed < MIN_GAP) {
+      const wait = Math.ceil((MIN_GAP - elapsed) / 1000);
+      toast.warning(`Please wait ${wait}s before sending another email.`);
+      return;
+    }
+    lastSendAtRef.t = now;
+
+    const idempotencyKey = `resend:${studentId}:${emailType}:${Math.floor(Date.now() / 30000)}`;
+    const toastId = toast.loading(`Sending ${label}…`);
+    try {
+      // resend-student-email calls Resend API directly
+      const { data, error } = await supabase.functions.invoke("resend-student-email", {
+        body: { student_id: studentId, email_type: emailType, idempotency_key: idempotencyKey },
+      });
+      if (error) throw error;
+      const payload = (data as { error?: string; sent_to?: string; attempts?: number }) || {};
+      if (payload.error) throw new Error(payload.error);
+      
+      toast.success(`✉ ${label} sent to ${payload.sent_to || "student"}`, { id: toastId });
+
+      await supabase.rpc("log_manual_admission_email", {
+        p_student_id: studentId,
+        p_email_type: emailType,
+        p_recipient_email: payload.sent_to || "student",
+      });
+
+      if (emailType === "admission_approved" || emailType === "admission_rejected") {
+        loadEmailStatuses();
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to send email";
+      toast.error(`Failed to send ${label}: ${msg}`, { id: toastId });
+    }
   };
 
   const handleStatusChange = async (studentId: string, newStatus: string) => {
