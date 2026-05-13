@@ -114,6 +114,30 @@ const CertificateManager = () => {
     }
   };
 
+  const updateCohort = async (cohortId: string) => {
+    try {
+      setSaving(true);
+      const { error } = await supabase
+        .from('cohorts')
+        .update({
+          graduation_date: cohortForm.graduation_date || null,
+          certificate_text_main: cohortForm.certificate_text_main || null,
+          certificate_text_sub: cohortForm.certificate_text_sub || null,
+        })
+        .eq('id', cohortId);
+      
+      if (error) throw error;
+      toast.success('Cohort certificate settings updated');
+      setEditingCohortId(null);
+      await loadCertificateData();
+    } catch (err) {
+      console.error('Error updating cohort:', err);
+      toast.error('Failed to update cohort settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleNameAction = async (studentId: string, action: 'approve' | 'reject') => {
     const student = pendingChanges.find(p => p.id === studentId);
     if (!student) return;
