@@ -43,6 +43,8 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
   const [error, setError] = useState<string | null>(null);
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [cohortFilter, setCohortFilter] = useState("all");
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
   const [enrollmentData, setEnrollmentData] = useState<any[]>([]);
   const [enrollmentPie, setEnrollmentPie] = useState<{ name: string; value: number }[]>([]);
