@@ -134,7 +134,7 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
           cohort_id: form.cohort_id || null,
           student_code: form.student_code || null,
           graduation_date: form.graduation_date || null,
-        })
+        } as any)
         .eq("id", student.id);
       if (updateError) throw updateError;
 
