@@ -400,6 +400,8 @@ export type Database = {
           is_paid: boolean | null
           is_pinned: boolean | null
           material_type: string | null
+          storage_path: string | null
+          storage_provider: string | null
           title: string
           uploaded_by: string | null
         }
@@ -414,6 +416,8 @@ export type Database = {
           is_paid?: boolean | null
           is_pinned?: boolean | null
           material_type?: string | null
+          storage_path?: string | null
+          storage_provider?: string | null
           title: string
           uploaded_by?: string | null
         }
@@ -428,6 +432,8 @@ export type Database = {
           is_paid?: boolean | null
           is_pinned?: boolean | null
           material_type?: string | null
+          storage_path?: string | null
+          storage_provider?: string | null
           title?: string
           uploaded_by?: string | null
         }
