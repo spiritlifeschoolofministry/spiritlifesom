@@ -108,7 +108,10 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
       modeMap[m] = (modeMap[m] || 0) + 1;
     });
 
-    const sorted = Object.entries(monthMap).map(([month, vals]) => ({ month, ...vals }));
+    const sorted = Object.entries(monthMap).sort((a, b) => {
+      // Very basic sort by date string if possible, or just alphabetical
+      return a[0].localeCompare(b[0]);
+    }).map(([month, vals]) => ({ month, ...vals }));
     setEnrollmentData(sorted.length > 0 ? sorted : [{ month: "No data", total: 0, admitted: 0, pending: 0, rejected: 0 }]);
 
     const admitted = data.filter((s) => (s.admission_status || "").toUpperCase() === "ADMITTED").length;
