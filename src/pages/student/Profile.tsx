@@ -173,12 +173,12 @@ const AcademicInfoCard = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Educational Background</Label>
-                <Select value={form.educational_background} onValueChange={(v) => setForm(f => ({ ...f, educational_background: v }))}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select level" /></SelectTrigger>
-                  <SelectContent>
-                    {EDUCATION_LEVELS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Input 
+                  value={form.educational_background} 
+                  onChange={(e) => setForm(f => ({ ...f, educational_background: e.target.value }))} 
+                  className="mt-1" 
+                  placeholder="e.g. Bachelor's Degree in Computer Science" 
+                />
               </div>
               <div>
                 <Label>Marital Status</Label>
