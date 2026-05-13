@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2, Upload, Pin, PinOff, Trash2, ExternalLink, Share2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
+import { r2Storage } from '@/lib/r2-storage';
 
 const MATERIAL_TYPES = ['Notes', 'Slides', 'Handout', 'Worksheet', 'Reference', 'Video', 'Other'] as const;
 
@@ -26,7 +27,7 @@ interface UploadForm {
 const AdminMaterials = () => {
   const [cohorts, setCohorts] = useState<Tables<'cohorts'>[]>([]);
   const [courses, setCourses] = useState<Tables<'courses'>[]>([]);
-  const [materials, setMaterials] = useState<Tables<'course_materials'>[]>([]);
+  const [materials, setMaterials] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -38,7 +39,7 @@ const AdminMaterials = () => {
 
   // Share to cohort state
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [sharingMaterial, setSharingMaterial] = useState<Tables<'course_materials'> | null>(null);
+  const [sharingMaterial, setSharingMaterial] = useState<any | null>(null);
   const [shareTargetCohort, setShareTargetCohort] = useState('');
   const [isSharing, setIsSharing] = useState(false);
 
@@ -71,6 +72,19 @@ const AdminMaterials = () => {
     }
   };
 
+  const handleDownload = async (m: any) => {
+    try {
+      if (m.storage_provider === 'r2') {
+        const url = await r2Storage.getDownloadUrl(m.storage_path || m.file_url);
+        window.open(url, '_blank');
+      } else {
+        window.open(`${m.file_url}?download=`, '_blank');
+      }
+    } catch (err) {
+      toast.error("Failed to get download link");
+    }
+  };
+
   const onSubmit = async (data: UploadForm) => {
     if (!data.cohort_id || !data.course_id || !data.title) {
       toast.error('Please provide title, cohort, and course');
@@ -83,17 +97,30 @@ const AdminMaterials = () => {
     try {
       setIsUploading(true);
       const fileName = `materials/${data.cohort_id}/${Date.now()}-${selectedFile.name}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage.from('course-materials').upload(fileName, selectedFile);
-      if (uploadError) throw uploadError;
+      
+      let storageProvider = 'r2';
+      let filePath = fileName;
+      let fileUrl = fileName;
 
-      const { data: urlData } = supabase.storage.from('course-materials').getPublicUrl(uploadData.path);
+      try {
+        await r2Storage.uploadFile(selectedFile, fileName);
+      } catch (err) {
+        console.error("R2 upload failed, falling back to Supabase:", err);
+        const { data: uploadData, error: uploadError } = await supabase.storage.from('course-materials').upload(fileName, selectedFile);
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage.from('course-materials').getPublicUrl(uploadData.path);
+        fileUrl = urlData.publicUrl;
+        storageProvider = 'supabase';
+      }
 
       const { error: insertError } = await supabase.from('course_materials').insert({
         cohort_id: data.cohort_id,
         course_id: data.course_id,
         title: data.title,
         description: data.description || null,
-        file_url: urlData.publicUrl,
+        file_url: fileUrl,
+        storage_path: filePath,
+        storage_provider: storageProvider,
         material_type: data.material_type || null,
         is_paid: false,
         uploaded_by: null,
