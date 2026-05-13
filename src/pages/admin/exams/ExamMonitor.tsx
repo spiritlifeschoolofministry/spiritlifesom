@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Download, AlertTriangle, CheckCircle2, Send, Camera, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { sanitizeHtml } from "@/lib/exam-utils";
+import { r2Storage } from "@/lib/r2-storage";
 
 export default function ExamMonitor() {
   const { id } = useParams();
@@ -19,7 +20,7 @@ export default function ExamMonitor() {
   const [loading, setLoading] = useState(true);
   const [grading, setGrading] = useState<any | null>(null);
   const [gradeData, setGradeData] = useState<{ answers: any[]; questions: any[]; override: string }>({ answers: [], questions: [], override: "" });
-  const [snapshots, setSnapshots] = useState<Record<string, Array<{ id: string; storage_path: string; captured_at: string; signedUrl?: string }>>>({});
+  const [snapshots, setSnapshots] = useState<Record<string, Array<{ id: string; storage_path: string; captured_at: string; storage_provider: string; signedUrl?: string }>>>({});
   const [snapshotViewer, setSnapshotViewer] = useState<{ url: string; meta: string } | null>(null);
   const [loadingSnapsFor, setLoadingSnapsFor] = useState<string | null>(null);
 
@@ -115,40 +116,74 @@ export default function ExamMonitor() {
     setLoadingSnapsFor(attemptId);
     const { data, error } = await supabase
       .from("exam_snapshots")
-      .select("id, storage_path, captured_at")
+      .select("id, storage_path, captured_at, storage_provider")
       .eq("attempt_id", attemptId)
       .order("captured_at", { ascending: false });
     if (error) { toast.error(error.message); setLoadingSnapsFor(null); return; }
+    
     const withUrls = await Promise.all((data ?? []).map(async (s) => {
-      const { data: signed } = await supabase.storage.from("proctor-snapshots").createSignedUrl(s.storage_path, 3600);
-      return { ...s, signedUrl: signed?.signedUrl };
+      let url = null;
+      try {
+        if (s.storage_provider === 'r2') {
+          url = await r2Storage.getDownloadUrl(s.storage_path);
+        } else {
+          const { data: signed } = await supabase.storage.from("proctor-snapshots").createSignedUrl(s.storage_path, 3600);
+          url = signed?.signedUrl;
+        }
+      } catch (err) {
+        console.error("Failed to get snapshot URL:", err);
+      }
+      return { ...s, signedUrl: url };
     }));
+    
     setSnapshots((prev) => ({ ...prev, [attemptId]: withUrls }));
     setLoadingSnapsFor(null);
   };
 
-  const deleteSnapshot = async (attemptId: string, snap: { id: string; storage_path: string }) => {
+  const deleteSnapshot = async (attemptId: string, snap: { id: string; storage_path: string; storage_provider: string }) => {
     if (!confirm("Delete this snapshot permanently?")) return;
-    const { error: sErr } = await supabase.storage.from("proctor-snapshots").remove([snap.storage_path]);
-    if (sErr) { toast.error(sErr.message); return; }
-    const { error: dErr } = await supabase.from("exam_snapshots").delete().eq("id", snap.id);
-    if (dErr) { toast.error(dErr.message); return; }
-    setSnapshots((prev) => ({
-      ...prev,
-      [attemptId]: (prev[attemptId] ?? []).filter((s) => s.id !== snap.id),
-    }));
-    toast.success("Snapshot deleted");
+    
+    try {
+      if (snap.storage_provider === 'r2') {
+        await r2Storage.deleteFile(snap.storage_path);
+      } else {
+        const { error: sErr } = await supabase.storage.from("proctor-snapshots").remove([snap.storage_path]);
+        if (sErr) throw sErr;
+      }
+      
+      const { error: dErr } = await supabase.from("exam_snapshots").delete().eq("id", snap.id);
+      if (dErr) throw dErr;
+      
+      setSnapshots((prev) => ({
+        ...prev,
+        [attemptId]: (prev[attemptId] ?? []).filter((s) => s.id !== snap.id),
+      }));
+      toast.success("Snapshot deleted");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete snapshot");
+    }
   };
 
   const deleteAllSnapshots = async (attemptId: string) => {
     const list = snapshots[attemptId] ?? [];
     if (list.length === 0) return;
     if (!confirm(`Delete all ${list.length} snapshots for this attempt?`)) return;
-    const paths = list.map((s) => s.storage_path);
-    await supabase.storage.from("proctor-snapshots").remove(paths);
-    await supabase.from("exam_snapshots").delete().eq("attempt_id", attemptId);
-    setSnapshots((prev) => ({ ...prev, [attemptId]: [] }));
-    toast.success("All snapshots deleted");
+    
+    try {
+      for (const s of list) {
+        if (s.storage_provider === 'r2') {
+          await r2Storage.deleteFile(s.storage_path);
+        } else {
+          await supabase.storage.from("proctor-snapshots").remove([s.storage_path]);
+        }
+      }
+      
+      await supabase.from("exam_snapshots").delete().eq("attempt_id", attemptId);
+      setSnapshots((prev) => ({ ...prev, [attemptId]: [] }));
+      toast.success("All snapshots deleted");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete snapshots");
+    }
   };
 
   if (loading) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
