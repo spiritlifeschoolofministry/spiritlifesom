@@ -206,8 +206,11 @@ const StudentCertificate = () => {
                       className="h-9"
                       autoFocus
                     />
-                    <Button size="sm" onClick={requestNameChange} className="shrink-0 h-9">
-                      <Check className="w-4 h-4 mr-2" /> Submit for Verification
+                    <Button variant="outline" size="sm" onClick={handleResetName} className="shrink-0 h-9" title="Reset to profile name">
+                      <RotateCcw className="w-4 h-4" />
+                    </Button>
+                    <Button size="sm" onClick={requestNameChange} className="shrink-0 h-9" disabled={!customName.trim()}>
+                      <Check className="w-4 h-4 mr-2" /> Submit
                     </Button>
                   </>
                 ) : (
@@ -222,7 +225,7 @@ const StudentCertificate = () => {
                       )}
                     </div>
                     <Button variant="outline" size="sm" onClick={() => setIsEditingName(true)} className="shrink-0 h-9" disabled={isPendingVerification}>
-                      <Edit2 className="w-4 h-4 mr-2" /> {isPendingVerification ? 'Pending' : 'Edit'}
+                      <Edit2 className="w-4 h-4 mr-2" /> {isPendingVerification ? 'Verify' : 'Edit'}
                     </Button>
                   </>
                 )}
