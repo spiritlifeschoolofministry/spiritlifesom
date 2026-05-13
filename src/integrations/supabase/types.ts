@@ -109,6 +109,8 @@ export type Database = {
           id: string
           reviewed_at: string | null
           reviewed_by: string | null
+          storage_path: string | null
+          storage_provider: string | null
           student_id: string
           submission_text: string | null
           submitted_at: string | null
@@ -121,6 +123,8 @@ export type Database = {
           id?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
+          storage_path?: string | null
+          storage_provider?: string | null
           student_id: string
           submission_text?: string | null
           submitted_at?: string | null
@@ -133,6 +137,8 @@ export type Database = {
           id?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
+          storage_path?: string | null
+          storage_provider?: string | null
           student_id?: string
           submission_text?: string | null
           submitted_at?: string | null
