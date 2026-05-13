@@ -46,9 +46,6 @@ const NAV_ITEMS = [
   { label: "Fees", icon: CreditCard, path: "/admin/fees" },
   { label: "Announcements", icon: Bell, path: "/admin/announcements" },
   { label: "Calendar", icon: CalendarDays, path: "/admin/calendar" },
-  { label: "Analytics", icon: BarChart3, path: "/admin/analytics" },
-  { label: "Audit Log", icon: ShieldCheck, path: "/admin/audit" },
-  { label: "Email History", icon: Mail, path: "/admin/email-history" },
   { label: "Settings", icon: Settings, path: "/admin/settings" },
   { label: "Profile", icon: UserCircle, path: "/admin/profile" },
 ];

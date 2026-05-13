@@ -9,7 +9,11 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, Check, X, Plus, Trash2, Star } from 'lucide-react';
+import { Loader2, Check, X, Plus, Trash2, Star, BarChart3, ShieldCheck, Mail, Settings } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import AdminAnalytics from './admin/Analytics';
+import AdminAuditLog from './admin/AuditLog';
+import EmailHistory from './admin/EmailHistory';
 import { toast } from 'sonner';
 import SiteContentEditor from '@/components/admin/SiteContentEditor';
 import FacultyManager from '@/components/admin/FacultyManager';
@@ -317,9 +321,29 @@ const AdminSettings = () => {
   return (
     <div className="space-y-6 pb-6">
       <div>
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage system configuration, cohorts, users, and branding</p>
+        <h1 className="text-2xl font-bold">Administration</h1>
+        <p className="text-sm text-muted-foreground mt-1">Manage system settings, analytics, and history</p>
       </div>
+
+      <Tabs defaultValue="general" className="w-full">
+        <TabsList className="grid grid-cols-2 md:grid-cols-4 lg:w-max mb-6">
+          <TabsTrigger value="general" className="gap-2">
+            <Settings className="w-4 h-4" /> General
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="gap-2">
+            <BarChart3 className="w-4 h-4" /> Analytics
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="gap-2">
+            <ShieldCheck className="w-4 h-4" /> Audit Log
+          </TabsTrigger>
+          <TabsTrigger value="emails" className="gap-2">
+            <Mail className="w-4 h-4" /> Email History
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="general" className="space-y-6">
+          <div className="space-y-6">
+
 
       {/* Enrollment Management */}
       <Card>
@@ -523,8 +547,23 @@ const AdminSettings = () => {
       {/* Faculty CMS */}
       <FacultyManager />
 
-      {/* Site Content CMS */}
-      <SiteContentEditor />
+          {/* Site Content CMS */}
+          <SiteContentEditor />
+        </div>
+      </TabsContent>
+
+        <TabsContent value="analytics" className="pt-2">
+          <AdminAnalytics standalone={false} />
+        </TabsContent>
+
+        <TabsContent value="audit" className="pt-2">
+          <AdminAuditLog standalone={false} />
+        </TabsContent>
+
+        <TabsContent value="emails" className="pt-2">
+          <EmailHistory standalone={false} />
+        </TabsContent>
+      </Tabs>
 
       {/* Promote Dialog */}
       <Dialog open={showPromoteDialog} onOpenChange={setShowPromoteDialog}>
