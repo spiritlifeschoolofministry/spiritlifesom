@@ -352,6 +352,14 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
 
   return (
     <div className={standalone ? "space-y-6" : "space-y-6"}>
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       {standalone && (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
