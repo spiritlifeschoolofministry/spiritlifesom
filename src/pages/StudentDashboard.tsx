@@ -80,6 +80,7 @@ const StudentDashboard = () => {
     cohort_id: "",
     learning_mode: "",
   });
+  const [showConfirmMode, setShowConfirmMode] = useState(false);
   const [cohortOptions, setCohortOptions] = useState<CohortOption[]>([]);
   const [allCohortOptions, setAllCohortOptions] = useState<CohortOption[]>([]);
   const [isReturningStudent, setIsReturningStudent] = useState(false);
