@@ -571,22 +571,6 @@ const AdminSettings = () => {
           {/* Site Content CMS */}
           <SiteContentEditor />
         </div>
-      </TabsContent>
-
-        <TabsContent value="analytics" className="pt-2">
-          <AdminAnalytics standalone={false} />
-        </TabsContent>
-
-        <TabsContent value="audit" className="pt-2">
-          <AdminAuditLog standalone={false} />
-        </TabsContent>
-
-        <TabsContent value="emails" className="pt-2">
-          <EmailHistory standalone={false} />
-        </TabsContent>
-      </Tabs>
-
-      {/* Promote Dialog */}
       <Dialog open={showPromoteDialog} onOpenChange={setShowPromoteDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
