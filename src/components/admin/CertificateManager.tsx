@@ -8,6 +8,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Check, X, Loader2, Award, UserCheck, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface PendingNameChange {
   id: string;
@@ -358,21 +369,53 @@ const CertificateManager = () => {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right space-x-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
-                          onClick={() => handleNameAction(change.id, 'reject')}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          className="h-8 w-8 p-0 bg-green-600 hover:bg-green-700"
-                          onClick={() => handleNameAction(change.id, 'approve')}
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Reject Name Change?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to reject the name change request for <strong>{change.profile?.first_name} {change.profile?.last_name}</strong>?
+                                They will be notified of the rejection.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleNameAction(change.id, 'reject')} className="bg-red-600 hover:bg-red-700">Reject</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              size="sm" 
+                              className="h-8 w-8 p-0 bg-green-600 hover:bg-green-700"
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Approve Name Change?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to approve <strong>"{change.pending_name_change}"</strong> as the new certificate name for <strong>{change.profile?.first_name} {change.profile?.last_name}</strong>?
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleNameAction(change.id, 'approve')} className="bg-green-600 hover:bg-green-700">Approve</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </TableCell>
                     </TableRow>
                   ))

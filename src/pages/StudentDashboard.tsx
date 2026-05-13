@@ -3,7 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import StudentLayout from "@/components/StudentLayout";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,6 +80,7 @@ const StudentDashboard = () => {
     cohort_id: "",
     learning_mode: "",
   });
+  const [showConfirmMode, setShowConfirmMode] = useState(false);
   const [cohortOptions, setCohortOptions] = useState<CohortOption[]>([]);
   const [allCohortOptions, setAllCohortOptions] = useState<CohortOption[]>([]);
   const [isReturningStudent, setIsReturningStudent] = useState(false);
@@ -358,12 +369,28 @@ const StudentDashboard = () => {
                 </p>
               )}
             </div>
-            <Button className="w-full" onClick={saveProfileCompletion} disabled={savingProfileCompletion}>
+            <Button className="w-full" onClick={() => setShowConfirmMode(true)} disabled={savingProfileCompletion}>
               {savingProfileCompletion ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : "Save and continue"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showConfirmMode} onOpenChange={setShowConfirmMode}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Profile Details</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to set your learning mode to <strong>{profileCompletionForm.learning_mode}</strong>? 
+              This will be used for your initial enrollment and class assignments.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={saveProfileCompletion}>Confirm and Save</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="space-y-6 pb-20 md:pb-0">
         {/* Welcome Banner */}

@@ -19,7 +19,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Loader2, Eye, EyeOff, AlertCircle, Save } from 'lucide-react';
+import { Loader2, Eye, EyeOff, AlertCircle, Save, HelpCircle } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import type { Tables } from '@/integrations/supabase/types';
 
 interface PersonalFormData {
@@ -62,6 +73,7 @@ const AcademicInfoCard = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [form, setForm] = useState<AcademicFormData>({
     learning_mode: studentData.learning_mode || '',
     preferred_language: studentData.preferred_language || '',
@@ -199,10 +211,34 @@ const AcademicInfoCard = ({
               <Textarea value={form.ministry_description} onChange={(e) => setForm(f => ({ ...f, ministry_description: e.target.value }))} className="mt-1" placeholder="Describe your ministry involvement" rows={3} />
             </div>
             <div className="flex gap-2 pt-2">
-              <Button onClick={handleSave} disabled={isSaving}>
-                {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                Save Changes
-              </Button>
+              <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+                <AlertDialogTrigger asChild>
+                  <Button onClick={(e) => {
+                    if (form.learning_mode !== studentData.learning_mode) {
+                      e.preventDefault();
+                      setShowConfirm(true);
+                    } else {
+                      handleSave();
+                    }
+                  }} disabled={isSaving}>
+                    {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    Save Changes
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Change Learning Mode?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      You are changing your learning mode from <strong>{studentData.learning_mode || 'None'}</strong> to <strong>{form.learning_mode}</strong>. 
+                      This may affect your course access and attendance requirements. Do you want to continue?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleSave}>Confirm Change</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
               <Button variant="outline" onClick={() => {
                 setIsEditing(false);
                 setForm({
