@@ -267,6 +267,7 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
               { label: "Educational Background", value: student.educational_background },
               { label: "Marital Status", value: student.marital_status },
               { label: "Student Code", value: student.student_code },
+              { label: "Graduation Date", value: student.graduation_date ? new Date(student.graduation_date).toLocaleDateString() : "Global default" },
               { label: "Admission Status", value: student.admission_status },
               { label: "Address", value: student.address },
               { label: "Ministry Description", value: student.ministry_description },
