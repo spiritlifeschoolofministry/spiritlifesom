@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Loader2, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
+import SEO from "@/components/SEO";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
@@ -78,6 +79,7 @@ const ResetPassword = () => {
 
   return (
     <div className="flex flex-col items-center px-4 py-12 sm:py-16">
+      <SEO title="Set New Password | SLSOM" description="Create a new password for your Spirit Life School of Ministry account." path="/reset-password" noindex />
       <div className="text-center mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">
           Set New Password
