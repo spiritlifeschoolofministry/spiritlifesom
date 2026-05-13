@@ -133,11 +133,13 @@ const AdminCourses = () => {
     setCourses(prev => prev.map(c => c.id === course.id ? { ...c, is_completed: !c.is_completed } : c));
   };
 
-  const filtered = courses.filter(c =>
-    c.title.toLowerCase().includes(search.toLowerCase()) ||
-    c.code.toLowerCase().includes(search.toLowerCase()) ||
-    (c.lecturer || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = courses.filter(c => {
+    const matchesSearch = c.title.toLowerCase().includes(search.toLowerCase()) ||
+      c.code.toLowerCase().includes(search.toLowerCase()) ||
+      (c.lecturer || "").toLowerCase().includes(search.toLowerCase());
+    const matchesCohort = cohortFilter === "all" || c.cohort_id === cohortFilter;
+    return matchesSearch && matchesCohort;
+  });
 
   const getCohortName = (id: string | null) => cohorts.find(c => c.id === id)?.name || "—";
 
