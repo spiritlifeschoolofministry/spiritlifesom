@@ -29,8 +29,22 @@ export const useSessionManager = () => {
 
     // Use getUser() instead of getSession() — getUser validates the token server-side
     supabase.auth.getUser().then(({ data, error }) => {
-      if (error || !data.user) {
-        console.warn('[SessionManager] getUser failed on route change:', error?.message);
+      if (error) {
+        // Only force logout if it's a definitive auth error (400, 401, 403)
+        // Network errors or 500s shouldn't kick the user out
+        const isDefinitiveAuthError = error.status && [400, 401, 403].includes(error.status);
+        
+        if (isDefinitiveAuthError) {
+          console.warn('[SessionManager] Definitive auth error on route change:', error.message, 'Status:', error.status);
+          handleForceLogout();
+        } else {
+          console.log('[SessionManager] Transient or server error on route change (ignoring force logout):', error.message);
+        }
+        return;
+      }
+      
+      if (!data.user) {
+        console.warn('[SessionManager] No user found on route change');
         handleForceLogout();
       }
     });
