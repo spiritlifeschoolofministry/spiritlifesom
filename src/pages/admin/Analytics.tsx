@@ -13,7 +13,7 @@ import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
-import { Users, TrendingUp, CalendarCheck, ClipboardList, Download, Folder, BookOpen, GraduationCap, CreditCard, AlertCircle, Inbox } from "lucide-react";
+import { Users, TrendingUp, CalendarCheck, ClipboardList, Download, Folder, BookOpen, GraduationCap, CreditCard, AlertCircle, Inbox, RefreshCw } from "lucide-react";
 import { downloadCSV } from "@/lib/csv-export";
 
 interface Cohort { id: string; name: string; }
