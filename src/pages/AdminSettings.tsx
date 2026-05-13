@@ -547,8 +547,23 @@ const AdminSettings = () => {
       {/* Faculty CMS */}
       <FacultyManager />
 
-      {/* Site Content CMS */}
-      <SiteContentEditor />
+          {/* Site Content CMS */}
+          <SiteContentEditor />
+        </div>
+      </TabsContent>
+
+      <TabsContent value="analytics" className="pt-2">
+        <AdminAnalytics />
+      </TabsContent>
+
+      <TabsContent value="audit" className="pt-2">
+        <AuditLog />
+      </TabsContent>
+
+      <TabsContent value="emails" className="pt-2">
+        <EmailHistory />
+      </TabsContent>
+    </Tabs>
 
       {/* Promote Dialog */}
       <Dialog open={showPromoteDialog} onOpenChange={setShowPromoteDialog}>
