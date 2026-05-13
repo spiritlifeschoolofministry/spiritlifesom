@@ -547,6 +547,22 @@ const AdminAssignments = () => {
           </CardContent>
         </Card>
       )})()}
+      
+      <ConfirmDialog
+        open={!!assignmentToDelete}
+        onOpenChange={(open) => !open && setAssignmentToDelete(null)}
+        title="Delete Task"
+        description={
+          <>
+            <p>Are you sure you want to delete <strong>{assignmentToDelete?.title}</strong>?</p>
+            <p className="text-destructive font-medium">This action cannot be undone and will delete all student submissions for this task.</p>
+          </>
+        }
+        confirmLabel="Delete Task"
+        variant="destructive"
+        loading={isDeleting}
+        onConfirm={() => assignmentToDelete && handleDeleteAssignment(assignmentToDelete)}
+      />
     </div>
   );
 };
