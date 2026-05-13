@@ -108,7 +108,7 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
     cohort_id: student.cohort_id || "",
     student_code: student.student_code || "",
     graduation_date: student.graduation_date || "",
-  });
+  } as any);
 
   useEffect(() => {
     supabase.from("cohorts").select("id, name").order("name").then(({ data }) => {
