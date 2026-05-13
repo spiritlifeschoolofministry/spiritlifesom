@@ -206,10 +206,12 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
               </div>
               <div>
                 <Label className="text-xs">Educational Background</Label>
-                <Select value={form.educational_background} onValueChange={v => set("educational_background", v)}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>{EDUCATION_LEVELS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
-                </Select>
+                <Input 
+                  value={form.educational_background} 
+                  onChange={e => set("educational_background", e.target.value)} 
+                  className="mt-1" 
+                  placeholder="e.g. Master's Degree" 
+                />
               </div>
               <div>
                 <Label className="text-xs">Marital Status</Label>
