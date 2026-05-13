@@ -776,6 +776,17 @@ const AdminStudents = () => {
                             <DropdownMenuItem onClick={() => openEmailForStudent(student)}>
                               <Mail className="mr-2 h-4 w-4" /> Send Email
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {student.profile.role?.toLowerCase() === "teacher" ? (
+                              <DropdownMenuItem onClick={() => handleRoleChange(student, "student")}>
+                                <Users className="mr-2 h-4 w-4" /> Demote to Student
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem onClick={() => handleRoleChange(student, "teacher")}>
+                                <ShieldCheck className="mr-2 h-4 w-4" /> Promote to Teacher
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
                             {uiStatus !== "Graduate" && (
                               <DropdownMenuItem onClick={() => setConfirmAction({ type: "graduate", student })} disabled={graduatingId === student.id}>
                                 <GraduationCap className="mr-2 h-4 w-4" />
