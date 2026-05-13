@@ -306,6 +306,15 @@ const StudentDashboard = () => {
               </select>
             </div>
             <div className="space-y-2">
+              <Label>Learning Mode</Label>
+              <select className="w-full border border-border bg-background p-2 rounded" value={profileCompletionForm.learning_mode} onChange={(e) => setProfileCompletionForm(p => ({...p, learning_mode: e.target.value}))}>
+                <option value="">Select learning mode</option>
+                <option value="Online">Online</option>
+                <option value="Offline">Offline</option>
+                <option value="Blended">Blended</option>
+              </select>
+            </div>
+            <div className="space-y-2">
               <Label>Age</Label>
               <Input type="number" value={profileCompletionForm.age} onChange={(e) => setProfileCompletionForm(p => ({...p, age: e.target.value}))} />
             </div>
