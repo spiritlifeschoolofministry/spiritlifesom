@@ -307,7 +307,17 @@ const AdminAssignments = () => {
       </div>
 
       {(() => {
-        const filteredAssignments = cohortFilter === 'all' ? assignments : assignments.filter(a => a.cohort_id === cohortFilter);
+        const filteredAssignments = assignments
+          .filter(a => (cohortFilter === 'all' || a.cohort_id === cohortFilter))
+          .filter(a => (a.title.toLowerCase().includes(searchQuery.toLowerCase()) || (a as any).category?.toLowerCase().includes(searchQuery.toLowerCase())))
+          .sort((a, b) => {
+            if (cohortFilter === 'all') {
+              const nameA = cohorts.find(c => c.id === a.cohort_id)?.name || '';
+              const nameB = cohorts.find(c => c.id === b.cohort_id)?.name || '';
+              return nameA.localeCompare(nameB);
+            }
+            return new Date(b.due_date || 0).getTime() - new Date(a.due_date || 0).getTime();
+          });
         return filteredAssignments.length === 0 ? (
         <Card><CardContent className="pt-6"><p className="text-center text-muted-foreground py-8">No tasks found{cohortFilter !== 'all' ? ' for this cohort' : ''}</p></CardContent></Card>
       ) : (
