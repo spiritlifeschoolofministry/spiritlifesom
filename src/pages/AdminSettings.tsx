@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, Check, X, Plus, Trash2, Star, BarChart3, ShieldCheck, Mail } from 'lucide-react';
+import { Loader2, Check, X, Plus, Trash2, Star, BarChart3, ShieldCheck, Mail, Settings } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AdminAnalytics from './admin/Analytics';
 import AuditLog from './admin/AuditLog';
