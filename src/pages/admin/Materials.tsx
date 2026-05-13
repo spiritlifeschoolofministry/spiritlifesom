@@ -319,7 +319,17 @@ const AdminMaterials = () => {
         </CardHeader>
         <CardContent>
           {(() => {
-            const filtered = cohortFilter === 'all' ? materials : materials.filter(m => m.cohort_id === cohortFilter);
+            const filtered = materials
+              .filter(m => (cohortFilter === 'all' || m.cohort_id === cohortFilter))
+              .filter(m => (m.title.toLowerCase().includes(searchQuery.toLowerCase()) || (m.description || '').toLowerCase().includes(searchQuery.toLowerCase())))
+              .sort((a, b) => {
+                if (cohortFilter === 'all') {
+                  const nameA = cohorts.find(c => c.id === a.cohort_id)?.name || '';
+                  const nameB = cohorts.find(c => c.id === b.cohort_id)?.name || '';
+                  return nameA.localeCompare(nameB);
+                }
+                return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+              });
             return filtered.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No materials found{cohortFilter !== 'all' ? ' for this cohort' : ''}</p>
           ) : (
