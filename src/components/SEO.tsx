@@ -19,7 +19,7 @@ const DEFAULT_IMAGE = "https://spiritlifesom.org/og-image.png";
  * and optional JSON-LD. All canonical URLs use the apex (no www).
  * Automatically updates on route changes.
  */
-export const SEO = ({
+const SEO = ({
   title,
   description,
   path,
