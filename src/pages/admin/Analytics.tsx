@@ -626,7 +626,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
           <CardHeader className="pb-2"><CardTitle className="text-base">Task Performance (Top 10)</CardTitle></CardHeader>
           <CardContent>
             {assignmentData.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-20">No task data available.</p>
+              <EmptyState message="No tasks or submissions found" />
             ) : (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={assignmentData}>
