@@ -527,6 +527,15 @@ const AdminAssignments = () => {
                                 </div>
                               </DialogContent>
                             </Dialog>
+
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-xs text-destructive hover:bg-destructive/10"
+                              onClick={() => setAssignmentToDelete(assignment)}
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" /> Delete
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
