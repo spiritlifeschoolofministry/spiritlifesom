@@ -68,6 +68,7 @@ const StudentDashboard = () => {
     gender: "",
     age: "",
     cohort_id: "",
+    learning_mode: "",
   });
   const [cohortOptions, setCohortOptions] = useState<CohortOption[]>([]);
   const [allCohortOptions, setAllCohortOptions] = useState<CohortOption[]>([]);
