@@ -494,8 +494,7 @@ const AdminSettings = () => {
           {saving ? 'Saving...' : 'Save Settings'}
         </Button>
       </div>
-        </div>
-      </TabsContent>
+    </TabsContent>
 
     <TabsContent value="certificates" className="space-y-6">
       <CertificateManager />
