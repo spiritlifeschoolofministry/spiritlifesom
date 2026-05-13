@@ -605,6 +605,8 @@ const AdminSettings = () => {
                 </div>
               ))
             )}
+            </div>
+          </div>
           </div>
           <div className="flex gap-2 justify-end pt-4 border-t">
             <Button variant="outline" onClick={() => setShowPromoteDialog(false)}>Cancel</Button>
