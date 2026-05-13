@@ -150,9 +150,18 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
     );
   };
 
+  const getPageTitle = () => {
+    const currentItem = NAV_ITEMS.find(item => location.pathname === item.path);
+    return currentItem ? `${currentItem.label} | Student Portal` : "Student Portal | SLSOM";
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <SEO title="Student Portal | SLSOM" description="Student portal for Spirit Life School of Ministry." noindex />
+      <SEO 
+        title={getPageTitle()} 
+        description="Student portal for Spirit Life School of Ministry." 
+        noindex 
+      />
       {/* Top Nav */}
       <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 z-30">
         <div className="flex items-center gap-3">
