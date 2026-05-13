@@ -5,12 +5,15 @@ import StudentLayout from "@/components/StudentLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download, Award, Lock } from "lucide-react";
+import { Download, Award, Lock, Edit2, Check } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 const StudentCertificate = () => {
   const { student, profile } = useAuth();
   const [cohortName, setCohortName] = useState("");
   const [loading, setLoading] = useState(true);
+  const [customName, setCustomName] = useState("");
+  const [isEditingName, setIsEditingName] = useState(false);
 
   const isGraduate = (student?.admission_status || "").toUpperCase() === "GRADUATE";
 
@@ -24,7 +27,14 @@ const StudentCertificate = () => {
 
   const handlePrint = () => window.print();
 
-  const fullName = `${profile?.first_name || ""} ${profile?.middle_name || ""} ${profile?.last_name || ""}`.replace(/\s+/g, " ").trim();
+  useEffect(() => {
+    if (profile) {
+      const name = `${profile?.first_name || ""} ${profile?.middle_name || ""} ${profile?.last_name || ""}`.replace(/\s+/g, " ").trim();
+      setCustomName(name);
+    }
+  }, [profile]);
+
+  const fullName = customName;
 
   if (loading) {
     return (
@@ -61,14 +71,45 @@ const StudentCertificate = () => {
   return (
     <StudentLayout>
       <div className="space-y-6 pb-20 md:pb-0">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
-              <Award className="w-7 h-7" /> Certificate of Completion
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">Download or print your graduation certificate.</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 print:hidden">
+          <div className="space-y-4 w-full sm:w-auto">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
+                <Award className="w-7 h-7" /> Certificate of Completion
+              </h1>
+              <p className="text-muted-foreground text-sm mt-1">Download or print your graduation certificate.</p>
+            </div>
+            
+            <div className="flex flex-col gap-2 max-w-sm">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Name on Certificate</label>
+              <div className="flex items-center gap-2">
+                {isEditingName ? (
+                  <>
+                    <Input 
+                      value={customName} 
+                      onChange={(e) => setCustomName(e.target.value)}
+                      placeholder="Enter your full name"
+                      className="h-9"
+                      autoFocus
+                    />
+                    <Button size="sm" onClick={() => setIsEditingName(false)} className="shrink-0 h-9">
+                      <Check className="w-4 h-4 mr-2" /> Done
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div className="px-3 py-1.5 bg-muted rounded-md text-sm font-medium border border-border flex-1">
+                      {customName || "Enter name"}
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => setIsEditingName(true)} className="shrink-0 h-9">
+                      <Edit2 className="w-4 h-4 mr-2" /> Edit
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
-          <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2 print:hidden self-start">
+          <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2 self-start mt-auto h-10 px-4 font-semibold border-primary/20 hover:bg-primary/5">
             <Download className="w-4 h-4" /> Print / Save PDF
           </Button>
         </div>
