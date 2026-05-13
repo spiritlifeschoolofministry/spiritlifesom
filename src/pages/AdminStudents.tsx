@@ -38,6 +38,7 @@ import {
 import {
   Search, MoreHorizontal, GraduationCap, Loader2, Trash2,
   AlertTriangle, Mail, Send, Users, UserCheck, Clock, XCircle, Eye, ChevronRight, Download,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { downloadCSV } from "@/lib/csv-export";
