@@ -364,6 +364,17 @@ export default function QuestionBank() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!questionToDelete}
+        onOpenChange={(v) => !v && setQuestionToDelete(null)}
+        title="Delete Question"
+        description="Are you sure you want to delete this question? This cannot be undone."
+        confirmLabel="Delete Permanently"
+        variant="destructive"
+        loading={deleting}
+        onConfirm={() => questionToDelete && remove(questionToDelete)}
+      />
     </div>
   );
 }
