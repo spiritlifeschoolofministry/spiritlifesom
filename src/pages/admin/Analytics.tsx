@@ -76,6 +76,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
 
   const loadAnalytics = async () => {
     setLoading(true);
+    setError(null);
     try {
       await Promise.all([
         loadEnrollment(),
@@ -85,6 +86,9 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
         loadMaterials(),
         loadCoursePerformance(),
       ]);
+    } catch (err: any) {
+      console.error("Analytics load failed", err);
+      setError(err.message || "Failed to load analytics data. Please try again.");
     } finally {
       setLoading(false);
     }
