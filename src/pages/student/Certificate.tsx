@@ -387,7 +387,11 @@ const StudentCertificate = () => {
 
               {/* Date */}
               <p className="text-xs sm:text-sm font-bold mt-3 sm:mt-5" style={{ color: "#1a1a2e", fontFamily: "serif" }}>
-                DATE: {student?.graduation_date ? new Date(student.graduation_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : globalDate}
+                DATE: {student?.graduation_date 
+                  ? new Date(student.graduation_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) 
+                  : cohortData?.graduation_date 
+                    ? new Date(cohortData.graduation_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+                    : globalDate}
               </p>
 
               {/* Signatories */}
