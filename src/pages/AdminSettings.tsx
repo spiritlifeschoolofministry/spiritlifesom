@@ -137,7 +137,7 @@ const AdminSettings = () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, email, first_name, last_name, role, promoted_at, promoted_by')
-        .eq('role', 'admin')
+        .in('role', ['admin', 'teacher'])
         .order('first_name');
       if (error) throw error;
       setAdminUsers((data as any) || []);
