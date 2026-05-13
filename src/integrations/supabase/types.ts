@@ -1194,6 +1194,8 @@ export type Database = {
           payment_date: string | null
           payment_proof_url: string | null
           status: string | null
+          storage_path: string | null
+          storage_provider: string | null
           student_id: string | null
         }
         Insert: {
@@ -1206,6 +1208,8 @@ export type Database = {
           payment_date?: string | null
           payment_proof_url?: string | null
           status?: string | null
+          storage_path?: string | null
+          storage_provider?: string | null
           student_id?: string | null
         }
         Update: {
@@ -1218,6 +1222,8 @@ export type Database = {
           payment_date?: string | null
           payment_proof_url?: string | null
           status?: string | null
+          storage_path?: string | null
+          storage_provider?: string | null
           student_id?: string | null
         }
         Relationships: [
