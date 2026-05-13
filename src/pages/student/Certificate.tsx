@@ -282,20 +282,24 @@ const StudentCertificate = () => {
                   className="text-xl sm:text-3xl lg:text-4xl font-bold italic"
                   style={{
                     fontFamily: "'Georgia', 'Brush Script MT', cursive",
-                    color: "#1a1a2e",
-                  }}
-                >
-                  {fullName}
-                </h1>
-                {student?.student_code && (
-                  <span
-                    className="text-xs sm:text-sm font-bold italic whitespace-nowrap"
-                    style={{ color: "#1a1a2e", fontFamily: "serif" }}
-                  >
-                    {student.student_code}
-                  </span>
-                )}
-              </div>
+                  color: "#1a1a2e",
+                }}
+              >
+                {isPendingVerification ? student?.name_on_certificate : fullName}
+              </h1>
+              {(student?.student_code || student?.graduation_date) && (
+                <div className="flex flex-col items-end">
+                  {student?.student_code && (
+                    <span
+                      className="text-xs sm:text-sm font-bold italic whitespace-nowrap"
+                      style={{ color: "#1a1a2e", fontFamily: "serif" }}
+                    >
+                      {student.student_code}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
 
               {/* Line under name */}
               <div className="w-3/4 sm:w-2/3 mt-1 flex items-center gap-2">
