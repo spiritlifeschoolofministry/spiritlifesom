@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Download, Award, Lock, Edit2, Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 const StudentCertificate = () => {
   const { student, profile } = useAuth();
@@ -16,23 +17,78 @@ const StudentCertificate = () => {
   const [isEditingName, setIsEditingName] = useState(false);
 
   const isGraduate = (student?.admission_status || "").toUpperCase() === "GRADUATE";
+  const [globalDate, setGlobalDate] = useState("20th April, 2025");
+  const [isPendingVerification, setIsPendingVerification] = useState(false);
+  const [originalFullName, setOriginalFullName] = useState("");
 
   useEffect(() => {
-    if (!student?.cohort_id) { setLoading(false); return; }
-    supabase.from("cohorts").select("name, end_date").eq("id", student.cohort_id).single().then(({ data }) => {
-      if (data) setCohortName(data.name);
-      setLoading(false);
-    });
-  }, [student?.cohort_id]);
+    const loadCertConfig = async () => {
+      // Load global date
+      const { data: settingsData } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'global_graduation_date')
+        .maybeSingle();
+      
+      if (settingsData?.value) {
+        try {
+          setGlobalDate(JSON.parse(settingsData.value as string));
+        } catch {
+          setGlobalDate(settingsData.value as string);
+        }
+      }
+
+      if (student) {
+        if (student.name_on_certificate) {
+          setCustomName(student.name_on_certificate);
+        }
+        if (student.pending_name_change) {
+          setIsPendingVerification(true);
+        }
+      }
+    };
+
+    if (student?.cohort_id) {
+      supabase.from("cohorts").select("name, end_date").eq("id", student.cohort_id).single().then(({ data }) => {
+        if (data) setCohortName(data.name);
+      });
+    }
+    
+    loadCertConfig();
+    setLoading(false);
+  }, [student]);
+
+  const requestNameChange = async () => {
+    if (!student || !customName.trim() || customName === originalFullName) return;
+    
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ pending_name_change: customName.trim() })
+        .eq('id', student.id);
+      
+      if (error) throw error;
+      
+      setIsPendingVerification(true);
+      setIsEditingName(false);
+      toast.success("Name change request submitted for admin verification");
+    } catch (err) {
+      console.error("Error requesting name change:", err);
+      toast.error("Failed to submit name change request");
+    }
+  };
 
   const handlePrint = () => window.print();
 
   useEffect(() => {
     if (profile) {
       const name = `${profile?.first_name || ""} ${profile?.middle_name || ""} ${profile?.last_name || ""}`.replace(/\s+/g, " ").trim();
-      setCustomName(name);
+      setOriginalFullName(name);
+      if (!student?.name_on_certificate) {
+        setCustomName(name);
+      }
     }
-  }, [profile]);
+  }, [profile, student]);
 
   const fullName = customName;
 
@@ -92,21 +148,32 @@ const StudentCertificate = () => {
                       className="h-9"
                       autoFocus
                     />
-                    <Button size="sm" onClick={() => setIsEditingName(false)} className="shrink-0 h-9">
-                      <Check className="w-4 h-4 mr-2" /> Done
+                    <Button size="sm" onClick={requestNameChange} className="shrink-0 h-9">
+                      <Check className="w-4 h-4 mr-2" /> Submit for Verification
                     </Button>
                   </>
                 ) : (
                   <>
                     <div className="px-3 py-1.5 bg-muted rounded-md text-sm font-medium border border-border flex-1">
-                      {customName || "Enter name"}
+                      {isPendingVerification ? (
+                        <span className="flex items-center gap-2 italic text-muted-foreground">
+                          {student?.pending_name_change} (Pending Verification)
+                        </span>
+                      ) : (
+                        customName || "Enter name"
+                      )}
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => setIsEditingName(true)} className="shrink-0 h-9">
-                      <Edit2 className="w-4 h-4 mr-2" /> Edit
+                    <Button variant="outline" size="sm" onClick={() => setIsEditingName(true)} className="shrink-0 h-9" disabled={isPendingVerification}>
+                      <Edit2 className="w-4 h-4 mr-2" /> {isPendingVerification ? 'Pending' : 'Edit'}
                     </Button>
                   </>
                 )}
               </div>
+              {isPendingVerification && (
+                <p className="text-[10px] text-amber-600 font-medium">
+                  * An administrator must verify your name change before it appears on the certificate.
+                </p>
+              )}
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2 self-start mt-auto h-10 px-4 font-semibold border-primary/20 hover:bg-primary/5">
@@ -115,9 +182,9 @@ const StudentCertificate = () => {
         </div>
 
         {/* Certificate built with code to match official design */}
-        <div className="print:m-0">
+        <div className="print:m-0 certificate-container">
           <div
-            className="relative overflow-hidden max-w-4xl mx-auto shadow-2xl print:shadow-none print:max-w-none"
+            className="relative overflow-hidden max-w-4xl mx-auto shadow-2xl print:shadow-none print:max-w-none certificate-content"
             style={{ aspectRatio: "1.414 / 1", borderRadius: "12px" }}
           >
             {/* Background */}
@@ -215,20 +282,24 @@ const StudentCertificate = () => {
                   className="text-xl sm:text-3xl lg:text-4xl font-bold italic"
                   style={{
                     fontFamily: "'Georgia', 'Brush Script MT', cursive",
-                    color: "#1a1a2e",
-                  }}
-                >
-                  {fullName}
-                </h1>
-                {student?.student_code && (
-                  <span
-                    className="text-xs sm:text-sm font-bold italic whitespace-nowrap"
-                    style={{ color: "#1a1a2e", fontFamily: "serif" }}
-                  >
-                    {student.student_code}
-                  </span>
-                )}
-              </div>
+                  color: "#1a1a2e",
+                }}
+              >
+                {isPendingVerification ? student?.name_on_certificate : fullName}
+              </h1>
+              {(student?.student_code || student?.graduation_date) && (
+                <div className="flex flex-col items-end">
+                  {student?.student_code && (
+                    <span
+                      className="text-xs sm:text-sm font-bold italic whitespace-nowrap"
+                      style={{ color: "#1a1a2e", fontFamily: "serif" }}
+                    >
+                      {student.student_code}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
 
               {/* Line under name */}
               <div className="w-3/4 sm:w-2/3 mt-1 flex items-center gap-2">
@@ -243,7 +314,7 @@ const StudentCertificate = () => {
 
               {/* Date */}
               <p className="text-xs sm:text-sm font-bold mt-3 sm:mt-5" style={{ color: "#1a1a2e", fontFamily: "serif" }}>
-                DATE: 20th April, 2025
+                DATE: {student?.graduation_date ? new Date(student.graduation_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : globalDate}
               </p>
 
               {/* Signatories */}

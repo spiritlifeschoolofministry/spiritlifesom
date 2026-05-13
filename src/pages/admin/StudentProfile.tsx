@@ -40,6 +40,7 @@ interface StudentDetail {
   has_discovered_ministry: boolean | null;
   ministry_description: string | null;
   student_code: string | null;
+  graduation_date: string | null;
   created_at: string | null;
   cohort_id: string | null;
   fees_paid: number | null;
@@ -106,7 +107,8 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
     admission_status: student.admission_status || "Pending",
     cohort_id: student.cohort_id || "",
     student_code: student.student_code || "",
-  });
+    graduation_date: student.graduation_date || "",
+  } as any);
 
   useEffect(() => {
     supabase.from("cohorts").select("id, name").order("name").then(({ data }) => {
@@ -131,7 +133,8 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
           admission_status: form.admission_status || null,
           cohort_id: form.cohort_id || null,
           student_code: form.student_code || null,
-        })
+          graduation_date: form.graduation_date || null,
+        } as any)
         .eq("id", student.id);
       if (updateError) throw updateError;
 
@@ -164,6 +167,7 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
       admission_status: student.admission_status || "Pending",
       cohort_id: student.cohort_id || "",
       student_code: student.student_code || "",
+      graduation_date: student.graduation_date || "",
     });
   };
 
@@ -231,6 +235,10 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
                 <Label className="text-xs">Student Code</Label>
                 <Input value={form.student_code} onChange={e => set("student_code", e.target.value)} className="mt-1" placeholder="e.g. SLSM-2526-0001" />
               </div>
+              <div>
+                <Label className="text-xs">Graduation Date</Label>
+                <Input type="date" value={form.graduation_date} onChange={e => set("graduation_date", e.target.value)} className="mt-1" />
+              </div>
             </div>
             <div>
               <Label className="text-xs">Address</Label>
@@ -259,6 +267,7 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
               { label: "Educational Background", value: student.educational_background },
               { label: "Marital Status", value: student.marital_status },
               { label: "Student Code", value: student.student_code },
+              { label: "Graduation Date", value: student.graduation_date ? new Date(student.graduation_date).toLocaleDateString() : "Global default" },
               { label: "Admission Status", value: student.admission_status },
               { label: "Address", value: student.address },
               { label: "Ministry Description", value: student.ministry_description },

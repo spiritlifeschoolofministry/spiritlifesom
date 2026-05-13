@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Check, X, Plus, Trash2, Star, BarChart3, ShieldCheck, Mail, Settings } from 'lucide-react';
+import { Loader2, Check, X, Plus, Trash2, Star, BarChart3, ShieldCheck, Mail, Settings, Award, UserCheck } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AdminAnalytics from './admin/Analytics';
 import AdminAuditLog from './admin/AuditLog';
@@ -22,6 +22,7 @@ import StorageUsageCard from '@/components/admin/StorageUsageCard';
 import MaintenanceModeCard from '@/components/admin/MaintenanceModeCard';
 import PurgeSnapshotsCard from '@/components/admin/PurgeSnapshotsCard';
 import StorageBrowserCard from '@/components/admin/StorageBrowserCard';
+import CertificateManager from '@/components/admin/CertificateManager';
 
 interface SystemSettings {
   accepting_applications: boolean;
@@ -328,9 +329,12 @@ const AdminSettings = () => {
       </div>
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid grid-cols-2 md:grid-cols-4 lg:w-max mb-6">
+        <TabsList className="grid grid-cols-2 md:grid-cols-5 lg:w-max mb-6">
           <TabsTrigger value="general" className="gap-2">
             <Settings className="w-4 h-4" /> General
+          </TabsTrigger>
+          <TabsTrigger value="certificates" className="gap-2">
+            <Award className="w-4 h-4" /> Certificates
           </TabsTrigger>
           <TabsTrigger value="analytics" className="gap-2">
             <BarChart3 className="w-4 h-4" /> Analytics
@@ -344,10 +348,6 @@ const AdminSettings = () => {
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
-          <div className="space-y-6">
-
-
-      {/* Enrollment Management */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Enrollment Management</CardTitle>
@@ -487,20 +487,38 @@ const AdminSettings = () => {
         </CardContent>
       </Card>
 
-      {/* Save Settings Button */}
       <div className="flex justify-end">
         <Button onClick={saveSettings} disabled={saving} className="gap-2">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
           {saving ? 'Saving...' : 'Save Settings'}
         </Button>
       </div>
+    </TabsContent>
 
-      {/* User Management */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">User Management</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <TabsContent value="certificates" className="space-y-6">
+      <CertificateManager />
+    </TabsContent>
+
+    <TabsContent value="analytics" className="space-y-6">
+      <AdminAnalytics standalone={false} />
+    </TabsContent>
+
+    <TabsContent value="audit" className="space-y-6">
+      <AdminAuditLog standalone={false} />
+    </TabsContent>
+
+    <TabsContent value="emails" className="space-y-6">
+      <EmailHistory standalone={false} />
+    </TabsContent>
+  </Tabs>
+
+  <div className="mt-8 space-y-6">
+    {/* User Management */}
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">User Management</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
           <div>
             <h3 className="font-semibold text-base mb-4">Administrators</h3>
             <div className="overflow-x-auto">
@@ -552,22 +570,6 @@ const AdminSettings = () => {
           {/* Site Content CMS */}
           <SiteContentEditor />
         </div>
-      </TabsContent>
-
-        <TabsContent value="analytics" className="pt-2">
-          <AdminAnalytics standalone={false} />
-        </TabsContent>
-
-        <TabsContent value="audit" className="pt-2">
-          <AdminAuditLog standalone={false} />
-        </TabsContent>
-
-        <TabsContent value="emails" className="pt-2">
-          <EmailHistory standalone={false} />
-        </TabsContent>
-      </Tabs>
-
-      {/* Promote Dialog */}
       <Dialog open={showPromoteDialog} onOpenChange={setShowPromoteDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
