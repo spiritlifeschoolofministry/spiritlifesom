@@ -4,8 +4,8 @@ Disallow: /admin
 Disallow: /admin/
 Disallow: /student
 Disallow: /student/
-Disallow: /login
-Disallow: /register
+Allow: /login
+Allow: /register
 Disallow: /forgot-password
 Disallow: /reset-password
 

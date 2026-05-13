@@ -334,7 +334,7 @@ const Register = () => {
 
   return (
     <div className="flex flex-col items-center px-4 py-12 sm:py-16">
-      <SEO title="Apply for Admission | SLSOM" description="Apply to Spirit Life School of Ministry — register for free physical or online ministry training in Ibadan, Nigeria." path="/register" noindex />
+      <SEO title="Apply for Admission | SLSOM" description="Apply to Spirit Life School of Ministry — register for free physical or online ministry training in Ibadan, Nigeria." path="/register" />
       <div className="text-center mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">Student Registration</h1>
         <p className="text-sm text-muted-foreground mt-1">Join Spirit Life School of Ministry</p>
