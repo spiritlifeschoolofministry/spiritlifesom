@@ -90,25 +90,30 @@ export const useSessionManager = () => {
 
     const scheduleTokenRefresh = () => {
       if (tokenRefreshRef.current) clearTimeout(tokenRefreshRef.current);
+      
+      // Schedule next check in 10 minutes
       tokenRefreshRef.current = setTimeout(async () => {
+        // Only refresh if tab is visible to avoid unnecessary calls
         if (!document.hidden) {
           try {
+            console.log('[SessionManager] Scheduled token refresh check...');
             const { data, error } = await supabase.auth.refreshSession();
             if (error) {
               console.warn('[SessionManager] Scheduled refresh failed:', error.message);
               // Validate server-side before force logout
               const { error: userError } = await supabase.auth.getUser();
-              if (userError) {
+              if (userError && userError.status && [400, 401, 403].includes(userError.status)) {
                 await handleForceLogout();
                 return;
               }
             }
-            if (data?.session) scheduleTokenRefresh();
           } catch (err) {
             console.error('[SessionManager] Token refresh error:', err);
           }
         }
-      }, 50 * 60 * 1000);
+        // Always reschedule the next check regardless of success/failure/visibility
+        scheduleTokenRefresh();
+      }, 10 * 60 * 1000); // Check every 10 mins
     };
 
     scheduleTokenRefresh();
