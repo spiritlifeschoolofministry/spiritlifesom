@@ -301,6 +301,17 @@ const AdminStudents = () => {
           s.id === student.id ? { ...s, profile: { ...s.profile, role: newRole } } : s
         )
       );
+
+      if (newRole === "teacher") {
+        await supabase.from("notifications").insert({
+          user_id: student.profile_id,
+          title: "Congratulations! You've been promoted to Teacher",
+          body: "You now have access to the Admin Portal. Click here to get started with your new dashboard.",
+          type: "promotion",
+          link: "/admin/dashboard"
+        });
+      }
+
       toast.success(`User role updated to ${newRole}`);
     } catch (err: any) {
       console.error("Role change error:", err);
