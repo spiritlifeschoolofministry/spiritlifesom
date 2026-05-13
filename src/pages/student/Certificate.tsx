@@ -16,6 +16,9 @@ const StudentCertificate = () => {
   const [isEditingName, setIsEditingName] = useState(false);
 
   const isGraduate = (student?.admission_status || "").toUpperCase() === "GRADUATE";
+  const [globalDate, setGlobalDate] = useState("20th April, 2025");
+  const [isPendingVerification, setIsPendingVerification] = useState(false);
+  const [originalFullName, setOriginalFullName] = useState("");
 
   useEffect(() => {
     if (!student?.cohort_id) { setLoading(false); return; }
