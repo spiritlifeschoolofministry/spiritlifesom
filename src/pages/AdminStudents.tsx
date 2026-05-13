@@ -727,8 +727,11 @@ const AdminStudents = () => {
                           </Avatar>
                           <div className="min-w-0">
                             <p className="font-medium text-sm text-foreground truncate">
-                              {student.profile.first_name} {student.profile.last_name}
+                               {student.profile.first_name} {student.profile.last_name}
                               {uiStatus === "Graduate" && <GraduationCap className="inline ml-1.5 h-3.5 w-3.5 text-primary" />}
+                              {(student.profile.role?.toLowerCase() === "teacher") && (
+                                <Badge variant="outline" className="ml-1.5 h-4 text-[9px] bg-indigo-50 text-indigo-700 border-indigo-200">Teacher</Badge>
+                              )}
                             </p>
                             <p className="text-xs text-muted-foreground truncate">{student.profile.email}</p>
                           </div>
