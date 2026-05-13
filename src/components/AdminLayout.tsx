@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import ThemeToggle from "@/components/ThemeToggle";
 import ScrollToTop from "@/components/ScrollToTop";
+import SEO from "@/components/SEO";
 import NotificationsBell from "@/components/NotificationsBell";
 import { Badge } from "@/components/ui/badge";
 import { usePendingAdmissionsCount } from "@/hooks/use-pending-admissions";
@@ -89,6 +90,7 @@ const AdminLayout = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEO title="Admin Portal | SLSOM" description="Administrative portal for Spirit Life School of Ministry." noindex />
       <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 z-30">
         <div className="flex items-center gap-3">
           <button className="md:hidden text-foreground" onClick={() => setSidebarOpen(!sidebarOpen)}>
