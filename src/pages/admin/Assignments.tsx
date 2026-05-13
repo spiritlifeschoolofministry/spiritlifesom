@@ -10,10 +10,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Plus, Eye, File, CheckCircle2, Edit2, Search } from 'lucide-react';
+import { Loader2, Plus, Eye, File, CheckCircle2, Edit2, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import BulkGradeImport from '@/components/BulkGradeImport';
 import { downloadCSV } from '@/lib/csv-export';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import type { Tables } from '@/integrations/supabase/types';
 
 const ASSIGNMENT_CATEGORIES = [
@@ -47,6 +48,8 @@ const AdminAssignments = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<AssignmentWithSubmissions | null>(null);
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [assignmentToDelete, setAssignmentToDelete] = useState<AssignmentWithSubmissions | null>(null);
   const [gradingId, setGradingId] = useState<string | null>(null);
   const [gradingFeedback, setGradingFeedback] = useState('');
   const [gradingScore, setGradingScore] = useState<string>('');
@@ -198,6 +201,44 @@ const AdminAssignments = () => {
     } catch (err) {
       console.error('Update error:', err);
       toast.error('Failed to update due date');
+    }
+  };
+
+  const handleDeleteAssignment = async (assignment: AssignmentWithSubmissions) => {
+    try {
+      setIsDeleting(true);
+      
+      // Delete submissions first (due to foreign key constraints if they exist)
+      // Check if there are any submissions
+      const { data: subs } = await supabase
+        .from('assignment_submissions')
+        .select('id')
+        .eq('assignment_id', assignment.id);
+        
+      if (subs && subs.length > 0) {
+        const { error: subDeleteError } = await supabase
+          .from('assignment_submissions')
+          .delete()
+          .eq('assignment_id', assignment.id);
+          
+        if (subDeleteError) throw subDeleteError;
+      }
+
+      const { error } = await supabase
+        .from('assignments')
+        .delete()
+        .eq('id', assignment.id);
+        
+      if (error) throw error;
+      
+      toast.success('Task deleted successfully');
+      setAssignmentToDelete(null);
+      await loadData();
+    } catch (err) {
+      console.error('Delete error:', err);
+      toast.error('Failed to delete task');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -486,6 +527,15 @@ const AdminAssignments = () => {
                                 </div>
                               </DialogContent>
                             </Dialog>
+
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-xs text-destructive hover:bg-destructive/10"
+                              onClick={() => setAssignmentToDelete(assignment)}
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" /> Delete
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -497,6 +547,22 @@ const AdminAssignments = () => {
           </CardContent>
         </Card>
       )})()}
+      
+      <ConfirmDialog
+        open={!!assignmentToDelete}
+        onOpenChange={(open) => !open && setAssignmentToDelete(null)}
+        title="Delete Task"
+        description={
+          <>
+            <p>Are you sure you want to delete <strong>{assignmentToDelete?.title}</strong>?</p>
+            <p className="text-destructive font-medium">This action cannot be undone and will delete all student submissions for this task.</p>
+          </>
+        }
+        confirmLabel="Delete Task"
+        variant="destructive"
+        loading={isDeleting}
+        onConfirm={() => assignmentToDelete && handleDeleteAssignment(assignmentToDelete)}
+      />
     </div>
   );
 };

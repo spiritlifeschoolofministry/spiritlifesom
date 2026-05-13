@@ -14,7 +14,8 @@ const RichTextEditor = lazy(() =>
 );
 import { QUESTION_TYPE_LABELS, QuestionType, parseQuestionCSV, sanitizeHtml } from "@/lib/exam-utils";
 import { toast } from "sonner";
-import { Plus, Upload, Archive, Edit, Trash2, Search } from "lucide-react";
+import { Plus, Upload, Archive, Edit, Trash2, Search, Loader2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export default function QuestionBank() {
   const [questions, setQuestions] = useState<any[]>([]);
@@ -29,6 +30,8 @@ export default function QuestionBank() {
   const [importOpen, setImportOpen] = useState(false);
   const [csvText, setCsvText] = useState("");
   const [importCourse, setImportCourse] = useState("");
+  const [questionToDelete, setQuestionToDelete] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -89,11 +92,18 @@ export default function QuestionBank() {
   };
 
   const remove = async (q: any) => {
-    if (!confirm("Delete this question? This cannot be undone.")) return;
-    const { error } = await supabase.from("question_bank").delete().eq("id", q.id);
-    if (error) return toast.error(error.message);
-    toast.success("Deleted");
-    load();
+    try {
+      setDeleting(true);
+      const { error } = await supabase.from("question_bank").delete().eq("id", q.id);
+      if (error) throw error;
+      toast.success("Deleted");
+      setQuestionToDelete(null);
+      load();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleImport = async () => {
@@ -183,7 +193,7 @@ export default function QuestionBank() {
                   <Button variant="ghost" size="icon" onClick={() => toggleArchive(q)}>
                     <Archive className="w-4 h-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => remove(q)}>
+                  <Button variant="ghost" size="icon" onClick={() => setQuestionToDelete(q)}>
                     <Trash2 className="w-4 h-4 text-destructive" />
                   </Button>
                 </div>
@@ -354,6 +364,17 @@ export default function QuestionBank() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={!!questionToDelete}
+        onOpenChange={(v) => !v && setQuestionToDelete(null)}
+        title="Delete Question"
+        description="Are you sure you want to delete this question? This cannot be undone."
+        confirmLabel="Delete Permanently"
+        variant="destructive"
+        loading={deleting}
+        onConfirm={() => questionToDelete && remove(questionToDelete)}
+      />
     </div>
   );
 }

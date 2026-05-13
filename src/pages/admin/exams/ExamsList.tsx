@@ -4,23 +4,60 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, Edit, Activity, BookOpen } from "lucide-react";
+import { Plus, Eye, Edit, Activity, BookOpen, Trash2, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export default function ExamsList() {
   const [exams, setExams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [examToDelete, setExamToDelete] = useState<any | null>(null);
+
+  const loadExams = async () => {
+    const { data } = await supabase
+      .from("exams")
+      .select("*, courses(code,title), cohorts(name)")
+      .order("start_at", { ascending: false });
+    setExams(data ?? []);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("exams")
-        .select("*, courses(code,title), cohorts(name)")
-        .order("start_at", { ascending: false });
-      setExams(data ?? []);
-      setLoading(false);
-    })();
+    loadExams();
   }, []);
+
+  const handleDelete = async (exam: any) => {
+    try {
+      setDeletingId(exam.id);
+      
+      // Cascade delete is usually handled by DB, but let's be safe if needed
+      // Delete questions first if there's no cascade
+      const { error: questionsError } = await supabase
+        .from('exam_questions')
+        .delete()
+        .eq('exam_id', exam.id);
+        
+      if (questionsError) throw questionsError;
+
+      const { error } = await supabase
+        .from("exams")
+        .delete()
+        .eq("id", exam.id);
+        
+      if (error) throw error;
+      
+      toast.success("Exam deleted successfully");
+      setExamToDelete(null);
+      await loadExams();
+    } catch (err: any) {
+      console.error("Delete error:", err);
+      toast.error(err.message || "Failed to delete exam");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const statusBadge = (s: string) => {
     const map: Record<string, string> = {
@@ -81,12 +118,31 @@ export default function ExamsList() {
                   <Button variant="ghost" size="icon" asChild title="Preview">
                     <Link to={`/admin/exams/${e.id}/edit?tab=preview`}><Eye className="w-4 h-4" /></Link>
                   </Button>
+                  <Button variant="ghost" size="icon" onClick={() => setExamToDelete(e)} title="Delete" className="text-destructive">
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
             </Card>
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!examToDelete}
+        onOpenChange={(open) => !open && setExamToDelete(null)}
+        title="Delete Exam"
+        description={
+          <>
+            <p>Are you sure you want to delete <strong>{examToDelete?.title}</strong>?</p>
+            <p className="text-destructive font-medium">This will permanently delete the exam, all its questions, and any student results/attempts. This action cannot be undone.</p>
+          </>
+        }
+        confirmLabel="Delete Exam"
+        variant="destructive"
+        loading={!!deletingId}
+        onConfirm={() => examToDelete && handleDelete(examToDelete)}
+      />
     </div>
   );
 }
