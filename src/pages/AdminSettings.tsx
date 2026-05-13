@@ -321,9 +321,29 @@ const AdminSettings = () => {
   return (
     <div className="space-y-6 pb-6">
       <div>
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage system configuration, cohorts, users, and branding</p>
+        <h1 className="text-2xl font-bold">Administration</h1>
+        <p className="text-sm text-muted-foreground mt-1">Manage system settings, analytics, and history</p>
       </div>
+
+      <Tabs defaultValue="general" className="w-full">
+        <TabsList className="grid grid-cols-2 md:grid-cols-4 lg:w-max mb-6">
+          <TabsTrigger value="general" className="gap-2">
+            <Settings className="w-4 h-4" /> General
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="gap-2">
+            <BarChart3 className="w-4 h-4" /> Analytics
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="gap-2">
+            <ShieldCheck className="w-4 h-4" /> Audit Log
+          </TabsTrigger>
+          <TabsTrigger value="emails" className="gap-2">
+            <Mail className="w-4 h-4" /> Email History
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="general" className="space-y-6">
+          <div className="space-y-6">
+
 
       {/* Enrollment Management */}
       <Card>
