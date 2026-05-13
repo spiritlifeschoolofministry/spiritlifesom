@@ -35,6 +35,9 @@ const CertificateManager = () => {
   const [saving, setSaving] = useState(false);
   const [pendingChanges, setPendingChanges] = useState<PendingNameChange[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [cohorts, setCohorts] = useState<CohortSettings[]>([]);
+  const [editingCohortId, setEditingCohortId] = useState<string | null>(null);
+  const [cohortForm, setCohortForm] = useState<Partial<CohortSettings>>({});
 
   useEffect(() => {
     loadCertificateData();
