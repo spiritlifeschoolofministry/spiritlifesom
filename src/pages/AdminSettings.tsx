@@ -467,16 +467,7 @@ const AdminSettings = () => {
               value={settings.school_name}
               onChange={(e) => setSettings({ ...settings, school_name: e.target.value })}
               placeholder="Enter school name"
-               className="mt-2"
-            />
-          </div>
-        </CardContent>
-      </Card>
-    </TabsContent>
-
-    <TabsContent value="certificates" className="space-y-6">
-      <CertificateManager />
-    </TabsContent>
+              className="mt-2"
             />
             <p className="text-xs text-muted-foreground mt-1">Displayed in the top-left of the sidebar and headers</p>
           </div>
