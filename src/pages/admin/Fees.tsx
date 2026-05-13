@@ -226,13 +226,26 @@ const AdminFees = () => {
             <CardDescription>Define a fee for a cohort</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit(onAddFee)} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <form onSubmit={handleSubmit(onAddFee)} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <Label>Cohort</Label>
                 <Select value={selectedCohort} onValueChange={(val) => setValue('cohort_id', val)}>
                   <SelectTrigger><SelectValue placeholder="Select cohort" /></SelectTrigger>
                   <SelectContent>
                     {cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Learning Mode</Label>
+                <Select value={selectedMode} onValueChange={(val) => setValue('learning_mode', val)}>
+                  <SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All Students</SelectItem>
+                    <SelectItem value="Online">Online Only</SelectItem>
+                    <SelectItem value="Physical">Physical Only</SelectItem>
+                    <SelectItem value="On-site">On-site Only</SelectItem>
+                    <SelectItem value="Hybrid">Hybrid</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -244,8 +257,8 @@ const AdminFees = () => {
                 <Label>Amount (₦)</Label>
                 <Input type="number" step="0.01" {...register('amount', { required: true })} />
               </div>
-              <div className="md:col-span-3">
-                <Button type="submit" disabled={isProcessing}>{isProcessing ? 'Adding...' : 'Add Fee'}</Button>
+              <div className="md:col-span-2 lg:col-span-4">
+                <Button type="submit" disabled={isProcessing} className="w-full md:w-auto">{isProcessing ? 'Adding...' : 'Add Fee'}</Button>
               </div>
             </form>
 
