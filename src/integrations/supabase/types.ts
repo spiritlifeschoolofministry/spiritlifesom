@@ -816,6 +816,7 @@ export type Database = {
           id: string
           notes: string | null
           storage_path: string
+          storage_provider: string | null
           student_id: string
         }
         Insert: {
@@ -826,6 +827,7 @@ export type Database = {
           id?: string
           notes?: string | null
           storage_path: string
+          storage_provider?: string | null
           student_id: string
         }
         Update: {
@@ -836,6 +838,7 @@ export type Database = {
           id?: string
           notes?: string | null
           storage_path?: string
+          storage_provider?: string | null
           student_id?: string
         }
         Relationships: [
