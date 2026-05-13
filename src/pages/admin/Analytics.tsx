@@ -101,6 +101,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
       setError(err.message || "Failed to load analytics data. Please try again.");
     } finally {
       setLoading(false);
+      setLastRefreshed(new Date());
     }
   };
 
