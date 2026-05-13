@@ -34,3 +34,8 @@ entrypoint = "./functions/purge-old-snapshots/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/resend-student-email/index.ts"
+
+[functions.r2-storage]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/r2-storage/index.ts"
