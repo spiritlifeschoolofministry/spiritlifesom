@@ -152,11 +152,18 @@ const AdminCourses = () => {
           </h1>
           <p className="text-muted-foreground text-sm mt-1">{courses.length} course{courses.length !== 1 ? "s" : ""} total</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center flex-wrap gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Search courses…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-56" />
+            <Input placeholder="Search courses…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48 sm:w-56" />
           </div>
+          <Select value={cohortFilter} onValueChange={setCohortFilter}>
+            <SelectTrigger className="w-[160px]"><SelectValue placeholder="All Cohorts" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Cohorts</SelectItem>
+              {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={openCreate} className="gradient-flame border-0 text-primary-foreground">
