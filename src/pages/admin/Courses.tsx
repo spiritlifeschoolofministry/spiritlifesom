@@ -139,6 +139,13 @@ const AdminCourses = () => {
       (c.lecturer || "").toLowerCase().includes(search.toLowerCase());
     const matchesCohort = cohortFilter === "all" || c.cohort_id === cohortFilter;
     return matchesSearch && matchesCohort;
+  }).sort((a, b) => {
+    if (cohortFilter === "all") {
+      const nameA = (a as any).cohort?.name || "";
+      const nameB = (b as any).cohort?.name || "";
+      if (nameA !== nameB) return nameA.localeCompare(nameB);
+    }
+    return (a.semester || 1) - (b.semester || 1) || a.code.localeCompare(b.code);
   });
 
   const getCohortName = (id: string | null) => cohorts.find(c => c.id === id)?.name || "—";
