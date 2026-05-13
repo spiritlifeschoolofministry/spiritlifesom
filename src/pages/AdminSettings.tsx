@@ -211,7 +211,7 @@ const AdminSettings = () => {
       setPromoting(true);
       const { error } = await supabase
         .from('profiles')
-        .update({ role: 'admin', promoted_at: new Date().toISOString(), promoted_by: profile.id })
+        .update({ role: selectedRole, promoted_at: new Date().toISOString(), promoted_by: profile.id })
         .eq('id', selectedStudent.profile_id);
       if (error) throw error;
       toast.success(`${selectedStudent.first_name} promoted to Admin`);
