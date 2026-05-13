@@ -5,7 +5,8 @@ import StudentLayout from "@/components/StudentLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download, Award, Lock } from "lucide-react";
+import { Download, Award, Lock, Edit2, Check } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 const StudentCertificate = () => {
   const { student, profile } = useAuth();
