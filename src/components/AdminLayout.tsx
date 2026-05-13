@@ -241,7 +241,12 @@ const AdminLayout = () => {
               <SheetTitle className="text-left">Navigation</SheetTitle>
             </SheetHeader>
             <div className="grid grid-cols-3 gap-3 pt-4 pb-6">
-              {NAV_ITEMS.map((item) => {
+              {NAV_ITEMS.filter(item => {
+                if (item.path === "/admin/settings" && role?.toLowerCase() !== "admin") return false;
+                if (item.path === "/admin/audit" && role?.toLowerCase() !== "admin") return false;
+                if (item.path === "/admin/email-history" && role?.toLowerCase() !== "admin") return false;
+                return true;
+              }).map((item) => {
                 const active = location.pathname === item.path;
                 return (
                   <Link
