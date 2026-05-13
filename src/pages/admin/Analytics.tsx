@@ -322,16 +322,60 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Analytics</h1>
-          <p className="text-muted-foreground text-sm mt-1">Comprehensive insights and performance metrics</p>
+    <div className={standalone ? "space-y-6" : "space-y-6"}>
+      {standalone && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Analytics</h1>
+            <p className="text-muted-foreground text-sm mt-1">Comprehensive insights and performance metrics</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Download className="h-4 w-4" /> Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => downloadCSV(enrollmentData, "enrollment_trends")}>Enrollment Trends</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadCSV(revenueData, "revenue_by_fee_type")}>Revenue Data</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadCSV(attendanceData, "attendance_distribution")}>Attendance Data</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadCSV(assignmentData, "task_performance")}>Task Performance</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadCSV(materialsData, "materials_by_course")}>Materials Data</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadCSV(coursePerformance, "course_performance")}>Course Performance</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Select value={cohortFilter} onValueChange={setCohortFilter}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filter by cohort" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Cohorts</SelectItem>
+                {cohorts.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+      )}
+
+      {!standalone && (
+        <div className="flex justify-end items-center gap-2 mb-2">
+          <Select value={cohortFilter} onValueChange={setCohortFilter}>
+            <SelectTrigger className="w-48 h-9">
+              <SelectValue placeholder="Filter by cohort" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Cohorts</SelectItem>
+              {cohorts.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
+              <Button variant="outline" size="sm" className="gap-2 h-9">
                 <Download className="h-4 w-4" /> Export
               </Button>
             </DropdownMenuTrigger>
@@ -344,19 +388,8 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
               <DropdownMenuItem onClick={() => downloadCSV(coursePerformance, "course_performance")}>Course Performance</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Select value={cohortFilter} onValueChange={setCohortFilter}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by cohort" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Cohorts</SelectItem>
-              {cohorts.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
-      </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
