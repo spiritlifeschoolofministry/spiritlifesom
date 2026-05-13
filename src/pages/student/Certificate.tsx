@@ -82,9 +82,12 @@ const StudentCertificate = () => {
   useEffect(() => {
     if (profile) {
       const name = `${profile?.first_name || ""} ${profile?.middle_name || ""} ${profile?.last_name || ""}`.replace(/\s+/g, " ").trim();
-      setCustomName(name);
+      setOriginalFullName(name);
+      if (!student?.name_on_certificate) {
+        setCustomName(name);
+      }
     }
-  }, [profile]);
+  }, [profile, student]);
 
   const fullName = customName;
 
