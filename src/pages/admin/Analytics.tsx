@@ -30,7 +30,7 @@ const COLORS = [
 
 const TOOLTIP_STYLE = { background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 };
 
-const AdminAnalytics = () => {
+const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
   const [loading, setLoading] = useState(true);
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [cohortFilter, setCohortFilter] = useState("all");
