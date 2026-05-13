@@ -74,6 +74,14 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
     });
   }, []);
 
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const interval = setInterval(() => {
+      loadAnalytics();
+    }, 60000); // 60 seconds
+    return () => clearInterval(interval);
+  }, [autoRefresh, cohortFilter]);
+
   useEffect(() => { loadAnalytics(); }, [cohortFilter]);
 
   const loadAnalytics = async () => {
