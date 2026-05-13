@@ -348,7 +348,7 @@ const AdminSettings = () => {
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
-          <div className="space-y-6">
+          <div className="space-y-6"></div>
 
 
       {/* Enrollment Management */}
