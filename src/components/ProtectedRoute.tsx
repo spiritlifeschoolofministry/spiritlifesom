@@ -59,10 +59,19 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
     return <Navigate to="/login" />;
   }
 
+  const normalizedRole = (role ?? "").toLowerCase();
+
   if (requiredRole === "admin") {
-    const normalizedRole = (role ?? "").toLowerCase();
+    // Both admin and teacher can access general admin routes
     if (normalizedRole !== "admin" && normalizedRole !== "teacher") {
       return <Navigate to="/student/dashboard" />;
+    }
+  }
+
+  if (requiredRole === "superadmin") {
+    // Only strict admin can access these routes
+    if (normalizedRole !== "admin") {
+      return <Navigate to="/admin/dashboard" />;
     }
   }
 
