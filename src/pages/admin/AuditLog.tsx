@@ -50,7 +50,7 @@ const variantFor = (action: string): "default" | "destructive" | "secondary" | "
   return "secondary";
 };
 
-const AdminAuditLog = () => {
+const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
