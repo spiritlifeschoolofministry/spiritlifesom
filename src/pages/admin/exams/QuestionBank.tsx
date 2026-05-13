@@ -14,7 +14,8 @@ const RichTextEditor = lazy(() =>
 );
 import { QUESTION_TYPE_LABELS, QuestionType, parseQuestionCSV, sanitizeHtml } from "@/lib/exam-utils";
 import { toast } from "sonner";
-import { Plus, Upload, Archive, Edit, Trash2, Search } from "lucide-react";
+import { Plus, Upload, Archive, Edit, Trash2, Search, Loader2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export default function QuestionBank() {
   const [questions, setQuestions] = useState<any[]>([]);
