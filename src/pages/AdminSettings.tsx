@@ -534,12 +534,12 @@ const AdminSettings = () => {
 
           <div className="pt-6 border-t">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-base">Promote Student to Admin</h3>
+              <h3 className="font-semibold text-base">Promote Student to Staff</h3>
               <Button onClick={() => setShowPromoteDialog(true)} variant="outline" size="sm">Promote User</Button>
             </div>
-            <p className="text-sm text-muted-foreground">Select a student to promote them to administrator role with full system access.</p>
+            <p className="text-sm text-muted-foreground">Select a student to promote them to administrator or teacher role.</p>
             <div className="mt-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded p-3">
-              <p className="text-xs text-yellow-800 dark:text-yellow-200">⚠️ Admins have full access to student data, settings, and can manage all system features.</p>
+              <p className="text-xs text-yellow-800 dark:text-yellow-200">⚠️ Admins have full access to system features, while Teachers have limited access (no settings/logs).</p>
             </div>
           </div>
         </CardContent>
