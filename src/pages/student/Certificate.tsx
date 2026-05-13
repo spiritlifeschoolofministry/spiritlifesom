@@ -309,7 +309,7 @@ const StudentCertificate = () => {
 
               {/* Date */}
               <p className="text-xs sm:text-sm font-bold mt-3 sm:mt-5" style={{ color: "#1a1a2e", fontFamily: "serif" }}>
-                DATE: 20th April, 2025
+                DATE: {globalDate}
               </p>
 
               {/* Signatories */}
