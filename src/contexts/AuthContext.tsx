@@ -178,10 +178,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       async (event, session) => {
         console.log('[Auth] State change:', event);
 
-        if (event === 'SIGNED_IN' && session?.user) {
+        if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.user) {
           setUser(session.user);
-          // Only fetch profile if not already loaded for this user
-          if (!profileLoadedRef.current) {
+          // Fetch profile if it's a new sign in or if user data was updated (like email)
+          if (!profileLoadedRef.current || event === 'USER_UPDATED') {
             startAuthTimeout();
             await getProfile(session.user.id, session.user.user_metadata as UserMetadata | undefined);
           }
