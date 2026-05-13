@@ -151,8 +151,18 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
   };
 
   const getPageTitle = () => {
+    // Check main nav items first
     const currentItem = NAV_ITEMS.find(item => location.pathname === item.path);
-    return currentItem ? `${currentItem.label} | Student Portal` : "Student Portal | SLSOM";
+    if (currentItem) return `${currentItem.label} | Student Portal`;
+
+    // Handle sub-routes or dynamic routes
+    if (location.pathname.startsWith('/student/exams/')) {
+      if (location.pathname.includes('/lobby')) return 'Exam Lobby | Student Portal';
+      if (location.pathname.includes('/take')) return 'Exam Session | Student Portal';
+      return 'Exams | Student Portal';
+    }
+
+    return "Student Portal | SLSOM";
   };
 
   return (
