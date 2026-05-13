@@ -88,9 +88,18 @@ const AdminLayout = () => {
 
   const initials = authProfile ? `${(authProfile.first_name || 'A')[0]}${(authProfile.last_name || 'U')[0]}` : "";
 
+  const getPageTitle = () => {
+    const currentItem = NAV_ITEMS.find(item => location.pathname === item.path);
+    return currentItem ? `${currentItem.label} | Admin Portal` : "Admin Portal | SLSOM";
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <SEO title="Admin Portal | SLSOM" description="Administrative portal for Spirit Life School of Ministry." noindex />
+      <SEO 
+        title={getPageTitle()} 
+        description="Administrative portal for Spirit Life School of Ministry." 
+        noindex 
+      />
       <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 z-30">
         <div className="flex items-center gap-3">
           <button className="md:hidden text-foreground" onClick={() => setSidebarOpen(!sidebarOpen)}>
