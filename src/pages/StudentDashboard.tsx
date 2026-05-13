@@ -68,6 +68,7 @@ const StudentDashboard = () => {
     gender: "",
     age: "",
     cohort_id: "",
+    learning_mode: "",
   });
   const [cohortOptions, setCohortOptions] = useState<CohortOption[]>([]);
   const [allCohortOptions, setAllCohortOptions] = useState<CohortOption[]>([]);
@@ -103,7 +104,7 @@ const StudentDashboard = () => {
 
       const [profileRes, studentRes, coursesRes, announcementsRes, cohortsRes] = await Promise.all([
         supabase.from("profiles").select("first_name, middle_name, last_name").eq("id", authUser.id).maybeSingle(),
-        supabase.from("students").select("id, profile_id, cohort_id, admission_status, is_approved, gender, age").eq("profile_id", authUser.id).maybeSingle(),
+        supabase.from("students").select("id, profile_id, cohort_id, admission_status, is_approved, gender, age, learning_mode").eq("profile_id", authUser.id).maybeSingle(),
         supabase.from("courses").select("id"),
         supabase.from("announcements").select("title, body, published_at").eq("is_published", true).order("published_at", { ascending: false }).limit(3),
         supabase.from("cohorts").select("id, name").eq("is_active", true).order("created_at", { ascending: false }),
@@ -122,12 +123,13 @@ const StudentDashboard = () => {
       }
 
       if (studentRecord) {
-        const hasIncompleteProfile = !studentRecord.gender || !studentRecord.age || !studentRecord.cohort_id;
+        const hasIncompleteProfile = !studentRecord.gender || !studentRecord.age || !studentRecord.cohort_id || !studentRecord.learning_mode;
         setShowProfileCompletion(hasIncompleteProfile);
         setProfileCompletionForm({
           gender: studentRecord.gender || "",
           age: studentRecord.age?.toString() || "",
           cohort_id: studentRecord.cohort_id || "",
+          learning_mode: studentRecord.learning_mode || "",
         });
       }
 
@@ -233,6 +235,7 @@ const StudentDashboard = () => {
     if (!profileCompletionForm.gender) { toast.error("Please select your gender."); return; }
     if (!Number.isInteger(parsedAge) || parsedAge <= 0) { toast.error("Please enter a valid age."); return; }
     if (!profileCompletionForm.cohort_id) { toast.error("Please select your cohort."); return; }
+    if (!profileCompletionForm.learning_mode) { toast.error("Please select your learning mode."); return; }
 
     setSavingProfileCompletion(true);
     try {
@@ -240,6 +243,7 @@ const StudentDashboard = () => {
         gender: profileCompletionForm.gender,
         age: parsedAge,
         cohort_id: profileCompletionForm.cohort_id,
+        learning_mode: profileCompletionForm.learning_mode,
       };
 
       const { error } = await supabase
@@ -299,6 +303,15 @@ const StudentDashboard = () => {
                 <option value="">Select gender</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Learning Mode</Label>
+              <select className="w-full border border-border bg-background p-2 rounded" value={profileCompletionForm.learning_mode} onChange={(e) => setProfileCompletionForm(p => ({...p, learning_mode: e.target.value}))}>
+                <option value="">Select learning mode</option>
+                <option value="Online">Online</option>
+                <option value="Offline">Offline</option>
+                <option value="Blended">Blended</option>
               </select>
             </div>
             <div className="space-y-2">
