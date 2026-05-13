@@ -89,8 +89,25 @@ const AdminLayout = () => {
   const initials = authProfile ? `${(authProfile.first_name || 'A')[0]}${(authProfile.last_name || 'U')[0]}` : "";
 
   const getPageTitle = () => {
+    // Check main nav items first
     const currentItem = NAV_ITEMS.find(item => location.pathname === item.path);
-    return currentItem ? `${currentItem.label} | Admin Portal` : "Admin Portal | SLSOM";
+    if (currentItem) return `${currentItem.label} | Admin Portal`;
+
+    // Handle sub-routes or dynamic routes
+    if (location.pathname.startsWith('/admin/students/')) return 'Student Detail | Admin Portal';
+    if (location.pathname.startsWith('/admin/exams/')) {
+       if (location.pathname.includes('/edit')) return 'Edit Exam | Admin Portal';
+       if (location.pathname.includes('/new')) return 'New Exam | Admin Portal';
+       if (location.pathname.includes('/monitor')) return 'Monitor Exam | Admin Portal';
+       if (location.pathname.includes('/questions')) return 'Question Bank | Admin Portal';
+       return 'Exams | Admin Portal';
+    }
+    if (location.pathname === '/admin/approve') return 'Approve Students | Admin Portal';
+    if (location.pathname === '/admin/analytics') return 'Analytics | Admin Portal';
+    if (location.pathname === '/admin/audit') return 'Audit Log | Admin Portal';
+    if (location.pathname === '/admin/email-history') return 'Email History | Admin Portal';
+
+    return "Admin Portal | SLSOM";
   };
 
   return (
