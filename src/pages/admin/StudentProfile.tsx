@@ -167,6 +167,7 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
       admission_status: student.admission_status || "Pending",
       cohort_id: student.cohort_id || "",
       student_code: student.student_code || "",
+      graduation_date: student.graduation_date || "",
     });
   };
 
