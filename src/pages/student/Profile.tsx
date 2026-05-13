@@ -73,6 +73,7 @@ const AcademicInfoCard = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [form, setForm] = useState<AcademicFormData>({
     learning_mode: studentData.learning_mode || '',
     preferred_language: studentData.preferred_language || '',
