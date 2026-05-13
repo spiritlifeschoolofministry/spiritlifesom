@@ -27,7 +27,14 @@ const StudentCertificate = () => {
 
   const handlePrint = () => window.print();
 
-  const fullName = `${profile?.first_name || ""} ${profile?.middle_name || ""} ${profile?.last_name || ""}`.replace(/\s+/g, " ").trim();
+  useEffect(() => {
+    if (profile) {
+      const name = `${profile?.first_name || ""} ${profile?.middle_name || ""} ${profile?.last_name || ""}`.replace(/\s+/g, " ").trim();
+      setCustomName(name);
+    }
+  }, [profile]);
+
+  const fullName = customName;
 
   if (loading) {
     return (
