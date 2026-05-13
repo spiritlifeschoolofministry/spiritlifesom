@@ -31,6 +31,13 @@ const COLORS = [
 
 const TOOLTIP_STYLE = { background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 };
 
+const EmptyState = ({ message = "No data available for this selection" }: { message?: string }) => (
+  <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+    <Inbox className="h-10 w-10 text-muted-foreground/40 mb-3" />
+    <p className="text-sm text-muted-foreground">{message}</p>
+  </div>
+);
+
 const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
