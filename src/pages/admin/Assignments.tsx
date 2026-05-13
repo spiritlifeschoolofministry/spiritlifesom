@@ -204,6 +204,44 @@ const AdminAssignments = () => {
     }
   };
 
+  const handleDeleteAssignment = async (assignment: AssignmentWithSubmissions) => {
+    try {
+      setIsDeleting(true);
+      
+      // Delete submissions first (due to foreign key constraints if they exist)
+      // Check if there are any submissions
+      const { data: subs } = await supabase
+        .from('assignment_submissions')
+        .select('id')
+        .eq('assignment_id', assignment.id);
+        
+      if (subs && subs.length > 0) {
+        const { error: subDeleteError } = await supabase
+          .from('assignment_submissions')
+          .delete()
+          .eq('assignment_id', assignment.id);
+          
+        if (subDeleteError) throw subDeleteError;
+      }
+
+      const { error } = await supabase
+        .from('assignments')
+        .delete()
+        .eq('id', assignment.id);
+        
+      if (error) throw error;
+      
+      toast.success('Task deleted successfully');
+      setAssignmentToDelete(null);
+      await loadData();
+    } catch (err) {
+      console.error('Delete error:', err);
+      toast.error('Failed to delete task');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleExportGrades = () => {
     if (!selectedAssignment?.submissions) {
       toast.error('No submissions to export');
