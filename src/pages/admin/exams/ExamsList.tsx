@@ -4,8 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, Edit, Activity, BookOpen } from "lucide-react";
+import { Plus, Eye, Edit, Activity, BookOpen, Trash2, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export default function ExamsList() {
   const [exams, setExams] = useState<any[]>([]);
