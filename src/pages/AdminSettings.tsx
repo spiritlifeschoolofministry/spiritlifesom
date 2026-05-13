@@ -728,6 +728,7 @@ const AdminSettings = () => {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   );
 };
 
