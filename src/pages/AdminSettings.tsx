@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Loader2, Check, X, Plus, Trash2, Star, BarChart3, ShieldCheck, Mail, Settings } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AdminAnalytics from './admin/Analytics';
-import AuditLog from './admin/AuditLog';
+import AdminAuditLog from './admin/AuditLog';
 import EmailHistory from './admin/EmailHistory';
 import { toast } from 'sonner';
 import SiteContentEditor from '@/components/admin/SiteContentEditor';
