@@ -358,9 +358,9 @@ const StudentCertificate = () => {
                   color: "#1a1a2e",
                 }}
               >
-                {isPendingVerification ? student?.name_on_certificate : fullName}
+                {customName || fullName}
               </h1>
-              {(student?.student_code || student?.graduation_date) && (
+              {(student?.student_code || student?.graduation_date || cohortData?.graduation_date) && (
                 <div className="flex flex-col items-end">
                   {student?.student_code && (
                     <span
@@ -380,9 +380,9 @@ const StudentCertificate = () => {
               </div>
 
               {/* Completion text */}
-              <p className="text-xs sm:text-sm text-center mt-3 sm:mt-4 leading-relaxed" style={{ color: "#444", fontFamily: "serif", maxWidth: "70%" }}>
-                has successfully completed a year of intensive training<br />
-                and teaching in the School of Ministry
+              <p className="text-xs sm:text-sm text-center mt-3 sm:mt-4 leading-relaxed px-4" style={{ color: "#444", fontFamily: "serif", maxWidth: "85%" }}>
+                {cohortData?.certificate_text_main || 'has successfully completed a year of intensive training and teaching in the School of Ministry'}
+                {cohortData?.certificate_text_sub && <><br />{cohortData.certificate_text_sub}</>}
               </p>
 
               {/* Date */}
