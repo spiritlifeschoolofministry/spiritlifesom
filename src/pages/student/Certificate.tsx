@@ -21,12 +21,61 @@ const StudentCertificate = () => {
   const [originalFullName, setOriginalFullName] = useState("");
 
   useEffect(() => {
-    if (!student?.cohort_id) { setLoading(false); return; }
-    supabase.from("cohorts").select("name, end_date").eq("id", student.cohort_id).single().then(({ data }) => {
-      if (data) setCohortName(data.name);
-      setLoading(false);
-    });
-  }, [student?.cohort_id]);
+    const loadCertConfig = async () => {
+      // Load global date
+      const { data: settingsData } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'global_graduation_date')
+        .maybeSingle();
+      
+      if (settingsData?.value) {
+        try {
+          setGlobalDate(JSON.parse(settingsData.value as string));
+        } catch {
+          setGlobalDate(settingsData.value as string);
+        }
+      }
+
+      if (student) {
+        if (student.name_on_certificate) {
+          setCustomName(student.name_on_certificate);
+        }
+        if (student.pending_name_change) {
+          setIsPendingVerification(true);
+        }
+      }
+    };
+
+    if (student?.cohort_id) {
+      supabase.from("cohorts").select("name, end_date").eq("id", student.cohort_id).single().then(({ data }) => {
+        if (data) setCohortName(data.name);
+      });
+    }
+    
+    loadCertConfig();
+    setLoading(false);
+  }, [student]);
+
+  const requestNameChange = async () => {
+    if (!student || !customName.trim() || customName === originalFullName) return;
+    
+    try {
+      const { error } = await supabase
+        .from('students')
+        .update({ pending_name_change: customName.trim() })
+        .eq('id', student.id);
+      
+      if (error) throw error;
+      
+      setIsPendingVerification(true);
+      setIsEditingName(false);
+      toast.success("Name change request submitted for admin verification");
+    } catch (err) {
+      console.error("Error requesting name change:", err);
+      toast.error("Failed to submit name change request");
+    }
+  };
 
   const handlePrint = () => window.print();
 
