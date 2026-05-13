@@ -211,10 +211,34 @@ const AcademicInfoCard = ({
               <Textarea value={form.ministry_description} onChange={(e) => setForm(f => ({ ...f, ministry_description: e.target.value }))} className="mt-1" placeholder="Describe your ministry involvement" rows={3} />
             </div>
             <div className="flex gap-2 pt-2">
-              <Button onClick={handleSave} disabled={isSaving}>
-                {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                Save Changes
-              </Button>
+              <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+                <AlertDialogTrigger asChild>
+                  <Button onClick={(e) => {
+                    if (form.learning_mode !== studentData.learning_mode) {
+                      e.preventDefault();
+                      setShowConfirm(true);
+                    } else {
+                      handleSave();
+                    }
+                  }} disabled={isSaving}>
+                    {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    Save Changes
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Change Learning Mode?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      You are changing your learning mode from <strong>{studentData.learning_mode || 'None'}</strong> to <strong>{form.learning_mode}</strong>. 
+                      This may affect your course access and attendance requirements. Do you want to continue?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleSave}>Confirm Change</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
               <Button variant="outline" onClick={() => {
                 setIsEditing(false);
                 setForm({
