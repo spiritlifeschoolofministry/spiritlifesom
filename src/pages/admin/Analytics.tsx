@@ -584,7 +584,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
           <CardHeader className="pb-2"><CardTitle className="text-base">Materials by Course</CardTitle></CardHeader>
           <CardContent>
             {materialsData.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-20">No materials uploaded yet.</p>
+              <EmptyState message="No course materials uploaded yet" />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={materialsData.slice(0, 8)} layout="vertical">
