@@ -237,9 +237,21 @@ const StudentCertificate = () => {
               )}
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2 self-start mt-auto h-10 px-4 font-semibold border-primary/20 hover:bg-primary/5">
-            <Download className="w-4 h-4" /> Print / Save PDF
-          </Button>
+          <div className="flex gap-2 self-start mt-auto">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleDownloadPDF} 
+              className="gap-2 h-10 px-4 font-semibold border-primary/20 hover:bg-primary/5"
+              disabled={isDownloading}
+            >
+              {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+              Save PDF
+            </Button>
+            <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2 h-10 px-4 font-semibold border-primary/20 hover:bg-primary/5">
+              <Download className="w-4 h-4" /> Print
+            </Button>
+          </div>
         </div>
 
         {/* Certificate built with code to match official design */}
