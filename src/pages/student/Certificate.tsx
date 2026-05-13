@@ -13,12 +13,11 @@ import jsPDF from "jspdf";
 
 const StudentCertificate = () => {
   const { student, profile } = useAuth();
-  const [cohortName, setCohortName] = useState("");
   const [loading, setLoading] = useState(true);
   const [customName, setCustomName] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [cohortDetails, setCohortName] = useState<{ name: string; graduation_date?: string; certificate_text_main?: string; certificate_text_sub?: string } | null>(null);
+  const [cohortData, setCohortData] = useState<{ name: string; graduation_date?: string; certificate_text_main?: string; certificate_text_sub?: string } | null>(null);
 
   const isGraduate = (student?.admission_status || "").toUpperCase() === "GRADUATE";
   const [globalDate, setGlobalDate] = useState("20th April, 2025");
