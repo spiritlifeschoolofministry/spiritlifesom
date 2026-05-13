@@ -57,6 +57,7 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
   const [actionFilter, setActionFilter] = useState<string>("all");
   const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
   const [toDate, setToDate] = useState<Date | undefined>(undefined);
+  const [studentNames, setStudentNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const load = async () => {
@@ -79,6 +80,28 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
           .limit(500);
         if (error) throw error;
         setRows(data || []);
+
+        // Fetch student names for student entities
+        const studentIds = (data || [])
+          .filter(r => r.entity_type === 'student' && r.entity_id)
+          .map(r => r.entity_id as string);
+
+        if (studentIds.length > 0) {
+          const { data: students } = await supabase
+            .from('students')
+            .select('id, profiles(first_name, last_name)')
+            .in('id', studentIds);
+          
+          if (students) {
+            const nameMap: Record<string, string> = {};
+            students.forEach((s: any) => {
+              if (s.profiles) {
+                nameMap[s.id] = `${s.profiles.first_name || ''} ${s.profiles.last_name || ''}`.trim();
+              }
+            });
+            setStudentNames(nameMap);
+          }
+        }
       } catch (err) {
         console.error("Audit log load failed", err);
         toast.error("Failed to load audit log");
@@ -303,7 +326,13 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
                         <p className="text-sm">{r.summary || "—"}</p>
                         {r.entity_id && (
                           <p className="text-[10px] text-muted-foreground font-mono mt-1">
-                            {r.entity_type}:{r.entity_id.slice(0, 8)}
+                            {r.entity_type === 'student' && studentNames[r.entity_id] ? (
+                              <span className="text-primary font-semibold">
+                                student:{studentNames[r.entity_id]}
+                              </span>
+                            ) : (
+                              `${r.entity_type}:${r.entity_id.slice(0, 8)}`
+                            )}
                           </p>
                         )}
                       </TableCell>

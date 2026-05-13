@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Check, X, Plus, Trash2, Star, BarChart3, ShieldCheck, Mail, Settings } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AdminAnalytics from './admin/Analytics';
@@ -70,6 +71,7 @@ const AdminSettings = () => {
   const [showPromoteDialog, setShowPromoteDialog] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<StudentForPromotion | null>(null);
   const [promoting, setPromoting] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<'admin' | 'teacher'>('teacher');
 
   // Cohort management state
   const [showCreateCohortDialog, setShowCreateCohortDialog] = useState(false);
@@ -137,7 +139,7 @@ const AdminSettings = () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, email, first_name, last_name, role, promoted_at, promoted_by')
-        .eq('role', 'admin')
+        .in('role', ['admin', 'teacher'])
         .order('first_name');
       if (error) throw error;
       setAdminUsers((data as any) || []);
@@ -210,7 +212,7 @@ const AdminSettings = () => {
       setPromoting(true);
       const { error } = await supabase
         .from('profiles')
-        .update({ role: 'admin', promoted_at: new Date().toISOString(), promoted_by: profile.id })
+        .update({ role: selectedRole, promoted_at: new Date().toISOString(), promoted_by: profile.id })
         .eq('id', selectedStudent.profile_id);
       if (error) throw error;
       toast.success(`${selectedStudent.first_name} promoted to Admin`);
@@ -533,12 +535,12 @@ const AdminSettings = () => {
 
           <div className="pt-6 border-t">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-base">Promote Student to Admin</h3>
+              <h3 className="font-semibold text-base">Promote Student to Staff</h3>
               <Button onClick={() => setShowPromoteDialog(true)} variant="outline" size="sm">Promote User</Button>
             </div>
-            <p className="text-sm text-muted-foreground">Select a student to promote them to administrator role with full system access.</p>
+            <p className="text-sm text-muted-foreground">Select a student to promote them to administrator or teacher role.</p>
             <div className="mt-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded p-3">
-              <p className="text-xs text-yellow-800 dark:text-yellow-200">⚠️ Admins have full access to student data, settings, and can manage all system features.</p>
+              <p className="text-xs text-yellow-800 dark:text-yellow-200">⚠️ Admins have full access to system features, while Teachers have limited access (no settings/logs).</p>
             </div>
           </div>
         </CardContent>
@@ -569,10 +571,25 @@ const AdminSettings = () => {
       <Dialog open={showPromoteDialog} onOpenChange={setShowPromoteDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Promote Student to Admin</DialogTitle>
-            <DialogDescription>Select a student to grant administrator privileges</DialogDescription>
+            <DialogTitle>Promote Student to Staff</DialogTitle>
+            <DialogDescription>Select a student and their new role</DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 max-h-96 overflow-y-auto">
+          <div className="space-y-4">
+            <div className="flex flex-col gap-2">
+              <Label>Select Role</Label>
+              <Select value={selectedRole} onValueChange={(v: any) => setSelectedRole(v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="teacher">Teacher (Restricted Access)</SelectItem>
+                  <SelectItem value="admin">Administrator (Full Access)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label>Select Student</Label>
+              <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
             {students?.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">No students available to promote</p>
             ) : (
@@ -589,6 +606,8 @@ const AdminSettings = () => {
                 </div>
               ))
             )}
+            </div>
+          </div>
           </div>
           <div className="flex gap-2 justify-end pt-4 border-t">
             <Button variant="outline" onClick={() => setShowPromoteDialog(false)}>Cancel</Button>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,11 +8,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
-import { Users, TrendingUp, CalendarCheck, ClipboardList, Download, Folder, BookOpen, GraduationCap, CreditCard } from "lucide-react";
+import { Users, TrendingUp, CalendarCheck, ClipboardList, Download, Folder, BookOpen, GraduationCap, CreditCard, AlertCircle, Inbox } from "lucide-react";
 import { downloadCSV } from "@/lib/csv-export";
 
 interface Cohort { id: string; name: string; }
@@ -30,8 +31,16 @@ const COLORS = [
 
 const TOOLTIP_STYLE = { background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 };
 
+const EmptyState = ({ message = "No data available for this selection" }: { message?: string }) => (
+  <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+    <Inbox className="h-10 w-10 text-muted-foreground/40 mb-3" />
+    <p className="text-sm text-muted-foreground">{message}</p>
+  </div>
+);
+
 const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [cohortFilter, setCohortFilter] = useState("all");
 
@@ -67,6 +76,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
 
   const loadAnalytics = async () => {
     setLoading(true);
+    setError(null);
     try {
       await Promise.all([
         loadEnrollment(),
@@ -76,6 +86,9 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
         loadMaterials(),
         loadCoursePerformance(),
       ]);
+    } catch (err: any) {
+      console.error("Analytics load failed", err);
+      setError(err.message || "Failed to load analytics data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -339,6 +352,14 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
 
   return (
     <div className={standalone ? "space-y-6" : "space-y-6"}>
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       {standalone && (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
@@ -481,7 +502,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
           <CardHeader className="pb-2"><CardTitle className="text-base">Gender Distribution</CardTitle></CardHeader>
           <CardContent>
             {genderData.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-20">No data available.</p>
+              <EmptyState message="No gender distribution data available" />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
@@ -501,7 +522,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
           <CardHeader className="pb-2"><CardTitle className="text-base">Learning Mode Distribution</CardTitle></CardHeader>
           <CardContent>
             {learningModeData.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-20">No data available.</p>
+              <EmptyState message="No learning mode data available" />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
@@ -521,7 +542,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
           <CardHeader className="pb-2"><CardTitle className="text-base">Revenue by Fee Type</CardTitle></CardHeader>
           <CardContent>
             {revenueData.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-20">No fee data available.</p>
+              <EmptyState message="No revenue data found for this period" />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={revenueData} layout="vertical">
@@ -543,7 +564,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
           <CardHeader className="pb-2"><CardTitle className="text-base">Attendance Distribution</CardTitle></CardHeader>
           <CardContent>
             {attendanceData.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-20">No attendance data available.</p>
+              <EmptyState message="No attendance records found" />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
@@ -563,7 +584,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
           <CardHeader className="pb-2"><CardTitle className="text-base">Materials by Course</CardTitle></CardHeader>
           <CardContent>
             {materialsData.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-20">No materials uploaded yet.</p>
+              <EmptyState message="No course materials uploaded yet" />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={materialsData.slice(0, 8)} layout="vertical">
@@ -585,7 +606,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
           <CardHeader className="pb-2"><CardTitle className="text-base">Materials by File Type</CardTitle></CardHeader>
           <CardContent>
             {materialsByType.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-20">No materials data.</p>
+              <EmptyState message="No materials data available" />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
@@ -605,7 +626,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
           <CardHeader className="pb-2"><CardTitle className="text-base">Task Performance (Top 10)</CardTitle></CardHeader>
           <CardContent>
             {assignmentData.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-20">No task data available.</p>
+              <EmptyState message="No tasks or submissions found" />
             ) : (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={assignmentData}>
@@ -627,7 +648,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
           <CardHeader className="pb-2"><CardTitle className="text-base">Course Performance Overview</CardTitle></CardHeader>
           <CardContent>
             {coursePerformance.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-12">No course performance data.</p>
+              <EmptyState message="No course performance data recorded" />
             ) : (
               <div className="overflow-x-auto">
                 <Table>
