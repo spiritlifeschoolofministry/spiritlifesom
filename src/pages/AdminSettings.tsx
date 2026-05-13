@@ -70,6 +70,7 @@ const AdminSettings = () => {
   const [showPromoteDialog, setShowPromoteDialog] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<StudentForPromotion | null>(null);
   const [promoting, setPromoting] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<'admin' | 'teacher'>('teacher');
 
   // Cohort management state
   const [showCreateCohortDialog, setShowCreateCohortDialog] = useState(false);
