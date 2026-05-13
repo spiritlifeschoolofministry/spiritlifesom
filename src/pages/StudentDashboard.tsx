@@ -104,7 +104,7 @@ const StudentDashboard = () => {
 
       const [profileRes, studentRes, coursesRes, announcementsRes, cohortsRes] = await Promise.all([
         supabase.from("profiles").select("first_name, middle_name, last_name").eq("id", authUser.id).maybeSingle(),
-        supabase.from("students").select("id, profile_id, cohort_id, admission_status, is_approved, gender, age").eq("profile_id", authUser.id).maybeSingle(),
+        supabase.from("students").select("id, profile_id, cohort_id, admission_status, is_approved, gender, age, learning_mode").eq("profile_id", authUser.id).maybeSingle(),
         supabase.from("courses").select("id"),
         supabase.from("announcements").select("title, body, published_at").eq("is_published", true).order("published_at", { ascending: false }).limit(3),
         supabase.from("cohorts").select("id, name").eq("is_active", true).order("created_at", { ascending: false }),
