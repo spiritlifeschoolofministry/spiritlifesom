@@ -1,6 +1,7 @@
 import { useMemo, useState, useRef, useCallback } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import ScrollToTop from "@/components/ScrollToTop";
+import SEO from "@/components/SEO";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
 
@@ -151,6 +152,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEO title="Student Portal | SLSOM" description="Student portal for Spirit Life School of Ministry." noindex />
       {/* Top Nav */}
       <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 z-30">
         <div className="flex items-center gap-3">
