@@ -522,7 +522,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
           <CardHeader className="pb-2"><CardTitle className="text-base">Learning Mode Distribution</CardTitle></CardHeader>
           <CardContent>
             {learningModeData.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-20">No data available.</p>
+              <EmptyState message="No learning mode data available" />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
