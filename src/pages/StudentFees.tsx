@@ -15,9 +15,10 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Upload, CreditCard, Wallet, TrendingDown, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { Loader2, Upload, CreditCard, Wallet, TrendingDown, CheckCircle, AlertCircle, Clock, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
+import { r2Storage } from '@/lib/r2-storage';
 
 type Fee = Tables<'fees'>;
 type Payment = Tables<'payments'>;
@@ -32,7 +33,7 @@ interface SubmitPaymentFormData {
 const StudentFees = () => {
   const { user, student } = useAuth();
   const [fees, setFees] = useState<Fee[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -75,6 +76,19 @@ const StudentFees = () => {
   const isFullyPaid = remainingBalance <= 0 && fees.length > 0;
   const hasBalance = remainingBalance > 0;
 
+  const handleDownload = async (payment: any) => {
+    try {
+      if (payment.storage_provider === 'r2') {
+        const url = await r2Storage.getDownloadUrl(payment.storage_path || payment.payment_proof_url);
+        window.open(url, '_blank');
+      } else {
+        window.open(`${payment.payment_proof_url}?download=`, '_blank');
+      }
+    } catch (err) {
+      toast.error("Failed to get download link");
+    }
+  };
+
   const onSubmit = async (data: SubmitPaymentFormData) => {
     if (!user || !student?.id || !receiptFile) {
       toast.error('Please complete all fields and select a receipt file');
@@ -82,10 +96,22 @@ const StudentFees = () => {
     }
     try {
       setIsSubmitting(true);
-      const fileName = `${student.id}/${Date.now()}-${receiptFile.name}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage.from('course-materials').upload(fileName, receiptFile);
-      if (uploadError) { toast.error('Failed to upload receipt'); return; }
-      const { data: urlData } = supabase.storage.from('course-materials').getPublicUrl(uploadData.path);
+      const fileName = `payments/${student.id}/${Date.now()}-${receiptFile.name}`;
+      
+      let storageProvider = 'r2';
+      let filePath = fileName;
+      let fileUrl = fileName;
+
+      try {
+        await r2Storage.uploadFile(receiptFile, fileName);
+      } catch (err) {
+        console.error("R2 upload failed, falling back to Supabase:", err);
+        const { data: uploadData, error: uploadError } = await supabase.storage.from('course-materials').upload(fileName, receiptFile);
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage.from('course-materials').getPublicUrl(uploadData.path);
+        fileUrl = urlData.publicUrl;
+        storageProvider = 'supabase';
+      }
 
       // Look up fee_structure id from the selected fee record
       let feeStructureId: string | null = null;
@@ -101,9 +127,14 @@ const StudentFees = () => {
       }
 
       const { error: paymentError } = await supabase.from('payments').insert({
-        student_id: student.id, amount_paid: parseFloat(data.amount),
+        student_id: student.id, 
+        amount_paid: parseFloat(data.amount),
         fee_id: feeStructureId,
-        payment_proof_url: urlData.publicUrl, admin_notes: data.notes || null, status: 'PENDING',
+        payment_proof_url: fileUrl, 
+        storage_path: filePath,
+        storage_provider: storageProvider,
+        admin_notes: data.notes || null, 
+        status: 'PENDING',
       });
       if (paymentError) { toast.error('Failed to submit payment'); return; }
       toast.success('Payment submitted. Awaiting admin verification.');
@@ -366,6 +397,7 @@ const StudentFees = () => {
                         <TableHead>Amount</TableHead>
                         <TableHead>Date</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Receipt</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -374,6 +406,15 @@ const StudentFees = () => {
                           <TableCell className="font-medium">₦{(payment.amount_paid || 0).toLocaleString()}</TableCell>
                           <TableCell className="text-muted-foreground">{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : '—'}</TableCell>
                           <TableCell>{getPaymentStatusBadge(payment.status)}</TableCell>
+                          <TableCell className="text-right">
+                            {payment.payment_proof_url ? (
+                              <button onClick={() => handleDownload(payment)} className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
+                                View <ExternalLink className="h-3 w-3" />
+                              </button>
+                            ) : (
+                              <span className="text-muted-foreground text-xs italic">—</span>
+                            )}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

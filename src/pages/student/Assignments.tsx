@@ -13,9 +13,10 @@ import { Loader2, Upload, File, Clock, CheckCircle2, AlertCircle, ClipboardList,
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { calculateTimeRemaining, formatTimeRemaining, type TimeRemaining } from '@/lib/timer';
+import { r2Storage } from '@/lib/r2-storage';
 
 interface AssignmentWithSubmission extends Tables<'assignments'> {
-  submission?: Tables<'assignment_submissions'> | null;
+  submission?: any | null;
 }
 
 const StudentAssignments = () => {
@@ -63,17 +64,47 @@ const StudentAssignments = () => {
     }
   };
 
+  const handleDownload = async (submission: any) => {
+    try {
+      if (submission.storage_provider === 'r2') {
+        const url = await r2Storage.getDownloadUrl(submission.storage_path || submission.file_url);
+        window.open(url, '_blank');
+      } else {
+        window.open(`${submission.file_url}?download=`, '_blank');
+      }
+    } catch (err) {
+      toast.error("Failed to get download link");
+    }
+  };
+
   const handleSubmit = async (assignmentId: string) => {
     if (!selectedFile || !student?.id) { toast.error('Please select a file'); return; }
     try {
       setSubmitting(assignmentId);
-      const fileName = `${student.id}/${assignmentId}/${Date.now()}_${selectedFile.name}`;
-      const { error: uploadError } = await supabase.storage.from('assignments').upload(fileName, selectedFile);
-      if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage.from('assignments').getPublicUrl(fileName);
+      const fileName = `assignments/${student.id}/${assignmentId}/${Date.now()}_${selectedFile.name}`;
+      
+      let storageProvider = 'r2';
+      let filePath = fileName;
+      let fileUrl = fileName;
+
+      try {
+        await r2Storage.uploadFile(selectedFile, fileName);
+      } catch (err) {
+        console.error("R2 upload failed, falling back to Supabase:", err);
+        const { error: uploadError } = await supabase.storage.from('assignments').upload(fileName, selectedFile);
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage.from('assignments').getPublicUrl(fileName);
+        fileUrl = urlData?.publicUrl || fileName;
+        storageProvider = 'supabase';
+      }
+
       const { error: insertError } = await supabase.from('assignment_submissions').insert({
-        assignment_id: assignmentId, student_id: student.id,
-        file_url: urlData?.publicUrl, submitted_at: new Date().toISOString(),
+        assignment_id: assignmentId, 
+        student_id: student.id,
+        file_url: fileUrl, 
+        storage_path: filePath,
+        storage_provider: storageProvider,
+        submitted_at: new Date().toISOString(),
       });
       if (insertError) throw insertError;
       toast.success('Assignment submitted successfully');
@@ -239,10 +270,8 @@ const StudentAssignments = () => {
                           <CheckCircle2 className="w-4 h-4" /> Submitted on {new Date(assignment.submission.submitted_at || '').toLocaleDateString()}
                         </p>
                         {assignment.submission.file_url && (
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={`${assignment.submission.file_url}?download=`} download className="flex items-center gap-2">
-                              <File className="w-4 h-4" /> Download Submission
-                            </a>
+                          <Button variant="outline" size="sm" onClick={() => handleDownload(assignment.submission)}>
+                            <File className="w-4 h-4 mr-2" /> Download Submission
                           </Button>
                         )}
                         {assignment.submission.grade != null && (

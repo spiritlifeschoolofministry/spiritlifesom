@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Camera, CameraOff, AlertTriangle } from "lucide-react";
+import { r2Storage } from "@/lib/r2-storage";
 
 interface Props {
   attemptId: string;
@@ -10,7 +11,7 @@ interface Props {
 }
 
 /**
- * Captures a webcam snapshot every N seconds and uploads to Supabase Storage.
+ * Captures a webcam snapshot every N seconds and uploads to Cloudflare R2.
  * Records each upload in the `exam_snapshots` table for admin review.
  */
 export default function WebcamProctor({ attemptId, examId, studentId, intervalSeconds = 30 }: Props) {
@@ -59,18 +60,39 @@ export default function WebcamProctor({ attemptId, examId, studentId, intervalSe
       ctx.drawImage(video, 0, 0, 320, 240);
       canvas.toBlob(async (blob) => {
         if (!blob) return;
-        const path = `${attemptId}/${Date.now()}.jpg`;
-        const { error: upErr } = await supabase.storage
-          .from("proctor-snapshots")
-          .upload(path, blob, { contentType: "image/jpeg", upsert: false });
-        if (upErr) return;
-        await supabase.from("exam_snapshots").insert({
-          attempt_id: attemptId,
-          exam_id: examId,
-          student_id: studentId,
-          storage_path: path,
-        });
-        setCount((c) => c + 1);
+        const fileName = `proctoring/${attemptId}/${Date.now()}.jpg`;
+        
+        try {
+          // Upload to R2 instead of Supabase Storage
+          await r2Storage.uploadFile(blob, fileName);
+          
+          await supabase.from("exam_snapshots").insert({
+            attempt_id: attemptId,
+            exam_id: examId,
+            student_id: studentId,
+            storage_path: fileName,
+            storage_provider: 'r2'
+          });
+          
+          setCount((c) => c + 1);
+        } catch (err) {
+          console.error("R2 upload failed, falling back to Supabase:", err);
+          // Fallback to Supabase if R2 is not configured yet or fails
+          const { data: upData, error: upErr } = await supabase.storage
+            .from("proctor-snapshots")
+            .upload(fileName, blob, { contentType: "image/jpeg", upsert: false });
+            
+          if (!upErr) {
+            await supabase.from("exam_snapshots").insert({
+              attempt_id: attemptId,
+              exam_id: examId,
+              student_id: studentId,
+              storage_path: fileName,
+              storage_provider: 'supabase'
+            });
+            setCount((c) => c + 1);
+          }
+        }
       }, "image/jpeg", 0.7);
     };
     // First capture after 5s, then every interval

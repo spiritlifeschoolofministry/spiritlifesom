@@ -109,6 +109,8 @@ export type Database = {
           id: string
           reviewed_at: string | null
           reviewed_by: string | null
+          storage_path: string | null
+          storage_provider: string | null
           student_id: string
           submission_text: string | null
           submitted_at: string | null
@@ -121,6 +123,8 @@ export type Database = {
           id?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
+          storage_path?: string | null
+          storage_provider?: string | null
           student_id: string
           submission_text?: string | null
           submitted_at?: string | null
@@ -133,6 +137,8 @@ export type Database = {
           id?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
+          storage_path?: string | null
+          storage_provider?: string | null
           student_id?: string
           submission_text?: string | null
           submitted_at?: string | null
@@ -400,6 +406,8 @@ export type Database = {
           is_paid: boolean | null
           is_pinned: boolean | null
           material_type: string | null
+          storage_path: string | null
+          storage_provider: string | null
           title: string
           uploaded_by: string | null
         }
@@ -414,6 +422,8 @@ export type Database = {
           is_paid?: boolean | null
           is_pinned?: boolean | null
           material_type?: string | null
+          storage_path?: string | null
+          storage_provider?: string | null
           title: string
           uploaded_by?: string | null
         }
@@ -428,6 +438,8 @@ export type Database = {
           is_paid?: boolean | null
           is_pinned?: boolean | null
           material_type?: string | null
+          storage_path?: string | null
+          storage_provider?: string | null
           title?: string
           uploaded_by?: string | null
         }
@@ -816,6 +828,7 @@ export type Database = {
           id: string
           notes: string | null
           storage_path: string
+          storage_provider: string | null
           student_id: string
         }
         Insert: {
@@ -826,6 +839,7 @@ export type Database = {
           id?: string
           notes?: string | null
           storage_path: string
+          storage_provider?: string | null
           student_id: string
         }
         Update: {
@@ -836,6 +850,7 @@ export type Database = {
           id?: string
           notes?: string | null
           storage_path?: string
+          storage_provider?: string | null
           student_id?: string
         }
         Relationships: [
@@ -1179,6 +1194,8 @@ export type Database = {
           payment_date: string | null
           payment_proof_url: string | null
           status: string | null
+          storage_path: string | null
+          storage_provider: string | null
           student_id: string | null
         }
         Insert: {
@@ -1191,6 +1208,8 @@ export type Database = {
           payment_date?: string | null
           payment_proof_url?: string | null
           status?: string | null
+          storage_path?: string | null
+          storage_provider?: string | null
           student_id?: string | null
         }
         Update: {
@@ -1203,6 +1222,8 @@ export type Database = {
           payment_date?: string | null
           payment_proof_url?: string | null
           status?: string | null
+          storage_path?: string | null
+          storage_provider?: string | null
           student_id?: string | null
         }
         Relationships: [
