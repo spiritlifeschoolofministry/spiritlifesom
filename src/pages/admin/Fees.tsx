@@ -248,9 +248,12 @@ const AdminFees = () => {
                     <SelectItem value="All">All Students</SelectItem>
                     <SelectItem value="Online">Online Only</SelectItem>
                     <SelectItem value="Physical">Physical Only</SelectItem>
-                    <SelectItem value="Hybrid">Hybrid</SelectItem>
+                    <SelectItem value="Hybrid">Hybrid Students</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-[10px] text-muted-foreground mt-1 leading-tight">
+                  Hybrid students are only charged fees marked 'All' or 'Hybrid'.
+                </p>
               </div>
               <div>
                 <Label>Fee Name</Label>
