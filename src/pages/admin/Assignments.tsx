@@ -48,6 +48,8 @@ const AdminAssignments = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<AssignmentWithSubmissions | null>(null);
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [assignmentToDelete, setAssignmentToDelete] = useState<AssignmentWithSubmissions | null>(null);
   const [gradingId, setGradingId] = useState<string | null>(null);
   const [gradingFeedback, setGradingFeedback] = useState('');
   const [gradingScore, setGradingScore] = useState<string>('');
