@@ -57,6 +57,7 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
   const [actionFilter, setActionFilter] = useState<string>("all");
   const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
   const [toDate, setToDate] = useState<Date | undefined>(undefined);
+  const [studentNames, setStudentNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const load = async () => {
