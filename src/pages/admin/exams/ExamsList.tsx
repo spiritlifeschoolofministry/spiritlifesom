@@ -12,17 +12,52 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 export default function ExamsList() {
   const [exams, setExams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [examToDelete, setExamToDelete] = useState<any | null>(null);
+
+  const loadExams = async () => {
+    const { data } = await supabase
+      .from("exams")
+      .select("*, courses(code,title), cohorts(name)")
+      .order("start_at", { ascending: false });
+    setExams(data ?? []);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("exams")
-        .select("*, courses(code,title), cohorts(name)")
-        .order("start_at", { ascending: false });
-      setExams(data ?? []);
-      setLoading(false);
-    })();
+    loadExams();
   }, []);
+
+  const handleDelete = async (exam: any) => {
+    try {
+      setDeletingId(exam.id);
+      
+      // Cascade delete is usually handled by DB, but let's be safe if needed
+      // Delete questions first if there's no cascade
+      const { error: questionsError } = await supabase
+        .from('exam_questions')
+        .delete()
+        .eq('exam_id', exam.id);
+        
+      if (questionsError) throw questionsError;
+
+      const { error } = await supabase
+        .from("exams")
+        .delete()
+        .eq("id", exam.id);
+        
+      if (error) throw error;
+      
+      toast.success("Exam deleted successfully");
+      setExamToDelete(null);
+      await loadExams();
+    } catch (err: any) {
+      console.error("Delete error:", err);
+      toast.error(err.message || "Failed to delete exam");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const statusBadge = (s: string) => {
     const map: Record<string, string> = {
