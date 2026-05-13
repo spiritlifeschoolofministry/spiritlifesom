@@ -224,7 +224,9 @@ const AdminFees = () => {
         <Card>
           <CardHeader>
             <CardTitle>Create New Fee</CardTitle>
-            <CardDescription>Define a fee for a cohort</CardDescription>
+            <CardDescription>
+              Define a fee for a cohort. Fees marked as 'All' apply to everyone. Specific modes only apply to students in that learning mode.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onAddFee)} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
