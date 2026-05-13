@@ -1466,6 +1466,7 @@ export type Database = {
           educational_background: string | null
           fees_paid: number | null
           gender: string | null
+          graduation_date: string | null
           has_discovered_ministry: boolean | null
           id: string
           is_approved: boolean | null
@@ -1473,6 +1474,8 @@ export type Database = {
           learning_mode: string | null
           marital_status: string | null
           ministry_description: string | null
+          name_on_certificate: string | null
+          pending_name_change: string | null
           preferred_language: string | null
           profile_id: string
           profile_image_url: string | null
@@ -1494,6 +1497,7 @@ export type Database = {
           educational_background?: string | null
           fees_paid?: number | null
           gender?: string | null
+          graduation_date?: string | null
           has_discovered_ministry?: boolean | null
           id?: string
           is_approved?: boolean | null
@@ -1501,6 +1505,8 @@ export type Database = {
           learning_mode?: string | null
           marital_status?: string | null
           ministry_description?: string | null
+          name_on_certificate?: string | null
+          pending_name_change?: string | null
           preferred_language?: string | null
           profile_id: string
           profile_image_url?: string | null
@@ -1522,6 +1528,7 @@ export type Database = {
           educational_background?: string | null
           fees_paid?: number | null
           gender?: string | null
+          graduation_date?: string | null
           has_discovered_ministry?: boolean | null
           id?: string
           is_approved?: boolean | null
@@ -1529,6 +1536,8 @@ export type Database = {
           learning_mode?: string | null
           marital_status?: string | null
           ministry_description?: string | null
+          name_on_certificate?: string | null
+          pending_name_change?: string | null
           preferred_language?: string | null
           profile_id?: string
           profile_image_url?: string | null

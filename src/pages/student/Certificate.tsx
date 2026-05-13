@@ -115,9 +115,9 @@ const StudentCertificate = () => {
         </div>
 
         {/* Certificate built with code to match official design */}
-        <div className="print:m-0">
+        <div className="print:m-0 certificate-container">
           <div
-            className="relative overflow-hidden max-w-4xl mx-auto shadow-2xl print:shadow-none print:max-w-none"
+            className="relative overflow-hidden max-w-4xl mx-auto shadow-2xl print:shadow-none print:max-w-none certificate-content"
             style={{ aspectRatio: "1.414 / 1", borderRadius: "12px" }}
           >
             {/* Background */}
