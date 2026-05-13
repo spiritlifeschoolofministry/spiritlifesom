@@ -224,7 +224,9 @@ const AdminFees = () => {
         <Card>
           <CardHeader>
             <CardTitle>Create New Fee</CardTitle>
-            <CardDescription>Define a fee for a cohort</CardDescription>
+            <CardDescription>
+              Define a fee for a cohort. Fees marked as 'All' apply to everyone. Specific modes only apply to students in that learning mode.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onAddFee)} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -239,15 +241,19 @@ const AdminFees = () => {
               </div>
               <div>
                 <Label>Learning Mode</Label>
+                <p className="text-[10px] text-muted-foreground mb-1">Target students</p>
                 <Select value={selectedMode} onValueChange={(val) => setValue('learning_mode', val)}>
                   <SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="All">All Students</SelectItem>
                     <SelectItem value="Online">Online Only</SelectItem>
                     <SelectItem value="Physical">Physical Only</SelectItem>
-                    <SelectItem value="Hybrid">Hybrid</SelectItem>
+                    <SelectItem value="Hybrid">Hybrid Students</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-[10px] text-muted-foreground mt-1 leading-tight">
+                  Hybrid students are only charged fees marked 'All' or 'Hybrid'.
+                </p>
               </div>
               <div>
                 <Label>Fee Name</Label>
