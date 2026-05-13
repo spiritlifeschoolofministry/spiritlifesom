@@ -186,15 +186,15 @@ const CertificateManager = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Award className="h-5 w-5" /> Global Certificate Settings
+            <Award className="h-5 w-5" /> Global Fallback Settings
           </CardTitle>
           <CardDescription>
-            Update information that appears on all student certificates.
+            Default date used when a cohort doesn't have a specific graduation date.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-2 max-w-sm">
-            <Label htmlFor="grad-date">Graduation Date Text</Label>
+            <Label htmlFor="grad-date">Fallback Graduation Date</Label>
             <div className="flex gap-2">
               <Input 
                 id="grad-date" 
@@ -206,9 +206,98 @@ const CertificateManager = () => {
                 {saving ? <Loader2 className="animate-spin h-4 w-4" /> : 'Update'}
               </Button>
             </div>
-            <p className="text-[11px] text-muted-foreground italic">
-              * This will update the "DATE" field on the certificate for all students.
-            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Award className="h-5 w-5" /> Cohort Certificate Settings
+          </CardTitle>
+          <CardDescription>
+            Manage certificate details (date, descriptions) for each cohort.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="border rounded-md overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cohort</TableHead>
+                  <TableHead>Graduation Date</TableHead>
+                  <TableHead>Text Elements</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {cohorts.map((cohort) => (
+                  <TableRow key={cohort.id}>
+                    <TableCell className="font-medium">{cohort.name}</TableCell>
+                    <TableCell>
+                      {editingCohortId === cohort.id ? (
+                        <Input 
+                          type="date" 
+                          value={cohortForm.graduation_date || ''} 
+                          onChange={(e) => setCohortForm({ ...cohortForm, graduation_date: e.target.value })}
+                          className="h-8"
+                        />
+                      ) : (
+                        cohort.graduation_date || 'Not set'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {editingCohortId === cohort.id ? (
+                        <div className="space-y-2 py-1">
+                          <Input 
+                            placeholder="Main text..." 
+                            value={cohortForm.certificate_text_main || ''} 
+                            onChange={(e) => setCohortForm({ ...cohortForm, certificate_text_main: e.target.value })}
+                            className="h-8 text-xs"
+                          />
+                          <Input 
+                            placeholder="Sub text (optional)..." 
+                            value={cohortForm.certificate_text_sub || ''} 
+                            onChange={(e) => setCohortForm({ ...cohortForm, certificate_text_sub: e.target.value })}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      ) : (
+                        <div className="max-w-[300px]">
+                          <p className="text-xs truncate">{cohort.certificate_text_main || 'Default main text'}</p>
+                          {cohort.certificate_text_sub && (
+                            <p className="text-[10px] text-muted-foreground truncate">{cohort.certificate_text_sub}</p>
+                          )}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {editingCohortId === cohort.id ? (
+                        <div className="flex justify-end gap-1">
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditingCohortId(null)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" className="h-8 w-8 p-0" onClick={() => updateCohort(cohort.id)} disabled={saving}>
+                            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => {
+                            setEditingCohortId(cohort.id);
+                            setCohortForm({ ...cohort });
+                          }}
+                        >
+                          Edit
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>
