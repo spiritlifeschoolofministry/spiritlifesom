@@ -351,27 +351,36 @@ export type Database = {
       }
       cohorts: {
         Row: {
+          certificate_text_main: string | null
+          certificate_text_sub: string | null
           created_at: string | null
           created_by: string | null
           end_date: string
+          graduation_date: string | null
           id: string
           is_active: boolean | null
           name: string
           start_date: string
         }
         Insert: {
+          certificate_text_main?: string | null
+          certificate_text_sub?: string | null
           created_at?: string | null
           created_by?: string | null
           end_date: string
+          graduation_date?: string | null
           id?: string
           is_active?: boolean | null
           name: string
           start_date: string
         }
         Update: {
+          certificate_text_main?: string | null
+          certificate_text_sub?: string | null
           created_at?: string | null
           created_by?: string | null
           end_date?: string
+          graduation_date?: string | null
           id?: string
           is_active?: boolean | null
           name?: string

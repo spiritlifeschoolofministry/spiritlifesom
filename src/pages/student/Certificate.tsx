@@ -5,16 +5,19 @@ import StudentLayout from "@/components/StudentLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download, Award, Lock, Edit2, Check } from "lucide-react";
+import { Download, Award, Lock, Edit2, Check, RotateCcw, FileDown, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 const StudentCertificate = () => {
   const { student, profile } = useAuth();
-  const [cohortName, setCohortName] = useState("");
   const [loading, setLoading] = useState(true);
   const [customName, setCustomName] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [cohortData, setCohortData] = useState<{ name: string; graduation_date?: string; certificate_text_main?: string; certificate_text_sub?: string } | null>(null);
 
   const isGraduate = (student?.admission_status || "").toUpperCase() === "GRADUATE";
   const [globalDate, setGlobalDate] = useState("20th April, 2025");
@@ -49,8 +52,8 @@ const StudentCertificate = () => {
     };
 
     if (student?.cohort_id) {
-      supabase.from("cohorts").select("name, end_date").eq("id", student.cohort_id).single().then(({ data }) => {
-        if (data) setCohortName(data.name);
+      supabase.from("cohorts").select("name, graduation_date, certificate_text_main, certificate_text_sub").eq("id", student.cohort_id).single().then(({ data }) => {
+        if (data) setCohortData(data as any);
       });
     }
     
@@ -78,7 +81,62 @@ const StudentCertificate = () => {
     }
   };
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => {
+    if (!customName.trim()) {
+      toast.error("Please enter a name for the certificate");
+      setIsEditingName(true);
+      return;
+    }
+    window.print();
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!customName.trim()) {
+      toast.error("Please enter a name for the certificate");
+      setIsEditingName(true);
+      return;
+    }
+
+    const element = document.querySelector(".certificate-content") as HTMLElement;
+    if (!element) return;
+
+    try {
+      setIsDownloading(true);
+      const canvas = await html2canvas(element, {
+        scale: 3, // Higher scale for better quality
+        useCORS: true,
+        logging: false,
+        backgroundColor: null
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4"
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`SLSM_Certificate_${customName.replace(/\s+/g, "_")}.pdf`);
+      toast.success("Certificate downloaded successfully");
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      toast.error("Failed to generate PDF");
+    } finally {
+      setIsDownloading(true);
+      // Wait a bit before resetting state
+      setTimeout(() => setIsDownloading(false), 1000);
+    }
+  };
+
+  const handleResetName = () => {
+    const name = `${profile?.first_name || ""} ${profile?.middle_name || ""} ${profile?.last_name || ""}`.replace(/\s+/g, " ").trim();
+    setCustomName(name);
+    toast.info("Name reset to profile default");
+  };
 
   useEffect(() => {
     if (profile) {
@@ -148,8 +206,11 @@ const StudentCertificate = () => {
                       className="h-9"
                       autoFocus
                     />
-                    <Button size="sm" onClick={requestNameChange} className="shrink-0 h-9">
-                      <Check className="w-4 h-4 mr-2" /> Submit for Verification
+                    <Button variant="outline" size="sm" onClick={handleResetName} className="shrink-0 h-9" title="Reset to profile name">
+                      <RotateCcw className="w-4 h-4" />
+                    </Button>
+                    <Button size="sm" onClick={requestNameChange} className="shrink-0 h-9" disabled={!customName.trim()}>
+                      <Check className="w-4 h-4 mr-2" /> Submit
                     </Button>
                   </>
                 ) : (
@@ -164,7 +225,7 @@ const StudentCertificate = () => {
                       )}
                     </div>
                     <Button variant="outline" size="sm" onClick={() => setIsEditingName(true)} className="shrink-0 h-9" disabled={isPendingVerification}>
-                      <Edit2 className="w-4 h-4 mr-2" /> {isPendingVerification ? 'Pending' : 'Edit'}
+                      <Edit2 className="w-4 h-4 mr-2" /> {isPendingVerification ? 'Verify' : 'Edit'}
                     </Button>
                   </>
                 )}
@@ -176,9 +237,21 @@ const StudentCertificate = () => {
               )}
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2 self-start mt-auto h-10 px-4 font-semibold border-primary/20 hover:bg-primary/5">
-            <Download className="w-4 h-4" /> Print / Save PDF
-          </Button>
+          <div className="flex gap-2 self-start mt-auto">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleDownloadPDF} 
+              className="gap-2 h-10 px-4 font-semibold border-primary/20 hover:bg-primary/5"
+              disabled={isDownloading}
+            >
+              {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+              Save PDF
+            </Button>
+            <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2 h-10 px-4 font-semibold border-primary/20 hover:bg-primary/5">
+              <Download className="w-4 h-4" /> Print
+            </Button>
+          </div>
         </div>
 
         {/* Certificate built with code to match official design */}
@@ -285,9 +358,9 @@ const StudentCertificate = () => {
                   color: "#1a1a2e",
                 }}
               >
-                {isPendingVerification ? student?.name_on_certificate : fullName}
+                {customName || fullName}
               </h1>
-              {(student?.student_code || student?.graduation_date) && (
+              {(student?.student_code || student?.graduation_date || cohortData?.graduation_date) && (
                 <div className="flex flex-col items-end">
                   {student?.student_code && (
                     <span
@@ -307,14 +380,18 @@ const StudentCertificate = () => {
               </div>
 
               {/* Completion text */}
-              <p className="text-xs sm:text-sm text-center mt-3 sm:mt-4 leading-relaxed" style={{ color: "#444", fontFamily: "serif", maxWidth: "70%" }}>
-                has successfully completed a year of intensive training<br />
-                and teaching in the School of Ministry
+              <p className="text-xs sm:text-sm text-center mt-3 sm:mt-4 leading-relaxed px-4" style={{ color: "#444", fontFamily: "serif", maxWidth: "85%" }}>
+                {cohortData?.certificate_text_main || 'has successfully completed a year of intensive training and teaching in the School of Ministry'}
+                {cohortData?.certificate_text_sub && <><br />{cohortData.certificate_text_sub}</>}
               </p>
 
               {/* Date */}
               <p className="text-xs sm:text-sm font-bold mt-3 sm:mt-5" style={{ color: "#1a1a2e", fontFamily: "serif" }}>
-                DATE: {student?.graduation_date ? new Date(student.graduation_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : globalDate}
+                DATE: {student?.graduation_date 
+                  ? new Date(student.graduation_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) 
+                  : cohortData?.graduation_date 
+                    ? new Date(cohortData.graduation_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+                    : globalDate}
               </p>
 
               {/* Signatories */}
