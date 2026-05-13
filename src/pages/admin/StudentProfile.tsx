@@ -40,6 +40,7 @@ interface StudentDetail {
   has_discovered_ministry: boolean | null;
   ministry_description: string | null;
   student_code: string | null;
+  graduation_date: string | null;
   created_at: string | null;
   cohort_id: string | null;
   fees_paid: number | null;
