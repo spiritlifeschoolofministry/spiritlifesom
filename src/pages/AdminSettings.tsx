@@ -552,9 +552,9 @@ const AdminSettings = () => {
         </div>
       </TabsContent>
 
-      <TabsContent value="analytics" className="pt-2">
-        <AdminAnalytics />
-      </TabsContent>
+        <TabsContent value="analytics" className="pt-2">
+          <AdminAnalytics standalone={false} />
+        </TabsContent>
 
       <TabsContent value="audit" className="pt-2">
         <AuditLog />
