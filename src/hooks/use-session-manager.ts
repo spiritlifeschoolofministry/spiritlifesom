@@ -29,8 +29,22 @@ export const useSessionManager = () => {
 
     // Use getUser() instead of getSession() — getUser validates the token server-side
     supabase.auth.getUser().then(({ data, error }) => {
-      if (error || !data.user) {
-        console.warn('[SessionManager] getUser failed on route change:', error?.message);
+      if (error) {
+        // Only force logout if it's a definitive auth error (400, 401, 403)
+        // Network errors or 500s shouldn't kick the user out
+        const isDefinitiveAuthError = error.status && [400, 401, 403].includes(error.status);
+        
+        if (isDefinitiveAuthError) {
+          console.warn('[SessionManager] Definitive auth error on route change:', error.message, 'Status:', error.status);
+          handleForceLogout();
+        } else {
+          console.log('[SessionManager] Transient or server error on route change (ignoring force logout):', error.message);
+        }
+        return;
+      }
+      
+      if (!data.user) {
+        console.warn('[SessionManager] No user found on route change');
         handleForceLogout();
       }
     });
@@ -76,25 +90,30 @@ export const useSessionManager = () => {
 
     const scheduleTokenRefresh = () => {
       if (tokenRefreshRef.current) clearTimeout(tokenRefreshRef.current);
+      
+      // Schedule next check in 10 minutes
       tokenRefreshRef.current = setTimeout(async () => {
+        // Only refresh if tab is visible to avoid unnecessary calls
         if (!document.hidden) {
           try {
+            console.log('[SessionManager] Scheduled token refresh check...');
             const { data, error } = await supabase.auth.refreshSession();
             if (error) {
               console.warn('[SessionManager] Scheduled refresh failed:', error.message);
               // Validate server-side before force logout
               const { error: userError } = await supabase.auth.getUser();
-              if (userError) {
+              if (userError && userError.status && [400, 401, 403].includes(userError.status)) {
                 await handleForceLogout();
                 return;
               }
             }
-            if (data?.session) scheduleTokenRefresh();
           } catch (err) {
             console.error('[SessionManager] Token refresh error:', err);
           }
         }
-      }, 50 * 60 * 1000);
+        // Always reschedule the next check regardless of success/failure/visibility
+        scheduleTokenRefresh();
+      }, 10 * 60 * 1000); // Check every 10 mins
     };
 
     scheduleTokenRefresh();

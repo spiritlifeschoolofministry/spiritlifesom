@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const initializedRef = useRef(false);
+  
   const profileLoadedRef = useRef(false);
 
   const clearAuthTimeout = () => {
@@ -168,9 +168,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-
+    // Set up auth timeout for initial load
     startAuthTimeout();
 
     // Set up listener BEFORE getSession to avoid missing events
@@ -188,7 +186,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           console.log('[Auth] Token refreshed successfully');
           setUser(session.user);
-          // Don't re-fetch profile on token refresh — just update the user object
+          // Update profile if not loaded yet
+          if (!profileLoadedRef.current) {
+            await getProfile(session.user.id, session.user.user_metadata as UserMetadata | undefined);
+          }
         } else if (event === 'SIGNED_OUT') {
           console.log('[Auth] Signed out — clearing state');
           clearState();
@@ -197,10 +198,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     );
 
     // Restore session from storage
-    (async () => {
+    const initSession = async () => {
       try {
         console.log('[Auth] Initializing session...');
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error('[Auth] getSession error:', error.message);
+          throw error;
+        }
 
         if (session?.user) {
           console.log('[Auth] Existing session found for:', session.user.email);
@@ -218,9 +224,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         clearAuthTimeout();
         setIsLoading(false);
         setIsAuthReady(true);
-        setAuthError('Failed to initialize authentication.');
+        // Only set error if we don't have a user (might have been set by listener)
+        setAuthError(prev => prev || 'Failed to initialize authentication.');
       }
-    })();
+    };
+
+    initSession();
 
     return () => {
       clearAuthTimeout();
