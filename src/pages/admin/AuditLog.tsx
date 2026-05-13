@@ -80,6 +80,28 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
           .limit(500);
         if (error) throw error;
         setRows(data || []);
+
+        // Fetch student names for student entities
+        const studentIds = (data || [])
+          .filter(r => r.entity_type === 'student' && r.entity_id)
+          .map(r => r.entity_id as string);
+
+        if (studentIds.length > 0) {
+          const { data: students } = await supabase
+            .from('students')
+            .select('id, profiles(first_name, last_name)')
+            .in('id', studentIds);
+          
+          if (students) {
+            const nameMap: Record<string, string> = {};
+            students.forEach((s: any) => {
+              if (s.profiles) {
+                nameMap[s.id] = `${s.profiles.first_name || ''} ${s.profiles.last_name || ''}`.trim();
+              }
+            });
+            setStudentNames(nameMap);
+          }
+        }
       } catch (err) {
         console.error("Audit log load failed", err);
         toast.error("Failed to load audit log");
