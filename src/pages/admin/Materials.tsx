@@ -306,15 +306,26 @@ const AdminMaterials = () => {
               <CardTitle>All Materials</CardTitle>
               <CardDescription>Manage uploaded course materials</CardDescription>
             </div>
-            <Select value={cohortFilter} onValueChange={setCohortFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Filter by cohort" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Cohorts</SelectItem>
-                {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative">
+                <Input 
+                  placeholder="Search materials..." 
+                  value={searchQuery} 
+                  onChange={(e) => setSearchQuery(e.target.value)} 
+                  className="w-full sm:w-48 pl-8"
+                />
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              </div>
+              <Select value={cohortFilter} onValueChange={setCohortFilter}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Filter by cohort" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Cohorts</SelectItem>
+                  {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
