@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Check, X, Plus, Trash2, Star, BarChart3, ShieldCheck, Mail, Settings } from 'lucide-react';
+import { Loader2, Check, X, Plus, Trash2, Star, BarChart3, ShieldCheck, Mail, Settings, Award, UserCheck } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AdminAnalytics from './admin/Analytics';
 import AdminAuditLog from './admin/AuditLog';
@@ -22,6 +22,7 @@ import StorageUsageCard from '@/components/admin/StorageUsageCard';
 import MaintenanceModeCard from '@/components/admin/MaintenanceModeCard';
 import PurgeSnapshotsCard from '@/components/admin/PurgeSnapshotsCard';
 import StorageBrowserCard from '@/components/admin/StorageBrowserCard';
+import CertificateManager from '@/components/admin/CertificateManager';
 
 interface SystemSettings {
   accepting_applications: boolean;
@@ -328,9 +329,12 @@ const AdminSettings = () => {
       </div>
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid grid-cols-2 md:grid-cols-4 lg:w-max mb-6">
+        <TabsList className="grid grid-cols-2 md:grid-cols-5 lg:w-max mb-6">
           <TabsTrigger value="general" className="gap-2">
             <Settings className="w-4 h-4" /> General
+          </TabsTrigger>
+          <TabsTrigger value="certificates" className="gap-2">
+            <Award className="w-4 h-4" /> Certificates
           </TabsTrigger>
           <TabsTrigger value="analytics" className="gap-2">
             <BarChart3 className="w-4 h-4" /> Analytics
@@ -463,7 +467,16 @@ const AdminSettings = () => {
               value={settings.school_name}
               onChange={(e) => setSettings({ ...settings, school_name: e.target.value })}
               placeholder="Enter school name"
-              className="mt-2"
+               className="mt-2"
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </TabsContent>
+
+    <TabsContent value="certificates" className="space-y-6">
+      <CertificateManager />
+    </TabsContent>
             />
             <p className="text-xs text-muted-foreground mt-1">Displayed in the top-left of the sidebar and headers</p>
           </div>
