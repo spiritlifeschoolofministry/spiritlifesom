@@ -30,6 +30,8 @@ export default function QuestionBank() {
   const [importOpen, setImportOpen] = useState(false);
   const [csvText, setCsvText] = useState("");
   const [importCourse, setImportCourse] = useState("");
+  const [questionToDelete, setQuestionToDelete] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
     setLoading(true);
