@@ -123,12 +123,13 @@ const StudentDashboard = () => {
       }
 
       if (studentRecord) {
-        const hasIncompleteProfile = !studentRecord.gender || !studentRecord.age || !studentRecord.cohort_id;
+        const hasIncompleteProfile = !studentRecord.gender || !studentRecord.age || !studentRecord.cohort_id || !studentRecord.learning_mode;
         setShowProfileCompletion(hasIncompleteProfile);
         setProfileCompletionForm({
           gender: studentRecord.gender || "",
           age: studentRecord.age?.toString() || "",
           cohort_id: studentRecord.cohort_id || "",
+          learning_mode: studentRecord.learning_mode || "",
         });
       }
 
