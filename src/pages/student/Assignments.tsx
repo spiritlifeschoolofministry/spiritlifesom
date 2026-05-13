@@ -270,10 +270,8 @@ const StudentAssignments = () => {
                           <CheckCircle2 className="w-4 h-4" /> Submitted on {new Date(assignment.submission.submitted_at || '').toLocaleDateString()}
                         </p>
                         {assignment.submission.file_url && (
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={`${assignment.submission.file_url}?download=`} download className="flex items-center gap-2">
-                              <File className="w-4 h-4" /> Download Submission
-                            </a>
+                          <Button variant="outline" size="sm" onClick={() => handleDownload(assignment.submission)}>
+                            <File className="w-4 h-4 mr-2" /> Download Submission
                           </Button>
                         )}
                         {assignment.submission.grade != null && (
