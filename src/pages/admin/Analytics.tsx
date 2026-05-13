@@ -648,7 +648,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
           <CardHeader className="pb-2"><CardTitle className="text-base">Course Performance Overview</CardTitle></CardHeader>
           <CardContent>
             {coursePerformance.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-12">No course performance data.</p>
+              <EmptyState message="No course performance data recorded" />
             ) : (
               <div className="overflow-x-auto">
                 <Table>
