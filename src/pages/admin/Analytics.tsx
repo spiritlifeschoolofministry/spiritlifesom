@@ -502,7 +502,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
           <CardHeader className="pb-2"><CardTitle className="text-base">Gender Distribution</CardTitle></CardHeader>
           <CardContent>
             {genderData.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-20">No data available.</p>
+              <EmptyState message="No gender distribution data available" />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
