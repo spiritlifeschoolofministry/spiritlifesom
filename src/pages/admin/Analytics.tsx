@@ -542,7 +542,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
           <CardHeader className="pb-2"><CardTitle className="text-base">Revenue by Fee Type</CardTitle></CardHeader>
           <CardContent>
             {revenueData.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-20">No fee data available.</p>
+              <EmptyState message="No revenue data found for this period" />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={revenueData} layout="vertical">
