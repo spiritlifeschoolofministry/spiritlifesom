@@ -12,6 +12,8 @@ const StudentCertificate = () => {
   const { student, profile } = useAuth();
   const [cohortName, setCohortName] = useState("");
   const [loading, setLoading] = useState(true);
+  const [customName, setCustomName] = useState("");
+  const [isEditingName, setIsEditingName] = useState(false);
 
   const isGraduate = (student?.admission_status || "").toUpperCase() === "GRADUATE";
 
