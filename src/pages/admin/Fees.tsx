@@ -245,7 +245,6 @@ const AdminFees = () => {
                     <SelectItem value="All">All Students</SelectItem>
                     <SelectItem value="Online">Online Only</SelectItem>
                     <SelectItem value="Physical">Physical Only</SelectItem>
-                    <SelectItem value="On-site">On-site Only</SelectItem>
                     <SelectItem value="Hybrid">Hybrid</SelectItem>
                   </SelectContent>
                 </Select>
