@@ -26,7 +26,7 @@ const TYPE_LABELS: Record<string, string> = {
   admission_rejected: "Admission Rejected",
 };
 
-const EmailHistory = () => {
+const EmailHistory = ({ standalone = true }: { standalone?: boolean }) => {
   const [rows, setRows] = useState<EmailRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
