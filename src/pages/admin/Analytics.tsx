@@ -606,7 +606,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
           <CardHeader className="pb-2"><CardTitle className="text-base">Materials by File Type</CardTitle></CardHeader>
           <CardContent>
             {materialsByType.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-20">No materials data.</p>
+              <EmptyState message="No materials data available" />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
