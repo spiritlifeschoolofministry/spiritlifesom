@@ -33,6 +33,7 @@ const TOOLTIP_STYLE = { background: "hsl(var(--card))", border: "1px solid hsl(v
 
 const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [cohortFilter, setCohortFilter] = useState("all");
 
