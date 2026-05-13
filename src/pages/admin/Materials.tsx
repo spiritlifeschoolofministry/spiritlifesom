@@ -143,6 +143,19 @@ const AdminMaterials = () => {
   const deleteMaterial = async (id: string) => {
     try {
       setIsDeletingId(id);
+      const material = materials.find(m => m.id === id);
+      if (material) {
+        if (material.storage_provider === 'r2') {
+          await r2Storage.deleteFile(material.storage_path || material.file_url);
+        } else {
+          // Extract path from Supabase URL if needed, or if we have storage_path
+          const path = material.storage_path || material.file_url.split('/public/course-materials/')[1];
+          if (path) {
+            await supabase.storage.from('course-materials').remove([path]);
+          }
+        }
+      }
+
       const { error } = await supabase.from('course_materials').delete().eq('id', id);
       if (error) throw error;
       toast.success('Material deleted');
