@@ -243,6 +243,7 @@ const StudentDashboard = () => {
         gender: profileCompletionForm.gender,
         age: parsedAge,
         cohort_id: profileCompletionForm.cohort_id,
+        learning_mode: profileCompletionForm.learning_mode,
       };
 
       const { error } = await supabase
