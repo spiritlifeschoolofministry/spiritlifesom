@@ -92,11 +92,18 @@ export default function QuestionBank() {
   };
 
   const remove = async (q: any) => {
-    if (!confirm("Delete this question? This cannot be undone.")) return;
-    const { error } = await supabase.from("question_bank").delete().eq("id", q.id);
-    if (error) return toast.error(error.message);
-    toast.success("Deleted");
-    load();
+    try {
+      setDeleting(true);
+      const { error } = await supabase.from("question_bank").delete().eq("id", q.id);
+      if (error) throw error;
+      toast.success("Deleted");
+      setQuestionToDelete(null);
+      load();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleImport = async () => {
