@@ -52,8 +52,8 @@ const StudentCertificate = () => {
     };
 
     if (student?.cohort_id) {
-      supabase.from("cohorts").select("name, end_date").eq("id", student.cohort_id).single().then(({ data }) => {
-        if (data) setCohortName(data.name);
+      supabase.from("cohorts").select("name, graduation_date, certificate_text_main, certificate_text_sub").eq("id", student.cohort_id).single().then(({ data }) => {
+        if (data) setCohortData(data as any);
       });
     }
     
