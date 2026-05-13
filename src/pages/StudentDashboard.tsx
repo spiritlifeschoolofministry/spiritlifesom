@@ -235,6 +235,7 @@ const StudentDashboard = () => {
     if (!profileCompletionForm.gender) { toast.error("Please select your gender."); return; }
     if (!Number.isInteger(parsedAge) || parsedAge <= 0) { toast.error("Please enter a valid age."); return; }
     if (!profileCompletionForm.cohort_id) { toast.error("Please select your cohort."); return; }
+    if (!profileCompletionForm.learning_mode) { toast.error("Please select your learning mode."); return; }
 
     setSavingProfileCompletion(true);
     try {
