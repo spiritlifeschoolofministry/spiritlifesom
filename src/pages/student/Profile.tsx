@@ -46,7 +46,7 @@ interface AcademicFormData {
   ministry_description: string;
 }
 
-const LEARNING_MODES = ['On-site', 'Online', 'Hybrid'];
+const LEARNING_MODES = ['Online', 'Offline', 'Blended'];
 const LANGUAGES = ['English', 'French', 'Yoruba', 'Igbo', 'Hausa', 'Other'];
 const EDUCATION_LEVELS = ['Primary', 'Secondary', 'Diploma', 'Bachelor\'s Degree', 'Master\'s Degree', 'Doctorate', 'Other'];
 const MARITAL_STATUSES = ['Single', 'Married', 'Divorced', 'Widowed'];
