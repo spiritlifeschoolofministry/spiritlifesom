@@ -21,6 +21,14 @@ interface PendingNameChange {
   };
 }
 
+interface CohortSettings {
+  id: string;
+  name: string;
+  graduation_date: string | null;
+  certificate_text_main: string | null;
+  certificate_text_sub: string | null;
+}
+
 const CertificateManager = () => {
   const [globalDate, setGlobalDate] = useState('');
   const [loading, setLoading] = useState(true);
