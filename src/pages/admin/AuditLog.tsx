@@ -139,24 +139,40 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-6">
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
-            <ShieldCheck className="h-7 w-7 text-primary" /> Audit Log
-          </h1>
-          <p className="text-muted-foreground">
-            Append-only record of every admin status change, payment verification, and deletion.
-          </p>
+    <div className={cn("max-w-7xl mx-auto space-y-6 pb-6", !standalone && "max-w-none px-0")}>
+      {standalone && (
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
+              <ShieldCheck className="h-7 w-7 text-primary" /> Audit Log
+            </h1>
+            <p className="text-muted-foreground">
+              Append-only record of every admin status change, payment verification, and deletion.
+            </p>
+          </div>
+          <Button
+            onClick={handleExport}
+            disabled={loading || filtered.length === 0}
+            className="gap-2 self-start md:self-auto"
+          >
+            <Download className="h-4 w-4" /> Export CSV
+          </Button>
         </div>
-        <Button
-          onClick={handleExport}
-          disabled={loading || filtered.length === 0}
-          className="gap-2 self-start md:self-auto"
-        >
-          <Download className="h-4 w-4" /> Export CSV
-        </Button>
-      </div>
+      )}
+
+      {!standalone && (
+        <div className="flex justify-end items-center gap-2 mb-2">
+          <Button
+            onClick={handleExport}
+            disabled={loading || filtered.length === 0}
+            variant="outline"
+            size="sm"
+            className="gap-2 h-9"
+          >
+            <Download className="h-4 w-4" /> Export CSV
+          </Button>
+        </div>
+      )}
 
       <Card>
         <CardHeader>
