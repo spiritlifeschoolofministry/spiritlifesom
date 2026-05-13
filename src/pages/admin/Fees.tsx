@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Eye, Check, X, Download } from 'lucide-react';
+import { Loader2, Eye, Check, X, Download, Filter } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { downloadCSV } from '@/lib/csv-export';
@@ -17,6 +18,7 @@ interface AddFeeFormData {
   cohort_id: string;
   fee_name: string;
   amount: string;
+  learning_mode: string;
 }
 
 type PaymentWithStudent = Tables<'payments'> & {
@@ -32,12 +34,14 @@ const AdminFees = () => {
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
+  const [cohortFilter, setCohortFilter] = useState('all');
 
   const { register, handleSubmit, reset, setValue, watch } = useForm<AddFeeFormData>({
-    defaultValues: { cohort_id: '', fee_name: '', amount: '' },
+    defaultValues: { cohort_id: '', fee_name: '', amount: '', learning_mode: 'All' },
   });
 
   const selectedCohort = watch('cohort_id');
+  const selectedMode = watch('learning_mode');
 
   const fetchPaymentsWithStudents = async () => {
     try {
@@ -103,6 +107,7 @@ const AdminFees = () => {
         cohort_id: data.cohort_id,
         fee_name: data.fee_name,
         amount: parseFloat(data.amount),
+        learning_mode: data.learning_mode,
       });
       if (error) { console.error(error); toast.error('Failed to add fee'); return; }
       toast.success('Fee added');
@@ -222,13 +227,26 @@ const AdminFees = () => {
             <CardDescription>Define a fee for a cohort</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit(onAddFee)} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <form onSubmit={handleSubmit(onAddFee)} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <Label>Cohort</Label>
                 <Select value={selectedCohort} onValueChange={(val) => setValue('cohort_id', val)}>
                   <SelectTrigger><SelectValue placeholder="Select cohort" /></SelectTrigger>
                   <SelectContent>
                     {cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Learning Mode</Label>
+                <Select value={selectedMode} onValueChange={(val) => setValue('learning_mode', val)}>
+                  <SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All Students</SelectItem>
+                    <SelectItem value="Online">Online Only</SelectItem>
+                    <SelectItem value="Physical">Physical Only</SelectItem>
+                    <SelectItem value="On-site">On-site Only</SelectItem>
+                    <SelectItem value="Hybrid">Hybrid</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -240,39 +258,61 @@ const AdminFees = () => {
                 <Label>Amount (₦)</Label>
                 <Input type="number" step="0.01" {...register('amount', { required: true })} />
               </div>
-              <div className="md:col-span-3">
-                <Button type="submit" disabled={isProcessing}>{isProcessing ? 'Adding...' : 'Add Fee'}</Button>
+              <div className="md:col-span-2 lg:col-span-4">
+                <Button type="submit" disabled={isProcessing} className="w-full md:w-auto">{isProcessing ? 'Adding...' : 'Add Fee'}</Button>
               </div>
             </form>
 
-            <div className="mt-6">
-              <h3 className="font-medium">Existing Fees</h3>
-              {feeStructures.length === 0 ? (
-                <p className="text-muted-foreground">No fee structures yet.</p>
-              ) : (
-                <div className="overflow-x-auto rounded-md border mt-2">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Cohort</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                        <TableHead>Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {feeStructures.map((f) => (
-                        <TableRow key={f.id}>
-                          <TableCell className="font-medium">{f.fee_name}</TableCell>
-                          <TableCell>{cohorts.find(c => c.id === f.cohort_id)?.name || f.cohort_id || '—'}</TableCell>
-                          <TableCell className="text-right">₦{Number(f.amount).toLocaleString()}</TableCell>
-                          <TableCell>{f.created_at ? new Date(f.created_at).toLocaleDateString() : ''}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+            <div className="mt-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                <h3 className="font-semibold text-lg">Existing Fees</h3>
+                <div className="flex items-center gap-2">
+                  <Label className="hidden sm:inline-block">Filter by Cohort:</Label>
+                  <Select value={cohortFilter} onValueChange={setCohortFilter}>
+                    <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Cohorts" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Cohorts</SelectItem>
+                      {cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
+              </div>
+
+              {(() => {
+                const filtered = cohortFilter === 'all' ? feeStructures : feeStructures.filter(f => f.cohort_id === cohortFilter);
+                return filtered.length === 0 ? (
+                  <p className="text-muted-foreground py-8 text-center border rounded-lg border-dashed">No fee structures found for the selected criteria.</p>
+                ) : (
+                  <div className="overflow-x-auto rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Cohort</TableHead>
+                          <TableHead>Mode</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                          <TableHead>Date</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filtered.map((f) => (
+                          <TableRow key={f.id}>
+                            <TableCell className="font-medium">{f.fee_name}</TableCell>
+                            <TableCell>{cohorts.find(c => c.id === f.cohort_id)?.name || '—'}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className="text-[10px] uppercase">
+                                {(f as any).learning_mode || 'All'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">₦{Number(f.amount).toLocaleString()}</TableCell>
+                            <TableCell className="text-muted-foreground text-xs">{f.created_at ? new Date(f.created_at).toLocaleDateString() : ''}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                );
+              })()}
             </div>
           </CardContent>
         </Card>

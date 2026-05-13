@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Upload, Pin, PinOff, Trash2, ExternalLink, Share2 } from 'lucide-react';
+import { Loader2, Upload, Pin, PinOff, Trash2, ExternalLink, Share2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -34,6 +34,7 @@ const AdminMaterials = () => {
   const [isPinningId, setIsPinningId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [cohortFilter, setCohortFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Share to cohort state
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -305,20 +306,41 @@ const AdminMaterials = () => {
               <CardTitle>All Materials</CardTitle>
               <CardDescription>Manage uploaded course materials</CardDescription>
             </div>
-            <Select value={cohortFilter} onValueChange={setCohortFilter}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Filter by cohort" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Cohorts</SelectItem>
-                {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative">
+                <Input 
+                  placeholder="Search materials..." 
+                  value={searchQuery} 
+                  onChange={(e) => setSearchQuery(e.target.value)} 
+                  className="w-full sm:w-48 pl-8"
+                />
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              </div>
+              <Select value={cohortFilter} onValueChange={setCohortFilter}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Filter by cohort" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Cohorts</SelectItem>
+                  {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
           {(() => {
-            const filtered = cohortFilter === 'all' ? materials : materials.filter(m => m.cohort_id === cohortFilter);
+            const filtered = materials
+              .filter(m => (cohortFilter === 'all' || m.cohort_id === cohortFilter))
+              .filter(m => (m.title.toLowerCase().includes(searchQuery.toLowerCase()) || (m.description || '').toLowerCase().includes(searchQuery.toLowerCase())))
+              .sort((a, b) => {
+                if (cohortFilter === 'all') {
+                  const nameA = cohorts.find(c => c.id === a.cohort_id)?.name || '';
+                  const nameB = cohorts.find(c => c.id === b.cohort_id)?.name || '';
+                  return nameA.localeCompare(nameB);
+                }
+                return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+              });
             return filtered.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No materials found{cohortFilter !== 'all' ? ' for this cohort' : ''}</p>
           ) : (

@@ -48,6 +48,7 @@ const AdminCourses = () => {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [cohortFilter, setCohortFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [form, setForm] = useState(emptyCourse);
@@ -56,7 +57,7 @@ const AdminCourses = () => {
   const fetchData = async () => {
     setLoading(true);
     const [coursesRes, cohortsRes] = await Promise.all([
-      supabase.from("courses").select("*").order("semester", { ascending: true }).order("code", { ascending: true }),
+      supabase.from("courses").select("*, cohort:cohorts(name)").order("semester", { ascending: true }).order("code", { ascending: true }),
       supabase.from("cohorts").select("id, name").order("name"),
     ]);
     if (coursesRes.data) setCourses(coursesRes.data as Course[]);
@@ -132,11 +133,20 @@ const AdminCourses = () => {
     setCourses(prev => prev.map(c => c.id === course.id ? { ...c, is_completed: !c.is_completed } : c));
   };
 
-  const filtered = courses.filter(c =>
-    c.title.toLowerCase().includes(search.toLowerCase()) ||
-    c.code.toLowerCase().includes(search.toLowerCase()) ||
-    (c.lecturer || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = courses.filter(c => {
+    const matchesSearch = c.title.toLowerCase().includes(search.toLowerCase()) ||
+      c.code.toLowerCase().includes(search.toLowerCase()) ||
+      (c.lecturer || "").toLowerCase().includes(search.toLowerCase());
+    const matchesCohort = cohortFilter === "all" || c.cohort_id === cohortFilter;
+    return matchesSearch && matchesCohort;
+  }).sort((a, b) => {
+    if (cohortFilter === "all") {
+      const nameA = (a as any).cohort?.name || "";
+      const nameB = (b as any).cohort?.name || "";
+      if (nameA !== nameB) return nameA.localeCompare(nameB);
+    }
+    return (a.semester || 1) - (b.semester || 1) || a.code.localeCompare(b.code);
+  });
 
   const getCohortName = (id: string | null) => cohorts.find(c => c.id === id)?.name || "—";
 
@@ -149,11 +159,18 @@ const AdminCourses = () => {
           </h1>
           <p className="text-muted-foreground text-sm mt-1">{courses.length} course{courses.length !== 1 ? "s" : ""} total</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center flex-wrap gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Search courses…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-56" />
+            <Input placeholder="Search courses…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48 sm:w-56" />
           </div>
+          <Select value={cohortFilter} onValueChange={setCohortFilter}>
+            <SelectTrigger className="w-[160px]"><SelectValue placeholder="All Cohorts" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Cohorts</SelectItem>
+              {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={openCreate} className="gradient-flame border-0 text-primary-foreground">

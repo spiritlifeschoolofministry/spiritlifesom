@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Plus, Eye, File, CheckCircle2, Edit2 } from 'lucide-react';
+import { Loader2, Plus, Eye, File, CheckCircle2, Edit2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import BulkGradeImport from '@/components/BulkGradeImport';
 import { downloadCSV } from '@/lib/csv-export';
@@ -53,6 +53,7 @@ const AdminAssignments = () => {
   const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
   const [editDueDate, setEditDueDate] = useState('');
   const [cohortFilter, setCohortFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<AssignmentFormData>({
     defaultValues: { title: '', description: '', due_date: '', cohort_id: '', course_id: '', category: 'Assignment', max_points: 0 },
@@ -306,23 +307,44 @@ const AdminAssignments = () => {
       </div>
 
       {(() => {
-        const filteredAssignments = cohortFilter === 'all' ? assignments : assignments.filter(a => a.cohort_id === cohortFilter);
+        const filteredAssignments = assignments
+          .filter(a => (cohortFilter === 'all' || a.cohort_id === cohortFilter))
+          .filter(a => (a.title.toLowerCase().includes(searchQuery.toLowerCase()) || (a as any).category?.toLowerCase().includes(searchQuery.toLowerCase())))
+          .sort((a, b) => {
+            if (cohortFilter === 'all') {
+              const nameA = cohorts.find(c => c.id === a.cohort_id)?.name || '';
+              const nameB = cohorts.find(c => c.id === b.cohort_id)?.name || '';
+              return nameA.localeCompare(nameB);
+            }
+            return new Date(b.due_date || 0).getTime() - new Date(a.due_date || 0).getTime();
+          });
         return filteredAssignments.length === 0 ? (
         <Card><CardContent className="pt-6"><p className="text-center text-muted-foreground py-8">No tasks found{cohortFilter !== 'all' ? ' for this cohort' : ''}</p></CardContent></Card>
       ) : (
         <Card>
           <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <CardTitle>All Tasks ({filteredAssignments.length})</CardTitle>
-              <Select value={cohortFilter} onValueChange={setCohortFilter}>
-                <SelectTrigger className="w-full sm:w-48">
-                  <SelectValue placeholder="Filter by cohort" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Cohorts</SelectItem>
-                  {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative">
+                  <Input 
+                    placeholder="Search tasks..." 
+                    value={searchQuery} 
+                    onChange={(e) => setSearchQuery(e.target.value)} 
+                    className="w-full sm:w-48 pl-8"
+                  />
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                </div>
+                <Select value={cohortFilter} onValueChange={setCohortFilter}>
+                  <SelectTrigger className="w-full sm:w-48">
+                    <SelectValue placeholder="Filter by cohort" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Cohorts</SelectItem>
+                    {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardHeader>
           <CardContent>

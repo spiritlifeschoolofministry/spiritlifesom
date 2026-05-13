@@ -1001,6 +1001,7 @@ export type Database = {
           created_at: string | null
           fee_name: string
           id: string
+          learning_mode: string | null
         }
         Insert: {
           amount?: number
@@ -1008,6 +1009,7 @@ export type Database = {
           created_at?: string | null
           fee_name: string
           id?: string
+          learning_mode?: string | null
         }
         Update: {
           amount?: number
@@ -1015,6 +1017,7 @@ export type Database = {
           created_at?: string | null
           fee_name?: string
           id?: string
+          learning_mode?: string | null
         }
         Relationships: [
           {
