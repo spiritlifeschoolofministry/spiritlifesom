@@ -193,7 +193,7 @@ export default function QuestionBank() {
                   <Button variant="ghost" size="icon" onClick={() => toggleArchive(q)}>
                     <Archive className="w-4 h-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => remove(q)}>
+                  <Button variant="ghost" size="icon" onClick={() => setQuestionToDelete(q)}>
                     <Trash2 className="w-4 h-4 text-destructive" />
                   </Button>
                 </div>
