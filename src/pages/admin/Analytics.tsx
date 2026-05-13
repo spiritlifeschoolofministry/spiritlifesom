@@ -379,7 +379,17 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Analytics</h1>
             <p className="text-muted-foreground text-sm mt-1">Comprehensive insights and performance metrics</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 bg-card border rounded-md px-3 py-1.5 mr-2">
+              <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
+              <Label htmlFor="auto-refresh" className="text-xs cursor-pointer whitespace-nowrap">Auto Refresh (1m)</Label>
+            </div>
+            
+            <Button variant="outline" size="sm" onClick={() => loadAnalytics()} disabled={loading} className="gap-2">
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
