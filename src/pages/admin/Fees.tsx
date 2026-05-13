@@ -33,12 +33,14 @@ const AdminFees = () => {
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
+  const [cohortFilter, setCohortFilter] = useState('all');
 
   const { register, handleSubmit, reset, setValue, watch } = useForm<AddFeeFormData>({
-    defaultValues: { cohort_id: '', fee_name: '', amount: '' },
+    defaultValues: { cohort_id: '', fee_name: '', amount: '', learning_mode: 'All' },
   });
 
   const selectedCohort = watch('cohort_id');
+  const selectedMode = watch('learning_mode');
 
   const fetchPaymentsWithStudents = async () => {
     try {
