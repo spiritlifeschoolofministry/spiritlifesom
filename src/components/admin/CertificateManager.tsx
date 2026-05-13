@@ -62,6 +62,14 @@ const CertificateManager = () => {
         }
       }
 
+      // Load cohorts
+      const { data: cohortData } = await supabase
+        .from('cohorts')
+        .select('id, name, graduation_date, certificate_text_main, certificate_text_sub')
+        .order('name');
+      
+      if (cohortData) setCohorts(cohortData as CohortSettings[]);
+
       // Load pending name changes
       const { data: studentData, error } = await supabase
         .from('students')
