@@ -285,6 +285,28 @@ const AdminStudents = () => {
     }
   };
 
+  const handleRoleChange = async (student: Student, newRole: string) => {
+    if (!student.profile_id) return;
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role: newRole })
+        .eq("id", student.profile_id);
+      
+      if (error) throw error;
+      
+      setStudents((prev) =>
+        prev.map((s) =>
+          s.id === student.id ? { ...s, profile: { ...s.profile, role: newRole } } : s
+        )
+      );
+      toast.success(`User role updated to ${newRole}`);
+    } catch (err: any) {
+      console.error("Role change error:", err);
+      toast.error(err.message || "Failed to update user role");
+    }
+  };
+
   const handleGraduateSingle = async (studentId: string) => {
     try {
       setGraduatingId(studentId);
