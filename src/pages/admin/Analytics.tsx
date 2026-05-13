@@ -9,11 +9,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
-import { Users, TrendingUp, CalendarCheck, ClipboardList, Download, Folder, BookOpen, GraduationCap, CreditCard, AlertCircle, Inbox } from "lucide-react";
+import { Users, TrendingUp, CalendarCheck, ClipboardList, Download, Folder, BookOpen, GraduationCap, CreditCard, AlertCircle, Inbox, RefreshCw } from "lucide-react";
 import { downloadCSV } from "@/lib/csv-export";
 
 interface Cohort { id: string; name: string; }
@@ -43,6 +45,8 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
   const [error, setError] = useState<string | null>(null);
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [cohortFilter, setCohortFilter] = useState("all");
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
   const [enrollmentData, setEnrollmentData] = useState<any[]>([]);
   const [enrollmentPie, setEnrollmentPie] = useState<{ name: string; value: number }[]>([]);
@@ -72,6 +76,14 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
     });
   }, []);
 
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const interval = setInterval(() => {
+      loadAnalytics();
+    }, 60000); // 60 seconds
+    return () => clearInterval(interval);
+  }, [autoRefresh, cohortFilter]);
+
   useEffect(() => { loadAnalytics(); }, [cohortFilter]);
 
   const loadAnalytics = async () => {
@@ -91,6 +103,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
       setError(err.message || "Failed to load analytics data. Please try again.");
     } finally {
       setLoading(false);
+      setLastRefreshed(new Date());
     }
   };
 
@@ -364,9 +377,21 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Analytics</h1>
-            <p className="text-muted-foreground text-sm mt-1">Comprehensive insights and performance metrics</p>
+            <p className="text-muted-foreground text-sm mt-1">
+              Comprehensive insights · Last updated: {lastRefreshed.toLocaleTimeString()}
+            </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 bg-card border rounded-md px-3 py-1.5 mr-2">
+              <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
+              <Label htmlFor="auto-refresh" className="text-xs cursor-pointer whitespace-nowrap">Auto Refresh (1m)</Label>
+            </div>
+            
+            <Button variant="outline" size="sm" onClick={() => loadAnalytics()} disabled={loading} className="gap-2">
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">

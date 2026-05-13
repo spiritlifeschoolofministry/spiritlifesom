@@ -38,6 +38,7 @@ import {
 import {
   Search, MoreHorizontal, GraduationCap, Loader2, Trash2,
   AlertTriangle, Mail, Send, Users, UserCheck, Clock, XCircle, Eye, ChevronRight, Download,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { downloadCSV } from "@/lib/csv-export";
@@ -68,6 +69,7 @@ interface Student {
     first_name: string;
     last_name: string;
     email: string;
+    role: string | null;
   };
   cohort: { name: string } | null;
 }
@@ -166,7 +168,7 @@ const AdminStudents = () => {
     try {
       const { data, error } = await supabase
         .from("students")
-        .select(`id, admission_status, created_at, profile_id, cohort_id, preferred_language, profile:profiles(first_name, last_name, email), cohort:cohorts(name)`)
+        .select(`id, admission_status, created_at, profile_id, cohort_id, preferred_language, profile:profiles(first_name, last_name, email, role), cohort:cohorts(name)`)
         .order("created_at", { ascending: false });
       if (error) throw error;
       setStudents((data as any) || []);
@@ -281,6 +283,28 @@ const AdminStudents = () => {
       toast.success(`Student marked as ${newStatus}`);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to update status");
+    }
+  };
+
+  const handleRoleChange = async (student: Student, newRole: string) => {
+    if (!student.profile_id) return;
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role: newRole })
+        .eq("id", student.profile_id);
+      
+      if (error) throw error;
+      
+      setStudents((prev) =>
+        prev.map((s) =>
+          s.id === student.id ? { ...s, profile: { ...s.profile, role: newRole } } : s
+        )
+      );
+      toast.success(`User role updated to ${newRole}`);
+    } catch (err: any) {
+      console.error("Role change error:", err);
+      toast.error(err.message || "Failed to update user role");
     }
   };
 
@@ -704,8 +728,11 @@ const AdminStudents = () => {
                           </Avatar>
                           <div className="min-w-0">
                             <p className="font-medium text-sm text-foreground truncate">
-                              {student.profile.first_name} {student.profile.last_name}
+                               {student.profile.first_name} {student.profile.last_name}
                               {uiStatus === "Graduate" && <GraduationCap className="inline ml-1.5 h-3.5 w-3.5 text-primary" />}
+                              {(student.profile.role?.toLowerCase() === "teacher") && (
+                                <Badge variant="outline" className="ml-1.5 h-4 text-[9px] bg-indigo-50 text-indigo-700 border-indigo-200">Teacher</Badge>
+                              )}
                             </p>
                             <p className="text-xs text-muted-foreground truncate">{student.profile.email}</p>
                           </div>
@@ -750,6 +777,17 @@ const AdminStudents = () => {
                             <DropdownMenuItem onClick={() => openEmailForStudent(student)}>
                               <Mail className="mr-2 h-4 w-4" /> Send Email
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {student.profile.role?.toLowerCase() === "teacher" ? (
+                              <DropdownMenuItem onClick={() => handleRoleChange(student, "student")}>
+                                <Users className="mr-2 h-4 w-4" /> Demote to Student
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem onClick={() => handleRoleChange(student, "teacher")}>
+                                <ShieldCheck className="mr-2 h-4 w-4" /> Promote to Teacher
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
                             {uiStatus !== "Graduate" && (
                               <DropdownMenuItem onClick={() => setConfirmAction({ type: "graduate", student })} disabled={graduatingId === student.id}>
                                 <GraduationCap className="mr-2 h-4 w-4" />
@@ -843,6 +881,17 @@ const AdminStudents = () => {
                           <DropdownMenuItem onClick={() => openEmailForStudent(student)}>
                             <Mail className="mr-2 h-4 w-4" /> Send Email
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {student.profile.role?.toLowerCase() === "teacher" ? (
+                            <DropdownMenuItem onClick={() => handleRoleChange(student, "student")}>
+                              <Users className="mr-2 h-4 w-4" /> Demote to Student
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem onClick={() => handleRoleChange(student, "teacher")}>
+                              <ShieldCheck className="mr-2 h-4 w-4" /> Promote to Teacher
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => setConfirmAction({ type: "statusChange", student, newStatus: "Approved" })}>
                             <UserCheck className="mr-2 h-4 w-4" /> Approve
                           </DropdownMenuItem>
