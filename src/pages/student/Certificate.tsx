@@ -5,7 +5,7 @@ import StudentLayout from "@/components/StudentLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download, Award, Lock, Edit2, Check, RotateCcw, FileDown } from "lucide-react";
+import { Download, Award, Lock, Edit2, Check, RotateCcw, FileDown, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import html2canvas from "html2canvas";
