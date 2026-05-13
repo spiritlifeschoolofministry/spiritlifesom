@@ -491,20 +491,38 @@ const AdminSettings = () => {
         </CardContent>
       </Card>
 
-      {/* Save Settings Button */}
       <div className="flex justify-end">
         <Button onClick={saveSettings} disabled={saving} className="gap-2">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
           {saving ? 'Saving...' : 'Save Settings'}
         </Button>
       </div>
+    </TabsContent>
 
-      {/* User Management */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">User Management</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <TabsContent value="certificates" className="space-y-6">
+      <CertificateManager />
+    </TabsContent>
+
+    <TabsContent value="analytics" className="space-y-6">
+      <AdminAnalytics standalone={false} />
+    </TabsContent>
+
+    <TabsContent value="audit" className="space-y-6">
+      <AdminAuditLog standalone={false} />
+    </TabsContent>
+
+    <TabsContent value="emails" className="space-y-6">
+      <EmailHistory standalone={false} />
+    </TabsContent>
+  </Tabs>
+
+  <div className="mt-8 space-y-6">
+    {/* User Management */}
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">User Management</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
           <div>
             <h3 className="font-semibold text-base mb-4">Administrators</h3>
             <div className="overflow-x-auto">
