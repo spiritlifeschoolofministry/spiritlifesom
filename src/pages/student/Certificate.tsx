@@ -147,21 +147,32 @@ const StudentCertificate = () => {
                       className="h-9"
                       autoFocus
                     />
-                    <Button size="sm" onClick={() => setIsEditingName(false)} className="shrink-0 h-9">
-                      <Check className="w-4 h-4 mr-2" /> Done
+                    <Button size="sm" onClick={requestNameChange} className="shrink-0 h-9">
+                      <Check className="w-4 h-4 mr-2" /> Submit for Verification
                     </Button>
                   </>
                 ) : (
                   <>
                     <div className="px-3 py-1.5 bg-muted rounded-md text-sm font-medium border border-border flex-1">
-                      {customName || "Enter name"}
+                      {isPendingVerification ? (
+                        <span className="flex items-center gap-2 italic text-muted-foreground">
+                          {student?.pending_name_change} (Pending Verification)
+                        </span>
+                      ) : (
+                        customName || "Enter name"
+                      )}
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => setIsEditingName(true)} className="shrink-0 h-9">
-                      <Edit2 className="w-4 h-4 mr-2" /> Edit
+                    <Button variant="outline" size="sm" onClick={() => setIsEditingName(true)} className="shrink-0 h-9" disabled={isPendingVerification}>
+                      <Edit2 className="w-4 h-4 mr-2" /> {isPendingVerification ? 'Pending' : 'Edit'}
                     </Button>
                   </>
                 )}
               </div>
+              {isPendingVerification && (
+                <p className="text-[10px] text-amber-600 font-medium">
+                  * An administrator must verify your name change before it appears on the certificate.
+                </p>
+              )}
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2 self-start mt-auto h-10 px-4 font-semibold border-primary/20 hover:bg-primary/5">
