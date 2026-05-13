@@ -160,7 +160,20 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
   };
 
   const loadAttendance = async () => {
-    const { data } = await supabase.from("attendance").select("status, schedule_id, student_id");
+    let query = supabase.from("attendance").select("status, schedule_id, student_id");
+    
+    if (cohortFilter !== "all") {
+      const { data: students } = await supabase.from("students").select("id").eq("cohort_id", cohortFilter);
+      const studentIds = (students || []).map(s => s.id);
+      if (studentIds.length === 0) {
+        setAttendanceData([]);
+        setSummaryCards((prev) => ({ ...prev, avgAttendance: 0 }));
+        return;
+      }
+      query = query.in("student_id", studentIds);
+    }
+
+    const { data } = await query;
     if (!data || data.length === 0) {
       setAttendanceData([]);
       setSummaryCards((prev) => ({ ...prev, avgAttendance: 0 }));
