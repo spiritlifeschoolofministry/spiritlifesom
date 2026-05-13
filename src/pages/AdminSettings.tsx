@@ -570,10 +570,25 @@ const AdminSettings = () => {
       <Dialog open={showPromoteDialog} onOpenChange={setShowPromoteDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Promote Student to Admin</DialogTitle>
-            <DialogDescription>Select a student to grant administrator privileges</DialogDescription>
+            <DialogTitle>Promote Student to Staff</DialogTitle>
+            <DialogDescription>Select a student and their new role</DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 max-h-96 overflow-y-auto">
+          <div className="space-y-4">
+            <div className="flex flex-col gap-2">
+              <Label>Select Role</Label>
+              <Select value={selectedRole} onValueChange={(v: any) => setSelectedRole(v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="teacher">Teacher (Restricted Access)</SelectItem>
+                  <SelectItem value="admin">Administrator (Full Access)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label>Select Student</Label>
+              <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
             {students?.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">No students available to promote</p>
             ) : (
