@@ -34,6 +34,7 @@ const AdminMaterials = () => {
   const [isPinningId, setIsPinningId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [cohortFilter, setCohortFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Share to cohort state
   const [shareModalOpen, setShareModalOpen] = useState(false);
