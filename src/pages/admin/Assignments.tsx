@@ -323,17 +323,28 @@ const AdminAssignments = () => {
       ) : (
         <Card>
           <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <CardTitle>All Tasks ({filteredAssignments.length})</CardTitle>
-              <Select value={cohortFilter} onValueChange={setCohortFilter}>
-                <SelectTrigger className="w-full sm:w-48">
-                  <SelectValue placeholder="Filter by cohort" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Cohorts</SelectItem>
-                  {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative">
+                  <Input 
+                    placeholder="Search tasks..." 
+                    value={searchQuery} 
+                    onChange={(e) => setSearchQuery(e.target.value)} 
+                    className="w-full sm:w-48 pl-8"
+                  />
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                </div>
+                <Select value={cohortFilter} onValueChange={setCohortFilter}>
+                  <SelectTrigger className="w-full sm:w-48">
+                    <SelectValue placeholder="Filter by cohort" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Cohorts</SelectItem>
+                    {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
