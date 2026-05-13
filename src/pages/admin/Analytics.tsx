@@ -564,7 +564,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
           <CardHeader className="pb-2"><CardTitle className="text-base">Attendance Distribution</CardTitle></CardHeader>
           <CardContent>
             {attendanceData.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-20">No attendance data available.</p>
+              <EmptyState message="No attendance records found" />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
