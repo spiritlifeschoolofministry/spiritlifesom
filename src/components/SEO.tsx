@@ -1,4 +1,5 @@
 import { Helmet } from "react-helmet-async";
+import { useLocation } from "react-router-dom";
 
 interface SEOProps {
   title: string;
@@ -16,17 +17,23 @@ const DEFAULT_IMAGE = "https://spiritlifesom.org/og-image.png";
 /**
  * Per-page SEO. Sets <title>, meta description, canonical, OG/Twitter tags,
  * and optional JSON-LD. All canonical URLs use the apex (no www).
+ * Automatically updates on route changes.
  */
 export const SEO = ({
   title,
   description,
-  path = "/",
+  path,
   image = DEFAULT_IMAGE,
   type = "website",
   jsonLd,
   noindex = false,
 }: SEOProps) => {
-  const url = `${SITE_ORIGIN}${path === "/" ? "/" : path.replace(/\/$/, "")}`;
+  const location = useLocation();
+  
+  // Use provided path or current location pathname
+  const currentPath = path ?? location.pathname;
+  const url = `${SITE_ORIGIN}${currentPath === "/" ? "/" : currentPath.replace(/\/$/, "")}`;
+  
   const cleanTitle = title.length > 60 ? title.slice(0, 57) + "…" : title;
   const cleanDesc = description.length > 160 ? description.slice(0, 157) + "…" : description;
 

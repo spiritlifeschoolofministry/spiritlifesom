@@ -150,9 +150,28 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
     );
   };
 
+  const getPageTitle = () => {
+    // Check main nav items first
+    const currentItem = NAV_ITEMS.find(item => location.pathname === item.path);
+    if (currentItem) return `${currentItem.label} | Student Portal`;
+
+    // Handle sub-routes or dynamic routes
+    if (location.pathname.startsWith('/student/exams/')) {
+      if (location.pathname.includes('/lobby')) return 'Exam Lobby | Student Portal';
+      if (location.pathname.includes('/take')) return 'Exam Session | Student Portal';
+      return 'Exams | Student Portal';
+    }
+
+    return "Student Portal | SLSOM";
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <SEO title="Student Portal | SLSOM" description="Student portal for Spirit Life School of Ministry." noindex />
+      <SEO 
+        title={getPageTitle()} 
+        description="Student portal for Spirit Life School of Ministry." 
+        noindex 
+      />
       {/* Top Nav */}
       <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 z-30">
         <div className="flex items-center gap-3">
