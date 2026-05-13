@@ -17,6 +17,7 @@ interface AddFeeFormData {
   cohort_id: string;
   fee_name: string;
   amount: string;
+  learning_mode: string;
 }
 
 type PaymentWithStudent = Tables<'payments'> & {
