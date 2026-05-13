@@ -10,10 +10,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Plus, Eye, File, CheckCircle2, Edit2, Search } from 'lucide-react';
+import { Loader2, Plus, Eye, File, CheckCircle2, Edit2, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import BulkGradeImport from '@/components/BulkGradeImport';
 import { downloadCSV } from '@/lib/csv-export';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import type { Tables } from '@/integrations/supabase/types';
 
 const ASSIGNMENT_CATEGORIES = [
