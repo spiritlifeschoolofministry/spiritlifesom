@@ -397,6 +397,7 @@ const StudentFees = () => {
                         <TableHead>Amount</TableHead>
                         <TableHead>Date</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Receipt</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -405,6 +406,15 @@ const StudentFees = () => {
                           <TableCell className="font-medium">₦{(payment.amount_paid || 0).toLocaleString()}</TableCell>
                           <TableCell className="text-muted-foreground">{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : '—'}</TableCell>
                           <TableCell>{getPaymentStatusBadge(payment.status)}</TableCell>
+                          <TableCell className="text-right">
+                            {payment.payment_proof_url ? (
+                              <button onClick={() => handleDownload(payment)} className="inline-flex items-center gap-1 text-primary hover:underline text-xs">
+                                View <ExternalLink className="h-3 w-3" />
+                              </button>
+                            ) : (
+                              <span className="text-muted-foreground text-xs italic">—</span>
+                            )}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
