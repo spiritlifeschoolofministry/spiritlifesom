@@ -106,6 +106,7 @@ const AdminFees = () => {
         cohort_id: data.cohort_id,
         fee_name: data.fee_name,
         amount: parseFloat(data.amount),
+        learning_mode: data.learning_mode,
       });
       if (error) { console.error(error); toast.error('Failed to add fee'); return; }
       toast.success('Fee added');
