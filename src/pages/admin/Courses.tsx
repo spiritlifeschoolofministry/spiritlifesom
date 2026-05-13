@@ -48,6 +48,7 @@ const AdminCourses = () => {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [cohortFilter, setCohortFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [form, setForm] = useState(emptyCourse);
