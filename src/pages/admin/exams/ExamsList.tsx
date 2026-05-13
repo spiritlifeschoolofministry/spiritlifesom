@@ -118,12 +118,31 @@ export default function ExamsList() {
                   <Button variant="ghost" size="icon" asChild title="Preview">
                     <Link to={`/admin/exams/${e.id}/edit?tab=preview`}><Eye className="w-4 h-4" /></Link>
                   </Button>
+                  <Button variant="ghost" size="icon" onClick={() => setExamToDelete(e)} title="Delete" className="text-destructive">
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
             </Card>
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!examToDelete}
+        onOpenChange={(open) => !open && setExamToDelete(null)}
+        title="Delete Exam"
+        description={
+          <>
+            <p>Are you sure you want to delete <strong>{examToDelete?.title}</strong>?</p>
+            <p className="text-destructive font-medium">This will permanently delete the exam, all its questions, and any student results/attempts. This action cannot be undone.</p>
+          </>
+        }
+        confirmLabel="Delete Exam"
+        variant="destructive"
+        loading={!!deletingId}
+        onConfirm={() => examToDelete && handleDelete(examToDelete)}
+      />
     </div>
   );
 }
