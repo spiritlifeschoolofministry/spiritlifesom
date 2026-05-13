@@ -81,7 +81,62 @@ const StudentCertificate = () => {
     }
   };
 
-  const handlePrint = () => window.print();
+  const handlePrint = () => {
+    if (!customName.trim()) {
+      toast.error("Please enter a name for the certificate");
+      setIsEditingName(true);
+      return;
+    }
+    window.print();
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!customName.trim()) {
+      toast.error("Please enter a name for the certificate");
+      setIsEditingName(true);
+      return;
+    }
+
+    const element = document.querySelector(".certificate-content") as HTMLElement;
+    if (!element) return;
+
+    try {
+      setIsDownloading(true);
+      const canvas = await html2canvas(element, {
+        scale: 3, // Higher scale for better quality
+        useCORS: true,
+        logging: false,
+        backgroundColor: null
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4"
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`SLSM_Certificate_${customName.replace(/\s+/g, "_")}.pdf`);
+      toast.success("Certificate downloaded successfully");
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      toast.error("Failed to generate PDF");
+    } finally {
+      setIsDownloading(true);
+      // Wait a bit before resetting state
+      setTimeout(() => setIsDownloading(false), 1000);
+    }
+  };
+
+  const handleResetName = () => {
+    const name = `${profile?.first_name || ""} ${profile?.middle_name || ""} ${profile?.last_name || ""}`.replace(/\s+/g, " ").trim();
+    setCustomName(name);
+    toast.info("Name reset to profile default");
+  };
 
   useEffect(() => {
     if (profile) {
