@@ -556,14 +556,14 @@ const AdminSettings = () => {
           <AdminAnalytics standalone={false} />
         </TabsContent>
 
-      <TabsContent value="audit" className="pt-2">
-        <AuditLog />
-      </TabsContent>
+        <TabsContent value="audit" className="pt-2">
+          <AdminAuditLog standalone={false} />
+        </TabsContent>
 
-      <TabsContent value="emails" className="pt-2">
-        <EmailHistory />
-      </TabsContent>
-    </Tabs>
+        <TabsContent value="emails" className="pt-2">
+          <EmailHistory standalone={false} />
+        </TabsContent>
+      </Tabs>
 
       {/* Promote Dialog */}
       <Dialog open={showPromoteDialog} onOpenChange={setShowPromoteDialog}>
