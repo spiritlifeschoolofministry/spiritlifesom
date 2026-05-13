@@ -326,7 +326,13 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
                         <p className="text-sm">{r.summary || "—"}</p>
                         {r.entity_id && (
                           <p className="text-[10px] text-muted-foreground font-mono mt-1">
-                            {r.entity_type}:{r.entity_id.slice(0, 8)}
+                            {r.entity_type === 'student' && studentNames[r.entity_id] ? (
+                              <span className="text-primary font-semibold">
+                                student:{studentNames[r.entity_id]}
+                              </span>
+                            ) : (
+                              `${r.entity_type}:${r.entity_id.slice(0, 8)}`
+                            )}
                           </p>
                         )}
                       </TableCell>
