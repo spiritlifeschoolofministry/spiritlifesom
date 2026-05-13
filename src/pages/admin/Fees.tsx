@@ -262,34 +262,56 @@ const AdminFees = () => {
               </div>
             </form>
 
-            <div className="mt-6">
-              <h3 className="font-medium">Existing Fees</h3>
-              {feeStructures.length === 0 ? (
-                <p className="text-muted-foreground">No fee structures yet.</p>
-              ) : (
-                <div className="overflow-x-auto rounded-md border mt-2">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Cohort</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                        <TableHead>Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {feeStructures.map((f) => (
-                        <TableRow key={f.id}>
-                          <TableCell className="font-medium">{f.fee_name}</TableCell>
-                          <TableCell>{cohorts.find(c => c.id === f.cohort_id)?.name || f.cohort_id || '—'}</TableCell>
-                          <TableCell className="text-right">₦{Number(f.amount).toLocaleString()}</TableCell>
-                          <TableCell>{f.created_at ? new Date(f.created_at).toLocaleDateString() : ''}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+            <div className="mt-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                <h3 className="font-semibold text-lg">Existing Fees</h3>
+                <div className="flex items-center gap-2">
+                  <Label className="hidden sm:inline-block">Filter by Cohort:</Label>
+                  <Select value={cohortFilter} onValueChange={setCohortFilter}>
+                    <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Cohorts" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Cohorts</SelectItem>
+                      {cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
+              </div>
+
+              {(() => {
+                const filtered = cohortFilter === 'all' ? feeStructures : feeStructures.filter(f => f.cohort_id === cohortFilter);
+                return filtered.length === 0 ? (
+                  <p className="text-muted-foreground py-8 text-center border rounded-lg border-dashed">No fee structures found for the selected criteria.</p>
+                ) : (
+                  <div className="overflow-x-auto rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Cohort</TableHead>
+                          <TableHead>Mode</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                          <TableHead>Date</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filtered.map((f) => (
+                          <TableRow key={f.id}>
+                            <TableCell className="font-medium">{f.fee_name}</TableCell>
+                            <TableCell>{cohorts.find(c => c.id === f.cohort_id)?.name || '—'}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className="text-[10px] uppercase">
+                                {(f as any).learning_mode || 'All'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">₦{Number(f.amount).toLocaleString()}</TableCell>
+                            <TableCell className="text-muted-foreground text-xs">{f.created_at ? new Date(f.created_at).toLocaleDateString() : ''}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                );
+              })()}
             </div>
           </CardContent>
         </Card>
