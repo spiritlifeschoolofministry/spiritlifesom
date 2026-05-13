@@ -241,6 +241,7 @@ const AdminFees = () => {
               </div>
               <div>
                 <Label>Learning Mode</Label>
+                <p className="text-[10px] text-muted-foreground mb-1">Target students</p>
                 <Select value={selectedMode} onValueChange={(val) => setValue('learning_mode', val)}>
                   <SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger>
                   <SelectContent>
