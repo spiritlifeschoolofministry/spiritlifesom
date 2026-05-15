@@ -27,6 +27,17 @@ interface RecentStudent {
   created_at: string;
 }
 
+interface LearningModeRequest {
+  id: string;
+  learning_mode: string | null;
+  requested_learning_mode: string | null;
+  profile: {
+    first_name: string;
+    last_name: string;
+    avatar_url: string | null;
+  };
+}
+
 interface DashboardStats {
   totalStudents: number;
   pendingCount: number;
@@ -34,6 +45,7 @@ interface DashboardStats {
   activeCohort: string | null;
   recentStudents: RecentStudent[];
   pendingStudents: PendingStudent[];
+  learningModeRequests: LearningModeRequest[];
 }
 
 const AdminDashboard = () => {
@@ -43,7 +55,7 @@ const AdminDashboard = () => {
 
   const loadStats = async () => {
     try {
-      const [studentsRes, pendingCountRes, coursesRes, cohortRes, recentRes, pendingRes] = await Promise.all([
+      const [studentsRes, pendingCountRes, coursesRes, cohortRes, recentRes, pendingRes, learningModeRequestsRes] = await Promise.all([
         supabase.from("students").select("id", { count: "exact", head: true }),
         supabase
           .from("students")
@@ -63,6 +75,12 @@ const AdminDashboard = () => {
           .ilike("admission_status", "pending")
           .order("created_at", { ascending: false })
           .limit(10),
+        supabase
+          .from("students")
+          .select("id, learning_mode, requested_learning_mode, profile:profiles(first_name, last_name, avatar_url)", { count: "exact" })
+          .not("requested_learning_mode", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(10),
       ]);
 
       setStats({
@@ -72,6 +90,7 @@ const AdminDashboard = () => {
         activeCohort: cohortRes.data?.name || null,
         recentStudents: recentRes.data || [],
         pendingStudents: (pendingRes.data as any) || [],
+        learningModeRequests: (learningModeRequestsRes.data as any) || [],
       });
     } catch (err) {
       console.error("Dashboard load error:", err);
@@ -123,6 +142,74 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleLearningModeRequest = async (studentId: string, action: "approve" | "reject") => {
+    try {
+      const { data: studentData, error: studentError } = await supabase
+        .from("students")
+        .select("profile_id, learning_mode, requested_learning_mode")
+        .eq("id", studentId)
+        .single();
+
+      if (studentError || !studentData) {
+        throw studentError || new Error("Could not load student request");
+      }
+
+      const updatePayload: any = { requested_learning_mode: null };
+      if (action === "approve") {
+        updatePayload.learning_mode = studentData.requested_learning_mode || null;
+      }
+
+      const { data, error } = await supabase
+        .from("students")
+        .update(updatePayload)
+        .eq("id", studentId)
+        .select("profile_id, learning_mode, requested_learning_mode")
+        .single();
+
+      if (error || !data) {
+        throw error || new Error("Failed to update learning mode request");
+      }
+
+      if (data.profile_id) {
+        const notificationTitle =
+          action === "approve"
+            ? "Learning mode change approved"
+            : "Learning mode change denied";
+        const notificationBody =
+          action === "approve"
+            ? `Your learning mode has been updated to ${data.learning_mode}.`
+            : "Your learning mode change request was rejected by an administrator.";
+
+        await supabase.from("notifications").insert({
+          user_id: data.profile_id,
+          title: notificationTitle,
+          body: notificationBody,
+          type: "learning_mode_request",
+          link: "/student/profile",
+        });
+      }
+
+      toast.success(
+        action === "approve"
+          ? "Learning mode request approved"
+          : "Learning mode request rejected"
+      );
+
+      setStats((prev) =>
+        prev
+          ? {
+              ...prev,
+              learningModeRequests: prev.learningModeRequests.filter((s) => s.id !== studentId),
+            }
+          : null
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to process request";
+      console.error("Learning mode request error:", err);
+      toast.error(msg);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -152,6 +239,14 @@ const AdminDashboard = () => {
       icon: Clock,
       color: "text-amber-600",
       bg: "bg-amber-50",
+    },
+    {
+      title: "Learning Mode Requests",
+      value: String(stats.learningModeRequests.length),
+      subtitle: "Awaiting admin review",
+      icon: BookOpen,
+      color: "text-sky-600",
+      bg: "bg-sky-50",
     },
     {
       title: "Active Courses",
@@ -280,6 +375,59 @@ const AdminDashboard = () => {
                       variant="ghost"
                       className="h-8 w-8 text-destructive hover:bg-destructive/10"
                       onClick={() => handleApproval(s.id, "Rejected")}
+                      title="Reject"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Learning Mode Requests */}
+        <Card className="shadow-[var(--shadow-card)] border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-sky-600" /> Learning Mode Change Requests
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {stats.learningModeRequests.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No pending learning mode requests.</p>
+            ) : (
+              stats.learningModeRequests.map((s) => (
+                <div key={s.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
+                  <Avatar className="h-8 w-8">
+                    {s.profile?.avatar_url && <AvatarImage src={s.profile.avatar_url} />}
+                    <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                      {(s.profile?.first_name?.[0] || "")}{(s.profile?.last_name?.[0] || "")}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {s.profile?.first_name || "Unknown"} {s.profile?.last_name || "User"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Current: {s.learning_mode || "—"} • Requested: {s.requested_learning_mode}
+                    </p>
+                  </div>
+                  <div className="flex gap-1.5 shrink-0">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
+                      onClick={() => handleLearningModeRequest(s.id, "approve")}
+                      title="Approve"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                      onClick={() => handleLearningModeRequest(s.id, "reject")}
                       title="Reject"
                     >
                       <XCircle className="w-4 h-4" />

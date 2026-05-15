@@ -113,10 +113,9 @@ const StudentDashboard = () => {
         return;
       }
 
-      const [profileRes, studentRes, coursesRes, announcementsRes, cohortsRes] = await Promise.all([
+      const [profileRes, studentRes, announcementsRes, cohortsRes] = await Promise.all([
         supabase.from("profiles").select("first_name, middle_name, last_name").eq("id", authUser.id).maybeSingle(),
         supabase.from("students").select("id, profile_id, cohort_id, admission_status, is_approved, gender, age, learning_mode").eq("profile_id", authUser.id).maybeSingle(),
-        supabase.from("courses").select("id"),
         supabase.from("announcements").select("title, body, published_at").eq("is_published", true).order("published_at", { ascending: false }).limit(3),
         supabase.from("cohorts").select("id, name").eq("is_active", true).order("created_at", { ascending: false }),
       ]);
@@ -149,13 +148,22 @@ const StudentDashboard = () => {
       let totalAssignments = 0;
       let fees: FeeBreakdown = { paid: 0, unpaid: 0, partial: 0, total: 0, status: "N/A" };
       let completedCourses = 0;
+      let cohortCoursesCount = 0;
       let upcomingEvents: DashboardData["upcomingEvents"] = [];
 
       if (cohortId) {
         try {
-          const { data: completedData } = await supabase.from("courses").select("id").eq("cohort_id", cohortId).eq("is_completed", true);
+          const [{ data: completedData }, { data: cohortCourses }] = await Promise.all([
+            supabase.from("courses").select("id").eq("cohort_id", cohortId).eq("is_completed", true),
+            supabase.from("courses").select("id").eq("cohort_id", cohortId),
+          ]);
           completedCourses = completedData?.length ?? 0;
+          cohortCoursesCount = cohortCourses?.length ?? 0;
         } catch (e) {}
+      }
+
+      if (!cohortId) {
+        cohortCoursesCount = 0;
       }
 
       if (studentId) {
@@ -217,7 +225,7 @@ const StudentDashboard = () => {
         firstName,
         admissionStatus,
         attendanceRate,
-        totalCourses: coursesRes.data?.length || 0,
+        totalCourses: cohortCoursesCount,
         completedCourses,
         pendingAssignments,
         totalAssignments,

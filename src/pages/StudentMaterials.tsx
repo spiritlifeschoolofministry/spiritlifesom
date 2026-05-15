@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import StudentLayout from "@/components/StudentLayout";
@@ -17,9 +17,19 @@ interface Material {
   file_url: string | null;
   created_at: string | null;
   material_type: string | null;
+  learning_mode: string | null;
   is_pinned: boolean | null;
   file_type: string | null;
 }
+
+const mapStudentLearningMode = (learningMode?: string | null) => {
+  if (!learningMode) return ['All'];
+  const normalized = learningMode.toLowerCase();
+  if (normalized === 'online') return ['All', 'Online'];
+  if (normalized === 'hybrid' || normalized === 'blended') return ['All', 'Hybrid', 'Blended'];
+  if (normalized === 'physical' || normalized === 'on-site' || normalized === 'onsite' || normalized === 'offline') return ['All', 'Physical', 'On-site', 'Offline'];
+  return ['All', learningMode];
+};
 
 const StudentMaterials = () => {
   const { student } = useAuth();
@@ -28,7 +38,7 @@ const StudentMaterials = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("all");
 
-  const loadMaterials = async () => {
+  const loadMaterials = useCallback(async () => {
     if (!student?.cohort_id) {
       setMaterials([]);
       setLoading(false);
@@ -36,10 +46,12 @@ const StudentMaterials = () => {
     }
     setLoading(true);
     try {
+      const learningModes = mapStudentLearningMode(student.learning_mode);
       const { data, error } = await supabase
         .from("course_materials")
-        .select("id, title, description, file_url, created_at, material_type, is_pinned, file_type, cohort_id")
+        .select("id, title, description, file_url, created_at, material_type, learning_mode, is_pinned, file_type, cohort_id")
         .eq("cohort_id", student.cohort_id)
+        .in("learning_mode", learningModes)
         .order("is_pinned", { ascending: false, nullsFirst: false })
         .order("created_at", { ascending: false });
 
@@ -50,11 +62,11 @@ const StudentMaterials = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [student?.cohort_id, student?.learning_mode]);
 
   useEffect(() => {
     loadMaterials();
-  }, [student?.cohort_id]);
+  }, [loadMaterials]);
 
   const materialTypes = useMemo(() => {
     const types = new Set<string>();

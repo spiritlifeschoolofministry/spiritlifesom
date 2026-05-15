@@ -29,6 +29,7 @@ interface StudentDetail {
   id: string;
   admission_status: string | null;
   learning_mode: string | null;
+  requested_learning_mode: string | null;
   gender: string | null;
   age: number | null;
   date_of_birth: string | null;
@@ -263,6 +264,7 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
             {[
               { label: "Cohort", value: student.cohort?.name },
               { label: "Learning Mode", value: student.learning_mode },
+              { label: "Requested Learning Mode", value: student.requested_learning_mode },
               { label: "Preferred Language", value: student.preferred_language },
               { label: "Educational Background", value: student.educational_background },
               { label: "Marital Status", value: student.marital_status },

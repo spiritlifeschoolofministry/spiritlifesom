@@ -82,22 +82,34 @@ const AcademicInfoCard = ({
     address: studentData.address || '',
     ministry_description: studentData.ministry_description || '',
   });
+  const { profile } = useAuth();
+
+  const hasPendingRequest = Boolean(
+    studentData.requested_learning_mode && studentData.requested_learning_mode !== studentData.learning_mode
+  );
 
   // Check if any key fields are missing to show a prompt
   const hasMissingFields = !studentData.learning_mode || !studentData.educational_background || !studentData.marital_status || !studentData.preferred_language;
 
   const handleSave = async () => {
     if (!userId) return;
+
+    const isLearningModeChanging = form.learning_mode !== studentData.learning_mode;
+
     try {
       setIsSaving(true);
-      const updateData = {
-        learning_mode: form.learning_mode || null,
+      const updateData: any = {
         preferred_language: form.preferred_language || null,
         educational_background: form.educational_background || null,
         marital_status: form.marital_status || null,
         address: form.address || null,
         ministry_description: form.ministry_description || null,
       };
+
+      if (isLearningModeChanging) {
+        updateData.requested_learning_mode = form.learning_mode || null;
+      }
+
       const { data, error } = await supabase
         .from('students')
         .update(updateData)
@@ -106,7 +118,30 @@ const AcademicInfoCard = ({
         .single();
       if (error) throw error;
       if (data) onSaved(data);
-      toast.success('Academic information updated');
+
+      if (isLearningModeChanging) {
+        toast.success('Learning mode change request submitted for admin approval.');
+        if (profile) {
+          const adminResult = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('role', 'admin');
+
+          const admins = adminResult.data || [];
+          if (!adminResult.error && admins.length > 0) {
+            const notifications = admins.map((admin: { id: string }) => ({
+              user_id: admin.id,
+              title: 'Learning mode change request',
+              body: `${profile.first_name || 'A student'} requested a change to ${form.learning_mode}.`, 
+              type: 'learning_mode_request',
+              link: '/admin/dashboard',
+            }));
+            await supabase.from('notifications').insert(notifications);
+          }
+        }
+      } else {
+        toast.success('Academic information updated');
+      }
       setIsEditing(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save');
@@ -136,6 +171,12 @@ const AcademicInfoCard = ({
             </Button>
           )}
         </div>
+        {hasPendingRequest && !isEditing && (
+          <div className="flex items-center gap-2 mt-3 p-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-700 dark:text-sky-400 text-sm">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>Your request to change learning mode to <strong>{studentData.requested_learning_mode}</strong> is pending admin approval.</span>
+          </div>
+        )}
         {hasMissingFields && !isEditing && (
           <div className="flex items-center gap-2 mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-sm">
             <AlertCircle className="w-4 h-4 shrink-0" />
@@ -260,6 +301,12 @@ const AcademicInfoCard = ({
               <InfoRow label="Learning Mode" value={studentData.learning_mode} />
               <InfoRow label="Preferred Language" value={studentData.preferred_language} />
             </div>
+            {hasPendingRequest && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <InfoRow label="Requested Learning Mode" value={studentData.requested_learning_mode} />
+                <div />
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoRow label="Educational Background" value={studentData.educational_background} />
               <InfoRow label="Marital Status" value={studentData.marital_status} />
