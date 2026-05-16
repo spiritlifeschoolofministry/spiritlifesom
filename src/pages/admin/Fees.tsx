@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Eye, Check, X, Download, Filter } from 'lucide-react';
+import { Loader2, Eye, Check, X, Download, Filter, Trash } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
@@ -117,6 +117,27 @@ const AdminFees = () => {
     } catch (e) {
       console.error(e);
       toast.error('Error adding fee');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const deleteFee = async (id: string) => {
+    if (!window.confirm('Delete this fee? This action cannot be undone.')) return;
+    try {
+      setIsProcessing(true);
+      const { error } = await supabase.from('fee_structures').delete().eq('id', id);
+      if (error) {
+        console.error('Delete fee error:', error);
+        toast.error('Failed to delete fee: ' + (error.message || JSON.stringify(error)));
+        return;
+      }
+      toast.success('Fee deleted');
+      // Optimistically update UI
+      setFeeStructures((prev) => prev.filter((f: any) => f.id !== id));
+    } catch (err) {
+      console.error('Delete fee exception:', err);
+      toast.error('Failed to delete fee');
     } finally {
       setIsProcessing(false);
     }
