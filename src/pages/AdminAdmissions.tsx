@@ -65,6 +65,7 @@ const AdminAdmissions = () => {
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
   const [learningModeRequests, setLearningModeRequests] = useState<any[]>([]);
+  const [certificateRequests, setCertificateRequests] = useState<any[]>([]);
   const [filterMode, setFilterMode] = useState<string>("all");
   const [filterCohort, setFilterCohort] = useState<string>("all");
   const [filterLanguage, setFilterLanguage] = useState<string>("all");
@@ -179,7 +180,7 @@ const AdminAdmissions = () => {
 
   const loadApplications = async () => {
     try {
-      const [appsRes, cohortsRes, lmRes] = await Promise.all([
+      const [appsRes, cohortsRes, lmRes, certRes] = await Promise.all([
         supabase
           .from("students")
           .select(`
@@ -206,13 +207,19 @@ const AdminAdmissions = () => {
           .from("students")
           .select("id, learning_mode, requested_learning_mode, profile:profiles(first_name, last_name, middle_name, email, phone, avatar_url), created_at")
           .not("requested_learning_mode", "is", null)
-          .order("created_at", { ascending: false })
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("students")
+          .select("id, pending_name_change, profile:profiles(first_name, last_name, middle_name, email, phone, avatar_url), created_at")
+          .not("pending_name_change", "is", null)
+          .order("created_at", { ascending: false }),
       ]);
 
       if (appsRes.error) throw appsRes.error;
       setApplications((appsRes.data as any) || []);
       if (cohortsRes.data) setCohorts(cohortsRes.data as CohortOption[]);
       if (lmRes && (lmRes as any).data) setLearningModeRequests((lmRes as any).data || []);
+      if (certRes && (certRes as any).data) setCertificateRequests((certRes as any).data || []);
     } catch (err) {
       console.error("Load applications error:", err);
       toast.error("Failed to load applications");
@@ -259,6 +266,48 @@ const AdminAdmissions = () => {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to process request";
       console.error("Learning mode request error:", err);
+      toast.error(msg);
+    }
+  };
+
+  const handleCertificateRequest = async (studentId: string, action: "approve" | "reject") => {
+    try {
+      const { data: studentData, error: studentError } = await supabase
+        .from("students")
+        .select("profile_id, name_on_certificate, pending_name_change")
+        .eq("id", studentId)
+        .single();
+
+      if (studentError || !studentData) throw studentError || new Error("Could not load certificate request");
+
+      const updatePayload: any = { pending_name_change: null };
+      if (action === "approve") updatePayload.name_on_certificate = studentData.pending_name_change || null;
+
+      const { data, error } = await supabase
+        .from("students")
+        .update(updatePayload)
+        .eq("id", studentId)
+        .select("profile_id, name_on_certificate, pending_name_change");
+
+      if (error) throw error;
+
+      if (data && data.length > 0 && data[0].profile_id) {
+        const notificationTitle = action === "approve" ? "Certificate name change approved" : "Certificate name change denied";
+        const notificationBody = action === "approve" ? `Your certificate name has been updated to ${data[0].name_on_certificate}.` : "Your certificate name change request was rejected by an administrator.";
+        await supabase.from("notifications").insert({
+          user_id: data[0].profile_id,
+          title: notificationTitle,
+          body: notificationBody,
+          type: "certificate_name_change",
+          link: "/student/certificate",
+        });
+      }
+
+      toast.success(action === "approve" ? "Certificate request approved" : "Certificate request rejected");
+      await loadApplications();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to process certificate request";
+      console.error("Certificate request error:", err);
       toast.error(msg);
     }
   };
@@ -584,6 +633,35 @@ const AdminAdmissions = () => {
       </div>
 
       {/* Applications list */}
+      {certificateRequests.length > 0 && (
+        <Card className="shadow-[var(--shadow-card)] border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Certificate Name Change Requests ({certificateRequests.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {certificateRequests.map((s) => (
+              <div key={s.id} className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border transition-colors bg-card`}> 
+                <div className="flex items-start gap-3 flex-1">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-foreground">{s.profile?.first_name || 'Unknown'} {s.profile?.last_name || 'User'}</h3>
+                    <p className="text-sm text-muted-foreground">Requested name: <span className="font-medium">{s.pending_name_change}</span></p>
+                    {s.created_at && <p className="text-[11px] text-muted-foreground mt-1">{timeAgo(s.created_at)}</p>}
+                  </div>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button size="sm" className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-primary-foreground" onClick={() => handleCertificateRequest(s.id, 'approve')}>
+                    <Check className="w-4 h-4" /> Approve
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-1 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => handleCertificateRequest(s.id, 'reject')}>
+                    <X className="w-4 h-4" /> Reject
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {learningModeRequests.length > 0 && (
         <Card className="shadow-[var(--shadow-card)] border-border">
           <CardHeader className="pb-3">

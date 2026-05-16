@@ -46,6 +46,7 @@ interface DashboardStats {
   recentStudents: RecentStudent[];
   pendingStudents: PendingStudent[];
   learningModeRequests: LearningModeRequest[];
+  certificateNameRequests: any[];
 }
 
 const AdminDashboard = () => {
@@ -55,7 +56,7 @@ const AdminDashboard = () => {
 
   const loadStats = async () => {
     try {
-      const [studentsRes, pendingCountRes, coursesRes, cohortRes, recentRes, pendingRes, learningModeRequestsRes] = await Promise.all([
+      const [studentsRes, pendingCountRes, coursesRes, cohortRes, recentRes, pendingRes, learningModeRequestsRes, certRequestsRes] = await Promise.all([
         supabase.from("students").select("id", { count: "exact", head: true }),
         supabase
           .from("students")
@@ -81,6 +82,12 @@ const AdminDashboard = () => {
           .not("requested_learning_mode", "is", null)
           .order("created_at", { ascending: false })
           .limit(10),
+        supabase
+          .from("students")
+          .select("id, pending_name_change, profile:profiles(first_name, last_name, avatar_url)", { count: "exact" })
+          .not("pending_name_change", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(10),
       ]);
 
       setStats({
@@ -91,6 +98,7 @@ const AdminDashboard = () => {
         recentStudents: recentRes.data || [],
         pendingStudents: (pendingRes.data as any) || [],
         learningModeRequests: (learningModeRequestsRes.data as any) || [],
+        certificateNameRequests: (certRequestsRes.data as any) || [],
       });
     } catch (err) {
       console.error("Dashboard load error:", err);
@@ -234,7 +242,7 @@ const AdminDashboard = () => {
     },
     {
       title: "Admissions/Requests",
-      value: String(stats.pendingCount + stats.learningModeRequests.length),
+      value: String(stats.pendingCount + (stats.learningModeRequests?.length || 0) + (stats.certificateNameRequests?.length || 0)),
       subtitle: "Awaiting approval or requests",
       icon: Clock,
       color: "text-amber-600",
