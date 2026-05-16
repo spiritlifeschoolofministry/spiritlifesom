@@ -335,6 +335,7 @@ const AdminFees = () => {
                           <TableHead>Mode</TableHead>
                           <TableHead className="text-right">Amount</TableHead>
                           <TableHead>Date</TableHead>
+                          <TableHead>Action</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -349,6 +350,13 @@ const AdminFees = () => {
                             </TableCell>
                             <TableCell className="text-right font-semibold">₦{Number(f.amount).toLocaleString()}</TableCell>
                             <TableCell className="text-muted-foreground text-xs">{f.created_at ? new Date(f.created_at).toLocaleDateString() : ''}</TableCell>
+                            <TableCell>
+                              <div className="flex justify-end">
+                                <Button size="sm" variant="destructive" onClick={() => deleteFee((f as any).id)} disabled={isProcessing}>
+                                  <Trash className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
