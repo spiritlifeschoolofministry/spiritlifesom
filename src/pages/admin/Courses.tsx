@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, BookOpen, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, BookOpen, Search, Share2 } from "lucide-react";
 
 interface Course {
   id: string;
@@ -46,6 +47,11 @@ const emptyCourse = {
 const AdminCourses = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
+    const [courseCohorts, setCourseCohorts] = useState<any[]>([]);
+    const [shareModalOpen, setShareModalOpen] = useState(false);
+    const [sharingCourseId, setSharingCourseId] = useState<string | null>(null);
+    const [shareTargetCohort, setShareTargetCohort] = useState('');
+    const [isSharing, setIsSharing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [cohortFilter, setCohortFilter] = useState("all");
@@ -59,6 +65,7 @@ const AdminCourses = () => {
     const [coursesRes, cohortsRes] = await Promise.all([
       supabase.from("courses").select("*, cohort:cohorts(name)").order("semester", { ascending: true }).order("code", { ascending: true }),
       supabase.from("cohorts").select("id, name").order("name"),
+      supabase.from("course_cohorts").select("*")
     ]);
     if (coursesRes.data) setCourses(coursesRes.data as Course[]);
     if (cohortsRes.data) setCohorts(cohortsRes.data);
@@ -66,6 +73,33 @@ const AdminCourses = () => {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  const handleShareCourse = async () => {
+    if (!sharingCourseId || !shareTargetCohort) {
+      toast.error('Select a target cohort');
+      return;
+    }
+    if (shareTargetCohort === (courses.find(c => c.id === sharingCourseId)?.cohort_id || '')) {
+      toast.error('Course already assigned to this cohort');
+      return;
+    }
+    const exists = courseCohorts.find(cc => cc.course_id === sharingCourseId && cc.cohort_id === shareTargetCohort);
+    if (exists) { toast.error('Course already shared with this cohort'); return; }
+    try {
+      setIsSharing(true);
+      const { error } = await supabase.from('course_cohorts').insert({ course_id: sharingCourseId, cohort_id: shareTargetCohort });
+      if (error) { console.error('Share course error:', error); toast.error('Failed to share course: ' + (error.message || JSON.stringify(error))); return; }
+      toast.success('Course shared to cohort');
+      await fetchData();
+      setShareModalOpen(false);
+      setSharingCourseId(null);
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to share course');
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   const openCreate = () => {
     setEditingCourse(null);
@@ -192,6 +226,29 @@ const AdminCourses = () => {
                     <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Course title" />
                   </div>
                 </div>
+
+                <Dialog open={shareModalOpen} onOpenChange={setShareModalOpen}>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Share Course to Another Cohort</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-2">
+                      <div>
+                        <Label>Target Cohort</Label>
+                        <Select value={shareTargetCohort} onValueChange={setShareTargetCohort}>
+                          <SelectTrigger><SelectValue placeholder="Select cohort to share with" /></SelectTrigger>
+                          <SelectContent>
+                            {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button onClick={handleShareCourse} disabled={isSharing || !shareTargetCohort} className="w-full">{isSharing ? 'Sharing...' : 'Share Course'}</Button>
+                        <Button variant="ghost" onClick={() => setShareModalOpen(false)}>Cancel</Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
                 <div className="space-y-2">
                   <Label>Description</Label>
                   <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Brief description" rows={3} />
@@ -257,11 +314,19 @@ const AdminCourses = () => {
           <CardContent className="p-0">
             <Table>
               <TableHeader>
+                  <TableHead>Share</TableHead>
                 <TableRow>
                   <TableHead>Code</TableHead>
                   <TableHead>Title</TableHead>
                   <TableHead>Sem</TableHead>
                   <TableHead className="hidden md:table-cell">Lecturer</TableHead>
+                                              <TableCell>
+                                                <div className="flex gap-2">
+                                                  <Button size="sm" onClick={() => openEdit(f)}><Pencil className="h-4 w-4"/></Button>
+                                                  <Button size="sm" variant="destructive" onClick={() => handleDelete(f.id)}><Trash2 className="h-4 w-4"/></Button>
+                                                  <Button size="sm" variant="secondary" onClick={() => { setSharingCourseId(f.id); setShareTargetCohort(''); setShareModalOpen(true); }}><Share2 className="h-4 w-4"/></Button>
+                                                </div>
+                                              </TableCell>
                   <TableHead className="hidden lg:table-cell">Cohort</TableHead>
                   <TableHead className="hidden lg:table-cell">Start Date</TableHead>
                   <TableHead>Status</TableHead>

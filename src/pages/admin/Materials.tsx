@@ -29,6 +29,7 @@ interface UploadForm {
 const AdminMaterials = () => {
   const [cohorts, setCohorts] = useState<Tables<'cohorts'>[]>([]);
   const [courses, setCourses] = useState<Tables<'courses'>[]>([]);
+  const [courseCohorts, setCourseCohorts] = useState<any[]>([]);
   const [materials, setMaterials] = useState<Tables<'course_materials'>[]>([]);
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -59,13 +60,15 @@ const AdminMaterials = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [{ data: cohortsData }, { data: coursesData }, { data: mats }] = await Promise.all([
+      const [{ data: cohortsData }, { data: coursesData }, { data: mats }, { data: cc }] = await Promise.all([
         supabase.from('cohorts').select('*').order('name'),
         supabase.from('courses').select('*').order('title'),
         supabase.from('course_materials').select('*').order('created_at', { ascending: false }),
+        supabase.from('course_cohorts').select('*'),
       ]);
       if (cohortsData) setCohorts(cohortsData);
       if (coursesData) setCourses(coursesData);
+      if (cc) setCourseCohorts(cc || []);
       if (mats) setMaterials(mats);
     } catch (e) {
       console.error(e);
@@ -286,9 +289,16 @@ const AdminMaterials = () => {
                 <Label>Course *</Label>
                 <Select value={selectedCourse} onValueChange={(val) => setValue('course_id', val)}>
                   <SelectTrigger><SelectValue placeholder="Select a course" /></SelectTrigger>
-                  <SelectContent>
-                    {courses.map((c) => (<SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>))}
-                  </SelectContent>
+                    <SelectContent>
+                      {(() => {
+                        const filteredCourses = courses.filter((c) => {
+                          if (!selectedCohort) return true;
+                          if (c.cohort_id === selectedCohort) return true;
+                          return courseCohorts.some(cc => cc.course_id === c.id && cc.cohort_id === selectedCohort);
+                        });
+                        return filteredCourses.map((c) => (<SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>));
+                      })()}
+                    </SelectContent>
                 </Select>
               </div>
               <div>
