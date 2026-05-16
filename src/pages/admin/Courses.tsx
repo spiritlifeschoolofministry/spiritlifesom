@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, BookOpen, Search, Share2, LinkOff } from "lucide-react";
+import { Plus, Pencil, Trash2, BookOpen, Search, Share2, Link as LinkIcon } from "lucide-react";
 
 interface Course {
   id: string;
@@ -248,9 +248,6 @@ const AdminCourses = () => {
                 </div>
 
                 {/* share dialog moved outside the create/edit dialog */}
-              </div>
-            </DialogContent>
-          </Dialog>
 
           {/* Share Course Modal (top-level) */}
           <Dialog open={shareModalOpen} onOpenChange={setShareModalOpen}>
@@ -429,7 +426,7 @@ const AdminCourses = () => {
                             }}
                             title="Unshare"
                           >
-                            <LinkOff className="w-4 h-4" />
+                            <LinkIcon className="w-4 h-4" />
                           </Button>
                         )}
                       </div>

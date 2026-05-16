@@ -19,8 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+// Dynamically import heavy browser-only libs when needed
 
 const StudentCertificate = () => {
   const { student, profile } = useAuth();
@@ -113,26 +112,30 @@ const StudentCertificate = () => {
 
     try {
       setIsDownloading(true);
-      const canvas = await html2canvas(element, {
-        scale: 3, // Higher scale for better quality
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf')
+      ]);
+
+      const canvas = await html2canvas(element as HTMLElement, {
+        scale: 3,
         useCORS: true,
         logging: false,
-        backgroundColor: null
+        backgroundColor: null,
       });
 
-      const imgData = canvas.toDataURL("image/png");
+      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({
-        orientation: "landscape",
-        unit: "mm",
-        format: "a4"
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4',
       });
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`SLSM_Certificate_${customName.replace(/\s+/g, "_")}.pdf`);
-      toast.success("Certificate downloaded successfully");
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`SLSM_Certificate_${customName.replace(/\s+/g, '_')}.pdf`);
+      toast.success('Certificate downloaded successfully');
     } catch (err) {
       console.error("PDF generation failed:", err);
       toast.error("Failed to generate PDF");
