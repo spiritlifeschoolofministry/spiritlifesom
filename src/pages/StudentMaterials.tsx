@@ -26,8 +26,10 @@ const mapStudentLearningMode = (learningMode?: string | null) => {
   if (!learningMode) return ['All'];
   const normalized = learningMode.toLowerCase();
   if (normalized === 'online') return ['All', 'Online'];
-  if (normalized === 'hybrid' || normalized === 'blended') return ['All', 'Hybrid', 'Blended'];
-  if (normalized === 'physical' || normalized === 'on-site' || normalized === 'onsite' || normalized === 'offline') return ['All', 'Physical', 'On-site', 'Offline'];
+  // Treat legacy or alternative values 'blended' as 'Hybrid'
+  if (normalized === 'hybrid' || normalized === 'blended') return ['All', 'Hybrid'];
+  // Treat 'on-site', 'onsite', and 'offline' as 'Physical'
+  if (normalized === 'physical' || normalized === 'on-site' || normalized === 'onsite' || normalized === 'offline') return ['All', 'Physical'];
   return ['All', learningMode];
 };
 

@@ -38,7 +38,7 @@ import { toast } from "sonner";
 const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/admin/dashboard" },
   { label: "Students", icon: Users, path: "/admin/students" },
-  { label: "Admissions/Requests", icon: UserCheck, path: "/admin/admissions" },
+  { label: "Admissions/Requests", shortLabel: "Admissions", icon: UserCheck, path: "/admin/admissions" },
   { label: "Courses", icon: BookOpen, path: "/admin/courses" },
   { label: "Attendance", icon: CalendarCheck, path: "/admin/attendance" },
   { label: "Tasks", icon: FileText, path: "/admin/assignments" },
@@ -248,7 +248,7 @@ const AdminLayout = () => {
           return (
             <Link key={item.path} to={item.path} className={`relative flex flex-col items-center gap-0.5 text-[10px] ${active ? "text-accent" : "text-muted-foreground"}`}>
               <item.icon className="w-5 h-5" />
-              {item.label.split(" ")[0]}
+              {item.shortLabel ?? item.label.split(" ")[0]}
               {showBadge && (
                 <span className="absolute -top-1 right-2 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full h-4 min-w-4 px-1 flex items-center justify-center">
                   {pendingCount}
