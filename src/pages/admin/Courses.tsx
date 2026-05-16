@@ -12,7 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, BookOpen, Search } from "lucide-react";
 import { Plus, Pencil, Trash2, BookOpen, Search, Share2 } from "lucide-react";
 
 interface Course {
@@ -62,17 +61,30 @@ const AdminCourses = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    const [coursesRes, cohortsRes] = await Promise.all([
+    const [coursesRes, cohortsRes, ccRes] = await Promise.all([
       supabase.from("courses").select("*, cohort:cohorts(name)").order("semester", { ascending: true }).order("code", { ascending: true }),
       supabase.from("cohorts").select("id, name").order("name"),
       supabase.from("course_cohorts").select("*")
     ]);
     if (coursesRes.data) setCourses(coursesRes.data as Course[]);
     if (cohortsRes.data) setCohorts(cohortsRes.data);
+    if (ccRes.data) setCourseCohorts(ccRes.data || []);
     setLoading(false);
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  const unshareCourse = async (courseId: string, cohortId: string) => {
+    try {
+      const { error } = await supabase.from('course_cohorts').delete().match({ course_id: courseId, cohort_id: cohortId });
+      if (error) { console.error('Unshare error:', error); toast.error('Failed to unshare: ' + (error.message || JSON.stringify(error))); return; }
+      toast.success('Course unshared from cohort');
+      await fetchData();
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to unshare course');
+    }
+  };
 
   const handleShareCourse = async () => {
     if (!sharingCourseId || !shareTargetCohort) {
@@ -227,28 +239,55 @@ const AdminCourses = () => {
                   </div>
                 </div>
 
-                <Dialog open={shareModalOpen} onOpenChange={setShareModalOpen}>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Share Course to Another Cohort</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 pt-2">
-                      <div>
-                        <Label>Target Cohort</Label>
-                        <Select value={shareTargetCohort} onValueChange={setShareTargetCohort}>
-                          <SelectTrigger><SelectValue placeholder="Select cohort to share with" /></SelectTrigger>
-                          <SelectContent>
-                            {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button onClick={handleShareCourse} disabled={isSharing || !shareTargetCohort} className="w-full">{isSharing ? 'Sharing...' : 'Share Course'}</Button>
-                        <Button variant="ghost" onClick={() => setShareModalOpen(false)}>Cancel</Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                {/* share dialog moved outside the create/edit dialog */}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Share Course Modal (top-level) */}
+          <Dialog open={shareModalOpen} onOpenChange={setShareModalOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Share Course to Another Cohort</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
+                <div>
+                  <Label>Target Cohort</Label>
+                  <Select value={shareTargetCohort} onValueChange={setShareTargetCohort}>
+                    <SelectTrigger><SelectValue placeholder="Select cohort to share with" /></SelectTrigger>
+                    <SelectContent>
+                      {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleShareCourse} disabled={isSharing || !shareTargetCohort} className="w-full">{isSharing ? 'Sharing...' : 'Share Course'}</Button>
+                  <Button variant="ghost" onClick={() => setShareModalOpen(false)}>Cancel</Button>
+                </div>
+
+                <div>
+                  <Label>Already shared with</Label>
+                  <div className="space-y-2 mt-2">
+                    {courseCohorts.filter(cc => cc.course_id === sharingCourseId).map(cc => {
+                      const name = getCohortName(cc.cohort_id);
+                      const isPrimary = courses.find(c => c.id === sharingCourseId)?.cohort_id === cc.cohort_id;
+                      return (
+                        <div key={cc.id} className="flex items-center justify-between gap-2">
+                          <div className="text-sm">{name}{isPrimary ? ' (primary)' : ''}</div>
+                          {!isPrimary && (
+                            <Button size="sm" variant="destructive" onClick={() => unshareCourse(sharingCourseId || '', cc.cohort_id)}>Unshare</Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {courseCohorts.filter(cc => cc.course_id === sharingCourseId).length === 0 && (
+                      <div className="text-sm text-muted-foreground">No shares yet</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
                 <div className="space-y-2">
                   <Label>Description</Label>
                   <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Brief description" rows={3} />
@@ -314,25 +353,17 @@ const AdminCourses = () => {
           <CardContent className="p-0">
             <Table>
               <TableHeader>
-                  <TableHead>Share</TableHead>
-                <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Sem</TableHead>
-                  <TableHead className="hidden md:table-cell">Lecturer</TableHead>
-                                              <TableCell>
-                                                <div className="flex gap-2">
-                                                  <Button size="sm" onClick={() => openEdit(f)}><Pencil className="h-4 w-4"/></Button>
-                                                  <Button size="sm" variant="destructive" onClick={() => handleDelete(f.id)}><Trash2 className="h-4 w-4"/></Button>
-                                                  <Button size="sm" variant="secondary" onClick={() => { setSharingCourseId(f.id); setShareTargetCohort(''); setShareModalOpen(true); }}><Share2 className="h-4 w-4"/></Button>
-                                                </div>
-                                              </TableCell>
-                  <TableHead className="hidden lg:table-cell">Cohort</TableHead>
-                  <TableHead className="hidden lg:table-cell">Start Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
+                  <TableRow>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Sem</TableHead>
+                    <TableHead className="hidden md:table-cell">Lecturer</TableHead>
+                    <TableHead className="hidden lg:table-cell">Cohort</TableHead>
+                    <TableHead className="hidden lg:table-cell">Start Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {filtered.map(course => (
                   <TableRow key={course.id}>
@@ -362,6 +393,9 @@ const AdminCourses = () => {
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleDelete(course.id)} title="Delete" className="text-destructive hover:text-destructive">
                           <Trash2 className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => { setSharingCourseId(course.id); setShareTargetCohort(''); setShareModalOpen(true); }} title="Share">
+                          <Share2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </TableCell>
