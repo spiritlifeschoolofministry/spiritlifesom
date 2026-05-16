@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Check, X, Eye, Search, Users, Clock, Loader2, UserCheck, Mail, Filter, FileJson, CheckCircle2, XCircle, MailCheck } from "lucide-react";
+import { Check, X, Eye, Search, Users, Clock, Loader2, UserCheck, Mail, Filter, FileJson, CheckCircle2, XCircle, MailCheck, BookOpen } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
@@ -64,6 +64,7 @@ const AdminAdmissions = () => {
   const [bulkApproving, setBulkApproving] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
+  const [learningModeRequests, setLearningModeRequests] = useState<any[]>([]);
   const [filterMode, setFilterMode] = useState<string>("all");
   const [filterCohort, setFilterCohort] = useState<string>("all");
   const [filterLanguage, setFilterLanguage] = useState<string>("all");
@@ -178,7 +179,7 @@ const AdminAdmissions = () => {
 
   const loadApplications = async () => {
     try {
-      const [appsRes, cohortsRes] = await Promise.all([
+      const [appsRes, cohortsRes, lmRes] = await Promise.all([
         supabase
           .from("students")
           .select(`
@@ -201,16 +202,64 @@ const AdminAdmissions = () => {
           .in("admission_status", ["Pending", "PENDING"])
           .order("created_at", { ascending: false }),
         supabase.from("cohorts").select("id, name").order("name"),
+        supabase
+          .from("students")
+          .select("id, learning_mode, requested_learning_mode, profile:profiles(first_name, last_name, middle_name, email, phone, avatar_url), created_at")
+          .not("requested_learning_mode", "is", null)
+          .order("created_at", { ascending: false })
       ]);
 
       if (appsRes.error) throw appsRes.error;
       setApplications((appsRes.data as any) || []);
       if (cohortsRes.data) setCohorts(cohortsRes.data as CohortOption[]);
+      if (lmRes && (lmRes as any).data) setLearningModeRequests((lmRes as any).data || []);
     } catch (err) {
       console.error("Load applications error:", err);
       toast.error("Failed to load applications");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLearningModeRequest = async (studentId: string, action: "approve" | "reject") => {
+    try {
+      const { data: studentData, error: studentError } = await supabase
+        .from("students")
+        .select("profile_id, learning_mode, requested_learning_mode")
+        .eq("id", studentId)
+        .single();
+
+      if (studentError || !studentData) throw studentError || new Error("Could not load student request");
+
+      const updatePayload: any = { requested_learning_mode: null };
+      if (action === "approve") updatePayload.learning_mode = studentData.requested_learning_mode || null;
+
+      const { data, error } = await supabase
+        .from("students")
+        .update(updatePayload)
+        .eq("id", studentId)
+        .select("profile_id, learning_mode, requested_learning_mode");
+
+      if (error) throw error;
+
+      if (data && data.length > 0 && data[0].profile_id) {
+        const notificationTitle = action === "approve" ? "Learning mode change approved" : "Learning mode change denied";
+        const notificationBody = action === "approve" ? `Your learning mode has been updated to ${data[0].learning_mode}.` : "Your learning mode change request was rejected by an administrator.";
+        await supabase.from("notifications").insert({
+          user_id: data[0].profile_id,
+          title: notificationTitle,
+          body: notificationBody,
+          type: "learning_mode_request",
+          link: "/student/profile",
+        });
+      }
+
+      toast.success(action === "approve" ? "Learning mode request approved" : "Learning mode request rejected");
+      await loadApplications();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to process request";
+      console.error("Learning mode request error:", err);
+      toast.error(msg);
     }
   };
 
@@ -404,8 +453,8 @@ const AdminAdmissions = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Admission Management</h1>
-        <p className="text-muted-foreground text-sm mt-1">Review and process new applications</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Admissions/Requests</h1>
+        <p className="text-muted-foreground text-sm mt-1">Review and process new applications and learning-mode requests</p>
       </div>
 
       {/* Stats */}
@@ -487,6 +536,7 @@ const AdminAdmissions = () => {
                 <SelectItem value="all">All modes</SelectItem>
                 <SelectItem value="physical">Physical</SelectItem>
                 <SelectItem value="online">Online</SelectItem>
+                <SelectItem value="hybrid">Hybrid</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -534,6 +584,43 @@ const AdminAdmissions = () => {
       </div>
 
       {/* Applications list */}
+      {learningModeRequests.length > 0 && (
+        <Card className="shadow-[var(--shadow-card)] border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2"><BookOpen className="w-4 h-4 text-sky-600" /> Learning Mode Change Requests ({learningModeRequests.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {learningModeRequests.map((s) => (
+              <div key={s.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{s.profile?.first_name || 'Unknown'} {s.profile?.last_name || 'User'}</p>
+                  <p className="text-xs text-muted-foreground">Current: {s.learning_mode || '—'} • Requested: {s.requested_learning_mode}</p>
+                </div>
+                <div className="flex gap-1.5 shrink-0">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
+                    onClick={() => handleLearningModeRequest(s.id, 'approve')}
+                    title="Approve"
+                  >
+                    <Check className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                    onClick={() => handleLearningModeRequest(s.id, 'reject')}
+                    title="Reject"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
       <Card className="shadow-[var(--shadow-card)] border-border">
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <CardTitle className="text-base">Pending Applications ({filteredApplications.length})</CardTitle>

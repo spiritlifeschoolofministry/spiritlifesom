@@ -233,21 +233,14 @@ const AdminDashboard = () => {
       bg: "bg-secondary",
     },
     {
-      title: "Pending Admissions",
-      value: String(stats.pendingCount),
-      subtitle: "Awaiting approval",
+      title: "Admissions/Requests",
+      value: String(stats.pendingCount + stats.learningModeRequests.length),
+      subtitle: "Awaiting approval or requests",
       icon: Clock,
       color: "text-amber-600",
       bg: "bg-amber-50",
     },
-    {
-      title: "Learning Mode Requests",
-      value: String(stats.learningModeRequests.length),
-      subtitle: "Awaiting admin review",
-      icon: BookOpen,
-      color: "text-sky-600",
-      bg: "bg-sky-50",
-    },
+    
     {
       title: "Active Courses",
       value: String(stats.activeCourses),

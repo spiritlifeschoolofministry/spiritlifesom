@@ -38,7 +38,7 @@ import { toast } from "sonner";
 const NAV_ITEMS = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/admin/dashboard" },
   { label: "Students", icon: Users, path: "/admin/students" },
-  { label: "Admissions", icon: UserCheck, path: "/admin/admissions" },
+  { label: "Admissions/Requests", icon: UserCheck, path: "/admin/admissions" },
   { label: "Courses", icon: BookOpen, path: "/admin/courses" },
   { label: "Attendance", icon: CalendarCheck, path: "/admin/attendance" },
   { label: "Tasks", icon: FileText, path: "/admin/assignments" },

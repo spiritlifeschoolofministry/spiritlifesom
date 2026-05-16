@@ -9,11 +9,15 @@ export const usePendingAdmissionsCount = (enabled: boolean = true) => {
     let mounted = true;
 
     const load = async () => {
-      const { count: c } = await supabase
-        .from("students")
-        .select("id", { count: "exact", head: true })
-        .ilike("admission_status", "pending");
-      if (mounted) setCount(c ?? 0);
+      // Count pending admissions
+      const [{ count: admissionsCount }, { count: requestsCount }] = await Promise.all([
+        supabase.from("students").select("id", { count: "exact", head: true }).ilike("admission_status", "pending"),
+        // Count students who have a pending learning mode request
+        supabase.from("students").select("id", { count: "exact", head: true }).not("requested_learning_mode", "is", null),
+      ]);
+      const a = admissionsCount ?? 0;
+      const r = requestsCount ?? 0;
+      if (mounted) setCount(a + r);
     };
 
     load();
