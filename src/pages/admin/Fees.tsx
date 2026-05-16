@@ -170,13 +170,29 @@ const AdminFees = () => {
   const handleExportFees = async () => {
     try {
       toast.info("Preparing fee report...");
-      let query = supabase.from("fees").select("student_id, fee_type, amount_due, amount_paid, payment_status, cohort_id, waived, created_at");
-      const { data: fees } = await query;
-      if (!fees?.length) { toast.error("No fee data to export"); return; }
+      const query = supabase.from("fees").select("student_id, fee_type, amount_due, amount_paid, payment_status, cohort_id, waived, created_at");
+      const { data: fees, error } = await query;
+
+      // Log exact query error for debugging
+      if (error) {
+        console.error('Fees query error:', error);
+        toast.error('Export failed: ' + (error.message || JSON.stringify(error)));
+        return;
+      }
+
+      if (!fees?.length) {
+        toast.error("No fee data to export");
+        return;
+      }
 
       // Enrich with student names
       const studentIds = [...new Set(fees.map(f => f.student_id))];
-      const { data: students } = await supabase.from("students").select("id, student_code, profile:profiles(first_name, last_name, email)").in("id", studentIds);
+      const { data: students, error: studentsError } = await supabase.from("students").select("id, student_code, profile:profiles(first_name, last_name, email)").in("id", studentIds);
+      if (studentsError) {
+        console.error('Students query error during export:', studentsError);
+        toast.error('Export failed: ' + (studentsError.message || JSON.stringify(studentsError)));
+        return;
+      }
       const studentMap = new Map((students || []).map(s => [s.id, s]));
 
       const rows = fees.map(f => {
@@ -194,9 +210,10 @@ const AdminFees = () => {
         };
       });
       downloadCSV(rows, "fee_report");
-    } catch (err) {
-      console.error(err);
-      toast.error("Export failed");
+    } catch (err: unknown) {
+      console.error('Export failed error:', err);
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error('Export failed: ' + msg);
     }
   };
 
