@@ -76,10 +76,16 @@ const AdminCourses = () => {
 
   const unshareCourse = async (courseId: string, cohortId: string) => {
     try {
+      console.log('Attempting unshare', { courseId, cohortId });
       const { error } = await supabase.from('course_cohorts').delete().match({ course_id: courseId, cohort_id: cohortId });
-      if (error) { console.error('Unshare error:', error); toast.error('Failed to unshare: ' + (error.message || JSON.stringify(error))); return; }
+      if (error) {
+        console.error('Unshare error:', error);
+        toast.error('Failed to unshare: ' + (error.message || JSON.stringify(error)));
+        return;
+      }
+      // update local state immediately
+      setCourseCohorts(prev => prev.filter(cc => !(cc.course_id === courseId && cc.cohort_id === cohortId)));
       toast.success('Course unshared from cohort');
-      await fetchData();
     } catch (e) {
       console.error(e);
       toast.error('Failed to unshare course');
@@ -98,11 +104,13 @@ const AdminCourses = () => {
     const exists = courseCohorts.find(cc => cc.course_id === sharingCourseId && cc.cohort_id === shareTargetCohort);
     if (exists) { toast.error('Course already shared with this cohort'); return; }
     try {
+      console.log('Attempting share', { sharingCourseId, shareTargetCohort });
       setIsSharing(true);
-      const { error } = await supabase.from('course_cohorts').insert({ course_id: sharingCourseId, cohort_id: shareTargetCohort });
+      const { data, error } = await supabase.from('course_cohorts').insert({ course_id: sharingCourseId, cohort_id: shareTargetCohort }).select().single();
       if (error) { console.error('Share course error:', error); toast.error('Failed to share course: ' + (error.message || JSON.stringify(error))); return; }
+      // update local state immediately with returned record
+      if (data) setCourseCohorts(prev => [...prev, data]);
       toast.success('Course shared to cohort');
-      await fetchData();
       setShareModalOpen(false);
       setSharingCourseId(null);
     } catch (e) {
@@ -246,23 +254,25 @@ const AdminCourses = () => {
 
           {/* Share Course Modal (top-level) */}
           <Dialog open={shareModalOpen} onOpenChange={setShareModalOpen}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>Share Course to Another Cohort</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 pt-2">
-                <div>
-                  <Label>Target Cohort</Label>
-                  <Select value={shareTargetCohort} onValueChange={setShareTargetCohort}>
-                    <SelectTrigger><SelectValue placeholder="Select cohort to share with" /></SelectTrigger>
-                    <SelectContent>
-                      {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleShareCourse} disabled={isSharing || !shareTargetCohort} className="w-full">{isSharing ? 'Sharing...' : 'Share Course'}</Button>
-                  <Button variant="ghost" onClick={() => setShareModalOpen(false)}>Cancel</Button>
+              <div className="grid gap-4 pt-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-end">
+                  <div>
+                    <Label>Target Cohort</Label>
+                    <Select value={shareTargetCohort} onValueChange={setShareTargetCohort}>
+                      <SelectTrigger><SelectValue placeholder="Select cohort to share with" /></SelectTrigger>
+                      <SelectContent>
+                        {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleShareCourse} disabled={isSharing || !shareTargetCohort} className="w-full">{isSharing ? 'Sharing...' : 'Share Course'}</Button>
+                    <Button variant="ghost" onClick={() => setShareModalOpen(false)}>Cancel</Button>
+                  </div>
                 </div>
 
                 <div>
@@ -394,11 +404,31 @@ const AdminCourses = () => {
                         <Button variant="ghost" size="icon" onClick={() => handleDelete(course.id)} title="Delete" className="text-destructive hover:text-destructive">
                           <Trash2 className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => { setSharingCourseId(course.id); setShareTargetCohort(''); setShareModalOpen(true); }} title="Share">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            console.log('Open share modal for', course.id);
+                            setSharingCourseId(course.id);
+                            setShareTargetCohort('');
+                            setShareModalOpen(true);
+                          }}
+                          title="Share"
+                        >
                           <Share2 className="w-4 h-4" />
                         </Button>
                         {courseCohorts.some(cc => cc.course_id === course.id && cc.cohort_id !== course.cohort_id) && (
-                          <Button variant="ghost" size="icon" onClick={() => { setSharingCourseId(course.id); setShareTargetCohort(''); setShareModalOpen(true); }} title="Unshare">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              console.log('Open share modal (for unshare) for', course.id);
+                              setSharingCourseId(course.id);
+                              setShareTargetCohort('');
+                              setShareModalOpen(true);
+                            }}
+                            title="Unshare"
+                          >
                             <LinkOff className="w-4 h-4" />
                           </Button>
                         )}
