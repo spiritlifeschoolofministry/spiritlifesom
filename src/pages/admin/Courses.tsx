@@ -247,54 +247,7 @@ const AdminCourses = () => {
                   </div>
                 </div>
 
-                {/* share dialog moved outside the create/edit dialog */}
-
-          {/* Share Course Modal (top-level) */}
-          <Dialog open={shareModalOpen} onOpenChange={setShareModalOpen}>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Share Course to Another Cohort</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 pt-2">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-end">
-                  <div>
-                    <Label>Target Cohort</Label>
-                    <Select value={shareTargetCohort} onValueChange={setShareTargetCohort}>
-                      <SelectTrigger><SelectValue placeholder="Select cohort to share with" /></SelectTrigger>
-                      <SelectContent>
-                        {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button onClick={handleShareCourse} disabled={isSharing || !shareTargetCohort} className="w-full">{isSharing ? 'Sharing...' : 'Share Course'}</Button>
-                    <Button variant="ghost" onClick={() => setShareModalOpen(false)}>Cancel</Button>
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Already shared with</Label>
-                  <div className="space-y-2 mt-2">
-                    {courseCohorts.filter(cc => cc.course_id === sharingCourseId).map(cc => {
-                      const name = getCohortName(cc.cohort_id);
-                      const isPrimary = courses.find(c => c.id === sharingCourseId)?.cohort_id === cc.cohort_id;
-                      return (
-                        <div key={cc.id} className="flex items-center justify-between gap-2">
-                          <div className="text-sm">{name}{isPrimary ? ' (primary)' : ''}</div>
-                          {!isPrimary && (
-                            <Button size="sm" variant="destructive" onClick={() => unshareCourse(sharingCourseId || '', cc.cohort_id)}>Unshare</Button>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {courseCohorts.filter(cc => cc.course_id === sharingCourseId).length === 0 && (
-                      <div className="text-sm text-muted-foreground">No shares yet</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+                
                 <div className="space-y-2">
                   <Label>Description</Label>
                   <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Brief description" rows={3} />
@@ -344,6 +297,53 @@ const AdminCourses = () => {
           </Dialog>
         </div>
       </div>
+
+      {/* Share Course Modal (top-level) */}
+      <Dialog open={shareModalOpen} onOpenChange={setShareModalOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Share Course to Another Cohort</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 pt-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-end">
+              <div>
+                <Label>Target Cohort</Label>
+                <Select value={shareTargetCohort} onValueChange={setShareTargetCohort}>
+                  <SelectTrigger><SelectValue placeholder="Select cohort to share with" /></SelectTrigger>
+                  <SelectContent>
+                    {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleShareCourse} disabled={isSharing || !shareTargetCohort} className="w-full">{isSharing ? 'Sharing...' : 'Share Course'}</Button>
+                <Button variant="ghost" onClick={() => setShareModalOpen(false)}>Cancel</Button>
+              </div>
+            </div>
+
+            <div>
+              <Label>Already shared with</Label>
+              <div className="space-y-2 mt-2">
+                {courseCohorts.filter(cc => cc.course_id === sharingCourseId).map(cc => {
+                  const name = getCohortName(cc.cohort_id);
+                  const isPrimary = courses.find(c => c.id === sharingCourseId)?.cohort_id === cc.cohort_id;
+                  return (
+                    <div key={cc.id} className="flex items-center justify-between gap-2">
+                      <div className="text-sm">{name}{isPrimary ? ' (primary)' : ''}</div>
+                      {!isPrimary && (
+                        <Button size="sm" variant="destructive" onClick={() => unshareCourse(sharingCourseId || '', cc.cohort_id)}>Unshare</Button>
+                      )}
+                    </div>
+                  );
+                })}
+                {courseCohorts.filter(cc => cc.course_id === sharingCourseId).length === 0 && (
+                  <div className="text-sm text-muted-foreground">No shares yet</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {loading ? (
         <div className="space-y-3">

@@ -96,7 +96,7 @@ const StudentFees = () => {
     }
     try {
       setIsSubmitting(true);
-      const fileName = `payments/${student.id}/${Date.now()}-${receiptFile.name}`;
+      const fileName = `${user.id}/${Date.now()}-${receiptFile.name}`;
       
       let storageProvider = 'r2';
       let filePath = fileName;
@@ -106,9 +106,9 @@ const StudentFees = () => {
         await r2Storage.uploadFile(receiptFile, fileName);
       } catch (err) {
         console.error("R2 upload failed, falling back to Supabase:", err);
-        const { data: uploadData, error: uploadError } = await supabase.storage.from('course-materials').upload(fileName, receiptFile);
+        const { data: uploadData, error: uploadError } = await supabase.storage.from('submissions').upload(fileName, receiptFile);
         if (uploadError) throw uploadError;
-        const { data: urlData } = supabase.storage.from('course-materials').getPublicUrl(uploadData.path);
+        const { data: urlData } = supabase.storage.from('submissions').getPublicUrl(uploadData.path);
         fileUrl = urlData.publicUrl;
         storageProvider = 'supabase';
       }
