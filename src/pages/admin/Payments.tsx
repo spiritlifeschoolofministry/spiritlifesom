@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { r2Storage } from '@/lib/r2-storage';
 import { Loader2, CheckCircle, XCircle, Eye, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
@@ -36,6 +37,8 @@ const AdminPayments = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [pendingConfirm, setPendingConfirm] = useState<null | "approve" | "reject">(null);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
 
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<AddFeeFormData>({
     defaultValues: { cohort_id: '', fee_name: '', amount: '' },
@@ -92,6 +95,37 @@ const AdminPayments = () => {
     };
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (!selectedPayment) { setReceiptUrl(null); return; }
+    const resolve = async () => {
+      try {
+        setReceiptLoading(true);
+        if (selectedPayment.storage_provider === 'r2') {
+          const url = await r2Storage.getDownloadUrl(selectedPayment.storage_path || selectedPayment.payment_proof_url);
+          setReceiptUrl(url);
+        } else if (selectedPayment.storage_provider === 'supabase') {
+          // payment_proof_url may be a storage path; resolve to a public URL when needed
+          const path = selectedPayment.storage_path || selectedPayment.payment_proof_url || '';
+          if (path && !path.startsWith('http')) {
+            const { data: urlData, error } = await supabase.storage.from('submissions').getPublicUrl(path);
+            if (error || !urlData?.publicUrl) throw error || new Error('Failed to get public URL');
+            setReceiptUrl(urlData.publicUrl);
+          } else {
+            setReceiptUrl(selectedPayment.payment_proof_url || null);
+          }
+        } else {
+          setReceiptUrl(selectedPayment.payment_proof_url || null);
+        }
+      } catch (err) {
+        console.error('Failed to resolve receipt URL', err);
+        setReceiptUrl(null);
+      } finally {
+        setReceiptLoading(false);
+      }
+    };
+    resolve();
+  }, [selectedPayment]);
 
   const approvePayment = async (payment: PaymentReview) => {
     try {
@@ -267,10 +301,18 @@ const AdminPayments = () => {
                                   </div>
                                 )}
 
-                                {selectedPayment.payment_proof_url && (
+                                {(receiptUrl || selectedPayment?.payment_proof_url) && (
                                   <div>
                                     <Label className="text-xs text-muted-foreground">Receipt Image</Label>
-                                    <img src={selectedPayment.payment_proof_url} alt="Receipt" className="max-h-[400px] rounded-lg border mt-2" />
+                                    {receiptLoading ? (
+                                      <p className="text-sm text-muted-foreground mt-2">Loading receipt...</p>
+                                    ) : receiptUrl ? (
+                                      <img src={receiptUrl} alt="Receipt" className="max-h-[400px] rounded-lg border mt-2" />
+                                    ) : selectedPayment?.payment_proof_url ? (
+                                      <img src={selectedPayment.payment_proof_url} alt="Receipt" className="max-h-[400px] rounded-lg border mt-2" />
+                                    ) : (
+                                      <p className="text-sm text-destructive mt-2">Unable to load receipt image</p>
+                                    )}
                                   </div>
                                 )}
 

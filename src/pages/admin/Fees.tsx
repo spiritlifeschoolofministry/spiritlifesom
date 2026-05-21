@@ -11,6 +11,7 @@ import { Loader2, Eye, Check, X, Download, Filter, Trash } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { r2Storage } from '@/lib/r2-storage';
 import { downloadCSV } from '@/lib/csv-export';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -34,6 +35,7 @@ const AdminFees = () => {
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
+  const [selectedReceiptLoading, setSelectedReceiptLoading] = useState(false);
   const [cohortFilter, setCohortFilter] = useState('all');
 
   const { register, handleSubmit, reset, setValue, watch } = useForm<AddFeeFormData>({
@@ -397,7 +399,41 @@ const AdminFees = () => {
                           <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : ''}</TableCell>
                           <TableCell>
                             {p.payment_proof_url ? (
-                              <button onClick={() => setSelectedReceipt(p.payment_proof_url)} className="text-primary hover:underline flex items-center gap-1">
+                              <button onClick={async () => {
+                                try {
+                                  try {
+                                    if (p.storage_provider === 'r2') {
+                                      setSelectedReceiptLoading(true);
+                                      const url = await r2Storage.getDownloadUrl(p.storage_path || p.payment_proof_url);
+                                      setSelectedReceipt(url);
+                                    } else if (p.storage_provider === 'supabase') {
+                                      setSelectedReceiptLoading(true);
+                                      const path = p.storage_path || p.payment_proof_url || '';
+                                      if (path && !path.startsWith('http')) {
+                                        const { data: urlData, error } = await supabase.storage.from('submissions').getPublicUrl(path);
+                                        if (error || !urlData?.publicUrl) throw error || new Error('Failed to get public URL');
+                                        setSelectedReceipt(urlData.publicUrl);
+                                      } else {
+                                        setSelectedReceipt(p.payment_proof_url);
+                                      }
+                                    } else {
+                                      setSelectedReceipt(p.payment_proof_url);
+                                    }
+                                  } catch (err) {
+                                    console.error('Failed to load receipt', err);
+                                    toast.error('Failed to load receipt image');
+                                    setSelectedReceipt(null);
+                                  } finally {
+                                    setSelectedReceiptLoading(false);
+                                  }
+                                } catch (err) {
+                                  console.error('Failed to load receipt', err);
+                                  toast.error('Failed to load receipt image');
+                                  setSelectedReceipt(null);
+                                } finally {
+                                  setSelectedReceiptLoading(false);
+                                }
+                              }} className="text-primary hover:underline flex items-center gap-1">
                                 <Eye className="h-4 w-4" /> View
                               </button>
                             ) : (
@@ -424,9 +460,15 @@ const AdminFees = () => {
               <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
                 <DialogTitle>Payment Receipt</DialogTitle>
               </DialogHeader>
-              {selectedReceipt && (
+              {(selectedReceipt || selectedReceiptLoading) && (
                 <div className="flex flex-col gap-4 pt-4">
-                  <img src={selectedReceipt} alt="Receipt" className="w-full max-h-96 object-contain rounded" />
+                  {selectedReceiptLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading receipt...</p>
+                  ) : selectedReceipt ? (
+                    <img src={selectedReceipt} alt="Receipt" className="w-full max-h-96 object-contain rounded" />
+                  ) : (
+                    <p className="text-sm text-destructive">Unable to load receipt image</p>
+                  )}
                 </div>
               )}
             </DialogContent>
