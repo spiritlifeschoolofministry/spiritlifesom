@@ -170,8 +170,8 @@ const StudentDashboard = () => {
         try {
           const { data: attendance } = await supabase.from("attendance").select("status").eq("student_id", studentId);
           if (attendance && attendance.length > 0) {
-            const present = attendance.filter((a) => a.status === "Present").length;
-            attendanceRate = Math.round((present / attendance.length) * 100);
+              const present = attendance.filter((a) => a.status === "Present" || a.status === "Late").length;
+              attendanceRate = Math.round((present / attendance.length) * 100);
           }
         } catch (e) {}
 

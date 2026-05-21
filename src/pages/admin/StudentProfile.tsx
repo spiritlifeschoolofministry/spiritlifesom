@@ -429,7 +429,7 @@ const AdminStudentProfile = () => {
   };
 
   const attendanceRate = attendance.total > 0
-    ? Math.round((attendance.present / attendance.total) * 100)
+    ? Math.round(((attendance.present + attendance.late) / attendance.total) * 100)
     : 0;
 
   const totalFeesDue = fees.reduce((sum, f) => sum + (f.amount_due || 0), 0);

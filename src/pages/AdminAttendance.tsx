@@ -418,7 +418,7 @@ const AdminAttendance = () => {
 
       const { data: attData, error: attError } = await supabase
         .from("attendance")
-        .select("id, student_id, status");
+        .select("id, student_id, status, is_verified");
 
       if (attError) throw attError;
       const attList = attData || [];
@@ -428,7 +428,10 @@ const AdminAttendance = () => {
       for (const a of attList) {
         const sid = (a as { student_id: string }).student_id;
         totalByStudent.set(sid, (totalByStudent.get(sid) || 0) + 1);
-        if ((a as { status?: string }).status?.toUpperCase() === "PRESENT") {
+        const status = ((a as { status?: string }).status || "").toUpperCase();
+        const verified = Boolean((a as { is_verified?: boolean }).is_verified);
+        // Count verified Present and verified Late as attended for statistics
+        if (verified && (status === "PRESENT" || status === "LATE")) {
           presentByStudent.set(sid, (presentByStudent.get(sid) || 0) + 1);
         }
       }
@@ -986,7 +989,7 @@ const AdminAttendance = () => {
                   <TableHead>Name</TableHead>
                   <TableHead>Cohort</TableHead>
                   <TableHead>Total Classes</TableHead>
-                  <TableHead>Verified Present</TableHead>
+                  <TableHead>Verified Present/Late</TableHead>
                   <TableHead>Attendance %</TableHead>
                   <TableHead className="text-right">Edit</TableHead>
                 </TableRow>
