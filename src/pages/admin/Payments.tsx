@@ -130,7 +130,7 @@ const AdminPayments = () => {
   const approvePayment = async (payment: PaymentReview) => {
     try {
       setIsProcessing(true);
-      const { error } = await supabase.from('payments').update({ status: 'verified' }).eq('id', payment.id);
+      const { error } = await supabase.from('payments').update({ status: 'VERIFIED' }).eq('id', payment.id);
       if (error) { toast.error('Failed to approve payment'); return; }
       toast.success('Payment approved');
       setIsReviewModalOpen(false);
@@ -147,7 +147,7 @@ const AdminPayments = () => {
     if (!rejectionReason.trim()) { toast.error('Please provide a rejection reason'); return; }
     try {
       setIsProcessing(true);
-      const { error } = await supabase.from('payments').update({ status: 'rejected', admin_notes: rejectionReason }).eq('id', payment.id);
+      const { error } = await supabase.from('payments').update({ status: 'REJECTED', admin_notes: rejectionReason }).eq('id', payment.id);
       if (error) { toast.error('Failed to reject payment'); return; }
       toast.success('Payment rejected');
       setIsReviewModalOpen(false);

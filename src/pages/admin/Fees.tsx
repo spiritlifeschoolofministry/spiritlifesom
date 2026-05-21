@@ -32,6 +32,7 @@ const AdminFees = () => {
   const [cohorts, setCohorts] = useState<Tables<'cohorts'>[]>([]);
   const [feeStructures, setFeeStructures] = useState<Tables<'fee_structures'>[]>([]);
   const [pendingPayments, setPendingPayments] = useState<PaymentWithStudent[]>([]);
+  const [approvedPayments, setApprovedPayments] = useState<PaymentWithStudent[]>([]);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
@@ -47,14 +48,14 @@ const AdminFees = () => {
 
   const fetchPaymentsWithStudents = async () => {
     try {
+      // Fetch payments with relevant statuses so we can show pending and approved sections
       const { data: payments } = await supabase
         .from('payments')
         .select('*')
-        .eq('status', 'PENDING')
+        .in('status', ['PENDING', 'VERIFIED', 'APPROVED', 'REJECTED'])
         .order('created_at', { ascending: false });
 
       if (payments) {
-        // Enrich with student names
         const enriched = await Promise.all(
           payments.map(async (p) => {
             let student_name = 'Unknown';
@@ -72,7 +73,15 @@ const AdminFees = () => {
             return { ...p, student_name, student_email };
           })
         );
-        setPendingPayments(enriched);
+
+        // Partition into pending and approved lists
+        const pending = enriched.filter((p) => (p.status || 'PENDING').toUpperCase() === 'PENDING');
+        const approved = enriched.filter((p) => {
+          const s = (p.status || '').toUpperCase();
+          return s === 'VERIFIED' || s === 'APPROVED';
+        });
+        setPendingPayments(pending);
+        setApprovedPayments(approved);
       }
     } catch (e) {
       console.error(e);
@@ -179,7 +188,7 @@ const AdminFees = () => {
   const rejectPayment = async (id: string) => {
     try {
       setIsProcessing(true);
-      const { error } = await supabase.from('payments').update({ status: 'rejected' }).eq('id', id);
+      const { error } = await supabase.from('payments').update({ status: 'REJECTED' }).eq('id', id);
       if (error) { toast.error('Failed to reject'); return; }
       toast.success('Payment rejected');
       await fetchPaymentsWithStudents();
@@ -325,47 +334,142 @@ const AdminFees = () => {
 
               {(() => {
                 const filtered = cohortFilter === 'all' ? feeStructures : feeStructures.filter(f => f.cohort_id === cohortFilter);
-                return filtered.length === 0 ? (
-                  <p className="text-muted-foreground py-8 text-center border rounded-lg border-dashed">No fee structures found for the selected criteria.</p>
-                ) : (
-                  <div className="overflow-x-auto rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Cohort</TableHead>
-                          <TableHead>Mode</TableHead>
-                          <TableHead className="text-right">Amount</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filtered.map((f) => (
-                          <TableRow key={f.id}>
-                            <TableCell className="font-medium">{f.fee_name}</TableCell>
-                            <TableCell>{cohorts.find(c => c.id === f.cohort_id)?.name || '—'}</TableCell>
-                            <TableCell>
-                              <Badge variant="secondary" className="text-[10px] uppercase">
-                                {(f as any).learning_mode || 'All'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right font-semibold">₦{Number(f.amount).toLocaleString()}</TableCell>
-                            <TableCell className="text-muted-foreground text-xs">{f.created_at ? new Date(f.created_at).toLocaleDateString() : ''}</TableCell>
-                            <TableCell>
-                              <div className="flex justify-end">
-                                <Button size="sm" variant="destructive" onClick={() => deleteFee((f as any).id)} disabled={isProcessing}>
-                                  <Trash className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="font-semibold mb-3">Pending Payments</h3>
+                    {pendingPayments.length === 0 ? (
+                      <p className="text-muted-foreground">No pending payments</p>
+                    ) : (
+                      <div className="overflow-x-auto rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Student</TableHead>
+                              <TableHead className="text-right">Amount</TableHead>
+                              <TableHead>Date</TableHead>
+                              <TableHead>Receipt</TableHead>
+                              <TableHead>Action</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {pendingPayments.map((p) => (
+                              <TableRow key={p.id}>
+                                <TableCell className="font-medium">{p.student_name}</TableCell>
+                                <TableCell className="text-right">₦{Number(p.amount_paid).toLocaleString()}</TableCell>
+                                <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : ''}</TableCell>
+                                <TableCell>
+                                  {p.payment_proof_url ? (
+                                    <button onClick={async () => {
+                                      try {
+                                        if (p.storage_provider === 'r2') {
+                                          setSelectedReceiptLoading(true);
+                                          const url = await r2Storage.getDownloadUrl(p.storage_path || p.payment_proof_url);
+                                          setSelectedReceipt(url);
+                                        } else if (p.storage_provider === 'supabase') {
+                                          setSelectedReceiptLoading(true);
+                                          const path = p.storage_path || p.payment_proof_url || '';
+                                          if (path && !path.startsWith('http')) {
+                                            const { data: urlData, error } = await supabase.storage.from('submissions').getPublicUrl(path);
+                                            if (error || !urlData?.publicUrl) throw error || new Error('Failed to get public URL');
+                                            setSelectedReceipt(urlData.publicUrl);
+                                          } else {
+                                            setSelectedReceipt(p.payment_proof_url);
+                                          }
+                                        } else {
+                                          setSelectedReceipt(p.payment_proof_url);
+                                        }
+                                      } catch (err) {
+                                        console.error('Failed to load receipt', err);
+                                        toast.error('Failed to load receipt image');
+                                        setSelectedReceipt(null);
+                                      } finally {
+                                        setSelectedReceiptLoading(false);
+                                      }
+                                    }} className="text-primary hover:underline flex items-center gap-1">
+                                      <Eye className="h-4 w-4" /> View
+                                    </button>
+                                  ) : (
+                                    <span className="text-muted-foreground text-sm">No receipt</span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex gap-2">
+                                    <Button size="sm" onClick={() => approvePayment(p)} disabled={isProcessing}><Check className="h-4 w-4" /></Button>
+                                    <Button size="sm" variant="destructive" onClick={() => rejectPayment(p.id)} disabled={isProcessing}><X className="h-4 w-4" /></Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
                   </div>
-                );
-              })()}
+
+                  <div>
+                    <h3 className="font-semibold mb-3">Approved Payments</h3>
+                    {approvedPayments.length === 0 ? (
+                      <p className="text-muted-foreground">No approved payments</p>
+                    ) : (
+                      <div className="overflow-x-auto rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Student</TableHead>
+                              <TableHead className="text-right">Amount</TableHead>
+                              <TableHead>Date</TableHead>
+                              <TableHead>Receipt</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {approvedPayments.map((p) => (
+                              <TableRow key={p.id}>
+                                <TableCell className="font-medium">{p.student_name}</TableCell>
+                                <TableCell className="text-right">₦{Number(p.amount_paid).toLocaleString()}</TableCell>
+                                <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : ''}</TableCell>
+                                <TableCell>
+                                  {p.payment_proof_url ? (
+                                    <button onClick={async () => {
+                                      try {
+                                        if (p.storage_provider === 'r2') {
+                                          setSelectedReceiptLoading(true);
+                                          const url = await r2Storage.getDownloadUrl(p.storage_path || p.payment_proof_url);
+                                          setSelectedReceipt(url);
+                                        } else if (p.storage_provider === 'supabase') {
+                                          setSelectedReceiptLoading(true);
+                                          const path = p.storage_path || p.payment_proof_url || '';
+                                          if (path && !path.startsWith('http')) {
+                                            const { data: urlData, error } = await supabase.storage.from('submissions').getPublicUrl(path);
+                                            if (error || !urlData?.publicUrl) throw error || new Error('Failed to get public URL');
+                                            setSelectedReceipt(urlData.publicUrl);
+                                          } else {
+                                            setSelectedReceipt(p.payment_proof_url);
+                                          }
+                                        } else {
+                                          setSelectedReceipt(p.payment_proof_url);
+                                        }
+                                      } catch (err) {
+                                        console.error('Failed to load receipt', err);
+                                        toast.error('Failed to load receipt image');
+                                        setSelectedReceipt(null);
+                                      } finally {
+                                        setSelectedReceiptLoading(false);
+                                      }
+                                    }} className="text-primary hover:underline flex items-center gap-1">
+                                      <Eye className="h-4 w-4" /> View
+                                    </button>
+                                  ) : (
+                                    <span className="text-muted-foreground text-sm">No receipt</span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
+                </div>
             </div>
           </CardContent>
         </Card>
