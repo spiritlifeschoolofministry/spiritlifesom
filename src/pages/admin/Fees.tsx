@@ -334,7 +334,9 @@ const AdminFees = () => {
 
               {(() => {
                 const filtered = cohortFilter === 'all' ? feeStructures : feeStructures.filter(f => f.cohort_id === cohortFilter);
+                return (
                 <div className="space-y-6">
+
                   <div>
                     <h3 className="font-semibold mb-3">Pending Payments</h3>
                     {pendingPayments.length === 0 ? (
@@ -369,8 +371,8 @@ const AdminFees = () => {
                                           setSelectedReceiptLoading(true);
                                           const path = p.storage_path || p.payment_proof_url || '';
                                           if (path && !path.startsWith('http')) {
-                                            const { data: urlData, error } = await supabase.storage.from('submissions').getPublicUrl(path);
-                                            if (error || !urlData?.publicUrl) throw error || new Error('Failed to get public URL');
+                                            const { data: urlData } = supabase.storage.from('submissions').getPublicUrl(path);
+                                            if (!urlData?.publicUrl) throw new Error("Failed to get public URL");
                                             setSelectedReceipt(urlData.publicUrl);
                                           } else {
                                             setSelectedReceipt(p.payment_proof_url);
@@ -439,8 +441,8 @@ const AdminFees = () => {
                                           setSelectedReceiptLoading(true);
                                           const path = p.storage_path || p.payment_proof_url || '';
                                           if (path && !path.startsWith('http')) {
-                                            const { data: urlData, error } = await supabase.storage.from('submissions').getPublicUrl(path);
-                                            if (error || !urlData?.publicUrl) throw error || new Error('Failed to get public URL');
+                                            const { data: urlData } = supabase.storage.from('submissions').getPublicUrl(path);
+                                            if (!urlData?.publicUrl) throw new Error("Failed to get public URL");
                                             setSelectedReceipt(urlData.publicUrl);
                                           } else {
                                             setSelectedReceipt(p.payment_proof_url);
@@ -470,9 +472,14 @@ const AdminFees = () => {
                     )}
                   </div>
                 </div>
+                );
+              })()}
+
             </div>
           </CardContent>
         </Card>
+
+
       ) : (
         <>
           <Card>
@@ -514,8 +521,8 @@ const AdminFees = () => {
                                       setSelectedReceiptLoading(true);
                                       const path = p.storage_path || p.payment_proof_url || '';
                                       if (path && !path.startsWith('http')) {
-                                        const { data: urlData, error } = await supabase.storage.from('submissions').getPublicUrl(path);
-                                        if (error || !urlData?.publicUrl) throw error || new Error('Failed to get public URL');
+                                        const { data: urlData } = supabase.storage.from('submissions').getPublicUrl(path);
+                                        if (!urlData?.publicUrl) throw new Error("Failed to get public URL");
                                         setSelectedReceipt(urlData.publicUrl);
                                       } else {
                                         setSelectedReceipt(p.payment_proof_url);

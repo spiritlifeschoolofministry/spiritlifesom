@@ -50,4 +50,23 @@ export const r2Storage = {
     const result = await response.json();
     return result.url;
   },
+
+  async deleteFile(path: string): Promise<void> {
+    const { data: { session } } = await supabase.auth.getSession();
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/r2-storage?action=delete&path=${encodeURIComponent(path)}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to delete file');
+    }
+  },
 };
