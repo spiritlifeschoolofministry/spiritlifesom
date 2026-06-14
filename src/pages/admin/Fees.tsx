@@ -473,8 +473,11 @@ const AdminFees = () => {
                   </div>
                 </div>
             </div>
-          </CardContent>
-        </Card>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
       ) : (
         <>
           <Card>
