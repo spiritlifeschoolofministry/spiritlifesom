@@ -394,6 +394,42 @@ export type Database = {
         }
         Relationships: []
       }
+      course_cohorts: {
+        Row: {
+          cohort_id: string
+          course_id: string
+          created_at: string | null
+          id: string
+        }
+        Insert: {
+          cohort_id: string
+          course_id: string
+          created_at?: string | null
+          id?: string
+        }
+        Update: {
+          cohort_id?: string
+          course_id?: string
+          created_at?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_cohorts_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_cohorts_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_materials: {
         Row: {
           cohort_id: string
@@ -405,8 +441,8 @@ export type Database = {
           id: string
           is_paid: boolean | null
           is_pinned: boolean | null
-          material_type: string | null
           learning_mode: string | null
+          material_type: string | null
           storage_path: string | null
           storage_provider: string | null
           title: string
@@ -422,8 +458,8 @@ export type Database = {
           id?: string
           is_paid?: boolean | null
           is_pinned?: boolean | null
-          material_type?: string | null
           learning_mode?: string | null
+          material_type?: string | null
           storage_path?: string | null
           storage_provider?: string | null
           title: string
@@ -439,8 +475,8 @@ export type Database = {
           id?: string
           is_paid?: boolean | null
           is_pinned?: boolean | null
-          material_type?: string | null
           learning_mode?: string | null
+          material_type?: string | null
           storage_path?: string | null
           storage_provider?: string | null
           title?: string
@@ -1505,7 +1541,6 @@ export type Database = {
           is_approved: boolean | null
           is_born_again: boolean | null
           learning_mode: string | null
-          requested_learning_mode: string | null
           marital_status: string | null
           ministry_description: string | null
           name_on_certificate: string | null
@@ -1513,6 +1548,7 @@ export type Database = {
           preferred_language: string | null
           profile_id: string
           profile_image_url: string | null
+          requested_learning_mode: string | null
           show_email: boolean | null
           student_code: string | null
           total_fees_due: number | null
@@ -1537,7 +1573,6 @@ export type Database = {
           is_approved?: boolean | null
           is_born_again?: boolean | null
           learning_mode?: string | null
-          requested_learning_mode?: string | null
           marital_status?: string | null
           ministry_description?: string | null
           name_on_certificate?: string | null
@@ -1545,6 +1580,7 @@ export type Database = {
           preferred_language?: string | null
           profile_id: string
           profile_image_url?: string | null
+          requested_learning_mode?: string | null
           show_email?: boolean | null
           student_code?: string | null
           total_fees_due?: number | null
@@ -1569,7 +1605,6 @@ export type Database = {
           is_approved?: boolean | null
           is_born_again?: boolean | null
           learning_mode?: string | null
-          requested_learning_mode?: string | null
           marital_status?: string | null
           ministry_description?: string | null
           name_on_certificate?: string | null
@@ -1577,6 +1612,7 @@ export type Database = {
           preferred_language?: string | null
           profile_id?: string
           profile_image_url?: string | null
+          requested_learning_mode?: string | null
           show_email?: boolean | null
           student_code?: string | null
           total_fees_due?: number | null
