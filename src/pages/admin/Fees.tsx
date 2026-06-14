@@ -470,9 +470,11 @@ const AdminFees = () => {
                         </Table>
                       </div>
                     )}
+                  </div>
                 </div>
                 );
               })()}
+
             </div>
           </CardContent>
         </Card>
