@@ -334,7 +334,9 @@ const AdminFees = () => {
 
               {(() => {
                 const filtered = cohortFilter === 'all' ? feeStructures : feeStructures.filter(f => f.cohort_id === cohortFilter);
+                return (
                 <div className="space-y-6">
+
                   <div>
                     <h3 className="font-semibold mb-3">Pending Payments</h3>
                     {pendingPayments.length === 0 ? (
