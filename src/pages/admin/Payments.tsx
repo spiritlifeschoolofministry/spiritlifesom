@@ -108,8 +108,8 @@ const AdminPayments = () => {
           // payment_proof_url may be a storage path; resolve to a public URL when needed
           const path = selectedPayment.storage_path || selectedPayment.payment_proof_url || '';
           if (path && !path.startsWith('http')) {
-            const { data: urlData, error } = await supabase.storage.from('submissions').getPublicUrl(path);
-            if (error || !urlData?.publicUrl) throw error || new Error('Failed to get public URL');
+            const { data: urlData } = supabase.storage.from('submissions').getPublicUrl(path);
+            if (!urlData?.publicUrl) throw new Error("Failed to get public URL");
             setReceiptUrl(urlData.publicUrl);
           } else {
             setReceiptUrl(selectedPayment.payment_proof_url || null);

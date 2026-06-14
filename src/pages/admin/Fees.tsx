@@ -371,8 +371,8 @@ const AdminFees = () => {
                                           setSelectedReceiptLoading(true);
                                           const path = p.storage_path || p.payment_proof_url || '';
                                           if (path && !path.startsWith('http')) {
-                                            const { data: urlData, error } = await supabase.storage.from('submissions').getPublicUrl(path);
-                                            if (error || !urlData?.publicUrl) throw error || new Error('Failed to get public URL');
+                                            const { data: urlData } = supabase.storage.from('submissions').getPublicUrl(path);
+                                            if (!urlData?.publicUrl) throw new Error("Failed to get public URL");
                                             setSelectedReceipt(urlData.publicUrl);
                                           } else {
                                             setSelectedReceipt(p.payment_proof_url);
@@ -441,8 +441,8 @@ const AdminFees = () => {
                                           setSelectedReceiptLoading(true);
                                           const path = p.storage_path || p.payment_proof_url || '';
                                           if (path && !path.startsWith('http')) {
-                                            const { data: urlData, error } = await supabase.storage.from('submissions').getPublicUrl(path);
-                                            if (error || !urlData?.publicUrl) throw error || new Error('Failed to get public URL');
+                                            const { data: urlData } = supabase.storage.from('submissions').getPublicUrl(path);
+                                            if (!urlData?.publicUrl) throw new Error("Failed to get public URL");
                                             setSelectedReceipt(urlData.publicUrl);
                                           } else {
                                             setSelectedReceipt(p.payment_proof_url);
@@ -521,8 +521,8 @@ const AdminFees = () => {
                                       setSelectedReceiptLoading(true);
                                       const path = p.storage_path || p.payment_proof_url || '';
                                       if (path && !path.startsWith('http')) {
-                                        const { data: urlData, error } = await supabase.storage.from('submissions').getPublicUrl(path);
-                                        if (error || !urlData?.publicUrl) throw error || new Error('Failed to get public URL');
+                                        const { data: urlData } = supabase.storage.from('submissions').getPublicUrl(path);
+                                        if (!urlData?.publicUrl) throw new Error("Failed to get public URL");
                                         setSelectedReceipt(urlData.publicUrl);
                                       } else {
                                         setSelectedReceipt(p.payment_proof_url);
