@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { r2Storage } from '@/lib/r2-storage';
+import { resolveReceiptUrl } from '@/lib/receipt-url';
 import { Loader2, CheckCircle, XCircle, Eye, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
