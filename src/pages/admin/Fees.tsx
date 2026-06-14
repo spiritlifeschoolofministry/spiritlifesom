@@ -364,23 +364,9 @@ const AdminFees = () => {
                                   {p.payment_proof_url ? (
                                     <button onClick={async () => {
                                       try {
-                                        if (p.storage_provider === 'r2') {
-                                          setSelectedReceiptLoading(true);
-                                          const url = await r2Storage.getDownloadUrl(p.storage_path || p.payment_proof_url);
-                                          setSelectedReceipt(url);
-                                        } else if (p.storage_provider === 'supabase') {
-                                          setSelectedReceiptLoading(true);
-                                          const path = p.storage_path || p.payment_proof_url || '';
-                                          if (path && !path.startsWith('http')) {
-                                            const { data: urlData } = supabase.storage.from('submissions').getPublicUrl(path);
-                                            if (!urlData?.publicUrl) throw new Error("Failed to get public URL");
-                                            setSelectedReceipt(urlData.publicUrl);
-                                          } else {
-                                            setSelectedReceipt(p.payment_proof_url);
-                                          }
-                                        } else {
-                                          setSelectedReceipt(p.payment_proof_url);
-                                        }
+                                        setSelectedReceiptLoading(true);
+                                        const url = await resolveReceiptUrl(p);
+                                        setSelectedReceipt(url);
                                       } catch (err) {
                                         console.error('Failed to load receipt', err);
                                         toast.error('Failed to load receipt image');
