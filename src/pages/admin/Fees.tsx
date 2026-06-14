@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { r2Storage } from '@/lib/r2-storage';
+import { resolveReceiptUrl } from '@/lib/receipt-url';
 import { downloadCSV } from '@/lib/csv-export';
 import type { Tables } from '@/integrations/supabase/types';
 
