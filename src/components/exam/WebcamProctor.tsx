@@ -64,7 +64,8 @@ export default function WebcamProctor({ attemptId, examId, studentId, intervalSe
         
         try {
           // Upload to R2 instead of Supabase Storage
-          await r2Storage.uploadFile(blob, fileName);
+          const snapshotFile = new File([blob], `${Date.now()}.jpg`, { type: 'image/jpeg' });
+          await r2Storage.uploadFile(snapshotFile, fileName);
           
           await supabase.from("exam_snapshots").insert({
             attempt_id: attemptId,
