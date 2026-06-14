@@ -101,22 +101,8 @@ const AdminPayments = () => {
     const resolve = async () => {
       try {
         setReceiptLoading(true);
-        if (selectedPayment.storage_provider === 'r2') {
-          const url = await r2Storage.getDownloadUrl(selectedPayment.storage_path || selectedPayment.payment_proof_url);
-          setReceiptUrl(url);
-        } else if (selectedPayment.storage_provider === 'supabase') {
-          // payment_proof_url may be a storage path; resolve to a public URL when needed
-          const path = selectedPayment.storage_path || selectedPayment.payment_proof_url || '';
-          if (path && !path.startsWith('http')) {
-            const { data: urlData } = supabase.storage.from('submissions').getPublicUrl(path);
-            if (!urlData?.publicUrl) throw new Error("Failed to get public URL");
-            setReceiptUrl(urlData.publicUrl);
-          } else {
-            setReceiptUrl(selectedPayment.payment_proof_url || null);
-          }
-        } else {
-          setReceiptUrl(selectedPayment.payment_proof_url || null);
-        }
+        const url = await resolveReceiptUrl(selectedPayment);
+        setReceiptUrl(url);
       } catch (err) {
         console.error('Failed to resolve receipt URL', err);
         setReceiptUrl(null);
