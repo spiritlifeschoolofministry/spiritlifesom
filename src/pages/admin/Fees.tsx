@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Eye, Check, X, Download, Filter, Trash } from 'lucide-react';
+import { Loader2, Eye, Check, X, Download, Filter, Trash, CheckCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
@@ -388,7 +388,14 @@ const AdminFees = () => {
                 <div className="space-y-6">
 
                   <div>
-                    <h3 className="font-semibold mb-3">Pending Payments</h3>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold">Pending Payments {pendingPayments.length > 0 && <span className="text-muted-foreground text-sm">({pendingPayments.length})</span>}</h3>
+                      {pendingPayments.length > 0 && (
+                        <Button size="sm" onClick={verifyAllPending} disabled={isProcessing} className="gap-2">
+                          <CheckCheck className="h-4 w-4" /> Verify All
+                        </Button>
+                      )}
+                    </div>
                     {pendingPayments.length === 0 ? (
                       <p className="text-muted-foreground">No pending payments</p>
                     ) : (
@@ -445,7 +452,7 @@ const AdminFees = () => {
                   </div>
 
                   <div>
-                    <h3 className="font-semibold mb-3">Approved Payments</h3>
+                    <h3 className="font-semibold mb-3">Approved Payments {approvedPayments.length > 0 && <span className="text-muted-foreground text-sm">({approvedPayments.length})</span>}</h3>
                     {approvedPayments.length === 0 ? (
                       <p className="text-muted-foreground">No approved payments</p>
                     ) : (
@@ -505,9 +512,16 @@ const AdminFees = () => {
       ) : (
         <>
           <Card>
-            <CardHeader>
-              <CardTitle>Payment Approvals</CardTitle>
-              <CardDescription>Review and verify pending student payments</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle>Payment Approvals</CardTitle>
+                <CardDescription>Review and verify pending student payments</CardDescription>
+              </div>
+              {pendingPayments.length > 0 && (
+                <Button size="sm" onClick={verifyAllPending} disabled={isProcessing} className="gap-2">
+                  <CheckCheck className="h-4 w-4" /> Verify All ({pendingPayments.length})
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               {pendingPayments.length === 0 ? (
