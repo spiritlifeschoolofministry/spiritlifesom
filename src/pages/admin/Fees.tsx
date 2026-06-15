@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Eye, Check, X, Download, Filter, Trash } from 'lucide-react';
+import { Loader2, Eye, Check, X, Download, Filter, Trash, CheckCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
@@ -76,11 +76,19 @@ const AdminFees = () => {
         );
 
         // Partition into pending and approved lists
-        const pending = enriched.filter((p) => (p.status || 'PENDING').toUpperCase() === 'PENDING');
-        const approved = enriched.filter((p) => {
-          const s = (p.status || '').toUpperCase();
-          return s === 'VERIFIED' || s === 'APPROVED';
-        });
+        const pending = enriched
+          .filter((p) => (p.status || 'PENDING').toUpperCase() === 'PENDING')
+          .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        const approved = enriched
+          .filter((p) => {
+            const s = (p.status || '').toUpperCase();
+            return s === 'VERIFIED' || s === 'APPROVED';
+          })
+          .sort((a, b) => {
+            const ad = new Date(a.payment_date || a.created_at || 0).getTime();
+            const bd = new Date(b.payment_date || b.created_at || 0).getTime();
+            return bd - ad;
+          });
         setPendingPayments(pending);
         setApprovedPayments(approved);
       }
@@ -195,6 +203,47 @@ const AdminFees = () => {
       await fetchPaymentsWithStudents();
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const verifyAllPending = async () => {
+    if (pendingPayments.length === 0) {
+      toast.info('No pending payments to verify');
+      return;
+    }
+    if (!window.confirm(`Verify all ${pendingPayments.length} pending payment(s)? This will update each student's fee balance.`)) return;
+    try {
+      setIsProcessing(true);
+      let success = 0;
+      let failed = 0;
+      for (const p of pendingPayments) {
+        try {
+          if (p.fee_id && p.student_id) {
+            const { data: fs } = await supabase.from('fee_structures').select('fee_name').eq('id', p.fee_id).single();
+            const { error } = await supabase.rpc('approve_student_payment', {
+              p_payment_id: p.id,
+              p_amount: p.amount_paid,
+              p_student_id: p.student_id,
+              p_fee_type: fs?.fee_name || '',
+            });
+            if (error) throw error;
+          } else {
+            const { error } = await supabase.from('payments').update({ status: 'VERIFIED' }).eq('id', p.id);
+            if (error) throw error;
+          }
+          success++;
+        } catch (err) {
+          console.error('Bulk verify item failed', p.id, err);
+          failed++;
+        }
+      }
+      toast.success(`Verified ${success} payment(s)${failed ? `, ${failed} failed` : ''}`);
+      await fetchPaymentsWithStudents();
+    } catch (e) {
+      console.error(e);
+      toast.error('Bulk verify failed');
     } finally {
       setIsProcessing(false);
     }
@@ -339,7 +388,14 @@ const AdminFees = () => {
                 <div className="space-y-6">
 
                   <div>
-                    <h3 className="font-semibold mb-3">Pending Payments</h3>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold">Pending Payments {pendingPayments.length > 0 && <span className="text-muted-foreground text-sm">({pendingPayments.length})</span>}</h3>
+                      {pendingPayments.length > 0 && (
+                        <Button size="sm" onClick={verifyAllPending} disabled={isProcessing} className="gap-2">
+                          <CheckCheck className="h-4 w-4" /> Verify All
+                        </Button>
+                      )}
+                    </div>
                     {pendingPayments.length === 0 ? (
                       <p className="text-muted-foreground">No pending payments</p>
                     ) : (
@@ -396,7 +452,7 @@ const AdminFees = () => {
                   </div>
 
                   <div>
-                    <h3 className="font-semibold mb-3">Approved Payments</h3>
+                    <h3 className="font-semibold mb-3">Approved Payments {approvedPayments.length > 0 && <span className="text-muted-foreground text-sm">({approvedPayments.length})</span>}</h3>
                     {approvedPayments.length === 0 ? (
                       <p className="text-muted-foreground">No approved payments</p>
                     ) : (
@@ -456,9 +512,16 @@ const AdminFees = () => {
       ) : (
         <>
           <Card>
-            <CardHeader>
-              <CardTitle>Payment Approvals</CardTitle>
-              <CardDescription>Review and verify pending student payments</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle>Payment Approvals</CardTitle>
+                <CardDescription>Review and verify pending student payments</CardDescription>
+              </div>
+              {pendingPayments.length > 0 && (
+                <Button size="sm" onClick={verifyAllPending} disabled={isProcessing} className="gap-2">
+                  <CheckCheck className="h-4 w-4" /> Verify All ({pendingPayments.length})
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               {pendingPayments.length === 0 ? (

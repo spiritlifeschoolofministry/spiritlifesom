@@ -3,7 +3,10 @@ import { r2Storage } from '@/lib/r2-storage';
 
 /**
  * Resolve a payment receipt to a viewable URL.
- * The `submissions` bucket is PRIVATE, so we must use signed URLs (not public URLs).
+ * Handles three eras of stored values:
+ *  - R2 paths (storage_provider = 'r2')
+ *  - Legacy public Supabase URLs (stored full URL when bucket was public)
+ *  - New private Supabase paths (need signed URL)
  */
 export async function resolveReceiptUrl(payment: {
   storage_provider?: string | null;
@@ -16,28 +19,50 @@ export async function resolveReceiptUrl(payment: {
 
   // R2-stored receipts
   if (provider === 'r2') {
-    return await r2Storage.getDownloadUrl(rawPath);
+    try {
+      return await r2Storage.getDownloadUrl(rawPath);
+    } catch (err) {
+      console.error('R2 download URL failed, will try Supabase fallback', err);
+    }
   }
 
-  // Supabase storage (default) — extract bucket path if a full URL was stored
+  // Extract path from various Supabase URL formats
   let path = rawPath;
   if (path.startsWith('http')) {
-    const marker = '/submissions/';
-    const idx = path.indexOf(marker);
-    if (idx >= 0) {
-      path = path.substring(idx + marker.length).split('?')[0];
+    const markers = [
+      '/storage/v1/object/public/submissions/',
+      '/storage/v1/object/sign/submissions/',
+      '/submissions/',
+    ];
+    let extracted: string | null = null;
+    for (const marker of markers) {
+      const idx = path.indexOf(marker);
+      if (idx >= 0) {
+        extracted = path.substring(idx + marker.length).split('?')[0];
+        break;
+      }
+    }
+    if (extracted) {
+      path = extracted;
     } else {
-      // Unknown URL format — just return as-is
+      // Unknown URL format — return raw URL as a last resort
       return payment.payment_proof_url || null;
     }
   }
 
+  // Try signed URL on submissions bucket
   const { data, error } = await supabase
     .storage
     .from('submissions')
-    .createSignedUrl(path, 60 * 60); // 1 hour
-  if (error || !data?.signedUrl) {
-    throw error || new Error('Failed to create signed URL');
+    .createSignedUrl(path, 60 * 60);
+  if (!error && data?.signedUrl) {
+    return data.signedUrl;
   }
-  return data.signedUrl;
+
+  // Final fallback: try R2 (in case provider field wasn't set on legacy rows)
+  try {
+    return await r2Storage.getDownloadUrl(path);
+  } catch {
+    return null;
+  }
 }
