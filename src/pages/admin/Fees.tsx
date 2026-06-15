@@ -76,11 +76,19 @@ const AdminFees = () => {
         );
 
         // Partition into pending and approved lists
-        const pending = enriched.filter((p) => (p.status || 'PENDING').toUpperCase() === 'PENDING');
-        const approved = enriched.filter((p) => {
-          const s = (p.status || '').toUpperCase();
-          return s === 'VERIFIED' || s === 'APPROVED';
-        });
+        const pending = enriched
+          .filter((p) => (p.status || 'PENDING').toUpperCase() === 'PENDING')
+          .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        const approved = enriched
+          .filter((p) => {
+            const s = (p.status || '').toUpperCase();
+            return s === 'VERIFIED' || s === 'APPROVED';
+          })
+          .sort((a, b) => {
+            const ad = new Date(a.payment_date || a.created_at || 0).getTime();
+            const bd = new Date(b.payment_date || b.created_at || 0).getTime();
+            return bd - ad;
+          });
         setPendingPayments(pending);
         setApprovedPayments(approved);
       }
@@ -195,6 +203,47 @@ const AdminFees = () => {
       await fetchPaymentsWithStudents();
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const verifyAllPending = async () => {
+    if (pendingPayments.length === 0) {
+      toast.info('No pending payments to verify');
+      return;
+    }
+    if (!window.confirm(`Verify all ${pendingPayments.length} pending payment(s)? This will update each student's fee balance.`)) return;
+    try {
+      setIsProcessing(true);
+      let success = 0;
+      let failed = 0;
+      for (const p of pendingPayments) {
+        try {
+          if (p.fee_id && p.student_id) {
+            const { data: fs } = await supabase.from('fee_structures').select('fee_name').eq('id', p.fee_id).single();
+            const { error } = await supabase.rpc('approve_student_payment', {
+              p_payment_id: p.id,
+              p_amount: p.amount_paid,
+              p_student_id: p.student_id,
+              p_fee_type: fs?.fee_name || '',
+            });
+            if (error) throw error;
+          } else {
+            const { error } = await supabase.from('payments').update({ status: 'VERIFIED' }).eq('id', p.id);
+            if (error) throw error;
+          }
+          success++;
+        } catch (err) {
+          console.error('Bulk verify item failed', p.id, err);
+          failed++;
+        }
+      }
+      toast.success(`Verified ${success} payment(s)${failed ? `, ${failed} failed` : ''}`);
+      await fetchPaymentsWithStudents();
+    } catch (e) {
+      console.error(e);
+      toast.error('Bulk verify failed');
     } finally {
       setIsProcessing(false);
     }
