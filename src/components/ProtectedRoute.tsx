@@ -1,8 +1,9 @@
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/useAuth';
 import { Button } from '@/components/ui/button';
 import { Loader2, LogOut, AlertTriangle } from 'lucide-react';
 import { useRef, useEffect } from 'react';
+import { isStudentProfileComplete } from '@/lib/profile-complete';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -10,8 +11,9 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
-  const { user, role, isLoading, authError, isAuthReady, signOut } = useAuth();
+  const { user, profile, student, role, isLoading, authError, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const didInitialLoad = useRef(false);
 
   useEffect(() => {
