@@ -63,6 +63,14 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
 
   const normalizedRole = (role ?? "").toLowerCase();
 
+  // Force students to finish their profile before entering any portal route.
+  // Admins/teachers are exempt.
+  if (normalizedRole === "student" || normalizedRole === "") {
+    if (!isStudentProfileComplete(profile, student) && location.pathname !== "/complete-profile") {
+      return <Navigate to="/complete-profile" replace />;
+    }
+  }
+
   if (requiredRole === "admin") {
     // Both admin and teacher can access general admin routes
     if (normalizedRole !== "admin" && normalizedRole !== "teacher") {
