@@ -92,7 +92,7 @@ const Login = () => {
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otpCode || otpCode.length < 6) { toast.error("Enter the 6-digit code"); return; }
+    if (!otpCode || otpCode.length < 6) { toast.error("Enter the code from your email"); return; }
     setOtpLoading(true);
     try {
       const { data, error } = await supabase.auth.verifyOtp({
