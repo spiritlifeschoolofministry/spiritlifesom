@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, Upload, Lock } from "lucide-react";
 import SEO from "@/components/SEO";
+import GoogleAuthButton from "@/components/GoogleAuthButton";
 import { format } from "date-fns";
 
 import { toast } from "sonner";
