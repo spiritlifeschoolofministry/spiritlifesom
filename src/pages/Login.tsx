@@ -92,7 +92,7 @@ const Login = () => {
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otpCode || otpCode.length < 6) { toast.error("Enter the 6-digit code"); return; }
+    if (!otpCode || otpCode.length < 6) { toast.error("Enter the code from your email"); return; }
     setOtpLoading(true);
     try {
       const { data, error } = await supabase.auth.verifyOtp({
@@ -242,14 +242,17 @@ const Login = () => {
                       id="otp-code"
                       type="text"
                       inputMode="numeric"
-                      maxLength={6}
+                      maxLength={8}
                       value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                      placeholder="123456"
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                      placeholder="Enter the code from your email"
                       className="mt-1 tracking-widest text-center text-lg"
                       autoFocus
                       required
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      The code is usually 6–8 digits long.
+                    </p>
                   </div>
                   <Button type="submit" disabled={otpLoading} variant="flame" className="w-full h-11">
                     {otpLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
