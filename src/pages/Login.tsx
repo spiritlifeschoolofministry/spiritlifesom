@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Eye, EyeOff, Info, Loader2, Mail, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import SEO from "@/components/SEO";
+import GoogleAuthButton from "@/components/GoogleAuthButton";
 
 const Login = () => {
   const navigate = useNavigate();
