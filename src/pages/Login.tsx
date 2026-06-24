@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Eye, EyeOff, Info, Loader2, Mail, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import SEO from "@/components/SEO";
+import GoogleAuthButton from "@/components/GoogleAuthButton";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -137,6 +138,16 @@ const Login = () => {
               </ul>
             </AlertDescription>
           </Alert>
+
+          <GoogleAuthButton />
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">or</span>
+            </div>
+          </div>
 
           <Tabs defaultValue="password" className="w-full">
             <TabsList className="grid grid-cols-2 w-full mb-4">

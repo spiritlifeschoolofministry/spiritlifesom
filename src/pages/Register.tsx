@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, Upload, Lock } from "lucide-react";
 import SEO from "@/components/SEO";
+import GoogleAuthButton from "@/components/GoogleAuthButton";
 import { format } from "date-fns";
 
 import { toast } from "sonner";
@@ -347,6 +348,15 @@ const Register = () => {
           {/* Step 1 */}
           {step === 1 && (
             <div className="space-y-5">
+              <GoogleAuthButton label="Sign up with Google" />
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">or</span>
+                </div>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="firstName">First Name *</Label>
