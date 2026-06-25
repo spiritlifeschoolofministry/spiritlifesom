@@ -28,6 +28,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 interface StudentDetail {
   id: string;
   admission_status: string | null;
+  profile_complete_override?: boolean | null;
   learning_mode: string | null;
   requested_learning_mode: string | null;
   gender: string | null;
@@ -319,7 +320,66 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
 };
 
 
-const AdminStudentProfile = () => {
+const ProfileCompleteOverrideButton = ({
+  student,
+  onChanged,
+}: {
+  student: StudentDetail;
+  onChanged: (s: StudentDetail) => void;
+}) => {
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
+  const overridden = student.profile_complete_override === true;
+
+  const toggle = async () => {
+    setBusy(true);
+    try {
+      const { error } = await supabase
+        .from("students")
+        .update({ profile_complete_override: !overridden } as any)
+        .eq("id", student.id);
+      if (error) throw error;
+      onChanged({ ...student, profile_complete_override: !overridden });
+      toast.success(overridden ? "Override removed" : "Profile marked complete (override)");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to toggle override");
+    } finally {
+      setBusy(false);
+      setOpen(false);
+    }
+  };
+
+  return (
+    <>
+      <Button
+        size="sm"
+        variant={overridden ? "outline" : "secondary"}
+        onClick={() => setOpen(true)}
+        disabled={busy}
+        className="shrink-0"
+      >
+        {busy ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
+        {overridden ? "Remove completion override" : "Mark profile complete"}
+      </Button>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={overridden ? "Remove completion override?" : "Mark profile as complete?"}
+        description={
+          overridden
+            ? "The student will be sent back through onboarding on next login if required fields are still missing."
+            : "This lets the student into the dashboard immediately without filling missing fields like phone, gender, age, or learning mode. You can reverse it anytime."
+        }
+        confirmLabel={overridden ? "Remove override" : "Mark complete"}
+        variant={overridden ? "destructive" : "default"}
+        onConfirm={toggle}
+      />
+    </>
+  );
+};
+
+
+
   const { studentId } = useParams<{ studentId: string }>();
   const navigate = useNavigate();
   const [student, setStudent] = useState<StudentDetail | null>(null);
