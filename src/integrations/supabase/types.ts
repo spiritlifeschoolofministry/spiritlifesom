@@ -1546,6 +1546,7 @@ export type Database = {
           name_on_certificate: string | null
           pending_name_change: string | null
           preferred_language: string | null
+          profile_complete_override: boolean
           profile_id: string
           profile_image_url: string | null
           requested_learning_mode: string | null
@@ -1578,6 +1579,7 @@ export type Database = {
           name_on_certificate?: string | null
           pending_name_change?: string | null
           preferred_language?: string | null
+          profile_complete_override?: boolean
           profile_id: string
           profile_image_url?: string | null
           requested_learning_mode?: string | null
@@ -1610,6 +1612,7 @@ export type Database = {
           name_on_certificate?: string | null
           pending_name_change?: string | null
           preferred_language?: string | null
+          profile_complete_override?: boolean
           profile_id?: string
           profile_image_url?: string | null
           requested_learning_mode?: string | null
@@ -1708,6 +1711,7 @@ export type Database = {
       }
       get_my_role: { Args: never; Returns: string }
       get_my_student_id: { Args: never; Returns: string }
+      is_profile_complete: { Args: { _user_id: string }; Returns: boolean }
       log_manual_admission_email: {
         Args: {
           p_email_type: string
