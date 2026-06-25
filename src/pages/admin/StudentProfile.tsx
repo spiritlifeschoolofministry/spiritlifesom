@@ -379,7 +379,7 @@ const ProfileCompleteOverrideButton = ({
 };
 
 
-
+const AdminStudentProfile = () => {
   const { studentId } = useParams<{ studentId: string }>();
   const navigate = useNavigate();
   const [student, setStudent] = useState<StudentDetail | null>(null);
