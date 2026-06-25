@@ -483,6 +483,7 @@ const AdminStudentProfile = () => {
                 )}
               </div>
             </div>
+            <ProfileCompleteOverrideButton student={student} onChanged={setStudent} />
           </div>
         </CardContent>
       </Card>
