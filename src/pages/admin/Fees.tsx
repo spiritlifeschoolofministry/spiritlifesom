@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -7,13 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Eye, Check, X, Download, Filter, Trash, CheckCheck } from 'lucide-react';
+import { Loader2, Eye, Check, X, Download, Trash2, CheckCheck, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { r2Storage } from '@/lib/r2-storage';
 import { resolveReceiptUrl } from '@/lib/receipt-url';
 import { downloadCSV } from '@/lib/csv-export';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import type { Tables } from '@/integrations/supabase/types';
 
 interface AddFeeFormData {
@@ -26,6 +26,8 @@ interface AddFeeFormData {
 type PaymentWithStudent = Tables<'payments'> & {
   student_name?: string;
   student_email?: string;
+  cohort_id?: string | null;
+  fee_name?: string | null;
 };
 
 const AdminFees = () => {
@@ -36,62 +38,83 @@ const AdminFees = () => {
   const [approvedPayments, setApprovedPayments] = useState<PaymentWithStudent[]>([]);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+
   const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
   const [selectedReceiptLoading, setSelectedReceiptLoading] = useState(false);
-  const [cohortFilter, setCohortFilter] = useState('all');
+  const [receiptOpen, setReceiptOpen] = useState(false);
+
+  const [structureFilter, setStructureFilter] = useState('all');
+
+  // Approved-payments filters
+  const [searchName, setSearchName] = useState('');
+  const [filterCohort, setFilterCohort] = useState('all');
+  const [filterFee, setFilterFee] = useState('all');
+  const [filterFrom, setFilterFrom] = useState('');
+  const [filterTo, setFilterTo] = useState('');
+
+  // Delete confirm
+  const [deleteTarget, setDeleteTarget] = useState<PaymentWithStudent | null>(null);
+  const [deleteFeeId, setDeleteFeeId] = useState<string | null>(null);
 
   const { register, handleSubmit, reset, setValue, watch } = useForm<AddFeeFormData>({
     defaultValues: { cohort_id: '', fee_name: '', amount: '', learning_mode: 'All' },
   });
-
   const selectedCohort = watch('cohort_id');
   const selectedMode = watch('learning_mode');
 
   const fetchPaymentsWithStudents = async () => {
     try {
-      // Fetch payments with relevant statuses so we can show pending and approved sections
       const { data: payments } = await supabase
         .from('payments')
         .select('*')
         .in('status', ['PENDING', 'VERIFIED', 'APPROVED', 'REJECTED'])
         .order('created_at', { ascending: false });
+      if (!payments) return;
 
-      if (payments) {
-        const enriched = await Promise.all(
-          payments.map(async (p) => {
-            let student_name = 'Unknown';
-            let student_email = '';
-            if (p.student_id) {
-              const { data: studentData } = await supabase.from('students').select('profile_id').eq('id', p.student_id).single();
-              if (studentData?.profile_id) {
-                const { data: profileData } = await supabase.from('profiles').select('first_name, last_name, email').eq('id', studentData.profile_id).single();
-                if (profileData) {
-                  student_name = `${profileData.first_name} ${profileData.last_name}`.trim();
-                  student_email = profileData.email;
-                }
-              }
-            }
-            return { ...p, student_name, student_email };
-          })
-        );
+      const studentIds = [...new Set(payments.map((p) => p.student_id).filter(Boolean))] as string[];
+      const feeIds = [...new Set(payments.map((p) => p.fee_id).filter(Boolean))] as string[];
 
-        // Partition into pending and approved lists
-        const pending = enriched
+      const [{ data: studs }, { data: feeRows }] = await Promise.all([
+        studentIds.length
+          ? supabase
+              .from('students')
+              .select('id, cohort_id, profile:profiles(first_name, last_name, email)')
+              .in('id', studentIds)
+          : Promise.resolve({ data: [] as any[] }),
+        feeIds.length
+          ? supabase.from('fee_structures').select('id, fee_name').in('id', feeIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+
+      const studMap = new Map((studs || []).map((s: any) => [s.id, s]));
+      const feeMap = new Map((feeRows || []).map((f: any) => [f.id, f.fee_name]));
+
+      const enriched: PaymentWithStudent[] = payments.map((p) => {
+        const s: any = p.student_id ? studMap.get(p.student_id) : null;
+        const name = s?.profile ? `${s.profile.first_name || ''} ${s.profile.last_name || ''}`.trim() : 'Unknown';
+        return {
+          ...p,
+          student_name: name || 'Unknown',
+          student_email: s?.profile?.email || '',
+          cohort_id: s?.cohort_id || null,
+          fee_name: p.fee_id ? feeMap.get(p.fee_id) || null : null,
+        };
+      });
+
+      setPendingPayments(
+        enriched
           .filter((p) => (p.status || 'PENDING').toUpperCase() === 'PENDING')
-          .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-        const approved = enriched
-          .filter((p) => {
-            const s = (p.status || '').toUpperCase();
-            return s === 'VERIFIED' || s === 'APPROVED';
-          })
+          .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()),
+      );
+      setApprovedPayments(
+        enriched
+          .filter((p) => ['VERIFIED', 'APPROVED'].includes((p.status || '').toUpperCase()))
           .sort((a, b) => {
             const ad = new Date(a.payment_date || a.created_at || 0).getTime();
             const bd = new Date(b.payment_date || b.created_at || 0).getTime();
             return bd - ad;
-          });
-        setPendingPayments(pending);
-        setApprovedPayments(approved);
-      }
+          }),
+      );
     } catch (e) {
       console.error(e);
       toast.error('Failed to load payments');
@@ -99,7 +122,7 @@ const AdminFees = () => {
   };
 
   useEffect(() => {
-    const fetchData = async () => {
+    (async () => {
       try {
         setLoading(true);
         const [{ data: cohortsData }, { data: fees }] = await Promise.all([
@@ -115,12 +138,32 @@ const AdminFees = () => {
       } finally {
         setLoading(false);
       }
-    };
-    fetchData();
+    })();
   }, []);
 
+  const openReceipt = async (p: PaymentWithStudent) => {
+    setReceiptOpen(true);
+    setSelectedReceipt(null);
+    setSelectedReceiptLoading(true);
+    try {
+      const url = await resolveReceiptUrl(p);
+      if (!url) {
+        toast.error('Receipt file could not be located');
+        setReceiptOpen(false);
+        return;
+      }
+      setSelectedReceipt(url);
+    } catch (err) {
+      console.error('Failed to load receipt', err);
+      toast.error('Failed to load receipt image');
+      setReceiptOpen(false);
+    } finally {
+      setSelectedReceiptLoading(false);
+    }
+  };
+
   const onAddFee = async (data: AddFeeFormData) => {
-    if (!data.cohort_id) { toast.error('Choose a cohort'); return; }
+    if (!data.cohort_id) return toast.error('Choose a cohort');
     try {
       setIsProcessing(true);
       const { error } = await supabase.from('fee_structures').insert({
@@ -129,66 +172,48 @@ const AdminFees = () => {
         amount: parseFloat(data.amount),
         learning_mode: data.learning_mode,
       });
-      if (error) { console.error(error); toast.error('Failed to add fee'); return; }
+      if (error) { toast.error('Failed to add fee'); return; }
       toast.success('Fee added');
       reset();
       const { data: fees } = await supabase.from('fee_structures').select('*').order('created_at', { ascending: false });
       if (fees) setFeeStructures(fees);
-    } catch (e) {
-      console.error(e);
-      toast.error('Error adding fee');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const deleteFee = async (id: string) => {
-    if (!window.confirm('Delete this fee? This action cannot be undone.')) return;
+  const confirmDeleteFee = async () => {
+    if (!deleteFeeId) return;
     try {
       setIsProcessing(true);
-      const { error } = await supabase.from('fee_structures').delete().eq('id', id);
-      if (error) {
-        console.error('Delete fee error:', error);
-        toast.error('Failed to delete fee: ' + (error.message || JSON.stringify(error)));
-        return;
-      }
+      const { error } = await supabase.from('fee_structures').delete().eq('id', deleteFeeId);
+      if (error) { toast.error('Failed to delete fee: ' + error.message); return; }
       toast.success('Fee deleted');
-      // Optimistically update UI
-      setFeeStructures((prev) => prev.filter((f: any) => f.id !== id));
-    } catch (err) {
-      console.error('Delete fee exception:', err);
-      toast.error('Failed to delete fee');
+      setFeeStructures((prev) => prev.filter((f) => f.id !== deleteFeeId));
     } finally {
       setIsProcessing(false);
+      setDeleteFeeId(null);
     }
   };
 
   const approvePayment = async (payment: PaymentWithStudent) => {
     try {
       setIsProcessing(true);
-      
       if (payment.fee_id && payment.student_id) {
-        // Look up the fee_type from fee_structures
-        const { data: feeStructure } = await supabase.from('fee_structures').select('fee_name').eq('id', payment.fee_id).single();
-        const feeType = feeStructure?.fee_name || '';
-        
+        const { data: fs } = await supabase.from('fee_structures').select('fee_name').eq('id', payment.fee_id).single();
         const { error } = await supabase.rpc('approve_student_payment', {
           p_payment_id: payment.id,
           p_amount: payment.amount_paid,
           p_student_id: payment.student_id,
-          p_fee_type: feeType,
+          p_fee_type: fs?.fee_name || '',
         });
-        if (error) { console.error(error); toast.error('Failed to approve'); return; }
+        if (error) { toast.error('Failed to approve'); return; }
       } else {
-        // Fallback: just update payment status
         const { error } = await supabase.from('payments').update({ status: 'VERIFIED' }).eq('id', payment.id);
         if (error) { toast.error('Failed to approve'); return; }
       }
-      
-      toast.success('Payment approved & fee record updated');
+      toast.success('Payment approved');
       await fetchPaymentsWithStudents();
-    } catch (e) {
-      console.error(e);
     } finally {
       setIsProcessing(false);
     }
@@ -201,23 +226,32 @@ const AdminFees = () => {
       if (error) { toast.error('Failed to reject'); return; }
       toast.success('Payment rejected');
       await fetchPaymentsWithStudents();
-    } catch (e) {
-      console.error(e);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const verifyAllPending = async () => {
-    if (pendingPayments.length === 0) {
-      toast.info('No pending payments to verify');
-      return;
-    }
-    if (!window.confirm(`Verify all ${pendingPayments.length} pending payment(s)? This will update each student's fee balance.`)) return;
+  const confirmDeletePayment = async () => {
+    if (!deleteTarget) return;
     try {
       setIsProcessing(true);
-      let success = 0;
-      let failed = 0;
+      const { error } = await supabase.from('payments').delete().eq('id', deleteTarget.id);
+      if (error) { toast.error('Failed to delete: ' + error.message); return; }
+      toast.success('Payment record deleted');
+      setPendingPayments((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+      setApprovedPayments((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+    } finally {
+      setIsProcessing(false);
+      setDeleteTarget(null);
+    }
+  };
+
+  const verifyAllPending = async () => {
+    if (!pendingPayments.length) return toast.info('No pending payments');
+    if (!window.confirm(`Verify all ${pendingPayments.length} pending payment(s)?`)) return;
+    try {
+      setIsProcessing(true);
+      let ok = 0, fail = 0;
       for (const p of pendingPayments) {
         try {
           if (p.fee_id && p.student_id) {
@@ -233,17 +267,11 @@ const AdminFees = () => {
             const { error } = await supabase.from('payments').update({ status: 'VERIFIED' }).eq('id', p.id);
             if (error) throw error;
           }
-          success++;
-        } catch (err) {
-          console.error('Bulk verify item failed', p.id, err);
-          failed++;
-        }
+          ok++;
+        } catch { fail++; }
       }
-      toast.success(`Verified ${success} payment(s)${failed ? `, ${failed} failed` : ''}`);
+      toast.success(`Verified ${ok}${fail ? `, ${fail} failed` : ''}`);
       await fetchPaymentsWithStudents();
-    } catch (e) {
-      console.error(e);
-      toast.error('Bulk verify failed');
     } finally {
       setIsProcessing(false);
     }
@@ -251,34 +279,15 @@ const AdminFees = () => {
 
   const handleExportFees = async () => {
     try {
-      toast.info("Preparing fee report...");
-      const query = supabase.from("fees").select("student_id, fee_type, amount_due, amount_paid, payment_status, cohort_id, waived, created_at");
-      const { data: fees, error } = await query;
-
-      // Log exact query error for debugging
-      if (error) {
-        console.error('Fees query error:', error);
-        toast.error('Export failed: ' + (error.message || JSON.stringify(error)));
-        return;
-      }
-
-      if (!fees?.length) {
-        toast.error("No fee data to export");
-        return;
-      }
-
-      // Enrich with student names
-      const studentIds = [...new Set(fees.map(f => f.student_id))];
-      const { data: students, error: studentsError } = await supabase.from("students").select("id, student_code, profile:profiles(first_name, last_name, email)").in("id", studentIds);
-      if (studentsError) {
-        console.error('Students query error during export:', studentsError);
-        toast.error('Export failed: ' + (studentsError.message || JSON.stringify(studentsError)));
-        return;
-      }
-      const studentMap = new Map((students || []).map(s => [s.id, s]));
-
-      const rows = fees.map(f => {
-        const s = studentMap.get(f.student_id) as any;
+      toast.info('Preparing fee report…');
+      const { data: fees, error } = await supabase.from('fees').select('student_id, fee_type, amount_due, amount_paid, payment_status, cohort_id, waived, created_at');
+      if (error) { toast.error('Export failed: ' + error.message); return; }
+      if (!fees?.length) { toast.error('No data to export'); return; }
+      const studentIds = [...new Set(fees.map((f) => f.student_id))];
+      const { data: students } = await supabase.from('students').select('id, student_code, profile:profiles(first_name, last_name, email)').in('id', studentIds);
+      const map = new Map((students || []).map((s) => [s.id, s]));
+      downloadCSV(fees.map((f) => {
+        const s: any = map.get(f.student_id);
         return {
           Student: s ? `${s.profile?.first_name || ''} ${s.profile?.last_name || ''}`.trim() : 'Unknown',
           Email: s?.profile?.email || '',
@@ -290,17 +299,43 @@ const AdminFees = () => {
           Waived: f.waived ? 'Yes' : 'No',
           Date: f.created_at ? new Date(f.created_at).toLocaleDateString() : '',
         };
-      });
-      downloadCSV(rows, "fee_report");
-    } catch (err: unknown) {
-      console.error('Export failed error:', err);
-      const msg = err instanceof Error ? err.message : String(err);
-      toast.error('Export failed: ' + msg);
+      }), 'fee_report');
+    } catch (err) {
+      toast.error('Export failed');
     }
   };
 
+  // ===== Filtering for approved payments =====
+  const feeNames = useMemo(() => {
+    const names = new Set<string>();
+    approvedPayments.forEach((p) => { if (p.fee_name) names.add(p.fee_name); });
+    return Array.from(names).sort();
+  }, [approvedPayments]);
+
+  const filteredApproved = useMemo(() => {
+    return approvedPayments.filter((p) => {
+      if (searchName && !p.student_name?.toLowerCase().includes(searchName.toLowerCase()) &&
+          !p.student_email?.toLowerCase().includes(searchName.toLowerCase())) return false;
+      if (filterCohort !== 'all' && p.cohort_id !== filterCohort) return false;
+      if (filterFee !== 'all' && p.fee_name !== filterFee) return false;
+      const d = new Date(p.payment_date || p.created_at || 0).getTime();
+      if (filterFrom && d < new Date(filterFrom).getTime()) return false;
+      if (filterTo && d > new Date(filterTo).getTime() + 86_400_000) return false;
+      return true;
+    });
+  }, [approvedPayments, searchName, filterCohort, filterFee, filterFrom, filterTo]);
+
+  const clearFilters = () => {
+    setSearchName(''); setFilterCohort('all'); setFilterFee('all'); setFilterFrom(''); setFilterTo('');
+  };
+
+  const filteredStructures = useMemo(
+    () => structureFilter === 'all' ? feeStructures : feeStructures.filter((f) => f.cohort_id === structureFilter),
+    [feeStructures, structureFilter],
+  );
+
   if (loading) {
-    return (<div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin" /></div>);
+    return <div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
   return (
@@ -315,23 +350,28 @@ const AdminFees = () => {
             <Download className="h-4 w-4" /> Export Fees
           </Button>
           <Button variant={tab === 'manager' ? 'default' : 'ghost'} onClick={() => setTab('manager')}>Fee Manager</Button>
-          <Button variant={tab === 'approvals' ? 'default' : 'ghost'} onClick={() => setTab('approvals')}>Payment Approvals</Button>
+          <Button variant={tab === 'approvals' ? 'default' : 'ghost'} onClick={() => setTab('approvals')}>
+            Payment Approvals
+            {pendingPayments.length > 0 && (
+              <Badge variant="destructive" className="ml-2">{pendingPayments.length}</Badge>
+            )}
+          </Button>
         </div>
       </div>
 
-      {tab === 'manager' ? (
+      {tab === 'manager' && (
         <Card>
           <CardHeader>
             <CardTitle>Create New Fee</CardTitle>
             <CardDescription>
-              Define a fee for a cohort. Fees marked as 'All' apply to everyone. Specific modes only apply to students in that learning mode.
+              Define a fee for a cohort. Fees marked 'All' apply to everyone; specific modes only apply to students in that learning mode.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onAddFee)} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <Label>Cohort</Label>
-                <Select value={selectedCohort} onValueChange={(val) => setValue('cohort_id', val)}>
+                <Select value={selectedCohort} onValueChange={(v) => setValue('cohort_id', v)}>
                   <SelectTrigger><SelectValue placeholder="Select cohort" /></SelectTrigger>
                   <SelectContent>
                     {cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -340,8 +380,7 @@ const AdminFees = () => {
               </div>
               <div>
                 <Label>Learning Mode</Label>
-                <p className="text-[10px] text-muted-foreground mb-1">Target students</p>
-                <Select value={selectedMode} onValueChange={(val) => setValue('learning_mode', val)}>
+                <Select value={selectedMode} onValueChange={(v) => setValue('learning_mode', v)}>
                   <SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="All">All Students</SelectItem>
@@ -350,9 +389,6 @@ const AdminFees = () => {
                     <SelectItem value="Hybrid">Hybrid Students</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-[10px] text-muted-foreground mt-1 leading-tight">
-                  Hybrid students are only charged fees marked 'All' or 'Hybrid'.
-                </p>
               </div>
               <div>
                 <Label>Fee Name</Label>
@@ -363,159 +399,65 @@ const AdminFees = () => {
                 <Input type="number" step="0.01" {...register('amount', { required: true })} />
               </div>
               <div className="md:col-span-2 lg:col-span-4">
-                <Button type="submit" disabled={isProcessing} className="w-full md:w-auto">{isProcessing ? 'Adding...' : 'Add Fee'}</Button>
+                <Button type="submit" disabled={isProcessing}>{isProcessing ? 'Adding…' : 'Add Fee'}</Button>
               </div>
             </form>
 
             <div className="mt-8">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                <h3 className="font-semibold text-lg">Existing Fees</h3>
-                <div className="flex items-center gap-2">
-                  <Label className="hidden sm:inline-block">Filter by Cohort:</Label>
-                  <Select value={cohortFilter} onValueChange={setCohortFilter}>
-                    <SelectTrigger className="w-[180px]"><SelectValue placeholder="All Cohorts" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Cohorts</SelectItem>
-                      {cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <h3 className="font-semibold text-lg">Existing Fees ({filteredStructures.length})</h3>
+                <Select value={structureFilter} onValueChange={setStructureFilter}>
+                  <SelectTrigger className="w-[200px]"><SelectValue placeholder="All Cohorts" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Cohorts</SelectItem>
+                    {cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
-
-              {(() => {
-                const filtered = cohortFilter === 'all' ? feeStructures : feeStructures.filter(f => f.cohort_id === cohortFilter);
-                return (
-                <div className="space-y-6">
-
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold">Pending Payments {pendingPayments.length > 0 && <span className="text-muted-foreground text-sm">({pendingPayments.length})</span>}</h3>
-                      {pendingPayments.length > 0 && (
-                        <Button size="sm" onClick={verifyAllPending} disabled={isProcessing} className="gap-2">
-                          <CheckCheck className="h-4 w-4" /> Verify All
-                        </Button>
-                      )}
-                    </div>
-                    {pendingPayments.length === 0 ? (
-                      <p className="text-muted-foreground">No pending payments</p>
-                    ) : (
-                      <div className="overflow-x-auto rounded-md border">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Student</TableHead>
-                              <TableHead className="text-right">Amount</TableHead>
-                              <TableHead>Date</TableHead>
-                              <TableHead>Receipt</TableHead>
-                              <TableHead>Action</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {pendingPayments.map((p) => (
-                              <TableRow key={p.id}>
-                                <TableCell className="font-medium">{p.student_name}</TableCell>
-                                <TableCell className="text-right">₦{Number(p.amount_paid).toLocaleString()}</TableCell>
-                                <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : ''}</TableCell>
-                                <TableCell>
-                                  {p.payment_proof_url ? (
-                                    <button onClick={async () => {
-                                      try {
-                                        setSelectedReceiptLoading(true);
-                                        const url = await resolveReceiptUrl(p);
-                                        setSelectedReceipt(url);
-                                      } catch (err) {
-                                        console.error('Failed to load receipt', err);
-                                        toast.error('Failed to load receipt image');
-                                        setSelectedReceipt(null);
-                                      } finally {
-                                        setSelectedReceiptLoading(false);
-                                      }
-                                    }} className="text-primary hover:underline flex items-center gap-1">
-                                      <Eye className="h-4 w-4" /> View
-                                    </button>
-                                  ) : (
-                                    <span className="text-muted-foreground text-sm">No receipt</span>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex gap-2">
-                                    <Button size="sm" onClick={() => approvePayment(p)} disabled={isProcessing}><Check className="h-4 w-4" /></Button>
-                                    <Button size="sm" variant="destructive" onClick={() => rejectPayment(p.id)} disabled={isProcessing}><X className="h-4 w-4" /></Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <h3 className="font-semibold mb-3">Approved Payments {approvedPayments.length > 0 && <span className="text-muted-foreground text-sm">({approvedPayments.length})</span>}</h3>
-                    {approvedPayments.length === 0 ? (
-                      <p className="text-muted-foreground">No approved payments</p>
-                    ) : (
-                      <div className="overflow-x-auto rounded-md border">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Student</TableHead>
-                              <TableHead className="text-right">Amount</TableHead>
-                              <TableHead>Date</TableHead>
-                              <TableHead>Receipt</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {approvedPayments.map((p) => (
-                              <TableRow key={p.id}>
-                                <TableCell className="font-medium">{p.student_name}</TableCell>
-                                <TableCell className="text-right">₦{Number(p.amount_paid).toLocaleString()}</TableCell>
-                                <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : ''}</TableCell>
-                                <TableCell>
-                                  {p.payment_proof_url ? (
-                                    <button onClick={async () => {
-                                      try {
-                                        setSelectedReceiptLoading(true);
-                                        const url = await resolveReceiptUrl(p);
-                                        setSelectedReceipt(url);
-                                      } catch (err) {
-                                        console.error('Failed to load receipt', err);
-                                        toast.error('Failed to load receipt image');
-                                        setSelectedReceipt(null);
-                                      } finally {
-                                        setSelectedReceiptLoading(false);
-                                      }
-                                    }} className="text-primary hover:underline flex items-center gap-1">
-                                      <Eye className="h-4 w-4" /> View
-                                    </button>
-                                  ) : (
-                                    <span className="text-muted-foreground text-sm">No receipt</span>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                  </div>
+              {filteredStructures.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No fees defined yet.</p>
+              ) : (
+                <div className="overflow-x-auto rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fee</TableHead>
+                        <TableHead>Cohort</TableHead>
+                        <TableHead>Mode</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredStructures.map((f) => (
+                        <TableRow key={f.id}>
+                          <TableCell className="font-medium">{f.fee_name}</TableCell>
+                          <TableCell>{cohorts.find((c) => c.id === f.cohort_id)?.name || '—'}</TableCell>
+                          <TableCell><Badge variant="outline">{f.learning_mode || 'All'}</Badge></TableCell>
+                          <TableCell className="text-right">₦{Number(f.amount).toLocaleString()}</TableCell>
+                          <TableCell className="text-right">
+                            <Button size="sm" variant="ghost" onClick={() => setDeleteFeeId(f.id)} disabled={isProcessing}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
-                );
-              })()}
-
+              )}
             </div>
           </CardContent>
         </Card>
+      )}
 
-
-      ) : (
+      {tab === 'approvals' && (
         <>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <div>
-                <CardTitle>Payment Approvals</CardTitle>
-                <CardDescription>Review and verify pending student payments</CardDescription>
+                <CardTitle>Pending Payments</CardTitle>
+                <CardDescription>Review and verify pending student receipts</CardDescription>
               </div>
               {pendingPayments.length > 0 && (
                 <Button size="sm" onClick={verifyAllPending} disabled={isProcessing} className="gap-2">
@@ -532,43 +474,32 @@ const AdminFees = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Student</TableHead>
+                        <TableHead>Fee</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
                         <TableHead>Date</TableHead>
                         <TableHead>Receipt</TableHead>
-                        <TableHead>Action</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {pendingPayments.map((p) => (
                         <TableRow key={p.id}>
                           <TableCell className="font-medium">{p.student_name}</TableCell>
+                          <TableCell className="text-xs">{p.fee_name || '—'}</TableCell>
                           <TableCell className="text-right">₦{Number(p.amount_paid).toLocaleString()}</TableCell>
                           <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : ''}</TableCell>
                           <TableCell>
-                            {p.payment_proof_url ? (
-                              <button onClick={async () => {
-                                try {
-                                  setSelectedReceiptLoading(true);
-                                  const url = await resolveReceiptUrl(p);
-                                  setSelectedReceipt(url);
-                                } catch (err) {
-                                  console.error('Failed to load receipt', err);
-                                  toast.error('Failed to load receipt image');
-                                  setSelectedReceipt(null);
-                                } finally {
-                                  setSelectedReceiptLoading(false);
-                                }
-                              }} className="text-primary hover:underline flex items-center gap-1">
+                            {(p.payment_proof_url || p.storage_path) ? (
+                              <button onClick={() => openReceipt(p)} className="text-primary hover:underline flex items-center gap-1">
                                 <Eye className="h-4 w-4" /> View
                               </button>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">No receipt</span>
-                            )}
+                            ) : <span className="text-muted-foreground text-sm">No receipt</span>}
                           </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
+                          <TableCell className="text-right">
+                            <div className="flex gap-1 justify-end">
                               <Button size="sm" onClick={() => approvePayment(p)} disabled={isProcessing}><Check className="h-4 w-4" /></Button>
                               <Button size="sm" variant="destructive" onClick={() => rejectPayment(p.id)} disabled={isProcessing}><X className="h-4 w-4" /></Button>
+                              <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(p)} disabled={isProcessing}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -580,26 +511,135 @@ const AdminFees = () => {
             </CardContent>
           </Card>
 
-          <Dialog open={!!selectedReceipt} onOpenChange={() => setSelectedReceipt(null)}>
-            <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto">
-              <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
-                <DialogTitle>Payment Receipt</DialogTitle>
-              </DialogHeader>
-              {(selectedReceipt || selectedReceiptLoading) && (
-                <div className="flex flex-col gap-4 pt-4">
-                  {selectedReceiptLoading ? (
-                    <p className="text-sm text-muted-foreground">Loading receipt...</p>
-                  ) : selectedReceipt ? (
-                    <img src={selectedReceipt} alt="Receipt" className="w-full max-h-96 object-contain rounded" />
-                  ) : (
-                    <p className="text-sm text-destructive">Unable to load receipt image</p>
-                  )}
+          <Card>
+            <CardHeader>
+              <CardTitle>Approved Payments ({filteredApproved.length}/{approvedPayments.length})</CardTitle>
+              <CardDescription>Filter, view receipts, and manage verified payments</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div className="lg:col-span-2 relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input className="pl-8" placeholder="Search student name or email…" value={searchName} onChange={(e) => setSearchName(e.target.value)} />
+                </div>
+                <Select value={filterCohort} onValueChange={setFilterCohort}>
+                  <SelectTrigger><SelectValue placeholder="Cohort" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Cohorts</SelectItem>
+                    {cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={filterFee} onValueChange={setFilterFee}>
+                  <SelectTrigger><SelectValue placeholder="Fee type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Fee Types</SelectItem>
+                    {feeNames.map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <div className="flex gap-2">
+                  <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} title="From" />
+                  <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} title="To" />
+                </div>
+              </div>
+              {(searchName || filterCohort !== 'all' || filterFee !== 'all' || filterFrom || filterTo) && (
+                <Button size="sm" variant="ghost" onClick={clearFilters}>Clear filters</Button>
+              )}
+
+              {filteredApproved.length === 0 ? (
+                <p className="text-muted-foreground">{approvedPayments.length === 0 ? 'No approved payments yet' : 'No payments match the current filters'}</p>
+              ) : (
+                <div className="overflow-x-auto rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Student</TableHead>
+                        <TableHead>Cohort</TableHead>
+                        <TableHead>Fee</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Receipt</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredApproved.map((p) => (
+                        <TableRow key={p.id}>
+                          <TableCell className="font-medium">{p.student_name}</TableCell>
+                          <TableCell className="text-xs">{cohorts.find((c) => c.id === p.cohort_id)?.name || '—'}</TableCell>
+                          <TableCell className="text-xs">{p.fee_name || '—'}</TableCell>
+                          <TableCell className="text-right">₦{Number(p.amount_paid).toLocaleString()}</TableCell>
+                          <TableCell>{(p.payment_date || p.created_at) ? new Date(p.payment_date || p.created_at!).toLocaleDateString() : ''}</TableCell>
+                          <TableCell>
+                            {(p.payment_proof_url || p.storage_path) ? (
+                              <button onClick={() => openReceipt(p)} className="text-primary hover:underline flex items-center gap-1">
+                                <Eye className="h-4 w-4" /> View
+                              </button>
+                            ) : <span className="text-muted-foreground text-sm">No receipt</span>}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(p)} disabled={isProcessing}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               )}
-            </DialogContent>
-          </Dialog>
+            </CardContent>
+          </Card>
         </>
       )}
+
+      {/* Receipt viewer (always mounted) */}
+      <Dialog open={receiptOpen} onOpenChange={setReceiptOpen}>
+        <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto">
+          <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
+            <DialogTitle>Payment Receipt</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 pt-4">
+            {selectedReceiptLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : selectedReceipt ? (
+              selectedReceipt.toLowerCase().endsWith('.pdf') ? (
+                <iframe src={selectedReceipt} title="Receipt" className="w-full h-[70vh] rounded border" />
+              ) : (
+                <img src={selectedReceipt} alt="Receipt" className="w-full max-h-[70vh] object-contain rounded" />
+              )
+            ) : (
+              <p className="text-sm text-destructive">Unable to load receipt.</p>
+            )}
+            {selectedReceipt && (
+              <a href={selectedReceipt} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                Open in new tab
+              </a>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title="Delete payment record?"
+        description={deleteTarget ? `This will permanently remove the ${deleteTarget.status} payment of ₦${Number(deleteTarget.amount_paid).toLocaleString()} from ${deleteTarget.student_name}. The student's fee balance is NOT auto-adjusted — verify the fee record afterward.` : ''}
+        confirmLabel="Delete record"
+        variant="destructive"
+        onConfirm={confirmDeletePayment}
+      />
+
+      <ConfirmDialog
+        open={!!deleteFeeId}
+        onOpenChange={(o) => !o && setDeleteFeeId(null)}
+        title="Delete fee definition?"
+        description="This removes the fee structure. Existing student fee records are not affected."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={confirmDeleteFee}
+      />
     </div>
   );
 };
