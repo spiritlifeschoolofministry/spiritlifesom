@@ -20,6 +20,7 @@
     }
   },
   "postStartCommand": "echo 'Setting ports to public' || true",
+  "postCreateCommand": "npm install -g supabase@latest || true",
   "customizations": {
     "vscode": {
       "extensions": [
