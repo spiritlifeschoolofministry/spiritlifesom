@@ -229,10 +229,19 @@ const StudentFees = () => {
                 <div className="space-y-2">
                   <Label>Bank Transfer Receipt</Label>
                   <div className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/50">
-                    <input id="receipt" type="file" accept="image/*" {...register('receipt', { required: 'Receipt is required' })} onChange={(e) => { const file = e.target.files?.[0]; if (file) setReceiptFile(file); }} className="hidden" />
+                    <input
+                      id="receipt"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) setReceiptFile(file);
+                      }}
+                    />
                     <label htmlFor="receipt" className="cursor-pointer block">
                       <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                      <p className="text-sm font-medium">Click to upload receipt image</p>
+                      <p className="text-sm font-medium">{receiptFile ? 'Change receipt image' : 'Click to upload receipt image'}</p>
                       <p className="text-xs text-muted-foreground mt-1">{receiptFile?.name || 'PNG, JPG, GIF up to 10MB'}</p>
                     </label>
                   </div>
