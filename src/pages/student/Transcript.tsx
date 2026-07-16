@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/contexts/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import StudentLayout from "@/components/StudentLayout";
+import PageHeader from "@/components/PageHeader";
+import StatCard from "@/components/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -158,52 +160,39 @@ const StudentTranscript = () => {
     <StudentLayout>
       <div className="space-y-6 pb-20 md:pb-0" ref={printRef}>
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
-              <FileText className="w-7 h-7" /> Academic Transcript
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Your complete academic record and performance summary.
-            </p>
-          </div>
-          <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2 print:hidden self-start">
-            <Download className="w-4 h-4" /> Print / Save PDF
-          </Button>
-        </div>
+        <PageHeader
+          eyebrow="Academic Record"
+          title="Academic Transcript"
+          subtitle="Your complete academic record and performance summary."
+          actions={
+            <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2 print:hidden">
+              <Download className="w-4 h-4" /> Print / Save PDF
+            </Button>
+          }
+        />
 
         {/* Student Info Card */}
         <Card className="shadow-[var(--shadow-card)] border-border overflow-hidden">
-          <div className="h-2 gradient-flame" />
+          <div className="h-1.5 gradient-flame" />
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="flex items-center gap-3">
-                <User2 className="w-5 h-5 text-muted-foreground shrink-0" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Student Name</p>
-                  <p className="font-semibold text-sm">{profile?.first_name} {profile?.last_name}</p>
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div>
+                <p className="eyebrow mb-1.5">Student Name</p>
+                <p className="font-serif text-xl font-semibold text-foreground leading-tight">{profile?.first_name} {profile?.last_name}</p>
               </div>
-              <div className="flex items-center gap-3">
-                <GraduationCap className="w-5 h-5 text-muted-foreground shrink-0" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Cohort</p>
-                  <p className="font-semibold text-sm">{cohortName || "—"}</p>
-                </div>
+              <div>
+                <p className="eyebrow mb-1.5">Cohort</p>
+                <p className="font-serif text-xl font-semibold text-foreground leading-tight">{cohortName || "—"}</p>
               </div>
-              <div className="flex items-center gap-3">
-                <BookOpen className="w-5 h-5 text-muted-foreground shrink-0" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Student Code</p>
-                  <p className="font-semibold text-sm font-mono">{student?.student_code || "—"}</p>
-                </div>
+              <div>
+                <p className="eyebrow mb-1.5">Student Code</p>
+                <p className="font-serif text-xl font-semibold text-foreground leading-tight font-mono">{student?.student_code || "—"}</p>
               </div>
-              <div className="flex items-center gap-3">
-                <Calendar className="w-5 h-5 text-muted-foreground shrink-0" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Status</p>
-                  <Badge variant="secondary" className="text-xs">{student?.admission_status || "—"}</Badge>
-                </div>
+              <div>
+                <p className="eyebrow mb-1.5">Status</p>
+                <Badge variant={(student?.admission_status || "").toUpperCase() === "GRADUATE" ? "success" : "info"} className="text-xs">
+                  {student?.admission_status || "—"}
+                </Badge>
               </div>
             </div>
           </CardContent>
@@ -211,31 +200,32 @@ const StudentTranscript = () => {
 
         {/* Performance Summary */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card className="shadow-[var(--shadow-card)] border-border">
-            <CardContent className="p-4 text-center">
-              <p className={`text-4xl font-black ${overallGrade.color}`}>{overallGrade.letter}</p>
-              <p className="text-xs text-muted-foreground mt-1">Overall Grade</p>
-              <p className="text-sm font-semibold text-foreground">{overallAvg}%</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-[var(--shadow-card)] border-border">
-            <CardContent className="p-4 text-center">
-              <p className="text-4xl font-black text-foreground">{completedCount}<span className="text-lg text-muted-foreground">/{courses.length}</span></p>
-              <p className="text-xs text-muted-foreground mt-1">Courses Completed</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-[var(--shadow-card)] border-border">
-            <CardContent className="p-4 text-center">
-              <p className="text-4xl font-black text-foreground">{gradedTasks}<span className="text-lg text-muted-foreground">/{totalTasks}</span></p>
-              <p className="text-xs text-muted-foreground mt-1">Tasks Graded</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-[var(--shadow-card)] border-border">
-            <CardContent className="p-4 text-center">
-              <p className={`text-4xl font-black ${attendance.rate >= 75 ? "text-emerald-600" : "text-red-600"}`}>{attendance.rate}%</p>
-              <p className="text-xs text-muted-foreground mt-1">Attendance Rate</p>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Overall Grade"
+            value={<span className={overallGrade.color}>{overallGrade.letter}</span>}
+            hint={`${overallAvg}% · ${overallGrade.label}`}
+            icon={<div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center"><Award className="w-5 h-5 text-gold" /></div>}
+          />
+          <StatCard
+            label="Courses Completed"
+            value={<>{completedCount}<span className="text-lg text-muted-foreground">/{courses.length}</span></>}
+            color="text-primary"
+            icon={<div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><BookOpen className="w-5 h-5 text-primary" /></div>}
+          />
+          <StatCard
+            label="Tasks Graded"
+            value={<>{gradedTasks}<span className="text-lg text-muted-foreground">/{totalTasks}</span></>}
+            color="text-primary"
+            icon={<div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><CheckCircle2 className="w-5 h-5 text-primary" /></div>}
+          />
+          <StatCard
+            label="Attendance"
+            value={`${attendance.rate}%`}
+            color={attendance.rate >= 75 ? "text-success" : "text-destructive"}
+            progress={attendance.rate}
+            progressClass={attendance.rate >= 75 ? "bg-success" : "bg-destructive"}
+            hint={`${attendance.present}/${attendance.total} sessions`}
+          />
         </div>
 
         {/* Course-by-Course Breakdown */}
@@ -244,24 +234,24 @@ const StudentTranscript = () => {
           return (
             <Card key={course.id} className="shadow-[var(--shadow-card)] border-border">
               <CardHeader className="pb-3">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${course.is_completed ? "bg-emerald-100 dark:bg-emerald-900/30" : "bg-primary/10"}`}>
-                      {course.is_completed ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <Clock className="w-5 h-5 text-primary" />}
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${course.is_completed ? "bg-success/10" : "bg-primary/10"}`}>
+                      {course.is_completed ? <CheckCircle2 className="w-5 h-5 text-success" /> : <Clock className="w-5 h-5 text-primary" />}
                     </div>
                     <div>
-                      <CardTitle className="text-base">{course.title}</CardTitle>
-                      <p className="text-xs text-muted-foreground">{course.code} {course.lecturer ? `· ${course.lecturer}` : ""}</p>
+                      <CardTitle className="font-serif text-lg leading-tight">{course.title}</CardTitle>
+                      <p className="text-xs text-muted-foreground mt-0.5">{course.code} {course.lecturer ? `· ${course.lecturer}` : ""}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-4">
                     {grade && (
                       <div className="text-right">
-                        <span className={`text-2xl font-black ${grade.color}`}>{grade.letter}</span>
-                        <p className="text-xs text-muted-foreground">{course.courseAvg}% · {grade.label}</p>
+                        <span className={`font-serif text-3xl font-bold leading-none ${grade.color}`}>{grade.letter}</span>
+                        <p className="text-xs text-muted-foreground mt-0.5">{course.courseAvg}% · {grade.label}</p>
                       </div>
                     )}
-                    <Badge variant={course.is_completed ? "default" : "secondary"} className="text-xs">
+                    <Badge variant={course.is_completed ? "success" : "info"} className="text-xs">
                       {course.is_completed ? "Completed" : "In Progress"}
                     </Badge>
                   </div>
@@ -273,10 +263,10 @@ const StudentTranscript = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-xs">Task</TableHead>
-                          <TableHead className="text-xs">Category</TableHead>
-                          <TableHead className="text-xs">Score</TableHead>
-                          <TableHead className="text-xs">Grade</TableHead>
+                          <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Task</TableHead>
+                          <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Category</TableHead>
+                          <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Score</TableHead>
+                          <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Grade</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -291,7 +281,7 @@ const StudentTranscript = () => {
                                 {a.grade != null ? <span className="font-medium">{a.grade}/{a.max_points}</span> : <span className="text-muted-foreground">—</span>}
                               </TableCell>
                               <TableCell>
-                                {lg ? <span className={`font-bold text-sm ${lg.color}`}>{lg.letter}</span> : <span className="text-muted-foreground text-xs">Pending</span>}
+                                {lg ? <span className={`font-serif text-lg font-bold ${lg.color}`}>{lg.letter}</span> : <span className="text-muted-foreground text-xs">Pending</span>}
                               </TableCell>
                             </TableRow>
                           );

@@ -41,6 +41,13 @@
     --danger: 358 72% 59%;         /* #e5484d */
     --info: 271 51% 37%;           /* #5B2D8E */
 
+    /* Chart palette (Sanctuary) */
+    --chart-1: 254 59% 26%;        /* purple */
+    --chart-2: 145 55% 40%;        /* success green */
+    --chart-3: 271 51% 37%;        /* info purple */
+    --chart-4: 40 62% 49%;         /* gold */
+    --chart-5: 358 72% 59%;        /* danger */
+
     --radius: 0.75rem;
 
     --sidebar-background: 254 51% 18%;
@@ -90,6 +97,13 @@
     --warning: 40 80% 57%;
     --danger: 358 62% 58%;
     --info: 271 45% 60%;
+
+    /* Chart palette (Sanctuary — dark) */
+    --chart-1: 268 52% 60%;
+    --chart-2: 145 50% 48%;
+    --chart-3: 271 45% 62%;
+    --chart-4: 40 80% 57%;
+    --chart-5: 358 62% 60%;
 
     --sidebar-background: 260 55% 8%;
     --sidebar-foreground: 0 0% 96%;

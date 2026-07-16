@@ -854,7 +854,7 @@ const AdminAttendance = () => {
               size="sm"
               onClick={verifyAllPending}
               disabled={bulkVerifying}
-              className="bg-emerald-600 hover:bg-emerald-700"
+              className="bg-success text-white hover:bg-success/90"
             >
               {bulkVerifying ? (
                 <Loader2 className="w-4 h-4 animate-spin mr-1" />

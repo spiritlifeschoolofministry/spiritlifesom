@@ -77,6 +77,8 @@ const AdminAdmissions = () => {
     Record<string, { status: string; sent_at: string | null }>
   >({});
   const [previewApp, setPreviewApp] = useState<Application | null>(null);
+  // Presentational view selector for the segmented pill group (no data logic).
+  const [activeTab, setActiveTab] = useState<"pending" | "learning" | "names">("pending");
   // Client-side throttle: minimum 1.5s between sends
   const lastSendAtRef = useState<{ t: number }>({ t: 0 })[0];
 
@@ -533,295 +535,371 @@ const AdminAdmissions = () => {
         </div>
       )}
 
-      {/* Search + Filters */}
-      <div className="space-y-3">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name or email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Filter className="w-3.5 h-3.5" /> Filters:
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">Mode</label>
-            <Select value={filterMode} onValueChange={setFilterMode}>
-              <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All modes</SelectItem>
-                <SelectItem value="physical">Physical</SelectItem>
-                <SelectItem value="online">Online</SelectItem>
-                <SelectItem value="hybrid">Hybrid</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">Cohort</label>
-            <Select value={filterCohort} onValueChange={setFilterCohort}>
-              <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All cohorts</SelectItem>
-                {cohorts.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">Language</label>
-            <Select value={filterLanguage} onValueChange={setFilterLanguage}>
-              <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All languages</SelectItem>
-                {languageOptions.map((lang) => (
-                  <SelectItem key={lang} value={lang}>{lang}</SelectItem>
-                ))}
-                {hasUnspecifiedLanguage && (
-                  <SelectItem value="__none__">Not specified</SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">From</label>
-            <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} className="h-8 w-[140px] text-xs" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">To</label>
-            <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} className="h-8 w-[140px] text-xs" />
-          </div>
-          {activeFilterCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs gap-1">
-              <X className="w-3.5 h-3.5" /> Clear ({activeFilterCount})
-            </Button>
-          )}
-        </div>
+      {/* Segmented pill tabs */}
+      <div className="flex flex-wrap gap-1.5 bg-secondary p-1.5 rounded-xl w-full sm:w-fit">
+        {([
+          { key: "pending", label: "Pending Applications", count: applications.length },
+          { key: "learning", label: "Learning Mode", count: learningModeRequests.length },
+          { key: "names", label: "Name Changes", count: certificateRequests.length },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setActiveTab(t.key)}
+            className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === t.key
+                ? "bg-card text-primary shadow-[var(--shadow-card)]"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t.label}
+            <span className={`ml-2 text-xs font-semibold ${activeTab === t.key ? "text-gold" : "text-muted-foreground/70"}`}>
+              {t.count}
+            </span>
+          </button>
+        ))}
       </div>
 
-      {/* Applications list */}
-      {certificateRequests.length > 0 && (
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Certificate Name Change Requests ({certificateRequests.length})</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {certificateRequests.map((s) => (
-              <div key={s.id} className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border transition-colors bg-card`}> 
-                <div className="flex items-start gap-3 flex-1">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-foreground">{s.profile?.first_name || 'Unknown'} {s.profile?.last_name || 'User'}</h3>
-                    <p className="text-sm text-muted-foreground">Requested name: <span className="font-medium">{s.pending_name_change}</span></p>
-                    {s.created_at && <p className="text-[11px] text-muted-foreground mt-1">{timeAgo(s.created_at)}</p>}
-                  </div>
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <Button size="sm" className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-primary-foreground" onClick={() => handleCertificateRequest(s.id, 'approve')}>
-                    <Check className="w-4 h-4" /> Approve
-                  </Button>
-                  <Button variant="outline" size="sm" className="gap-1 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => handleCertificateRequest(s.id, 'reject')}>
-                    <X className="w-4 h-4" /> Reject
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {learningModeRequests.length > 0 && (
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2"><BookOpen className="w-4 h-4 text-sky-600" /> Learning Mode Change Requests ({learningModeRequests.length})</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {learningModeRequests.map((s) => (
-              <div key={s.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{s.profile?.first_name || 'Unknown'} {s.profile?.last_name || 'User'}</p>
-                  <p className="text-xs text-muted-foreground">Current: {s.learning_mode || '—'} • Requested: {s.requested_learning_mode}</p>
-                </div>
-                <div className="flex gap-1.5 shrink-0">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
-                    onClick={() => handleLearningModeRequest(s.id, 'approve')}
-                    title="Approve"
-                  >
-                    <Check className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                    onClick={() => handleLearningModeRequest(s.id, 'reject')}
-                    title="Reject"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-      <Card className="shadow-[var(--shadow-card)] border-border">
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Pending Applications ({filteredApplications.length})</CardTitle>
-          {filteredApplications.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={filteredApplications.length > 0 && selectedIds.size === filteredApplications.length}
-                onCheckedChange={toggleSelectAll}
+      {/* Pending Applications tab */}
+      {activeTab === "pending" && (
+        <div className="space-y-5">
+          {/* Search + Filters */}
+          <div className="space-y-3">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
               />
-              <span className="text-xs text-muted-foreground">Select all</span>
             </div>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-3">
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Filter className="w-3.5 h-3.5" /> Filters:
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">Mode</label>
+                <Select value={filterMode} onValueChange={setFilterMode}>
+                  <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All modes</SelectItem>
+                    <SelectItem value="physical">Physical</SelectItem>
+                    <SelectItem value="online">Online</SelectItem>
+                    <SelectItem value="hybrid">Hybrid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">Cohort</label>
+                <Select value={filterCohort} onValueChange={setFilterCohort}>
+                  <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All cohorts</SelectItem>
+                    {cohorts.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">Language</label>
+                <Select value={filterLanguage} onValueChange={setFilterLanguage}>
+                  <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All languages</SelectItem>
+                    {languageOptions.map((lang) => (
+                      <SelectItem key={lang} value={lang}>{lang}</SelectItem>
+                    ))}
+                    {hasUnspecifiedLanguage && (
+                      <SelectItem value="__none__">Not specified</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">From</label>
+                <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} className="h-8 w-[140px] text-xs" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">To</label>
+                <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} className="h-8 w-[140px] text-xs" />
+              </div>
+              {activeFilterCount > 0 && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs gap-1">
+                  <X className="w-3.5 h-3.5" /> Clear ({activeFilterCount})
+                </Button>
+              )}
+            </div>
+          </div>
+
           {filteredApplications.length === 0 ? (
-            <div className="text-center py-12">
-              <Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
-              <p className="font-medium text-foreground">No pending applications</p>
-              <p className="text-sm text-muted-foreground mt-1">New registrations will appear here automatically</p>
-            </div>
+            <Card className="rounded-xl border-border shadow-[var(--shadow-card)]">
+              <CardContent className="text-center py-12">
+                <Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
+                <p className="font-medium text-foreground">No pending applications</p>
+                <p className="text-sm text-muted-foreground mt-1">New registrations will appear here automatically</p>
+              </CardContent>
+            </Card>
           ) : (
-            filteredApplications.map((app) => (
-              <div
-                key={app.id}
-                className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border transition-colors ${
-                  selectedIds.has(app.id) ? "border-primary/40 bg-primary/5" : "border-border bg-card hover:bg-muted/30"
-                }`}
-              >
-                <div className="flex items-start gap-3 flex-1">
+            <>
+              <div className="flex items-center justify-between px-1">
+                <p className="text-sm text-muted-foreground">{filteredApplications.length} showing</p>
+                <div className="flex items-center gap-2">
                   <Checkbox
-                    checked={selectedIds.has(app.id)}
-                    onCheckedChange={() => toggleSelect(app.id)}
-                    className="mt-1"
+                    checked={filteredApplications.length > 0 && selectedIds.size === filteredApplications.length}
+                    onCheckedChange={toggleSelectAll}
                   />
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-foreground">{getFullName(app)}</h3>
-                    <p className="text-sm text-muted-foreground">{app.profile.email}</p>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
-                        <Clock className="w-3 h-3 mr-1" /> Pending
-                      </Badge>
-                      {app.learning_mode && (
-                        <Badge variant="outline" className="text-xs">{app.learning_mode}</Badge>
-                      )}
-                      {app.is_born_again && (
-                        <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200">Born Again</Badge>
-                      )}
-                      {app.created_at && (
-                        <span className="text-[11px] text-muted-foreground self-center">{timeAgo(app.created_at)}</span>
-                      )}
-                    </div>
-                  </div>
+                  <span className="text-xs text-muted-foreground">Select all</span>
                 </div>
-                {/* Admission email status column */}
-                <div className="flex flex-col items-start sm:items-center gap-0.5 sm:min-w-[150px] sm:px-2 sm:border-l sm:border-border sm:py-1">
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Approval email</span>
-                  {(() => {
-                    const e = emailStatusByStudent[app.id];
-                    if (!e) {
-                      return (
-                        <>
-                          <Badge variant="outline" className="text-xs text-muted-foreground">
-                            <Mail className="w-3 h-3 mr-1" /> Not sent
-                          </Badge>
-                          <span className="text-[10px] text-muted-foreground">—</span>
-                        </>
-                      );
-                    }
-                    if (e.status === "sent") {
-                      return (
-                        <>
-                          <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
-                            <CheckCircle2 className="w-3 h-3 mr-1" /> Sent
-                          </Badge>
-                          {e.sent_at && (
-                            <span className="text-[10px] text-muted-foreground">{new Date(e.sent_at).toLocaleString()}</span>
+              </div>
+              {filteredApplications.map((app) => (
+                <Card
+                  key={app.id}
+                  className={`rounded-xl border shadow-[var(--shadow-card)] transition-colors ${
+                    selectedIds.has(app.id) ? "border-primary/40 bg-primary/5" : "border-border bg-card"
+                  }`}
+                >
+                  <CardContent className="p-5 flex flex-col lg:flex-row lg:items-start gap-4">
+                    <div className="flex items-start gap-4 flex-1 min-w-0">
+                      <Checkbox
+                        checked={selectedIds.has(app.id)}
+                        onCheckedChange={() => toggleSelect(app.id)}
+                        className="mt-6"
+                      />
+                      <div className="h-[60px] w-[60px] shrink-0 rounded-full bg-primary text-[#F9CB28] font-serif text-xl font-semibold flex items-center justify-center">
+                        {initialsOf(app.profile)}
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <h3 className="font-serif text-2xl font-semibold text-foreground leading-none">{getFullName(app)}</h3>
+                          <Badge variant="gold">PENDING</Badge>
+                          {app.created_at && (
+                            <span className="text-xs text-muted-foreground">{timeAgo(app.created_at)}</span>
                           )}
-                        </>
-                      );
-                    }
-                    return (
-                      <>
-                        <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800">
-                          <XCircle className="w-3 h-3 mr-1" /> Failed
-                        </Badge>
-                        {e.sent_at && (
-                          <span className="text-[10px] text-muted-foreground">{new Date(e.sent_at).toLocaleString()}</span>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-                <div className="flex gap-2 shrink-0 flex-wrap">
-                  <Button variant="outline" size="sm" onClick={() => setSelectedApp(app)} className="gap-1">
-                    <Eye className="w-4 h-4" /> View
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-primary-foreground"
-                    onClick={() => setConfirmAction({ type: "approve", student: app })}
-                  >
-                    <Check className="w-4 h-4" /> Admit
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10"
-                    onClick={() => setConfirmAction({ type: "reject", student: app })}
-                  >
-                    <X className="w-4 h-4" /> Reject
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+                        </div>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {app.profile.email}{app.profile.phone ? ` · ${app.profile.phone}` : ""}
+                        </p>
+                        <div className="flex gap-7 flex-wrap pt-1">
+                          <Detail label="Cohort" value={cohorts.find((c) => c.id === app.cohort_id)?.name} />
+                          <Detail label="Mode" value={app.learning_mode} />
+                          <Detail
+                            label="Gender · Age"
+                            value={[app.gender, app.age != null ? String(app.age) : null].filter(Boolean).join(" · ")}
+                          />
+                          <Detail label="Born again" value={app.is_born_again == null ? null : app.is_born_again ? "Yes" : "No"} />
+                          <Detail label="Language" value={app.preferred_language} />
+                        </div>
+                        {/* Admission email status */}
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">Approval email</span>
+                          {(() => {
+                            const e = emailStatusByStudent[app.id];
+                            if (!e) {
+                              return (
+                                <Badge variant="outline" className="text-xs text-muted-foreground">
+                                  <Mail className="w-3 h-3 mr-1" /> Not sent
+                                </Badge>
+                              );
+                            }
+                            if (e.status === "sent") {
+                              return (
+                                <>
+                                  <Badge variant="success" className="text-xs">
+                                    <CheckCircle2 className="w-3 h-3 mr-1" /> Sent
+                                  </Badge>
+                                  {e.sent_at && (
+                                    <span className="text-[10px] text-muted-foreground">{new Date(e.sent_at).toLocaleString()}</span>
+                                  )}
+                                </>
+                              );
+                            }
+                            return (
+                              <>
+                                <Badge variant="destructive" className="text-xs">
+                                  <XCircle className="w-3 h-3 mr-1" /> Failed
+                                </Badge>
+                                {e.sent_at && (
+                                  <span className="text-[10px] text-muted-foreground">{new Date(e.sent_at).toLocaleString()}</span>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 w-full lg:w-[150px] shrink-0">
+                      <Button
+                        size="sm"
+                        className="gap-1.5 bg-success text-white hover:bg-success/90"
+                        onClick={() => setConfirmAction({ type: "approve", student: app })}
+                      >
+                        <Check className="w-4 h-4" /> Admit
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="gap-1"
-                        disabled={resendingId === app.id}
-                        title="Re-send email"
+                        className="gap-1.5 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10"
+                        onClick={() => setConfirmAction({ type: "reject", student: app })}
                       >
-                        {resendingId === app.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Mail className="w-4 h-4" />
-                        )}
-                        Email
+                        <X className="w-4 h-4" /> Reject
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuLabel>Re-send email</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => resendEmail(app.id, "welcome", "Welcome email")}>
-                        Welcome / Registration
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => resendEmail(app.id, "admission_approved", "Admission approval email")}>
-                        Admission Approved
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => resendEmail(app.id, "admission_rejected", "Admission rejection email")}>
-                        Admission Rejected
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setPreviewApp(app)}>
-                        <FileJson className="w-4 h-4 mr-2" /> Preview approval email
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
+                      <Button variant="outline" size="sm" onClick={() => setSelectedApp(app)} className="gap-1.5">
+                        <Eye className="w-4 h-4" /> View
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            disabled={resendingId === app.id}
+                            title="Re-send email"
+                          >
+                            {resendingId === app.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Mail className="w-4 h-4" />
+                            )}
+                            Email
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                          <DropdownMenuLabel>Re-send email</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => resendEmail(app.id, "welcome", "Welcome email")}>
+                            Welcome / Registration
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => resendEmail(app.id, "admission_approved", "Admission approval email")}>
+                            Admission Approved
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => resendEmail(app.id, "admission_rejected", "Admission rejection email")}>
+                            Admission Rejected
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setPreviewApp(app)}>
+                            <FileJson className="w-4 h-4 mr-2" /> Preview approval email
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Learning Mode tab */}
+      {activeTab === "learning" && (
+        <div className="space-y-3">
+          {learningModeRequests.length === 0 ? (
+            <Card className="rounded-xl border-border shadow-[var(--shadow-card)]">
+              <CardContent className="text-center py-12">
+                <BookOpen className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
+                <p className="font-medium text-foreground">No learning-mode requests</p>
+              </CardContent>
+            </Card>
+          ) : (
+            learningModeRequests.map((s) => (
+              <Card key={s.id} className="rounded-xl border-border shadow-[var(--shadow-card)] bg-card">
+                <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="h-[60px] w-[60px] shrink-0 rounded-full bg-primary text-[#F9CB28] font-serif text-xl font-semibold flex items-center justify-center">
+                      {initialsOf(s.profile)}
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h3 className="font-serif text-2xl font-semibold text-foreground leading-none">
+                          {s.profile?.first_name || 'Unknown'} {s.profile?.last_name || 'User'}
+                        </h3>
+                        {s.created_at && <span className="text-xs text-muted-foreground">{timeAgo(s.created_at)}</span>}
+                      </div>
+                      <div className="flex gap-7 flex-wrap pt-1">
+                        <Detail label="Current mode" value={s.learning_mode} />
+                        <Detail label="Requested mode" value={s.requested_learning_mode} />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2 w-full sm:w-[150px] shrink-0">
+                    <Button
+                      size="sm"
+                      className="gap-1.5 bg-success text-white hover:bg-success/90"
+                      onClick={() => handleLearningModeRequest(s.id, 'approve')}
+                    >
+                      <Check className="w-4 h-4" /> Approve
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10"
+                      onClick={() => handleLearningModeRequest(s.id, 'reject')}
+                    >
+                      <X className="w-4 h-4" /> Reject
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             ))
           )}
-        </CardContent>
-      </Card>
+        </div>
+      )}
+
+      {/* Name Changes tab */}
+      {activeTab === "names" && (
+        <div className="space-y-3">
+          {certificateRequests.length === 0 ? (
+            <Card className="rounded-xl border-border shadow-[var(--shadow-card)]">
+              <CardContent className="text-center py-12">
+                <UserCheck className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
+                <p className="font-medium text-foreground">No name-change requests</p>
+              </CardContent>
+            </Card>
+          ) : (
+            certificateRequests.map((s) => (
+              <Card key={s.id} className="rounded-xl border-border shadow-[var(--shadow-card)] bg-card">
+                <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="h-[60px] w-[60px] shrink-0 rounded-full bg-primary text-[#F9CB28] font-serif text-xl font-semibold flex items-center justify-center">
+                      {initialsOf(s.profile)}
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h3 className="font-serif text-2xl font-semibold text-foreground leading-none">
+                          {s.profile?.first_name || 'Unknown'} {s.profile?.last_name || 'User'}
+                        </h3>
+                        {s.created_at && <span className="text-xs text-muted-foreground">{timeAgo(s.created_at)}</span>}
+                      </div>
+                      <div className="flex gap-7 flex-wrap pt-1">
+                        <Detail label="Requested name" value={s.pending_name_change} />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2 w-full sm:w-[150px] shrink-0">
+                    <Button
+                      size="sm"
+                      className="gap-1.5 bg-success text-white hover:bg-success/90"
+                      onClick={() => handleCertificateRequest(s.id, 'approve')}
+                    >
+                      <Check className="w-4 h-4" /> Approve
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10"
+                      onClick={() => handleCertificateRequest(s.id, 'reject')}
+                    >
+                      <X className="w-4 h-4" /> Reject
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
 
       {/* Detail Dialog */}
       <Dialog open={!!selectedApp} onOpenChange={() => setSelectedApp(null)}>
@@ -965,5 +1043,15 @@ const InfoField = ({ label, value }: { label: string; value?: string | null }) =
     <p className="text-sm text-foreground">{value || "N/A"}</p>
   </div>
 );
+
+const Detail = ({ label, value }: { label: string; value?: string | null }) => (
+  <div className="min-w-0">
+    <p className="text-[10px] uppercase tracking-wide text-muted-foreground/70">{label}</p>
+    <p className="text-sm font-semibold text-foreground">{value || "—"}</p>
+  </div>
+);
+
+const initialsOf = (p?: { first_name?: string | null; last_name?: string | null } | null) =>
+  `${p?.first_name?.[0] || ""}${p?.last_name?.[0] || ""}`.toUpperCase() || "?";
 
 export default AdminAdmissions;

@@ -5,7 +5,6 @@ import StudentLayout from "@/components/StudentLayout";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -140,32 +139,36 @@ const StudentGrades = () => {
     <StudentLayout>
       <div className="space-y-6 pb-20 md:pb-0">
         <PageHeader
+          eyebrow="Academic Record"
           title="Grades"
           subtitle="Your academic performance overview across all categories."
         />
 
         {/* Overall Grade Card */}
         <Card className="shadow-[var(--shadow-card)] border-border overflow-hidden">
+          <div className="h-1.5 gradient-flame" />
           <div className="flex flex-col sm:flex-row">
             <div className="flex-1 p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                   <GraduationCap className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground font-medium">Overall Grade</p>
-                  <p className="font-serif text-3xl font-bold text-foreground">{overallPct}%</p>
+                  <p className="eyebrow mb-1">Overall Grade</p>
+                  <p className="font-serif text-5xl font-bold text-primary leading-none">{overallPct}%</p>
                 </div>
               </div>
-              <Progress value={overallPct} className="h-3 mb-2" />
+              <div className="h-[6px] rounded-full bg-[#eee7db] overflow-hidden mb-2">
+                <div className="h-full rounded-full gradient-flame" style={{ width: `${Math.min(100, Math.max(0, overallPct))}%` }} />
+              </div>
               <p className="text-xs text-muted-foreground">
                 {overallEarned}/{overallTotal} points · {allGraded.length} of {items.length} graded
               </p>
             </div>
-            <div className="flex items-center justify-center p-6 sm:border-l border-t sm:border-t-0 border-border bg-secondary/30">
+            <div className="flex items-center justify-center p-6 sm:border-l border-t sm:border-t-0 border-border bg-secondary sm:min-w-[13rem]">
               <div className="text-center">
-                <p className={`text-6xl font-black ${overallGrade.color}`}>{overallGrade.letter}</p>
-                <p className="text-xs text-muted-foreground mt-1">{overallGrade.label} · Point {overallGrade.point}</p>
+                <p className={`font-serif text-7xl font-bold leading-none ${overallGrade.color}`}>{overallGrade.letter}</p>
+                <p className="text-xs text-muted-foreground mt-2 font-medium">{overallGrade.label} · Point {overallGrade.point}</p>
               </div>
             </div>
           </div>
@@ -179,17 +182,19 @@ const StudentGrades = () => {
               const Icon = cat.icon;
               return (
                 <Card key={cat.category} className="shadow-[var(--shadow-card)] border-border">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <Icon className="w-4 h-4 text-primary" />
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-lg bg-gold/10 flex items-center justify-center">
+                          <Icon className="w-4 h-4 text-gold" />
                         </div>
                         <p className="text-sm font-semibold text-foreground">{cat.category}</p>
                       </div>
-                      <span className={`text-lg font-bold ${grade.color}`}>{grade.letter}</span>
+                      <span className={`font-serif text-3xl font-bold leading-none ${grade.color}`}>{grade.letter}</span>
                     </div>
-                    <Progress value={cat.percentage} className="h-2 mb-2" />
+                    <div className="h-[5px] rounded-full bg-[#eee7db] overflow-hidden mb-2">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, Math.max(0, cat.percentage))}%` }} />
+                    </div>
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>{cat.percentage}% · {cat.earnedPoints}/{cat.totalPoints} pts</span>
                       <span>{cat.gradedCount}/{cat.count} graded</span>
@@ -204,8 +209,8 @@ const StudentGrades = () => {
         {/* Detailed Grades Table */}
         <Card className="shadow-[var(--shadow-card)] border-border">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Award className="w-4 h-4 text-primary" /> All Grades
+            <CardTitle className="font-serif text-xl flex items-center gap-2">
+              <Award className="w-5 h-5 text-gold" /> All Grades
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -216,11 +221,11 @@ const StudentGrades = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Course</TableHead>
-                      <TableHead>Score</TableHead>
-                      <TableHead>Grade</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Title</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Category</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Course</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Score</TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Grade</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -241,9 +246,9 @@ const StudentGrades = () => {
                           </TableCell>
                           <TableCell>
                             {lg ? (
-                              <span className={`font-bold ${lg.color}`}>{lg.letter} ({pct}%)</span>
+                              <span className={`font-serif text-lg font-bold ${lg.color}`}>{lg.letter} <span className="text-sm">({pct}%)</span></span>
                             ) : (
-                              <Badge variant="outline" className="text-xs">Pending</Badge>
+                              <Badge variant="warning" className="text-xs">Pending</Badge>
                             )}
                           </TableCell>
                         </TableRow>
@@ -259,23 +264,23 @@ const StudentGrades = () => {
         {/* Grading Scale Reference */}
         <Card className="shadow-[var(--shadow-card)] border-border">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Grading Scale</CardTitle>
+            <CardTitle className="font-serif text-xl">Grading Scale</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-center text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-center text-xs">
               {[
-                { letter: "A", range: "70%+", label: "Excellent", point: 5, color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20" },
-                { letter: "B", range: "60-69%", label: "Very Good", point: 4, color: "text-blue-600 bg-blue-50 dark:bg-blue-900/20" },
-                { letter: "C", range: "50-59%", label: "Good", point: 3, color: "text-cyan-600 bg-cyan-50 dark:bg-cyan-900/20" },
-                { letter: "D", range: "45-49%", label: "Satisfactory", point: 2, color: "text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20" },
-                { letter: "E", range: "40-44%", label: "Pass", point: 1, color: "text-orange-600 bg-orange-50 dark:bg-orange-900/20" },
-                { letter: "F", range: "0-39%", label: "Fail", point: 0, color: "text-red-600 bg-red-50 dark:bg-red-900/20" },
+                { letter: "A", range: "70%+", label: "Excellent", point: 5, color: "text-emerald-600", tint: "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200/60 dark:border-emerald-800/40" },
+                { letter: "B", range: "60-69%", label: "Very Good", point: 4, color: "text-blue-600", tint: "bg-blue-50 dark:bg-blue-900/20 border-blue-200/60 dark:border-blue-800/40" },
+                { letter: "C", range: "50-59%", label: "Good", point: 3, color: "text-cyan-600", tint: "bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200/60 dark:border-cyan-800/40" },
+                { letter: "D", range: "45-49%", label: "Satisfactory", point: 2, color: "text-yellow-600", tint: "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200/60 dark:border-yellow-800/40" },
+                { letter: "E", range: "40-44%", label: "Pass", point: 1, color: "text-orange-600", tint: "bg-orange-50 dark:bg-orange-900/20 border-orange-200/60 dark:border-orange-800/40" },
+                { letter: "F", range: "0-39%", label: "Fail", point: 0, color: "text-red-600", tint: "bg-red-50 dark:bg-red-900/20 border-red-200/60 dark:border-red-800/40" },
               ].map(g => (
-                <div key={g.letter} className={`rounded-lg p-3 ${g.color}`}>
-                  <p className="text-2xl font-black">{g.letter}</p>
-                  <p className="font-semibold">{g.range}</p>
-                  <p className="opacity-70">{g.label}</p>
-                  <p className="opacity-50">Point {g.point}</p>
+                <div key={g.letter} className={`rounded-xl border p-4 ${g.tint}`}>
+                  <p className={`font-serif text-4xl font-bold leading-none ${g.color}`}>{g.letter}</p>
+                  <p className="font-semibold mt-2 text-foreground">{g.range}</p>
+                  <p className="text-muted-foreground mt-0.5">{g.label}</p>
+                  <p className="text-muted-foreground/70 mt-0.5">Point {g.point}</p>
                 </div>
               ))}
             </div>
