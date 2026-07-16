@@ -139,7 +139,7 @@ const StudentGrades = () => {
     <StudentLayout>
       <div className="space-y-6 pb-20 md:pb-0">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Grades</h1>
+          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">Grades</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Your academic performance overview across all categories.
           </p>

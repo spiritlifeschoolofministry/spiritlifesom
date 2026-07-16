@@ -43,8 +43,8 @@ const Home = () => {
   const RegisterButtons = () => (
     <>
       {acceptingApplications ? (
-        <Button asChild size="lg" className="gradient-flame border-0 text-primary-foreground text-base px-8 hover:opacity-90">
-          <Link to="/register">Register Now</Link>
+        <Button asChild size="lg" variant="flame" className="text-base px-8">
+          <Link to="/register">Begin Your Application →</Link>
         </Button>
       ) : (
         <Button disabled size="lg" className="bg-gray-400 text-white text-base px-8 cursor-not-allowed" title="Admissions closed">
@@ -90,110 +90,167 @@ const Home = () => {
         }}
       />
     {/* ========== HERO ========== */}
-    <section className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center text-center text-primary-foreground overflow-hidden">
+    <section className="relative min-h-[calc(100vh-4rem)] flex items-center overflow-hidden">
       {heroImages.map((src, index) => (
         <img
           key={src}
           src={src}
           alt=""
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-in-out ${index === currentSlide ? "opacity-100 animate-ken-burns" : "opacity-0"}`}
+          className={`absolute inset-0 h-full w-full object-cover object-[center_28%] transition-opacity duration-1000 ease-in-out ${index === currentSlide ? "opacity-100 animate-ken-burns" : "opacity-0"}`}
         />
       ))}
-      <div className="absolute inset-0 bg-primary/70" />
-      <Reveal className="relative z-10 max-w-3xl px-6 space-y-6">
-        <div className="flex items-center justify-center gap-2 pt-4">
-          {heroImages.map((_, index) => (
-            <button
-              key={index}
-              type="button"
-              onClick={() => setCurrentSlide(index)}
-              className={`h-2.5 w-2.5 rounded-full transition-all ${currentSlide === index ? "bg-primary" : "bg-primary/40 hover:bg-primary/70"}`}
-              aria-label={`Go to slide ${index + 1}`}
-            />
-          ))}
-        </div>
-        <img src="/images/school-logo.png" alt="" className="h-24 w-24 object-contain mx-auto" />
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight">
-          {get("hero_title", "Spirit Life School of Ministry")}
-        </h1>
-        <p className="text-xl sm:text-2xl font-medium italic text-primary-foreground/90">
-          {get("hero_subtitle", '"Equipping The Saints..."')}
-        </p>
-        <p className="text-base sm:text-lg text-primary-foreground/80 max-w-xl mx-auto">
-          {get("hero_scripture", '"...for the work of ministry, for building up the body of Christ" — Ephesians 4:12')}
-        </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-          <RegisterButtons />
-          <Button asChild size="lg" variant="outline" className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10 text-base px-8">
-            <Link to="/about">Learn More</Link>
-          </Button>
+      <div className="absolute inset-0 bg-[linear-gradient(105deg,rgba(26,12,48,0.94)_0%,rgba(45,27,105,0.82)_42%,rgba(45,27,105,0.28)_100%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(20,9,40,0.75),transparent_45%)]" />
+      <Reveal className="relative z-10 w-full max-w-7xl mx-auto px-6 sm:px-10 text-primary-foreground">
+        <div className="max-w-2xl">
+          <div className="flex items-center gap-3.5 mb-6">
+            <span className="h-px w-11 bg-[#F9CB28]" />
+            <span className="font-display text-[11px] tracking-[0.28em] uppercase text-[#F9CB28] font-semibold">Ibadan, Nigeria · Spirit-Led Training</span>
+          </div>
+          <h1 className="font-serif font-semibold leading-[0.98] text-5xl sm:text-6xl md:text-[76px]">
+            {get("hero_title", "Equipping the Saints for the ")}
+            <span className="italic text-[#F9CB28]">{get("hero_title_accent", "work of ministry.")}</span>
+          </h1>
+          <p className="text-lg text-primary-foreground/80 max-w-lg mt-7 font-light leading-relaxed">
+            {get("hero_subtitle", "A Spirit-led school raising men and women grounded in biblical truth and prepared for effective service in God's vineyard.")}
+          </p>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mt-9">
+            <RegisterButtons />
+            <Button asChild size="lg" variant="outline" className="bg-transparent border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground text-base px-8">
+              <Link to="/courses">Explore Courses</Link>
+            </Button>
+          </div>
+          <div className="flex items-center gap-2 mt-10">
+            {heroImages.map((_, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => setCurrentSlide(index)}
+                className={`h-1.5 rounded-full transition-all ${currentSlide === index ? "w-7 bg-[#F9CB28]" : "w-3 bg-primary-foreground/40 hover:bg-primary-foreground/70"}`}
+                aria-label={`Go to slide ${index + 1}`}
+              />
+            ))}
+          </div>
         </div>
       </Reveal>
+      <div className="hidden lg:block absolute right-10 bottom-11 z-10 text-right text-primary-foreground/75 max-w-[280px]">
+        <div className="font-serif italic text-[22px] leading-snug">"...for building up the body of Christ"</div>
+        <div className="font-display text-[11px] tracking-[0.24em] uppercase mt-2 text-[#F9CB28]">Ephesians 4 : 12</div>
+      </div>
     </section>
 
-    {/* ========== BRIEF ABOUT ========== */}
-    <Reveal className="py-20 px-4 sm:px-6 bg-background">
-      <div className="max-w-4xl mx-auto text-center space-y-6">
-        <h2 className="text-3xl sm:text-4xl font-bold text-primary">{get("about_title", "About Spirit Life SOM")}</h2>
-        <p className="text-muted-foreground leading-relaxed text-lg">
-          {get("about_text", "Spirit Life School of Ministry exists to thoroughly equip men, women and brethren who are genuinely called by God into Ministry with the accurate Word of God. Rooted in Scripture and led by the Holy Spirit, we are committed to raising men and women who are grounded in biblical truth and prepared for effective service in God's vineyard.")}
-        </p>
-        <Button asChild variant="outline" className="border-primary text-primary hover:bg-primary/10">
-          <Link to="/about" className="flex items-center gap-2">Learn More <ArrowRight size={16} /></Link>
-        </Button>
+    {/* ========== STAT STRIP ========== */}
+    <div className="bg-primary text-primary-foreground grid grid-cols-2 md:grid-cols-4">
+      {[
+        { n: get("stat1_value", "2"), l: get("stat1_label", "Cohorts Graduated") },
+        { n: get("stat2_value", "100%"), l: get("stat2_label", "Scripture-Rooted") },
+        { n: get("stat3_value", "Online"), l: get("stat3_label", "& On-Campus Modes") },
+        { n: get("stat4_value", "C&S"), l: get("stat4_label", "Cherubim & Seraphim") },
+      ].map((s, i) => (
+        <div key={i} className={`px-8 py-7 border-primary-foreground/12 ${i < 3 ? "md:border-r" : ""} ${i < 2 ? "border-b md:border-b-0" : ""} ${i === 0 ? "border-r md:border-r" : ""} ${i === 2 ? "border-r md:border-r" : ""}`}>
+          <div className="font-serif text-4xl font-semibold text-[#F9CB28] leading-none">{s.n}</div>
+          <div className="font-display text-[10.5px] tracking-[0.12em] uppercase opacity-75 mt-1.5">{s.l}</div>
+        </div>
+      ))}
+    </div>
+
+    {/* ========== ABOUT ========== */}
+    <Reveal className="py-24 px-4 sm:px-6 bg-background">
+      <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-16 items-center">
+        <div className="relative">
+          <img src="/images/som4.jpeg" alt="Spirit Life graduation" className="w-full h-[440px] object-cover rounded" />
+          <div className="absolute -bottom-7 -left-7 bg-background px-7 py-5 rounded shadow-[var(--shadow-card)] hidden sm:block">
+            <div className="font-serif italic text-2xl text-primary leading-tight">Equipping<br />The Saints</div>
+          </div>
+        </div>
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <span className="h-px w-9 bg-gold" />
+            <span className="eyebrow">Who We Are</span>
+          </div>
+          <h2 className="font-serif text-4xl sm:text-5xl font-semibold text-foreground leading-[1.02] mb-6">{get("about_title", "Rooted in Scripture, led by the Spirit.")}</h2>
+          <p className="text-muted-foreground leading-relaxed text-base mb-8">
+            {get("about_text", "Spirit Life School of Ministry exists to thoroughly equip men, women and brethren who are genuinely called by God into Ministry with the accurate Word of God. Rooted in Scripture and led by the Holy Spirit, we are committed to raising men and women who are grounded in biblical truth and prepared for effective service in God's vineyard.")}
+          </p>
+          <Link to="/about" className="inline-flex items-center gap-2 text-sm font-semibold text-primary border-b-2 border-[#F9CB28] pb-1.5">Learn our story <ArrowRight size={16} /></Link>
+        </div>
       </div>
     </Reveal>
 
-    {/* ========== BRIEF COURSES ========== */}
-    <Reveal className="py-20 px-4 sm:px-6 bg-secondary/50">
-      <div className="max-w-4xl mx-auto text-center space-y-6">
-        <h2 className="text-3xl sm:text-4xl font-bold text-primary">{get("programme_title", "Our Programme")}</h2>
-        <p className="text-muted-foreground text-lg">
-          {get("programme_text", "Detailed comprehensive courses designed to ground you in biblical truth and prepare you for ministry.")}
-        </p>
-        <Button asChild variant="outline" className="border-primary text-primary hover:bg-primary/10">
-          <Link to="/courses" className="flex items-center gap-2">View All Courses <ArrowRight size={16} /></Link>
-        </Button>
+    {/* ========== PROGRAMME ========== */}
+    <Reveal className="py-24 px-4 sm:px-6 bg-secondary/60">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center max-w-2xl mx-auto mb-14">
+          <div className="eyebrow mb-3">Our Programme</div>
+          <h2 className="font-serif text-4xl sm:text-5xl font-semibold text-foreground leading-[1.02] mb-4">{get("programme_title", "A curriculum to ground you for ministry")}</h2>
+          <p className="text-muted-foreground text-base">{get("programme_text", "Comprehensive courses designed to establish you in biblical truth and pastoral practice.")}</p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-6">
+          {[
+            { img: "/images/som5.jpeg", eyebrow: "Foundations", title: "Biblical Doctrine", desc: "The whole counsel of Scripture, taught with accuracy and reverence." },
+            { img: "/images/som7.jpeg", eyebrow: "Formation", title: "Pastoral Practice", desc: "Shepherding, preaching and the practical work of the ministry." },
+            { img: "/images/som8.jpeg", eyebrow: "Sending", title: "Spirit-Led Service", desc: "Walking in the power of the Holy Spirit for effective service." },
+          ].map((c, i) => (
+            <Reveal key={c.title} delay={i * 80} className="bg-card rounded-lg overflow-hidden shadow-[var(--shadow-card)]">
+              <img src={c.img} alt="" className="w-full h-48 object-cover" />
+              <div className="p-7">
+                <div className="font-display text-[11px] tracking-[0.2em] uppercase text-gold font-semibold">{c.eyebrow}</div>
+                <h3 className="font-serif text-2xl font-semibold text-foreground mt-2 mb-2.5">{c.title}</h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">{c.desc}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+        <div className="text-center mt-12">
+          <Button asChild variant="outline" className="border-primary text-primary hover:bg-primary/10">
+            <Link to="/courses" className="flex items-center gap-2">View All Courses <ArrowRight size={16} /></Link>
+          </Button>
+        </div>
       </div>
     </Reveal>
 
     {/* ========== HOW TO APPLY ========== */}
-    <Reveal className="py-20 px-4 sm:px-6 bg-primary/5">
-      <div className="max-w-4xl mx-auto text-center space-y-12">
-        <h2 className="text-3xl sm:text-4xl font-bold text-primary">{get("journey_title", "Begin Your Ministry Journey")}</h2>
-        <div className="grid sm:grid-cols-3 gap-6">
+    <Reveal className="py-24 px-4 sm:px-6 bg-background">
+      <div className="max-w-5xl mx-auto">
+        <div className="text-center mb-14">
+          <div className="eyebrow mb-3">Three Simple Steps</div>
+          <h2 className="font-serif text-4xl sm:text-5xl font-semibold text-foreground">{get("journey_title", "Begin your ministry journey")}</h2>
+        </div>
+        <div className="grid sm:grid-cols-3 gap-10">
           {steps.map((s, i) => (
-            <Reveal key={s.step} delay={i * 80} className="flex flex-col items-center gap-3 relative">
-              <div className="w-14 h-14 rounded-full gradient-flame text-primary-foreground flex items-center justify-center text-xl font-bold">
+            <Reveal key={s.step} delay={i * 80} className="text-center relative">
+              <div className="w-16 h-16 mx-auto mb-5 rounded-full gradient-flame text-[#3a1d1d] flex items-center justify-center font-serif text-3xl font-bold">
                 {s.step}
               </div>
-              <h3 className="font-semibold text-lg text-foreground">{s.title}</h3>
-              <p className="text-muted-foreground text-sm">{s.desc}</p>
+              <h3 className="font-semibold text-lg text-foreground mb-2">{s.title}</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">{s.desc}</p>
               {i < 2 && (
-                <ChevronRight className="hidden sm:block absolute -right-3 top-4 text-primary/40" size={28} />
+                <ChevronRight className="hidden sm:block absolute -right-4 top-4 text-gold/50" size={28} />
               )}
             </Reveal>
           ))}
         </div>
-        <RegisterButtons />
+        <div className="text-center mt-14">
+          <RegisterButtons />
+        </div>
       </div>
     </Reveal>
 
     {/* ========== CONTACT INFO ========== */}
-    <Reveal className="py-16 px-4 sm:px-6 bg-background">
+    <Reveal className="py-16 px-4 sm:px-6 bg-secondary/60">
       <div className="max-w-4xl mx-auto">
-        <h2 className="text-2xl font-bold text-primary text-center mb-8">Contact Us</h2>
+        <h2 className="font-serif text-3xl font-semibold text-foreground text-center mb-8">Contact Us</h2>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-muted-foreground text-sm">
           <div className="flex items-center gap-2">
-            <MapPin className="text-accent shrink-0" size={18} />
+            <MapPin className="text-gold shrink-0" size={18} />
             <span>{get("contact_address", "Ibadan, Nigeria")}</span>
           </div>
           <div className="flex items-center gap-2">
-            <Phone className="text-accent shrink-0" size={18} />
+            <Phone className="text-gold shrink-0" size={18} />
             <span>{get("contact_phone", "+234 916 582 2262")}</span>
           </div>
           <div className="flex items-center gap-2 min-w-0">
-            <Mail className="text-accent shrink-0" size={18} />
+            <Mail className="text-gold shrink-0" size={18} />
             <span className="truncate">{get("contact_email", "spiritlifeschoolofministry@gmail.com")}</span>
           </div>
         </div>

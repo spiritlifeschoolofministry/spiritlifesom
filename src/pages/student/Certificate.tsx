@@ -179,7 +179,7 @@ const StudentCertificate = () => {
     return (
       <StudentLayout>
         <div className="space-y-6 pb-20 md:pb-0">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
+          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
             <Award className="w-7 h-7" /> Certificate
           </h1>
           <Card className="shadow-[var(--shadow-card)] border-border">
@@ -202,7 +202,7 @@ const StudentCertificate = () => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 print:hidden">
           <div className="space-y-4 w-full sm:w-auto">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
+              <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
                 <Award className="w-7 h-7" /> Certificate of Completion
               </h1>
               <p className="text-muted-foreground text-sm mt-1">Download or print your graduation certificate.</p>

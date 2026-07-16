@@ -37,7 +37,7 @@ const LearningModeCard = ({
           className={cn(
             "text-sm font-bold px-3 py-1 rounded-full whitespace-nowrap ml-3",
             selected
-              ? "gradient-flame text-accent-foreground"
+              ? "gradient-flame text-[#3a1d1d]"
               : "bg-muted text-muted-foreground"
           )}
         >
@@ -48,7 +48,7 @@ const LearningModeCard = ({
         <ul className="mt-3 space-y-1">
           {details.map((d) => (
             <li key={d} className="text-xs text-muted-foreground flex items-start gap-1.5">
-              <span className="text-accent mt-0.5">•</span>
+              <span className="text-gold mt-0.5">•</span>
               {d}
             </li>
           ))}

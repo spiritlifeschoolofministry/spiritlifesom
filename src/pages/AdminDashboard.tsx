@@ -270,8 +270,8 @@ const AdminDashboard = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Admin Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Overview of Spirit Life School of Ministry</p>
+        <h1 className="font-serif text-4xl font-semibold text-foreground leading-none">Admin Dashboard</h1>
+        <p className="text-muted-foreground text-sm mt-2">Overview of Spirit Life School of Ministry</p>
       </div>
 
       {/* Summary Cards */}
@@ -284,7 +284,7 @@ const AdminDashboard = () => {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground font-medium">{card.title}</p>
-                <p className={`text-xl font-bold ${card.color}`}>{card.value}</p>
+                <p className={`font-serif text-3xl font-bold leading-tight ${card.color}`}>{card.value}</p>
                 <p className="text-[10px] text-muted-foreground">{card.subtitle}</p>
               </div>
             </CardContent>

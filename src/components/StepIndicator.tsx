@@ -28,7 +28,7 @@ const StepIndicator = ({ currentStep, steps, onStepClick }: StepIndicatorProps) 
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
                   isCompleted
-                    ? "gradient-flame text-accent-foreground"
+                    ? "gradient-flame text-[#3a1d1d]"
                     : isCurrent
                     ? "bg-primary text-primary-foreground shadow-lg"
                     : "bg-muted text-muted-foreground"

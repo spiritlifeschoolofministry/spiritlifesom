@@ -10,7 +10,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        flame: "border-0 text-white hover:opacity-90 gradient-flame",
+        flame: "border-0 text-[#3a1d1d] font-semibold hover:brightness-[0.97] gradient-flame shadow-[0_8px_20px_-10px_rgba(255,107,61,0.6)]",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",

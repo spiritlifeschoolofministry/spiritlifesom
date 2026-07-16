@@ -114,7 +114,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
         );
       }
       return (
-        <Link key={item.path} to={item.path} className={`flex flex-col items-center gap-0.5 text-[10px] relative ${active ? "text-accent" : "text-muted-foreground"}`}>
+        <Link key={item.path} to={item.path} className={`flex flex-col items-center gap-0.5 text-[10px] relative ${active ? "text-gold font-semibold" : "text-muted-foreground"}`}>
           <item.icon className="w-5 h-5" />
           {item.label.split(" ")[0]}
         </Link>
@@ -141,7 +141,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
         to={item.path}
         onClick={opts.closeSidebar ? () => setSidebarOpen(false) : undefined}
         className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all relative ${
-          active ? "gradient-flame text-accent-foreground shadow-md" : "text-primary-foreground/80 hover:bg-primary-foreground/10"
+          active ? "gradient-flame text-[#3a1d1d] font-semibold shadow-[0_8px_20px_-10px_rgba(255,107,61,0.7)]" : "text-primary-foreground/70 hover:bg-primary-foreground/10"
         }`}
       >
         <item.icon className="w-4 h-4 shrink-0" />
@@ -178,12 +178,15 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
           <button className="md:hidden text-foreground" onClick={() => setSidebarOpen(!sidebarOpen)}>
             {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
-          <Link to="/student/dashboard" className="flex items-center gap-2 text-primary font-bold text-lg tracking-tight hidden sm:flex">
+          <Link to="/student/dashboard" className="flex items-center gap-2.5 text-primary hidden sm:flex">
             <img src="/images/school-logo.png" alt="" className="h-8 w-8 object-contain" />
-            SLSM
+            <span className="leading-none">
+              <span className="block font-serif text-lg font-bold">Spirit Life</span>
+              <span className="block font-display text-[7.5px] tracking-[0.3em] uppercase text-muted-foreground">Student Portal</span>
+            </span>
           </Link>
         </div>
-        <h1 className="text-sm font-semibold text-foreground tracking-wide">Student Portal</h1>
+        <h1 className="font-display text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Student Portal</h1>
         <div className="flex items-center gap-3">
           {/* Admin Portal Switch */}
           {isAdmin && (
@@ -208,7 +211,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
           </span>
           <Avatar className="h-8 w-8">
             {authProfile?.avatar_url && <AvatarImage src={authProfile.avatar_url} alt="Avatar" />}
-            <AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback>
+            <AvatarFallback className="text-xs font-serif font-semibold bg-primary text-[#F9CB28]">{initials}</AvatarFallback>
           </Avatar>
           <ThemeToggle />
           <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">

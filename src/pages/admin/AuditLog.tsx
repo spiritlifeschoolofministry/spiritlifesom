@@ -166,7 +166,7 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
       {standalone && (
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
+            <h1 className="font-serif text-3xl font-bold mb-2 flex items-center gap-2">
               <ShieldCheck className="h-7 w-7 text-primary" /> Audit Log
             </h1>
             <p className="text-muted-foreground">

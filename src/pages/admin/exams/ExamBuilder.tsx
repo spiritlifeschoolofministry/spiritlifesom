@@ -156,7 +156,7 @@ export default function ExamBuilder() {
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => navigate("/admin/exams")}><ArrowLeft className="w-4 h-4" /></Button>
           <div>
-            <h1 className="text-xl font-bold">{isNew ? "New Exam" : exam.title || "Edit Exam"}</h1>
+            <h1 className="font-serif text-xl font-bold">{isNew ? "New Exam" : exam.title || "Edit Exam"}</h1>
             {exam.locked_at && (
               <Badge variant="destructive" className="mt-1"><Lock className="w-3 h-3 mr-1" /> Locked — attempts started</Badge>
             )}

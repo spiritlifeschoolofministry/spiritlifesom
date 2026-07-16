@@ -131,7 +131,7 @@ export default function QuestionBank() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Question Bank</h1>
+          <h1 className="font-serif text-2xl font-bold">Question Bank</h1>
           <p className="text-sm text-muted-foreground">Reusable questions for online exams</p>
         </div>
         <div className="flex gap-2">

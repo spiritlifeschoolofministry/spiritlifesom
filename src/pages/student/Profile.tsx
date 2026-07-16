@@ -576,7 +576,7 @@ const StudentProfile = () => {
             </div>
           </div>
           <div className="text-center sm:text-left">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground break-words">
+            <h1 className="font-serif text-xl sm:text-2xl md:text-3xl font-bold text-foreground break-words">
               {profile ? [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(' ') : 'Student'}
             </h1>
             <p className="text-muted-foreground mt-1 text-sm break-all">{profile?.email}</p>

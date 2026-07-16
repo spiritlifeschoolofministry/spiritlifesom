@@ -180,7 +180,7 @@ const AdminPayments = () => {
     <div className="max-w-7xl mx-auto space-y-6">
       <div className="mb-8 flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Payments & Fees</h1>
+          <h1 className="font-serif text-3xl font-bold mb-2">Payments & Fees</h1>
           <p className="text-muted-foreground">Verify student payments and manage fee structures</p>
         </div>
         <Dialog open={isAddFeeModalOpen} onOpenChange={setIsAddFeeModalOpen}>

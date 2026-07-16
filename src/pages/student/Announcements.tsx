@@ -92,7 +92,7 @@ const StudentAnnouncements = () => {
       <StudentLayout>
         <div className="space-y-6 pb-20 md:pb-0">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
               <Megaphone className="w-7 h-7" /> Notice Board
             </h1>
             <p className="text-sm text-muted-foreground mt-1">Stay updated with the latest announcements</p>
@@ -120,7 +120,7 @@ const StudentAnnouncements = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
               <Megaphone className="w-7 h-7" /> Notice Board
             </h1>
             <p className="text-sm text-muted-foreground mt-1">

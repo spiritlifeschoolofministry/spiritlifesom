@@ -208,7 +208,7 @@ const AdminCourses = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
+          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
             <BookOpen className="w-6 h-6 text-primary" /> Courses Management
           </h1>
           <p className="text-muted-foreground text-sm mt-1">{courses.length} course{courses.length !== 1 ? "s" : ""} total</p>
@@ -227,7 +227,7 @@ const AdminCourses = () => {
           </Select>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={openCreate} className="gradient-flame border-0 text-primary-foreground">
+              <Button onClick={openCreate} className="gradient-flame border-0 text-[#3a1d1d]">
                 <Plus className="w-4 h-4 mr-1" /> Add Course
               </Button>
             </DialogTrigger>

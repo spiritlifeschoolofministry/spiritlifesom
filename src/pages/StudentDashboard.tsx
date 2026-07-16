@@ -403,19 +403,15 @@ const StudentDashboard = () => {
       <div className="space-y-6 pb-20 md:pb-0">
         {/* Welcome Banner */}
         <Reveal>
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/70 p-6 sm:p-8 text-primary-foreground">
-            <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+          <div className="relative overflow-hidden rounded-2xl bg-[linear-gradient(120deg,#241546,#5B2D8E)] p-6 sm:p-8 text-primary-foreground">
+            <div className="absolute -top-14 -right-8 w-52 h-52 rounded-full bg-[linear-gradient(135deg,#FF6B3D,#F9CB28)] blur-[55px] opacity-35" />
             <div className="relative z-10">
               {loading ? (
                 <Skeleton className="h-8 w-64 bg-white/20" />
               ) : (
                 <>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Sparkles className="h-4 w-4 opacity-80" />
-                    <span className="text-sm opacity-80">{getGreeting()}</span>
-                  </div>
-                  <h1 className="text-2xl sm:text-3xl font-bold">{data?.firstName ?? "Student"} 👋</h1>
+                  <div className="font-display text-[11px] tracking-[0.14em] uppercase text-[#F9CB28] font-semibold mb-1">{getGreeting()}</div>
+                  <h1 className="font-serif text-3xl sm:text-4xl font-semibold">{data?.firstName ?? "Student"}</h1>
                   {data?.admissionStatus && (
                     <div className="mt-3 inline-flex items-center gap-2">
                       <GraduationCap className="h-4 w-4" />
@@ -450,7 +446,7 @@ const StudentDashboard = () => {
                     </div>
                   </CardHeader>
                   <CardContent className="relative">
-                    <div className={`text-2xl sm:text-3xl font-bold ${loading ? '' : isGood ? 'text-emerald-700 dark:text-emerald-400' : isWarning ? 'text-amber-700 dark:text-amber-400' : isDanger ? 'text-red-700 dark:text-red-400' : ''}`}>
+                    <div className={`font-serif text-3xl sm:text-4xl font-bold ${loading ? '' : isGood ? 'text-emerald-700 dark:text-emerald-400' : isWarning ? 'text-amber-700 dark:text-amber-400' : isDanger ? 'text-red-700 dark:text-red-400' : ''}`}>
                       {loading ? <Skeleton className="h-8 w-16" /> : (rate != null ? `${rate}%` : "—")}
                     </div>
                     {!loading && rate != null && (
@@ -485,7 +481,7 @@ const StudentDashboard = () => {
                     </div>
                   </CardHeader>
                   <CardContent className="relative">
-                    <div className="text-2xl sm:text-3xl font-bold">{loading ? <Skeleton className="h-8 w-16" /> : total}</div>
+                    <div className="font-serif text-3xl sm:text-4xl font-bold">{loading ? <Skeleton className="h-8 w-16" /> : total}</div>
                     {!loading && total > 0 && (
                       <>
                         <p className="text-xs text-muted-foreground mt-1">
@@ -520,7 +516,7 @@ const StudentDashboard = () => {
                     </div>
                   </CardHeader>
                   <CardContent className="relative">
-                    <div className={`text-2xl sm:text-3xl font-bold ${!hasTasks ? '' : allDone ? 'text-emerald-700 dark:text-emerald-400' : pending > 3 ? 'text-red-700 dark:text-red-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                    <div className={`font-serif text-3xl sm:text-4xl font-bold ${!hasTasks ? '' : allDone ? 'text-emerald-700 dark:text-emerald-400' : pending > 3 ? 'text-red-700 dark:text-red-400' : 'text-amber-700 dark:text-amber-400'}`}>
                       {loading ? <Skeleton className="h-8 w-16" /> : (isPending ? "—" : pending)}
                     </div>
                     {!loading && !isPending && total > 0 && (
@@ -556,7 +552,7 @@ const StudentDashboard = () => {
                     </div>
                   </CardHeader>
                   <CardContent className="relative">
-                    <div className={`text-2xl sm:text-3xl font-bold ${loading ? '' : isPaid ? 'text-emerald-700 dark:text-emerald-400' : isUnpaid ? 'text-red-700 dark:text-red-400' : isPartial ? 'text-amber-700 dark:text-amber-400' : ''}`}>
+                    <div className={`font-serif text-3xl sm:text-4xl font-bold ${loading ? '' : isPaid ? 'text-emerald-700 dark:text-emerald-400' : isUnpaid ? 'text-red-700 dark:text-red-400' : isPartial ? 'text-amber-700 dark:text-amber-400' : ''}`}>
                       {loading ? <Skeleton className="h-8 w-16" /> : f.status}
                     </div>
                     {!loading && f.total > 0 && (

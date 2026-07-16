@@ -189,7 +189,7 @@ const CompleteProfile = () => {
     <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-background">
       <SEO title="Complete your profile | SLSOM" description="Finish setting up your Spirit Life SOM student account." path="/complete-profile" />
       <div className="w-full max-w-lg bg-card rounded-2xl shadow-[var(--shadow-card)] border border-border p-8">
-        <h1 className="text-2xl font-bold text-primary mb-1">Complete your profile</h1>
+        <h1 className="font-serif text-2xl font-bold text-primary mb-1">Complete your profile</h1>
         <p className="text-sm text-muted-foreground mb-4">
           Just {missing.length} quick {missing.length === 1 ? "field" : "fields"} left before you can access your dashboard.
         </p>

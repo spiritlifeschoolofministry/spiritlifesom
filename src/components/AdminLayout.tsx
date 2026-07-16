@@ -122,19 +122,22 @@ const AdminLayout = () => {
           <button className="md:hidden text-foreground" onClick={() => setSidebarOpen(!sidebarOpen)}>
             {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
-          <Link to="/admin/dashboard" className="flex items-center gap-2 text-primary font-bold text-lg tracking-tight hidden sm:flex">
+          <Link to="/admin/dashboard" className="flex items-center gap-2.5 text-primary hidden sm:flex">
             <img src="/images/school-logo.png" alt="" className="h-8 w-8 object-contain" />
-            SLSM Admin
+            <span className="leading-none">
+              <span className="block font-serif text-lg font-bold">SLSM Admin</span>
+              <span className="block font-display text-[7.5px] tracking-[0.3em] uppercase text-muted-foreground">School of Ministry</span>
+            </span>
           </Link>
         </div>
-        <h1 className="text-sm font-semibold text-foreground tracking-wide">Admin Portal</h1>
+        <h1 className="font-display text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Admin Portal</h1>
         <div className="flex items-center gap-3">
           <span className="text-sm text-muted-foreground hidden sm:block">
             {authProfile ? `${authProfile.first_name || 'Admin'} ${authProfile.last_name || 'User'}` : ""}
           </span>
           <Avatar className="h-8 w-8">
             {authProfile?.avatar_url && <AvatarImage src={authProfile.avatar_url} alt="Avatar" />}
-            <AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback>
+            <AvatarFallback className="text-xs font-serif font-semibold bg-primary text-[#F9CB28]">{initials}</AvatarFallback>
           </Avatar>
           {student && (
             <>
@@ -182,7 +185,7 @@ const AdminLayout = () => {
                   key={item.path}
                   to={item.path}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                    active ? "gradient-flame text-accent-foreground shadow-md" : "text-primary-foreground/80 hover:bg-primary-foreground/10"
+                    active ? "gradient-flame text-[#3a1d1d] font-semibold shadow-[0_8px_20px_-10px_rgba(255,107,61,0.7)]" : "text-primary-foreground/70 hover:bg-primary-foreground/10"
                   }`}
                 >
                   <item.icon className="w-4 h-4 shrink-0" />
@@ -217,7 +220,7 @@ const AdminLayout = () => {
                       to={item.path}
                       onClick={() => setSidebarOpen(false)}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                        active ? "gradient-flame text-accent-foreground shadow-md" : "text-primary-foreground/80 hover:bg-primary-foreground/10"
+                        active ? "gradient-flame text-[#3a1d1d] font-semibold shadow-[0_8px_20px_-10px_rgba(255,107,61,0.7)]" : "text-primary-foreground/70 hover:bg-primary-foreground/10"
                       }`}
                     >
                       <item.icon className="w-4 h-4 shrink-0" />
@@ -246,7 +249,7 @@ const AdminLayout = () => {
           const active = location.pathname === item.path;
           const showBadge = item.path === "/admin/admissions" && pendingCount > 0;
           return (
-            <Link key={item.path} to={item.path} className={`relative flex flex-col items-center gap-0.5 text-[10px] ${active ? "text-accent" : "text-muted-foreground"}`}>
+            <Link key={item.path} to={item.path} className={`relative flex flex-col items-center gap-0.5 text-[10px] ${active ? "text-gold font-semibold" : "text-muted-foreground"}`}>
               <item.icon className="w-5 h-5" />
               {item.shortLabel ?? item.label.split(" ")[0]}
               {showBadge && (

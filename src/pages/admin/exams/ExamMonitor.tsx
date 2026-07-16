@@ -199,7 +199,7 @@ export default function ExamMonitor() {
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" asChild><Link to="/admin/exams"><ArrowLeft className="w-4 h-4" /></Link></Button>
           <div>
-            <h1 className="text-xl font-bold">{exam.title}</h1>
+            <h1 className="font-serif text-xl font-bold">{exam.title}</h1>
             <p className="text-xs text-muted-foreground">{exam.courses?.code} · {exam.cohorts?.name}</p>
           </div>
         </div>

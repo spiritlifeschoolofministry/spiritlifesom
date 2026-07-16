@@ -108,7 +108,7 @@ export default function StudentExamsList() {
     <StudentLayout>
       <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold">My Exams</h1>
+          <h1 className="font-serif text-2xl font-bold">My Exams</h1>
           <p className="text-sm text-muted-foreground">Online assessments and released results</p>
         </div>
 

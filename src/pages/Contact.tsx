@@ -55,10 +55,10 @@ const ContactPage = () => {
       />
       {/* Hero */}
       <section className="relative py-20 sm:py-28 text-center text-primary-foreground">
-        <div className="absolute inset-0 gradient-purple" />
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,#2d1b69,#5B2D8E)]" />
         <div className="relative z-10 max-w-3xl mx-auto px-4 space-y-3">
           <Reveal>
-            <h1 className="text-3xl sm:text-5xl font-extrabold">{get("hero_title", "Get In Touch")}</h1>
+            <h1 className="font-serif text-5xl sm:text-6xl font-semibold">{get("hero_title", "Get In Touch")}</h1>
             <p className="text-primary-foreground/80 text-lg">{get("hero_subtitle", "We'd love to hear from you")}</p>
           </Reveal>
         </div>
@@ -70,23 +70,23 @@ const ContactPage = () => {
           {/* Contact info */}
           <div className="space-y-6">
             <Reveal>
-              <h2 className="text-2xl font-bold text-primary">{get("details_title", "Contact Details")}</h2>
+              <h2 className="font-serif text-2xl font-semibold text-primary">{get("details_title", "Contact Details")}</h2>
             </Reveal>
             <Reveal delay={60}>
               <div className="flex gap-3">
-                <MapPin className="text-accent shrink-0 mt-1" size={20} />
+                <MapPin className="text-gold shrink-0 mt-1" size={20} />
                 <p className="text-muted-foreground text-sm sm:text-base">{get("address", "Spirit Life C&S Church, John Olorombo Street, Balogun Isale, 200258, Ibadan, Nigeria")}</p>
               </div>
             </Reveal>
             <Reveal delay={120}>
               <div className="flex gap-3">
-                <Phone className="text-accent shrink-0 mt-1" size={20} />
+                <Phone className="text-gold shrink-0 mt-1" size={20} />
                 <p className="text-muted-foreground text-sm sm:text-base">{get("phone", "+234 916 582 2262")}</p>
               </div>
             </Reveal>
             <Reveal delay={180}>
               <div className="flex gap-3">
-                <Mail className="text-accent shrink-0 mt-1" size={20} />
+                <Mail className="text-gold shrink-0 mt-1" size={20} />
                 <p className="text-muted-foreground text-sm sm:text-base break-all">{get("email", "spiritlifeschoolofministry@gmail.com")}</p>
               </div>
             </Reveal>
@@ -100,7 +100,7 @@ const ContactPage = () => {
           {/* Contact form */}
           <div className="space-y-4">
             <Reveal>
-              <h2 className="text-2xl font-bold text-primary">{get("form_title", "Send a Message")}</h2>
+              <h2 className="font-serif text-2xl font-semibold text-primary">{get("form_title", "Send a Message")}</h2>
             </Reveal>
             <Reveal delay={60}>
               <Input placeholder="Full Name" className="bg-card" value={name} onChange={(e) => setName(e.target.value)} />
@@ -113,7 +113,7 @@ const ContactPage = () => {
             </Reveal>
             <Reveal delay={220}>
               <Button
-                className="w-full gradient-flame border-0 text-primary-foreground hover:opacity-90 gap-2"
+                className="w-full gradient-flame border-0 text-[#3a1d1d] hover:opacity-90 gap-2"
                 onClick={handleSubmit}
                 disabled={sending}
               >

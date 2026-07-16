@@ -271,7 +271,7 @@ const AdminAssignments = () => {
     <div className="space-y-6 pb-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Tasks</h1>
+          <h1 className="font-serif text-3xl font-bold">Tasks</h1>
           <p className="text-sm text-muted-foreground mt-1">Create and manage tasks for cohorts</p>
         </div>
 

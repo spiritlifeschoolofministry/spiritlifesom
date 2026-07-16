@@ -188,7 +188,7 @@ const Coursemates = () => {
               <Users className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Course Mates</h1>
+              <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">Course Mates</h1>
               <p className="text-sm text-muted-foreground">
                 {classmates.length} classmate{classmates.length !== 1 ? 's' : ''} in {classmates[0]?.cohort_name || 'your cohort'}
               </p>

@@ -80,7 +80,7 @@ const Graduates = () => {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
+            <h1 className="font-serif text-2xl font-bold flex items-center gap-2">
               <GraduationCap className="h-6 w-6" /> Graduates
             </h1>
             <p className="text-sm text-muted-foreground mt-1">Alumni from all cohorts</p>

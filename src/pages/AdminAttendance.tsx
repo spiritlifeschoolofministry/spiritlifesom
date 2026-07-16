@@ -744,7 +744,7 @@ const AdminAttendance = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">
             Attendance Command Center
           </h1>
           <p className="text-muted-foreground text-sm mt-1">

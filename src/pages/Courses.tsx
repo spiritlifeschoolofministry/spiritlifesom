@@ -50,11 +50,12 @@ const CoursesPage = () => {
       />
       {/* Hero */}
       <section className="relative py-20 sm:py-28 text-center text-primary-foreground">
-        <div className="absolute inset-0 gradient-purple" />
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,#2d1b69,#5B2D8E)]" />
         <div className="relative z-10 max-w-3xl mx-auto px-4 space-y-3">
           <Reveal>
-            <h1 className="text-3xl sm:text-5xl font-extrabold">{get("hero_title", "Our Programme")}</h1>
-            <p className="text-primary-foreground/80 text-lg">{get("hero_subtitle", "Equipping believers for ministry — 2025/26 Academic Session")}</p>
+            <div className="font-display text-[11px] tracking-[0.28em] uppercase text-[#F9CB28] font-semibold mb-3">{get("hero_eyebrow", "2025/26 Academic Session")}</div>
+            <h1 className="font-serif text-5xl sm:text-6xl font-semibold">{get("hero_title", "Our Programme")}</h1>
+            <p className="text-primary-foreground/80 text-lg">{get("hero_subtitle", "Equipping believers for ministry")}</p>
           </Reveal>
         </div>
       </section>
@@ -83,7 +84,7 @@ const CoursesPage = () => {
                 <Reveal key={c.code} delay={80 + i * 40}>
                   <Card className="border-primary/20 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                     <CardContent className="p-5 flex items-start gap-3">
-                      <span className="text-xs font-bold text-accent whitespace-nowrap">{c.code}</span>
+                      <span className="text-xs font-bold text-gold whitespace-nowrap">{c.code}</span>
                       <span className="text-sm font-medium text-foreground">{c.title}</span>
                     </CardContent>
                   </Card>
@@ -136,7 +137,7 @@ const CoursesPage = () => {
                   <CardContent className="p-8 space-y-6">
                     <div>
                       <p className="text-sm font-semibold text-primary uppercase tracking-wide">Physical</p>
-                      <p className="text-4xl font-extrabold text-foreground mt-1">{get("physical_price", "FREE")}</p>
+                      <p className="font-serif text-5xl font-bold text-foreground mt-1">{get("physical_price", "FREE")}</p>
                     </div>
                     <ul className="space-y-3 text-sm text-muted-foreground">
                       {["Weekly Saturday classes (9AM - 12PM)", "In-person lectures and practicals", "Access to course materials (fee applies)", "Project defense and graduation"].map((f) => (
@@ -150,14 +151,14 @@ const CoursesPage = () => {
                 </Card>
               </Reveal>
               <Reveal delay={160}>
-                <Card className="border-0 gradient-flame text-primary-foreground relative overflow-hidden shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+                <Card className="border-0 gradient-flame text-[#3a1d1d] relative overflow-hidden shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
                   <div className="absolute top-4 right-4 bg-primary-foreground/20 text-primary-foreground text-xs font-bold px-3 py-1 rounded-full">
                     Most Popular
                   </div>
                   <CardContent className="p-8 space-y-6">
                     <div>
                       <p className="text-sm font-semibold uppercase tracking-wide text-primary-foreground/90">Online</p>
-                      <p className="text-4xl font-extrabold mt-1">{get("online_price", "₦30,000")}</p>
+                      <p className="font-serif text-5xl font-bold mt-1">{get("online_price", "₦30,000")}</p>
                     </div>
                     <ul className="space-y-3 text-sm text-primary-foreground/90">
                       {["Live Zoom sessions every Saturday", "Full training materials included", "Class recordings access", "Must attend physically for project defense and graduation"].map((f) => (
@@ -175,7 +176,7 @@ const CoursesPage = () => {
 
           <Reveal>
             <div className="text-center">
-              <Button asChild size="lg" className="gradient-flame border-0 text-primary-foreground text-base px-10 hover:opacity-90">
+              <Button asChild size="lg" className="gradient-flame border-0 text-[#3a1d1d] text-base px-10 hover:opacity-90">
                 <Link to="/register">Register Now</Link>
               </Button>
             </div>

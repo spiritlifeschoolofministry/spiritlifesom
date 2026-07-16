@@ -37,13 +37,14 @@ const About = () => {
         }}
       />
       {/* Hero banner */}
-      <section className="relative py-20 sm:py-28 text-center text-primary-foreground">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/images/som2.jpeg)" }} />
-        <div className="absolute inset-0 bg-primary/80" />
+      <section className="relative py-24 sm:py-32 text-center text-primary-foreground overflow-hidden">
+        <div className="absolute inset-0 bg-cover bg-[center_30%]" style={{ backgroundImage: "url(/images/som8.jpeg)" }} />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(26,12,48,0.86),rgba(45,27,105,0.82))]" />
         <div className="relative z-10 max-w-3xl mx-auto px-4 space-y-3">
           <Reveal>
-            <h1 className="text-3xl sm:text-5xl font-extrabold">{get("hero_title", "About Spirit Life School of Ministry")}</h1>
-            <p className="text-primary-foreground/80 text-lg italic">{get("hero_subtitle", '"Equipping The Saints..."')}</p>
+            <div className="font-display text-[11px] tracking-[0.28em] uppercase text-[#F9CB28] font-semibold mb-3.5">{get("hero_eyebrow", "Who We Are")}</div>
+            <h1 className="font-serif text-5xl sm:text-6xl font-semibold leading-[1.02]">{get("hero_title", "About Spirit Life School of Ministry")}</h1>
+            <p className="font-serif italic text-primary-foreground/85 text-2xl mt-4">{get("hero_subtitle", '"Equipping The Saints..."')}</p>
           </Reveal>
         </div>
       </section>
@@ -52,11 +53,11 @@ const About = () => {
       <Reveal className="py-20 px-4 sm:px-6 bg-background">
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center">
           <div className="space-y-6">
-            <h2 className="text-3xl sm:text-4xl font-bold text-primary">{get("mission_title", "Our Mission")}</h2>
+            <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-primary">{get("mission_title", "Our Mission")}</h2>
             <p className="text-muted-foreground leading-relaxed">
               {get("mission_text", "In a time like this, women, men and brethren who are genuinely called by God into Ministry need a platform where they can be thoroughly equipped with the accurate Word of God — to help them see clearly the call of God and how to embrace it. Spirit Life School of Ministry exists to be that platform. Rooted in Scripture and led by the Holy Spirit, we are committed to raising men and women who are grounded in biblical truth and prepared for effective service in God's vineyard.")}
             </p>
-            <blockquote className="border-l-4 border-accent pl-4 italic text-muted-foreground">
+            <blockquote className="border-l-4 border-[#F9CB28] pl-4 italic text-muted-foreground">
               <p>{get("mission_quote", '"Whoever wants to embrace the call of God in their life must go through thorough learning, teaching and furnishing" — Ephesians 4:12-13')}</p>
               <footer className="mt-2 text-sm font-semibold text-primary not-italic">
                 {get("mission_quote_author", "— Prophet Cherub Obadare, Director")}
@@ -72,7 +73,7 @@ const About = () => {
       {/* Why Choose Us */}
       <Reveal className="py-20 px-4 sm:px-6 bg-secondary/50">
         <div className="max-w-6xl mx-auto text-center space-y-12">
-          <h2 className="text-3xl sm:text-4xl font-bold text-primary">{get("why_title", "Why Spirit Life SOM?")}</h2>
+          <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-primary">{get("why_title", "Why Spirit Life SOM?")}</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {whyCards.map((c, i) => (
               <Reveal key={c.title} className="w-full" delay={i * 80}>
@@ -95,7 +96,7 @@ const About = () => {
       <Reveal className="py-20 px-4 sm:px-6 bg-background">
         <div className="max-w-6xl mx-auto space-y-12">
           <div className="max-w-3xl mx-auto text-center space-y-4">
-            <h2 className="text-3xl sm:text-4xl font-bold text-primary">{get("story_title", "Our Story")}</h2>
+            <h2 className="font-serif text-3xl sm:text-4xl font-semibold text-primary">{get("story_title", "Our Story")}</h2>
             <p className="text-muted-foreground leading-relaxed">
               {get("story_text", "Spirit Life School of Ministry was established by Spirit Life Cherubim and Seraphim Church, Ibadan, Nigeria, under the leadership of Prophet Cherub Obadare. Born out of a burden to see believers properly equipped for the work of ministry, the school was founded on the conviction that the call of God must be matched with thorough preparation. What began as a vision to train church members has grown into a full ministry training programme that has already seen its first cohort graduate and go on to serve effectively in God's vineyard. Today, Spirit Life SOM continues to equip a new generation of believers — physically and online — for ministry life.")}
             </p>

@@ -65,7 +65,7 @@ const ResetPassword = () => {
     return (
       <div className="flex flex-col items-center px-4 py-12 sm:py-16">
         <div className="w-full max-w-md bg-card rounded-2xl shadow-[var(--shadow-card)] border border-border p-8 sm:p-10 text-center">
-          <h1 className="text-xl font-bold text-foreground mb-2">Invalid Reset Link</h1>
+          <h1 className="font-serif text-xl font-bold text-foreground mb-2">Invalid Reset Link</h1>
           <p className="text-sm text-muted-foreground mb-4">
             This link is invalid or has expired. Please request a new password reset.
           </p>
@@ -81,7 +81,7 @@ const ResetPassword = () => {
     <div className="flex flex-col items-center px-4 py-12 sm:py-16">
       <SEO title="Set New Password | SLSOM" description="Create a new password for your Spirit Life School of Ministry account." path="/reset-password" noindex />
       <div className="text-center mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">
+        <h1 className="font-serif text-2xl sm:text-3xl font-bold text-primary tracking-tight">
           Set New Password
         </h1>
         <p className="text-sm text-muted-foreground mt-1">

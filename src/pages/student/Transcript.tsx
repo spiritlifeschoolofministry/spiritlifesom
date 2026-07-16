@@ -160,7 +160,7 @@ const StudentTranscript = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
               <FileText className="w-7 h-7" /> Academic Transcript
             </h1>
             <p className="text-muted-foreground text-sm mt-1">

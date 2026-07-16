@@ -149,7 +149,7 @@ const StudentAssignments = () => {
     <StudentLayout>
       <div className="space-y-6 pb-20 md:pb-0">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Tasks</h1>
+          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">Tasks</h1>
           <p className="text-sm text-muted-foreground mt-1">View and submit your coursework</p>
         </div>
 

@@ -85,7 +85,7 @@ const StudentCalendar = () => {
       <div className="space-y-5 pb-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">School Calendar</h1>
+          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">School Calendar</h1>
           <p className="text-sm text-muted-foreground mt-1">View upcoming events and important dates</p>
         </div>
 

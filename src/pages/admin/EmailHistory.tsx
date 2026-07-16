@@ -80,7 +80,7 @@ const EmailHistory = ({ standalone = true }: { standalone?: boolean }) => {
       {standalone && (
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
               <Mail className="w-6 h-6 text-primary" /> Email History
             </h1>
             <p className="text-sm text-muted-foreground mt-1">All emails sent by the platform — manual and automatic</p>

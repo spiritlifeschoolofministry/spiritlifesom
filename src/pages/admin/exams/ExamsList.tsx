@@ -73,7 +73,7 @@ export default function ExamsList() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Online Exams</h1>
+          <h1 className="font-serif text-2xl font-bold">Online Exams</h1>
           <p className="text-sm text-muted-foreground">Create, monitor and grade course exams</p>
         </div>
         <div className="flex gap-2">

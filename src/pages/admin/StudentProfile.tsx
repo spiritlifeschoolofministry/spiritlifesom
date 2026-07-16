@@ -520,7 +520,7 @@ const AdminStudentProfile = () => {
             </Avatar>
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-3 mb-1">
-                <h1 className="text-2xl font-bold text-foreground">{fullName}</h1>
+                <h1 className="font-serif text-2xl font-bold text-foreground">{fullName}</h1>
                 <Badge className={statusColor[student.admission_status || "PENDING"] || statusColor.PENDING}>
                   {student.admission_status || "Pending"}
                 </Badge>

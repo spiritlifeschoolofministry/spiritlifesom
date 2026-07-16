@@ -86,7 +86,7 @@ const AdminMaterials = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+        <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">
           Course Materials
         </h1>
         <p className="text-muted-foreground text-sm mt-1">

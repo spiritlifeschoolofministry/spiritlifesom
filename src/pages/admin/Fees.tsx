@@ -342,7 +342,7 @@ const AdminFees = () => {
     <div className="space-y-6 pb-6">
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Fee Management</h1>
+          <h1 className="font-serif text-2xl font-bold">Fee Management</h1>
           <p className="text-sm text-muted-foreground">Create fees and approve student payments</p>
         </div>
         <div className="flex gap-2">

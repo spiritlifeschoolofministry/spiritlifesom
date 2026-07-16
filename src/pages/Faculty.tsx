@@ -55,10 +55,11 @@ const FacultyPage = () => {
       />
       {/* Hero */}
       <section className="relative py-20 sm:py-28 text-center text-primary-foreground">
-        <div className="absolute inset-0 gradient-purple" />
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,#2d1b69,#5B2D8E)]" />
         <div className="relative z-10 max-w-3xl mx-auto px-4 space-y-3">
           <Reveal>
-            <h1 className="text-3xl sm:text-5xl font-extrabold">{get("hero_title", "Meet Our Faculty")}</h1>
+            <div className="font-display text-[11px] tracking-[0.28em] uppercase text-[#F9CB28] font-semibold mb-3">{get("hero_eyebrow", "Our Faculty")}</div>
+            <h1 className="font-serif text-5xl sm:text-6xl font-semibold">{get("hero_title", "Meet Our Faculty")}</h1>
             <p className="text-primary-foreground/80 text-lg">
               {get("hero_subtitle", "Dedicated servants of God committed to equipping the saints")}
             </p>
@@ -93,7 +94,7 @@ const FacultyPage = () => {
                     )}
                     <div>
                       <h3 className="font-semibold text-xl text-foreground">{f.name}</h3>
-                      <p className="text-sm text-accent font-medium mt-1">{f.title}</p>
+                      <p className="text-sm text-gold font-medium mt-1">{f.title}</p>
                     </div>
                     <p className="text-muted-foreground text-sm leading-relaxed">{f.bio}</p>
                   </CardContent>

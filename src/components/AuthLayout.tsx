@@ -14,7 +14,7 @@ const AuthLayout = ({ children }: AuthLayoutProps) => {
         {/* Logo / Brand */}
         <div className="text-center mb-8">
           <img src="/images/school-logo.png" alt="" className="h-16 w-16 object-contain mx-auto mb-3" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">
+          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-primary tracking-tight">
             Spirit Life School of Ministry
           </h1>
           <p className="text-sm text-gradient-flame font-semibold mt-1 tracking-wide uppercase">

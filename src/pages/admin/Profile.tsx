@@ -190,7 +190,7 @@ const AdminProfile = () => {
         <div className="flex-1">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+              <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">
                 {profile ? `${profile.first_name} ${profile.last_name}` : 'Administrator'}
               </h1>
               <p className="text-muted-foreground mt-1">{profile?.email}</p>

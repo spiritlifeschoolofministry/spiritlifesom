@@ -28,7 +28,7 @@ const AdminComingSoon = ({ title, description, icon }: AdminComingSoonProps) => 
           </div>
           <h2 className="text-2xl font-bold text-foreground">{title}</h2>
           <p className="text-muted-foreground text-sm">{description}</p>
-          <div className="gradient-flame text-accent-foreground text-xs font-semibold px-4 py-1.5 rounded-full mt-2">
+          <div className="gradient-flame text-[#3a1d1d] text-xs font-semibold px-4 py-1.5 rounded-full mt-2">
             Coming Soon
           </div>
           <Button variant="outline" size="sm" disabled className="mt-2">

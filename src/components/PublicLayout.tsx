@@ -37,9 +37,12 @@ const PublicLayout = () => {
         }`}
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 h-16">
-          <Link to="/" className="flex items-center gap-2 text-primary-foreground font-bold text-lg tracking-tight">
-            <img src="/images/school-logo.png" alt="" className="h-9 w-9 object-contain" />
-            Spirit Life SOM
+          <Link to="/" className="flex items-center gap-3 text-primary-foreground">
+            <img src="/images/school-logo.png" alt="" className="h-10 w-10 object-contain" />
+            <span className="leading-none">
+              <span className="block font-serif text-xl font-bold">Spirit Life</span>
+              <span className="block font-display text-[8.5px] tracking-[0.34em] uppercase opacity-80">School of Ministry</span>
+            </span>
           </Link>
 
           {/* Desktop links */}
@@ -63,7 +66,7 @@ const PublicLayout = () => {
             <Button asChild variant="ghost" size="sm" className="bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
               <Link to="/login">Login</Link>
             </Button>
-            <Button asChild size="sm" className="gradient-flame border-0 text-primary-foreground hover:opacity-90">
+            <Button asChild size="sm" className="gradient-flame border-0 text-[#3a1d1d] hover:opacity-90">
               <Link to="/register">Register Now</Link>
             </Button>
           </div>
@@ -90,7 +93,7 @@ const PublicLayout = () => {
               <Button asChild variant="outline" size="sm" className="flex-1 bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
                 <Link to="/login">Login</Link>
               </Button>
-              <Button asChild size="sm" className="flex-1 gradient-flame border-0 text-primary-foreground">
+              <Button asChild size="sm" className="flex-1 gradient-flame border-0 text-[#3a1d1d]">
                 <Link to="/register">Register</Link>
               </Button>
             </div>
@@ -104,12 +107,12 @@ const PublicLayout = () => {
       </main>
 
       {/* ========== FOOTER ========== */}
-      <footer className="bg-[hsl(0,0%,5%)] text-primary-foreground/80 pt-12 pb-6 px-4 sm:px-6">
+      <footer className="bg-[#160b2e] text-primary-foreground/70 pt-12 pb-6 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto space-y-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-            <span className="flex items-center gap-2 font-bold text-lg text-primary-foreground">
+            <span className="flex items-center gap-2 font-serif font-bold text-xl text-primary-foreground">
               <img src="/images/school-logo.png" alt="" className="h-8 w-8 object-contain" />
-              Spirit Life SOM
+              Spirit Life School of Ministry
             </span>
             <div className="flex flex-wrap justify-center gap-4 text-sm">
               {navLinks.map((l) => (

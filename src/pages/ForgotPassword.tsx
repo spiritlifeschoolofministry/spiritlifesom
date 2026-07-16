@@ -40,7 +40,7 @@ const ForgotPassword = () => {
     <div className="flex flex-col items-center px-4 py-12 sm:py-16">
       <SEO title="Reset Password | SLSOM" description="Request a password reset link for your Spirit Life School of Ministry account." path="/forgot-password" noindex />
       <div className="text-center mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">
+        <h1 className="font-serif text-2xl sm:text-3xl font-bold text-primary tracking-tight">
           Reset Password
         </h1>
         <p className="text-sm text-muted-foreground mt-1">

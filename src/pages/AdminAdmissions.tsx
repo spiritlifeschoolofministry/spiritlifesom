@@ -502,7 +502,7 @@ const AdminAdmissions = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Admissions/Requests</h1>
+        <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">Admissions/Requests</h1>
         <p className="text-muted-foreground text-sm mt-1">Review and process new applications and learning-mode requests</p>
       </div>
 

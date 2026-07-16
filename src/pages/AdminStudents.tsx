@@ -553,7 +553,7 @@ const AdminStudents = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Students</h1>
+          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Students</h1>
           <p className="text-muted-foreground text-sm">Manage enrollment, status, and communications</p>
         </div>
         <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2 self-start">

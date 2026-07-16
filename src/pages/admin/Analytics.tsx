@@ -376,7 +376,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
       {standalone && (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Analytics</h1>
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">Analytics</h1>
             <p className="text-muted-foreground text-sm mt-1">
               Comprehensive insights · Last updated: {lastRefreshed.toLocaleTimeString()}
             </p>
