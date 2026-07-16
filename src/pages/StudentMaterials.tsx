@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import StudentLayout from "@/components/StudentLayout";
+import PageHeader from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -126,16 +127,10 @@ const StudentMaterials = () => {
   return (
     <StudentLayout>
       <div className="space-y-6 pb-20 md:pb-0">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">
-              Course Materials
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Access handouts, notes, and other learning resources for your cohort.
-            </p>
-          </div>
-        </div>
+        <PageHeader
+          title="Course Materials"
+          subtitle="Access handouts, notes, and other learning resources for your cohort."
+        />
 
         {/* Search & Filter Bar */}
         <div className="flex flex-col sm:flex-row gap-3">

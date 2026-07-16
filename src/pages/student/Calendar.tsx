@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
 import StudentLayout from '@/components/StudentLayout';
+import PageHeader from '@/components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -84,10 +85,10 @@ const StudentCalendar = () => {
     <StudentLayout>
       <div className="space-y-5 pb-6">
         {/* Header */}
-        <div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">School Calendar</h1>
-          <p className="text-sm text-muted-foreground mt-1">View upcoming events and important dates</p>
-        </div>
+        <PageHeader
+          title="School Calendar"
+          subtitle="View upcoming events and important dates"
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5">
           {/* Calendar Grid */}

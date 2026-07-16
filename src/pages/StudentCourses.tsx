@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import StudentLayout from "@/components/StudentLayout";
+import PageHeader from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -97,12 +98,10 @@ const StudentCourses = () => {
     <StudentLayout>
       <div className="space-y-6 pb-20 md:pb-0">
         {/* Header */}
-        <div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">My Courses</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Track your academic progress across all enrolled courses
-          </p>
-        </div>
+        <PageHeader
+          title="My Courses"
+          subtitle="Track your academic progress across all enrolled courses"
+        />
 
         {/* Progress Overview Card */}
         <Card className="border-l-4 border-l-primary bg-primary/5 dark:bg-primary/10">

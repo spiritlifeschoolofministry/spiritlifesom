@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import StudentLayout from '@/components/StudentLayout';
+import PageHeader from '@/components/PageHeader';
+import StatCard from '@/components/StatCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -148,10 +150,10 @@ const StudentAssignments = () => {
   return (
     <StudentLayout>
       <div className="space-y-6 pb-20 md:pb-0">
-        <div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">Tasks</h1>
-          <p className="text-sm text-muted-foreground mt-1">View and submit your coursework</p>
-        </div>
+        <PageHeader
+          title="Tasks"
+          subtitle="View and submit your coursework"
+        />
 
         {/* Progress Overview */}
         <Card className={`border-l-4 ${pendingCount === 0 && expiredCount === 0 && assignments.length > 0 ? 'border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950/20' : pendingCount > 0 ? 'border-l-amber-500 bg-amber-50 dark:bg-amber-950/20' : 'border-l-primary bg-primary/5'}`}>
@@ -176,30 +178,10 @@ const StudentAssignments = () => {
 
         {/* Stat Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Card className="border-l-4 border-l-primary bg-primary/5 dark:bg-primary/10">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground font-medium">Total</p>
-              <p className="text-2xl font-bold text-foreground">{assignments.length}</p>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-amber-500 bg-amber-50 dark:bg-amber-950/20">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground font-medium">Pending</p>
-              <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{pendingCount}</p>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-blue-500 bg-blue-50 dark:bg-blue-950/20">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground font-medium">Submitted</p>
-              <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{submittedCount}</p>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950/20">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground font-medium">Graded</p>
-              <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{gradedCount}</p>
-            </CardContent>
-          </Card>
+          <StatCard label="Total" value={assignments.length} color="text-primary" accent="border-t-primary" />
+          <StatCard label="Pending" value={pendingCount} color="text-warning" accent="border-t-warning" />
+          <StatCard label="Submitted" value={submittedCount} color="text-info" accent="border-t-info" />
+          <StatCard label="Graded" value={gradedCount} color="text-success" accent="border-t-success" />
         </div>
 
         {/* Assignment List */}

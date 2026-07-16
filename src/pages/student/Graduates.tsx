@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import StudentLayout from '@/components/StudentLayout';
+import PageHeader from '@/components/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -78,25 +79,23 @@ const Graduates = () => {
   return (
     <StudentLayout>
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="font-serif text-2xl font-bold flex items-center gap-2">
-              <GraduationCap className="h-6 w-6" /> Graduates
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">Alumni from all cohorts</p>
-          </div>
-          <Select value={cohortFilter} onValueChange={setCohortFilter}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="Filter by cohort" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Cohorts</SelectItem>
-              {cohorts.map(c => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <PageHeader
+          title={<span className="flex items-center gap-2"><GraduationCap className="h-6 w-6" /> Graduates</span>}
+          subtitle="Alumni from all cohorts"
+          actions={
+            <Select value={cohortFilter} onValueChange={setCohortFilter}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Filter by cohort" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Cohorts</SelectItem>
+                {cohorts.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+        />
 
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

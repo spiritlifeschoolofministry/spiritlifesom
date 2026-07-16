@@ -13,6 +13,7 @@ import { Loader2, ShieldCheck, Download, CalendarIcon, X } from "lucide-react";
 import { toast } from "sonner";
 import { downloadCSV } from "@/lib/csv-export";
 import { cn } from "@/lib/utils";
+import PageHeader from "@/components/PageHeader";
 
 interface AuditRow {
   id: string;
@@ -164,23 +165,19 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
   return (
     <div className={cn("max-w-7xl mx-auto space-y-6 pb-6", !standalone && "max-w-none px-0")}>
       {standalone && (
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-          <div>
-            <h1 className="font-serif text-3xl font-bold mb-2 flex items-center gap-2">
-              <ShieldCheck className="h-7 w-7 text-primary" /> Audit Log
-            </h1>
-            <p className="text-muted-foreground">
-              Append-only record of every admin status change, payment verification, and deletion.
-            </p>
-          </div>
-          <Button
-            onClick={handleExport}
-            disabled={loading || filtered.length === 0}
-            className="gap-2 self-start md:self-auto"
-          >
-            <Download className="h-4 w-4" /> Export CSV
-          </Button>
-        </div>
+        <PageHeader
+          title={<span className="flex items-center gap-2"><ShieldCheck className="h-7 w-7 text-primary" /> Audit Log</span>}
+          subtitle="Append-only record of every admin status change, payment verification, and deletion."
+          actions={
+            <Button
+              onClick={handleExport}
+              disabled={loading || filtered.length === 0}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" /> Export CSV
+            </Button>
+          }
+        />
       )}
 
       {!standalone && (

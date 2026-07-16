@@ -108,8 +108,7 @@ const Home = () => {
             <span className="font-display text-[11px] tracking-[0.28em] uppercase text-[#F9CB28] font-semibold">Ibadan, Nigeria · Spirit-Led Training</span>
           </div>
           <h1 className="font-serif font-semibold leading-[0.98] text-5xl sm:text-6xl md:text-[76px]">
-            {get("hero_title", "Equipping the Saints for the ")}
-            <span className="italic text-[#F9CB28]">{get("hero_title_accent", "work of ministry.")}</span>
+            {get("hero_title", "Equipping the Saints for the work of ministry.")}
           </h1>
           <p className="text-lg text-primary-foreground/80 max-w-lg mt-7 font-light leading-relaxed">
             {get("hero_subtitle", "A Spirit-led school raising men and women grounded in biblical truth and prepared for effective service in God's vineyard.")}
@@ -145,7 +144,7 @@ const Home = () => {
         { n: get("stat1_value", "2"), l: get("stat1_label", "Cohorts Graduated") },
         { n: get("stat2_value", "100%"), l: get("stat2_label", "Scripture-Rooted") },
         { n: get("stat3_value", "Online"), l: get("stat3_label", "& On-Campus Modes") },
-        { n: get("stat4_value", "C&S"), l: get("stat4_label", "Cherubim & Seraphim") },
+        { n: get("stat4_value", "Open"), l: get("stat4_label", "Interdenominational · to all saints") },
       ].map((s, i) => (
         <div key={i} className={`px-8 py-7 border-primary-foreground/12 ${i < 3 ? "md:border-r" : ""} ${i < 2 ? "border-b md:border-b-0" : ""} ${i === 0 ? "border-r md:border-r" : ""} ${i === 2 ? "border-r md:border-r" : ""}`}>
           <div className="font-serif text-4xl font-semibold text-[#F9CB28] leading-none">{s.n}</div>

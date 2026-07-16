@@ -12,6 +12,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
+import PageHeader from '@/components/PageHeader';
+import StatCard from '@/components/StatCard';
 
 interface PersonalFormData {
   first_name: string;
@@ -174,29 +176,22 @@ const AdminProfile = () => {
 
   return (
     <div className="space-y-6 pb-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-        <div className="flex items-center gap-4">
-          <Avatar className="h-20 w-20 sm:h-24 sm:w-24">
-            {avatarPreview && <AvatarImage src={avatarPreview} alt="Profile" />}
-            <AvatarFallback className="text-lg bg-primary text-primary-foreground">{initials}</AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col gap-2">
-            <input id="avatar" type="file" accept="image/*" onChange={handleAvatarChange} />
-            <Button onClick={uploadAvatar} disabled={isUploadingAvatar || !avatarFile}>
-              {isUploadingAvatar ? 'Uploading...' : 'Upload Avatar'}
-            </Button>
-          </div>
-        </div>
-        <div className="flex-1">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
-            <div>
-              <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">
-                {profile ? `${profile.first_name} ${profile.last_name}` : 'Administrator'}
-              </h1>
-              <p className="text-muted-foreground mt-1">{profile?.email}</p>
-            </div>
-            <Badge className="w-fit bg-primary text-primary-foreground uppercase">{profile?.role || 'Admin'}</Badge>
-          </div>
+      <PageHeader
+        title={profile ? `${profile.first_name} ${profile.last_name}` : 'Administrator'}
+        subtitle={profile?.email}
+        actions={<Badge className="w-fit bg-primary text-primary-foreground uppercase">{profile?.role || 'Admin'}</Badge>}
+      />
+
+      <div className="flex items-center gap-4">
+        <Avatar className="h-20 w-20 sm:h-24 sm:w-24">
+          {avatarPreview && <AvatarImage src={avatarPreview} alt="Profile" />}
+          <AvatarFallback className="text-lg bg-primary text-primary-foreground">{initials}</AvatarFallback>
+        </Avatar>
+        <div className="flex flex-col gap-2">
+          <input id="avatar" type="file" accept="image/*" onChange={handleAvatarChange} />
+          <Button onClick={uploadAvatar} disabled={isUploadingAvatar || !avatarFile}>
+            {isUploadingAvatar ? 'Uploading...' : 'Upload Avatar'}
+          </Button>
         </div>
       </div>
 
@@ -205,14 +200,8 @@ const AdminProfile = () => {
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Students</CardTitle></CardHeader>
-              <CardContent><div className="text-3xl font-bold">{studentCount}</div></CardContent>
-            </Card>
-            <Card>
-              <CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Courses</CardTitle></CardHeader>
-              <CardContent><div className="text-3xl font-bold">{courseCount}</div></CardContent>
-            </Card>
+            <StatCard label="Total Students" value={studentCount} />
+            <StatCard label="Total Courses" value={courseCount} />
           </div>
 
           <Card>

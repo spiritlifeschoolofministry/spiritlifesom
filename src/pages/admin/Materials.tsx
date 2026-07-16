@@ -13,6 +13,7 @@ import { Loader2, Upload, Pin, PinOff, Trash2, ExternalLink, Share2, Search } fr
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { r2Storage } from '@/lib/r2-storage';
+import PageHeader from '@/components/PageHeader';
 
 const MATERIAL_TYPES = ['Notes', 'Slides', 'Handout', 'Worksheet', 'Reference', 'Video', 'Other'] as const;
 const LEARNING_MODES = ['All', 'Online', 'Physical', 'Hybrid'] as const;
@@ -252,12 +253,10 @@ const AdminMaterials = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-serif text-3xl font-bold">Course Materials</h1>
-          <p className="text-sm text-muted-foreground mt-1">Upload and manage course materials for cohorts</p>
-        </div>
-
+      <PageHeader
+        title="Course Materials"
+        subtitle="Upload and manage course materials for cohorts"
+        actions={
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogTrigger asChild>
             <Button className="flex items-center gap-2"><Upload className="h-4 w-4" /> Upload New Material</Button>
@@ -332,7 +331,8 @@ const AdminMaterials = () => {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
+        }
+      />
 
       {/* Share to Cohort Dialog */}
       <Dialog open={shareModalOpen} onOpenChange={setShareModalOpen}>

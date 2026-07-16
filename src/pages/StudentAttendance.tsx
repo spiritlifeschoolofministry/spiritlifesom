@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import StudentLayout from "@/components/StudentLayout";
+import PageHeader from "@/components/PageHeader";
+import StatCard from "@/components/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -224,10 +226,10 @@ const StudentAttendance = () => {
   return (
     <StudentLayout>
       <div className="space-y-6 pb-20 md:pb-0">
-        <div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">Attendance</h1>
-          <p className="text-muted-foreground text-sm mt-1">Mark your attendance and track your record</p>
-        </div>
+        <PageHeader
+          title="Attendance"
+          subtitle="Mark your attendance and track your record"
+        />
 
         {/* Attendance Rate Overview */}
         <Card className={`border-l-4 ${rateBorder} ${rateBg}`}>
@@ -237,7 +239,7 @@ const StudentAttendance = () => {
                 <TrendingUp className="h-5 w-5 text-primary" />
                 <span className="font-semibold text-foreground">Attendance Rate</span>
               </div>
-              <span className={`text-2xl font-bold ${rateColor}`}>{percentage}%</span>
+              <span className={`font-serif text-3xl font-bold ${rateColor}`}>{percentage}%</span>
             </div>
             <Progress value={percentage} className="h-2.5 mb-3" />
             <div className="flex items-center gap-4 text-sm flex-wrap">
@@ -278,50 +280,34 @@ const StudentAttendance = () => {
 
         {/* Stat Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Card className="border-l-4 border-l-primary bg-primary/5 dark:bg-primary/10">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <CalendarCheck className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Total</p>
-                <p className="text-xl font-bold text-foreground">{totalClasses}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950/20">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                <UserCheck className="w-5 h-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Present</p>
-                <p className="text-xl font-bold text-emerald-700 dark:text-emerald-400">{presentCount}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-amber-500 bg-amber-50 dark:bg-amber-950/20">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                <Clock className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Late</p>
-                <p className="text-xl font-bold text-amber-700 dark:text-amber-400">{lateCount}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950/20">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                <XCircle className="w-5 h-5 text-red-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Absent</p>
-                <p className="text-xl font-bold text-red-700 dark:text-red-400">{absentCount}</p>
-              </div>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Total"
+            value={totalClasses}
+            color="text-primary"
+            accent="border-t-primary"
+            icon={<div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><CalendarCheck className="w-5 h-5 text-primary" /></div>}
+          />
+          <StatCard
+            label="Present"
+            value={presentCount}
+            color="text-success"
+            accent="border-t-success"
+            icon={<div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center"><UserCheck className="w-5 h-5 text-emerald-600" /></div>}
+          />
+          <StatCard
+            label="Late"
+            value={lateCount}
+            color="text-warning"
+            accent="border-t-warning"
+            icon={<div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center"><Clock className="w-5 h-5 text-amber-600" /></div>}
+          />
+          <StatCard
+            label="Absent"
+            value={absentCount}
+            color="text-destructive"
+            accent="border-t-destructive"
+            icon={<div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center"><XCircle className="w-5 h-5 text-red-600" /></div>}
+          />
         </div>
 
         {/* History */}

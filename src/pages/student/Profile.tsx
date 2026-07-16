@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
 import StudentLayout from '@/components/StudentLayout';
+import PageHeader from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -561,6 +562,11 @@ const StudentProfile = () => {
   return (
     <StudentLayout>
       <div className="space-y-6 pb-20 md:pb-0">
+        <PageHeader
+          title="My Profile"
+          subtitle="Manage your account and academic details"
+        />
+
         {/* Profile Header */}
         <div className="flex flex-col gap-4 sm:gap-6">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">

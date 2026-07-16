@@ -25,6 +25,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import PageHeader from "@/components/PageHeader";
+import StatCard from "@/components/StatCard";
 
 interface Application {
   id: string;
@@ -500,47 +502,16 @@ const AdminAdmissions = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">Admissions/Requests</h1>
-        <p className="text-muted-foreground text-sm mt-1">Review and process new applications and learning-mode requests</p>
-      </div>
+      <PageHeader
+        title="Admissions/Requests"
+        subtitle="Review and process new applications and learning-mode requests"
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20">
-              <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Pending</p>
-              <p className="text-2xl font-bold text-foreground">{applications.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/5">
-              <Users className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Showing</p>
-              <p className="text-2xl font-bold text-foreground">{filteredApplications.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20">
-              <UserCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Selected</p>
-              <p className="text-2xl font-bold text-foreground">{selectedIds.size}</p>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard label="Pending" value={applications.length} color="text-warning" icon={<Clock className="w-5 h-5 text-warning" />} />
+        <StatCard label="Showing" value={filteredApplications.length} color="text-primary" icon={<Users className="w-5 h-5 text-primary" />} />
+        <StatCard label="Selected" value={selectedIds.size} color="text-success" icon={<UserCheck className="w-5 h-5 text-success" />} />
       </div>
 
       {/* Bulk action bar */}

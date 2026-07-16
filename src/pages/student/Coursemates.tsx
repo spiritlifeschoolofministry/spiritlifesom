@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
 import StudentLayout from '@/components/StudentLayout';
+import PageHeader from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -182,19 +183,18 @@ const Coursemates = () => {
     <StudentLayout>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Users className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">Course Mates</h1>
-              <p className="text-sm text-muted-foreground">
-                {classmates.length} classmate{classmates.length !== 1 ? 's' : ''} in {classmates[0]?.cohort_name || 'your cohort'}
-              </p>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          className="mb-6"
+          title={
+            <span className="flex items-center gap-3">
+              <span className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5 text-primary" />
+              </span>
+              Course Mates
+            </span>
+          }
+          subtitle={`${classmates.length} classmate${classmates.length !== 1 ? 's' : ''} in ${classmates[0]?.cohort_name || 'your cohort'}`}
+        />
 
         {/* Search + Update Profile */}
         <div className="mb-6 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">

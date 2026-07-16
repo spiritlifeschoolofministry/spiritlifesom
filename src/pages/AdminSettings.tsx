@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import PageHeader from '@/components/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -323,10 +324,7 @@ const AdminSettings = () => {
 
   return (
     <div className="space-y-6 pb-6">
-      <div>
-        <h1 className="font-serif text-2xl font-bold">Administration</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage system settings, analytics, and history</p>
-      </div>
+      <PageHeader title="System Settings" subtitle="Manage system settings, analytics, and history" />
 
       <Tabs defaultValue="general" className="w-full">
         <TabsList className="grid grid-cols-2 md:grid-cols-5 lg:w-max mb-6">

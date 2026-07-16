@@ -16,6 +16,7 @@ import { Loader2, CheckCircle, XCircle, Eye, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import PageHeader from '@/components/PageHeader';
 
 type PaymentReview = Tables<'payments'> & {
   student_name?: string;
@@ -178,49 +179,49 @@ const AdminPayments = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <div className="mb-8 flex justify-between items-start">
-        <div>
-          <h1 className="font-serif text-3xl font-bold mb-2">Payments & Fees</h1>
-          <p className="text-muted-foreground">Verify student payments and manage fee structures</p>
-        </div>
-        <Dialog open={isAddFeeModalOpen} onOpenChange={setIsAddFeeModalOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2"><Plus className="h-4 w-4" /> Add New Fee</Button>
-          </DialogTrigger>
-          <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto">
-            <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
-              <DialogTitle>Add New Fee</DialogTitle>
-              <DialogDescription>Create a new fee structure for a cohort</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit(onAddFeeSubmit)} className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label>Cohort</Label>
-                <Select value={selectedCohort} onValueChange={(value) => setValue('cohort_id', value)}>
-                  <SelectTrigger><SelectValue placeholder="Select cohort" /></SelectTrigger>
-                  <SelectContent>
-                    {cohorts.map((cohort) => (<SelectItem key={cohort.id} value={cohort.id}>{cohort.name}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Fee Name</Label>
-                <Input placeholder="e.g., Tuition, Graduation Fee" {...register('fee_name', { required: 'Fee name is required' })} />
-                {errors.fee_name && <p className="text-sm text-destructive">{errors.fee_name.message}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label>Amount (₦)</Label>
-                <Input type="number" step="0.01" placeholder="0.00" {...register('amount', { required: 'Amount is required' })} />
-                {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
-              </div>
-              <div className="sticky bottom-0 bg-background pt-4 border-t">
-                <Button type="submit" disabled={isProcessing} className="w-full">
-                  {isProcessing ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Adding...</>) : 'Add Fee'}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+      <PageHeader
+        title="Payments & Fees"
+        subtitle="Verify student payments and manage fee structures"
+        actions={
+          <Dialog open={isAddFeeModalOpen} onOpenChange={setIsAddFeeModalOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2"><Plus className="h-4 w-4" /> Add New Fee</Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto">
+              <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
+                <DialogTitle>Add New Fee</DialogTitle>
+                <DialogDescription>Create a new fee structure for a cohort</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit(onAddFeeSubmit)} className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label>Cohort</Label>
+                  <Select value={selectedCohort} onValueChange={(value) => setValue('cohort_id', value)}>
+                    <SelectTrigger><SelectValue placeholder="Select cohort" /></SelectTrigger>
+                    <SelectContent>
+                      {cohorts.map((cohort) => (<SelectItem key={cohort.id} value={cohort.id}>{cohort.name}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Fee Name</Label>
+                  <Input placeholder="e.g., Tuition, Graduation Fee" {...register('fee_name', { required: 'Fee name is required' })} />
+                  {errors.fee_name && <p className="text-sm text-destructive">{errors.fee_name.message}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label>Amount (₦)</Label>
+                  <Input type="number" step="0.01" placeholder="0.00" {...register('amount', { required: 'Amount is required' })} />
+                  {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
+                </div>
+                <div className="sticky bottom-0 bg-background pt-4 border-t">
+                  <Button type="submit" disabled={isProcessing} className="w-full">
+                    {isProcessing ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Adding...</>) : 'Add Fee'}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
       <Card>
         <CardHeader>

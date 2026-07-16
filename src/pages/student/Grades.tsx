@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import StudentLayout from "@/components/StudentLayout";
+import PageHeader from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -138,12 +139,10 @@ const StudentGrades = () => {
   return (
     <StudentLayout>
       <div className="space-y-6 pb-20 md:pb-0">
-        <div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">Grades</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Your academic performance overview across all categories.
-          </p>
-        </div>
+        <PageHeader
+          title="Grades"
+          subtitle="Your academic performance overview across all categories."
+        />
 
         {/* Overall Grade Card */}
         <Card className="shadow-[var(--shadow-card)] border-border overflow-hidden">
@@ -155,7 +154,7 @@ const StudentGrades = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Overall Grade</p>
-                  <p className="text-3xl font-bold text-foreground">{overallPct}%</p>
+                  <p className="font-serif text-3xl font-bold text-foreground">{overallPct}%</p>
                 </div>
               </div>
               <Progress value={overallPct} className="h-3 mb-2" />

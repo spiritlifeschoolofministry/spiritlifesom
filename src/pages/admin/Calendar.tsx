@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Trash2, Edit2, Plus, ChevronLeft, ChevronRight, CalendarDays, List, Clock, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
+import PageHeader from '@/components/PageHeader';
 
 type SchoolEvent = Tables<'school_events'>;
 
@@ -170,17 +171,17 @@ const AdminCalendar = () => {
   return (
     <div className="space-y-5 pb-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">School Calendar</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage events and schedules</p>
-        </div>
-        <Button onClick={() => setShowDialog(true)} className="gap-2 shadow-md">
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Create Event</span>
-          <span className="sm:hidden">New</span>
-        </Button>
-      </div>
+      <PageHeader
+        title="School Calendar"
+        subtitle="Manage events and schedules"
+        actions={
+          <Button onClick={() => setShowDialog(true)} className="gap-2 shadow-md">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Create Event</span>
+            <span className="sm:hidden">New</span>
+          </Button>
+        }
+      />
 
       {/* View Toggle */}
       <div className="flex items-center gap-1 p-1 bg-muted rounded-lg w-fit">

@@ -17,6 +17,8 @@ import {
 } from "recharts";
 import { Users, TrendingUp, CalendarCheck, ClipboardList, Download, Folder, BookOpen, GraduationCap, CreditCard, AlertCircle, Inbox, RefreshCw } from "lucide-react";
 import { downloadCSV } from "@/lib/csv-export";
+import PageHeader from "@/components/PageHeader";
+import StatCard from "@/components/StatCard";
 
 interface Cohort { id: string; name: string; }
 
@@ -354,9 +356,9 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
 
   const SUMMARY = [
     { title: "Total Students", value: summaryCards.totalStudents, icon: Users, color: "text-primary" },
-    { title: "Revenue Collected", value: `₦${summaryCards.totalRevenue.toLocaleString()}`, icon: TrendingUp, color: "text-emerald-600" },
+    { title: "Revenue Collected", value: `₦${summaryCards.totalRevenue.toLocaleString()}`, icon: TrendingUp, color: "text-success" },
     { title: "Attendance Rate", value: `${summaryCards.avgAttendance}%`, icon: CalendarCheck, color: "text-blue-600" },
-    { title: "Task Completion", value: `${summaryCards.avgCompletion}%`, icon: ClipboardList, color: "text-amber-600" },
+    { title: "Task Completion", value: `${summaryCards.avgCompletion}%`, icon: ClipboardList, color: "text-warning" },
     { title: "Total Materials", value: summaryCards.totalMaterials, icon: Folder, color: "text-violet-600" },
     { title: "Active Courses", value: summaryCards.totalCourses, icon: BookOpen, color: "text-teal-600" },
     { title: "Graduates", value: summaryCards.graduateCount, icon: GraduationCap, color: "text-primary" },
@@ -374,52 +376,50 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
       )}
 
       {standalone && (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">Analytics</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Comprehensive insights · Last updated: {lastRefreshed.toLocaleTimeString()}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2 bg-card border rounded-md px-3 py-1.5 mr-2">
-              <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
-              <Label htmlFor="auto-refresh" className="text-xs cursor-pointer whitespace-nowrap">Auto Refresh (1m)</Label>
-            </div>
-            
-            <Button variant="outline" size="sm" onClick={() => loadAnalytics()} disabled={loading} className="gap-2">
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
+        <PageHeader
+          title="Analytics"
+          subtitle={`Comprehensive insights · Last updated: ${lastRefreshed.toLocaleTimeString()}`}
+          actions={
+            <>
+              <div className="flex items-center gap-2 bg-card border rounded-md px-3 py-1.5 mr-2">
+                <Switch id="auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
+                <Label htmlFor="auto-refresh" className="text-xs cursor-pointer whitespace-nowrap">Auto Refresh (1m)</Label>
+              </div>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Download className="h-4 w-4" /> Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => downloadCSV(enrollmentData, "enrollment_trends")}>Enrollment Trends</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => downloadCSV(revenueData, "revenue_by_fee_type")}>Revenue Data</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => downloadCSV(attendanceData, "attendance_distribution")}>Attendance Data</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => downloadCSV(assignmentData, "task_performance")}>Task Performance</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => downloadCSV(materialsData, "materials_by_course")}>Materials Data</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => downloadCSV(coursePerformance, "course_performance")}>Course Performance</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Select value={cohortFilter} onValueChange={setCohortFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by cohort" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Cohorts</SelectItem>
-                {cohorts.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+              <Button variant="outline" size="sm" onClick={() => loadAnalytics()} disabled={loading} className="gap-2">
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Refresh</span>
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Download className="h-4 w-4" /> Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => downloadCSV(enrollmentData, "enrollment_trends")}>Enrollment Trends</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => downloadCSV(revenueData, "revenue_by_fee_type")}>Revenue Data</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => downloadCSV(attendanceData, "attendance_distribution")}>Attendance Data</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => downloadCSV(assignmentData, "task_performance")}>Task Performance</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => downloadCSV(materialsData, "materials_by_course")}>Materials Data</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => downloadCSV(coursePerformance, "course_performance")}>Course Performance</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Select value={cohortFilter} onValueChange={setCohortFilter}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by cohort" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Cohorts</SelectItem>
+                  {cohorts.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          }
+        />
       )}
 
       {!standalone && (
@@ -456,17 +456,13 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {SUMMARY.map((card) => (
-          <Card key={card.title} className="shadow-[var(--shadow-card)] border-border">
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="w-11 h-11 rounded-xl bg-secondary flex items-center justify-center shrink-0">
-                <card.icon className={`w-5 h-5 ${card.color}`} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground font-medium">{card.title}</p>
-                <p className={`text-xl font-bold ${card.color} truncate`}>{card.value}</p>
-              </div>
-            </CardContent>
-          </Card>
+          <StatCard
+            key={card.title}
+            label={card.title}
+            value={card.value}
+            color={card.color}
+            icon={<card.icon className={`w-5 h-5 ${card.color}`} />}
+          />
         ))}
       </div>
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import StudentLayout from '@/components/StudentLayout';
+import PageHeader from '@/components/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -91,12 +92,10 @@ const StudentAnnouncements = () => {
     return (
       <StudentLayout>
         <div className="space-y-6 pb-20 md:pb-0">
-          <div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
-              <Megaphone className="w-7 h-7" /> Notice Board
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">Stay updated with the latest announcements</p>
-          </div>
+          <PageHeader
+            title={<span className="flex items-center gap-2"><Megaphone className="w-7 h-7" /> Notice Board</span>}
+            subtitle="Stay updated with the latest announcements"
+          />
           <Card className="border-destructive/30 bg-destructive/5">
             <CardContent className="pt-6 text-center">
               <AlertTriangle className="w-12 h-12 mx-auto mb-3 text-destructive/50" />
@@ -118,20 +117,20 @@ const StudentAnnouncements = () => {
     <StudentLayout>
       <div className="space-y-6 pb-20 md:pb-0">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
-              <Megaphone className="w-7 h-7" /> Notice Board
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+        <PageHeader
+          title={<span className="flex items-center gap-2"><Megaphone className="w-7 h-7" /> Notice Board</span>}
+          subtitle={
+            <>
               Stay updated with the latest announcements
               {announcements.length > 0 && <span className="ml-1">· {announcements.length} announcement{announcements.length !== 1 ? 's' : ''}</span>}
-            </p>
-          </div>
-          <Button variant="outline" size="sm" onClick={loadAnnouncements} className="gap-2 self-start">
-            <RefreshCw className="w-4 h-4" /> Refresh
-          </Button>
-        </div>
+            </>
+          }
+          actions={
+            <Button variant="outline" size="sm" onClick={loadAnnouncements} className="gap-2 self-start">
+              <RefreshCw className="w-4 h-4" /> Refresh
+            </Button>
+          }
+        />
 
         {announcements.length === 0 ? (
           <Card className="shadow-[var(--shadow-card)] border-border">

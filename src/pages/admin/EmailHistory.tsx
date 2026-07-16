@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Mail, Search, RefreshCw, CheckCircle2, XCircle, Bot, User as UserIcon } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import StatCard from "@/components/StatCard";
 
 interface EmailRow {
   id: string;
@@ -78,17 +80,15 @@ const EmailHistory = ({ standalone = true }: { standalone?: boolean }) => {
   return (
     <div className="space-y-6">
       {standalone && (
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
-              <Mail className="w-6 h-6 text-primary" /> Email History
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">All emails sent by the platform — manual and automatic</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={load} className="gap-1.5">
-            <RefreshCw className="w-4 h-4" /> Refresh
-          </Button>
-        </div>
+        <PageHeader
+          title={<span className="flex items-center gap-2"><Mail className="w-6 h-6 text-primary" /> Email History</span>}
+          subtitle="All emails sent by the platform — manual and automatic"
+          actions={
+            <Button variant="outline" size="sm" onClick={load} className="gap-1.5">
+              <RefreshCw className="w-4 h-4" /> Refresh
+            </Button>
+          }
+        />
       )}
 
       {!standalone && (
@@ -103,16 +103,11 @@ const EmailHistory = ({ standalone = true }: { standalone?: boolean }) => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "Total", value: stats.total, color: "text-foreground" },
-          { label: "Sent", value: stats.sent, color: "text-emerald-600" },
+          { label: "Sent", value: stats.sent, color: "text-success" },
           { label: "Failed", value: stats.failed, color: "text-destructive" },
           { label: "Manual", value: stats.manual, color: "text-primary" },
         ].map((s) => (
-          <Card key={s.label} className="shadow-[var(--shadow-card)] border-border">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-              <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-            </CardContent>
-          </Card>
+          <StatCard key={s.label} label={s.label} value={s.value} color={s.color} />
         ))}
       </div>
 
@@ -176,7 +171,7 @@ const EmailHistory = ({ standalone = true }: { standalone?: boolean }) => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       {r.status === "sent" ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
                       ) : (
                         <XCircle className="w-4 h-4 text-destructive shrink-0" />
                       )}
@@ -187,7 +182,7 @@ const EmailHistory = ({ standalone = true }: { standalone?: boolean }) => {
                         {r.trigger_source}
                       </Badge>
                       {r.attempts > 1 && (
-                        <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+                        <Badge variant="warning" className="text-xs">
                           {r.attempts} attempts
                         </Badge>
                       )}

@@ -39,6 +39,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Json } from "@/integrations/supabase/types";
+import PageHeader from "@/components/PageHeader";
+import StatCard from "@/components/StatCard";
 
 const todayDateString = () => new Date().toISOString().split("T")[0];
 
@@ -742,19 +744,15 @@ const AdminAttendance = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">
-            Attendance Command Center
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Verify check-ins and view student attendance statistics.
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={handleExportAllAttendance} className="gap-2 self-start">
-          <Download className="h-4 w-4" /> Export All Attendance
-        </Button>
-      </div>
+      <PageHeader
+        title="Attendance Command Center"
+        subtitle="Verify check-ins and view student attendance statistics."
+        actions={
+          <Button variant="outline" size="sm" onClick={handleExportAllAttendance} className="gap-2 self-start">
+            <Download className="h-4 w-4" /> Export All Attendance
+          </Button>
+        }
+      />
 
       {/* Per-Cohort Class Toggles */}
       <Card className="shadow-[var(--shadow-card)] border-border">
@@ -842,42 +840,9 @@ const AdminAttendance = () => {
       </Card>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center">
-              <CalendarCheck className="w-6 h-6 text-amber-600" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">Total Pending</p>
-              <p className="text-2xl font-bold text-foreground">{totalPending}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center">
-              <AlertTriangle className="w-6 h-6 text-red-600" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">Low Attendance Alert</p>
-              <p className="text-2xl font-bold text-foreground">
-                {lowAttendanceCount}
-                <span className="text-sm font-normal text-muted-foreground"> below 75%</span>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center">
-              <Users className="w-6 h-6 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">Today's Turnout</p>
-              <p className="text-2xl font-bold text-foreground">{todayTurnout}</p>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard label="Total Pending" value={totalPending} color="text-warning" icon={<CalendarCheck className="w-6 h-6 text-warning" />} />
+        <StatCard label="Low Attendance Alert" value={lowAttendanceCount} hint="below 75%" color="text-destructive" icon={<AlertTriangle className="w-6 h-6 text-destructive" />} />
+        <StatCard label="Today's Turnout" value={todayTurnout} color="text-success" icon={<Users className="w-6 h-6 text-success" />} />
       </div>
 
       {/* Verification Queue */}

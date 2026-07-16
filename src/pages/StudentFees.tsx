@@ -3,6 +3,8 @@ import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
 import StudentLayout from '@/components/StudentLayout';
+import PageHeader from '@/components/PageHeader';
+import StatCard from '@/components/StatCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -180,11 +182,10 @@ const StudentFees = () => {
   return (
     <StudentLayout>
       <div className="space-y-6 pb-20 md:pb-0">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground">Fees & Payments</h1>
-            <p className="text-muted-foreground text-sm mt-1">Manage your fees and track payment progress</p>
-          </div>
+        <PageHeader
+          title="Fees & Payments"
+          subtitle="Manage your fees and track payment progress"
+          actions={
           <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
             <DialogTrigger asChild>
               <Button variant="flame">
@@ -252,7 +253,8 @@ const StudentFees = () => {
               </form>
             </DialogContent>
           </Dialog>
-        </div>
+          }
+        />
 
         {/* Payment Progress Overview */}
         <Card className={`border-l-4 ${isFullyPaid ? 'border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950/20' : hasBalance ? 'border-l-red-500 bg-red-50 dark:bg-red-950/20' : 'border-l-primary bg-primary/5'}`}>
@@ -277,41 +279,27 @@ const StudentFees = () => {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <Card className="border-l-4 border-l-primary bg-primary/5 dark:bg-primary/10">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <CreditCard className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Total Owed</p>
-                <p className="text-xl font-bold text-foreground">₦{totalOwed.toLocaleString()}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950/20">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                <CheckCircle className="w-5 h-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Total Paid</p>
-                <p className="text-xl font-bold text-emerald-700 dark:text-emerald-400">₦{totalPaid.toLocaleString()}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className={`border-l-4 ${remainingBalance > 0 ? 'border-l-red-500 bg-red-50 dark:bg-red-950/20' : 'border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950/20'}`}>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${remainingBalance > 0 ? 'bg-red-100 dark:bg-red-900/30' : 'bg-emerald-100 dark:bg-emerald-900/30'}`}>
-                <TrendingDown className={`w-5 h-5 ${remainingBalance > 0 ? 'text-red-600' : 'text-emerald-600'}`} />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Balance</p>
-                <p className={`text-xl font-bold ${remainingBalance > 0 ? 'text-red-700 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
-                  ₦{remainingBalance.toLocaleString()}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Total Owed"
+            value={`₦${totalOwed.toLocaleString()}`}
+            color="text-primary"
+            accent="border-t-primary"
+            icon={<div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><CreditCard className="w-5 h-5 text-primary" /></div>}
+          />
+          <StatCard
+            label="Total Paid"
+            value={`₦${totalPaid.toLocaleString()}`}
+            color="text-success"
+            accent="border-t-success"
+            icon={<div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center"><CheckCircle className="w-5 h-5 text-emerald-600" /></div>}
+          />
+          <StatCard
+            label="Balance"
+            value={`₦${remainingBalance.toLocaleString()}`}
+            color={remainingBalance > 0 ? 'text-destructive' : 'text-success'}
+            accent={remainingBalance > 0 ? 'border-t-destructive' : 'border-t-success'}
+            icon={<div className={`w-10 h-10 rounded-lg flex items-center justify-center ${remainingBalance > 0 ? 'bg-red-100 dark:bg-red-900/30' : 'bg-emerald-100 dark:bg-emerald-900/30'}`}><TrendingDown className={`w-5 h-5 ${remainingBalance > 0 ? 'text-red-600' : 'text-emerald-600'}`} /></div>}
+          />
         </div>
 
         {/* Assigned Fees */}

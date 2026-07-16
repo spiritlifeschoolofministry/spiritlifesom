@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import PageHeader from "@/components/PageHeader";
+import StatCard from "@/components/StatCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -551,39 +553,36 @@ const AdminStudents = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Students</h1>
-          <p className="text-muted-foreground text-sm">Manage enrollment, status, and communications</p>
-        </div>
-        <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2 self-start">
-          <Download className="h-4 w-4" /> Export CSV
-        </Button>
-      </div>
+      <PageHeader
+        title="Students"
+        subtitle="Manage enrollment, status, and communications"
+        actions={
+          <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2">
+            <Download className="h-4 w-4" /> Export CSV
+          </Button>
+        }
+      />
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {statCards.map((stat) => (
-          <Card
+          <StatCard
             key={stat.label}
-            className="shadow-[var(--shadow-card)] border-border cursor-pointer hover:shadow-md transition-shadow"
+            label={stat.label}
+            value={stat.value}
+            color={stat.color}
+            icon={
+              <div className={`p-2.5 rounded-xl ${stat.bg}`}>
+                <stat.icon className={`w-5 h-5 ${stat.color}`} />
+              </div>
+            }
             onClick={() => {
               if (stat.label === "Total Students") setStatusFilter("all");
               else if (stat.label === "Pending") setStatusFilter("Pending");
               else if (stat.label === "Approved") setStatusFilter("Approved");
               else if (stat.label === "Graduates") setStatusFilter("Graduate");
             }}
-          >
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl ${stat.bg} shrink-0`}>
-                <stat.icon className={`w-5 h-5 ${stat.color}`} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground truncate">{stat.label}</p>
-                <p className={`text-xl sm:text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-              </div>
-            </CardContent>
-          </Card>
+          />
         ))}
       </div>
 

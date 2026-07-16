@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
+import PageHeader from '@/components/PageHeader';
 
 const AdminAnnouncements = () => {
   const { profile } = useAuth();
@@ -92,10 +93,10 @@ const AdminAnnouncements = () => {
 
   return (
     <div className="space-y-6 pb-6">
-      <div>
-        <h1 className="font-serif text-2xl font-bold">Announcements</h1>
-        <p className="text-sm text-muted-foreground mt-1">Post notices to cohorts or all students</p>
-      </div>
+      <PageHeader
+        title="Announcements"
+        subtitle="Post notices to cohorts or all students"
+      />
 
       <Card>
         <CardHeader><CardTitle>Create Announcement</CardTitle></CardHeader>

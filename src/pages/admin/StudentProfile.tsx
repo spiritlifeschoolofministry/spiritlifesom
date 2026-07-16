@@ -24,6 +24,8 @@ import {
   GraduationCap, CreditCard, ClipboardCheck, User2, Pencil, Save, Loader2, X
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import PageHeader from "@/components/PageHeader";
+import StatCard from "@/components/StatCard";
 
 interface StudentDetail {
   id: string;
@@ -502,10 +504,7 @@ const AdminStudentProfile = () => {
 
   return (
     <div className="space-y-6">
-      {/* Back button */}
-      <Button variant="ghost" size="sm" onClick={() => navigate("/admin/students")} className="gap-2">
-        <ArrowLeft className="w-4 h-4" /> Back to Students
-      </Button>
+      <PageHeader title="Student Profile" backTo="/admin/students" />
 
       {/* Profile header */}
       <Card className="shadow-[var(--shadow-card)] border-border overflow-hidden">
@@ -551,20 +550,18 @@ const AdminStudentProfile = () => {
       {/* Quick stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Attendance", value: `${attendanceRate}%`, icon: ClipboardCheck, color: "text-emerald-600" },
+          { label: "Attendance", value: `${attendanceRate}%`, icon: ClipboardCheck, color: "text-success" },
           { label: "Tasks", value: String(assignments.length), icon: BookOpen, color: "text-primary" },
-          { label: "Avg Grade", value: avgGrade !== null ? `${avgGrade}%` : "—", icon: GraduationCap, color: "text-amber-600" },
+          { label: "Avg Grade", value: avgGrade !== null ? `${avgGrade}%` : "—", icon: GraduationCap, color: "text-gold" },
           { label: "Fee Progress", value: `${feeProgress}%`, icon: CreditCard, color: "text-primary" },
         ].map(stat => (
-          <Card key={stat.label} className="shadow-[var(--shadow-card)] border-border">
-            <CardContent className="p-4 flex items-center gap-3">
-              <stat.icon className={`w-5 h-5 ${stat.color} shrink-0`} />
-              <div>
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
-                <p className={`text-lg font-bold ${stat.color}`}>{stat.value}</p>
-              </div>
-            </CardContent>
-          </Card>
+          <StatCard
+            key={stat.label}
+            label={stat.label}
+            value={stat.value}
+            color={stat.color}
+            icon={<stat.icon className={`w-5 h-5 ${stat.color} shrink-0`} />}
+          />
         ))}
       </div>
 

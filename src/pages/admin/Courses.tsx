@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, BookOpen, Search, Share2, Link as LinkIcon } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
 
 interface Course {
   id: string;
@@ -206,14 +207,11 @@ const AdminCourses = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-primary" /> Courses Management
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">{courses.length} course{courses.length !== 1 ? "s" : ""} total</p>
-        </div>
-        <div className="flex items-center flex-wrap gap-3">
+      <PageHeader
+        title={<span className="flex items-center gap-2"><BookOpen className="w-6 h-6 text-primary" /> Courses Management</span>}
+        subtitle={`${courses.length} course${courses.length !== 1 ? "s" : ""} total`}
+        actions={
+          <>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input placeholder="Search courses…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48 sm:w-56" />
@@ -295,8 +293,9 @@ const AdminCourses = () => {
               </div>
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Share Course Modal (top-level) */}
       <Dialog open={shareModalOpen} onOpenChange={setShareModalOpen}>

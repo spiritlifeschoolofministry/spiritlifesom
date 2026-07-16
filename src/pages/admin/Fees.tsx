@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { resolveReceiptUrl } from '@/lib/receipt-url';
 import { downloadCSV } from '@/lib/csv-export';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import PageHeader from '@/components/PageHeader';
 import type { Tables } from '@/integrations/supabase/types';
 
 interface AddFeeFormData {
@@ -340,24 +341,24 @@ const AdminFees = () => {
 
   return (
     <div className="space-y-6 pb-6">
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="font-serif text-2xl font-bold">Fee Management</h1>
-          <p className="text-sm text-muted-foreground">Create fees and approve student payments</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleExportFees} className="gap-2">
-            <Download className="h-4 w-4" /> Export Fees
-          </Button>
-          <Button variant={tab === 'manager' ? 'default' : 'ghost'} onClick={() => setTab('manager')}>Fee Manager</Button>
-          <Button variant={tab === 'approvals' ? 'default' : 'ghost'} onClick={() => setTab('approvals')}>
-            Payment Approvals
-            {pendingPayments.length > 0 && (
-              <Badge variant="destructive" className="ml-2">{pendingPayments.length}</Badge>
-            )}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Fee Management"
+        subtitle="Create fees and approve student payments"
+        actions={
+          <>
+            <Button variant="outline" size="sm" onClick={handleExportFees} className="gap-2">
+              <Download className="h-4 w-4" /> Export Fees
+            </Button>
+            <Button variant={tab === 'manager' ? 'default' : 'ghost'} onClick={() => setTab('manager')}>Fee Manager</Button>
+            <Button variant={tab === 'approvals' ? 'default' : 'ghost'} onClick={() => setTab('approvals')}>
+              Payment Approvals
+              {pendingPayments.length > 0 && (
+                <Badge variant="destructive" className="ml-2">{pendingPayments.length}</Badge>
+              )}
+            </Button>
+          </>
+        }
+      />
 
       {tab === 'manager' && (
         <Card>
