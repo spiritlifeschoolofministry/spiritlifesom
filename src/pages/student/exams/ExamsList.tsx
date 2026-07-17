@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import StudentLayout from "@/components/StudentLayout";
+import PageHeader from "@/components/PageHeader";
 import { format, isAfter, isBefore } from "date-fns";
 import { ChevronDown, CheckCircle2, XCircle, Trophy, Download } from "lucide-react";
 import { sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType } from "@/lib/exam-utils";
@@ -107,10 +108,7 @@ export default function StudentExamsList() {
   return (
     <StudentLayout>
       <div className="space-y-4">
-        <div>
-          <h1 className="font-serif text-2xl font-bold">My Exams</h1>
-          <p className="text-sm text-muted-foreground">Online assessments and released results</p>
-        </div>
+        <PageHeader title="My Exams" subtitle="Online assessments and released results" />
 
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
@@ -144,12 +142,12 @@ export default function StudentExamsList() {
                         {format(start, "PPp")} → {format(end, "PPp")}
                       </p>
                       <div className="flex flex-wrap gap-1.5 mt-2">
-                        {upcoming && <Badge variant="outline" className="bg-blue-500/10 text-blue-600">Upcoming</Badge>}
-                        {live && <Badge variant="outline" className="bg-amber-500/10 text-amber-600 animate-pulse">Live</Badge>}
-                        {closed && !released && <Badge variant="outline" className="bg-muted text-muted-foreground">Closed</Badge>}
-                        {attempt?.status === "submitted" && !released && <Badge variant="outline" className="bg-blue-500/10 text-blue-600">Submitted · awaiting results</Badge>}
+                        {upcoming && <Badge variant="info">Upcoming</Badge>}
+                        {live && <Badge variant="gold" className="animate-pulse">● Live now</Badge>}
+                        {closed && !released && <Badge variant="secondary">Closed</Badge>}
+                        {attempt?.status === "submitted" && !released && <Badge variant="info">Submitted · awaiting results</Badge>}
                         {released && (
-                          <Badge variant="outline" className={passed ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-destructive/10 text-destructive border-destructive/20"}>
+                          <Badge variant={passed ? "success" : "destructive"}>
                             <Trophy className="w-3 h-3 mr-1" />
                             {finalScore}/{total} ({pct}%) · {passed ? "Passed" : "Failed"}
                           </Badge>
@@ -158,10 +156,10 @@ export default function StudentExamsList() {
                     </div>
                     <div className="shrink-0">
                       {!attempt && (live || (upcoming && (start.getTime() - now.getTime()) < 60 * 60_000)) && (
-                        <Button asChild><Link to={`/student/exams/${e.id}/lobby`}>Enter</Link></Button>
+                        <Button asChild variant="flame"><Link to={`/student/exams/${e.id}/lobby`}>Enter →</Link></Button>
                       )}
                       {attempt?.status === "in_progress" && live && (
-                        <Button asChild><Link to={`/student/exams/${e.id}/take`}>Resume</Link></Button>
+                        <Button asChild variant="flame"><Link to={`/student/exams/${e.id}/take`}>Resume →</Link></Button>
                       )}
                     </div>
                   </div>

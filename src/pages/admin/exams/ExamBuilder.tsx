@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import PageHeader from "@/components/PageHeader";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -152,25 +153,27 @@ export default function ExamBuilder() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/admin/exams")}><ArrowLeft className="w-4 h-4" /></Button>
-          <div>
-            <h1 className="font-serif text-xl font-bold">{isNew ? "New Exam" : exam.title || "Edit Exam"}</h1>
+      <PageHeader
+        backTo="/admin/exams"
+        title={
+          <span className="flex items-center gap-3">
+            {isNew ? "New Exam" : exam.title || "Edit Exam"}
             {exam.locked_at && (
-              <Badge variant="destructive" className="mt-1"><Lock className="w-3 h-3 mr-1" /> Locked — attempts started</Badge>
+              <Badge variant="destructive"><Lock className="w-3 h-3 mr-1" /> Locked — attempts started</Badge>
             )}
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => save()} disabled={saving}><Save className="w-4 h-4 mr-1.5" /> Save</Button>
-          {exam.status !== "published" && (
-            <Button onClick={() => save("published")} disabled={saving || picked.length === 0}>
-              <Send className="w-4 h-4 mr-1.5" /> Publish
-            </Button>
-          )}
-        </div>
-      </div>
+          </span>
+        }
+        actions={
+          <>
+            <Button variant="outline" onClick={() => save()} disabled={saving}><Save className="w-4 h-4 mr-1.5" /> Save</Button>
+            {exam.status !== "published" && (
+              <Button variant="flame" onClick={() => save("published")} disabled={saving || picked.length === 0}>
+                <Send className="w-4 h-4 mr-1.5" /> Publish
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>

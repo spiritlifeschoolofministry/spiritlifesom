@@ -2,6 +2,8 @@ import { useEffect, useState, Fragment } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
+import PageHeader from "@/components/PageHeader";
+import StatCard from "@/components/StatCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -195,27 +197,25 @@ export default function ExamMonitor() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" asChild><Link to="/admin/exams"><ArrowLeft className="w-4 h-4" /></Link></Button>
-          <div>
-            <h1 className="font-serif text-xl font-bold">{exam.title}</h1>
-            <p className="text-xs text-muted-foreground">{exam.courses?.code} · {exam.cohorts?.name}</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={exportCSV}><Download className="w-4 h-4 mr-1.5" /> CSV</Button>
-          {!exam.results_released && (
-            <Button onClick={releaseResults}><Send className="w-4 h-4 mr-1.5" /> Release Results</Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        backTo="/admin/exams"
+        title={exam.title}
+        subtitle={`${exam.courses?.code ?? ""} · ${exam.cohorts?.name ?? ""}`}
+        actions={
+          <>
+            <Button variant="outline" onClick={exportCSV}><Download className="w-4 h-4 mr-1.5" /> CSV</Button>
+            {!exam.results_released && (
+              <Button variant="flame" onClick={releaseResults}><Send className="w-4 h-4 mr-1.5" /> Release Results</Button>
+            )}
+          </>
+        }
+      />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="p-3"><p className="text-xs text-muted-foreground">In progress</p><p className="text-2xl font-bold text-amber-600">{inProgress}</p></Card>
-        <Card className="p-3"><p className="text-xs text-muted-foreground">Submitted</p><p className="text-2xl font-bold text-blue-600">{submitted}</p></Card>
-        <Card className="p-3"><p className="text-xs text-muted-foreground">Graded</p><p className="text-2xl font-bold text-emerald-600">{graded}</p></Card>
-        <Card className="p-3"><p className="text-xs text-muted-foreground">Total attempts</p><p className="text-2xl font-bold">{attempts.length}</p></Card>
+        <StatCard label="In progress" value={inProgress} color="text-warning" />
+        <StatCard label="Submitted" value={submitted} color="text-info" />
+        <StatCard label="Graded" value={graded} color="text-success" />
+        <StatCard label="Total attempts" value={attempts.length} color="text-primary" />
       </div>
 
       <Card className="p-4 overflow-x-auto">

@@ -250,13 +250,13 @@ export default function ExamRunner() {
           </Button>
           <p className="text-xs text-muted-foreground">Answered {answeredCount}/{questions.length}</p>
           {idx === questions.length - 1 ? (
-            <Button onClick={() => {
+            <Button variant="flame" onClick={() => {
               if (confirm(`Submit your exam? You answered ${answeredCount} of ${questions.length}.`)) submitExam("manual");
-            }} disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700">
+            }} disabled={submitting}>
               <Send className="w-4 h-4 mr-1" /> Submit Exam
             </Button>
           ) : (
-            <Button onClick={() => { setIdx(idx + 1); questionStartRef.current = Date.now(); }}>
+            <Button variant="flame" onClick={() => { setIdx(idx + 1); questionStartRef.current = Date.now(); }}>
               Next <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           )}
@@ -271,8 +271,8 @@ export default function ExamRunner() {
               return (
                 <button key={q.id} onClick={() => setIdx(i)}
                   className={`h-8 rounded text-xs font-medium border transition-colors ${
-                    i === idx ? "bg-primary text-primary-foreground border-primary" :
-                    answered ? "bg-emerald-500/20 border-emerald-500/40 text-foreground" :
+                    i === idx ? "gradient-flame text-[#3a1d1d] border-transparent" :
+                    answered ? "bg-success/20 border-success/40 text-foreground" :
                     "bg-muted border-border text-muted-foreground"
                   }`}>
                   {i + 1}

@@ -63,29 +63,29 @@ export default function ExamLobby() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
             <div className="p-3 rounded-md bg-muted/50">
               <p className="text-xs text-muted-foreground">Duration</p>
-              <p className="font-bold">{exam.duration_minutes} min</p>
+              <p className="font-serif text-2xl font-bold">{exam.duration_minutes} min</p>
             </div>
             <div className="p-3 rounded-md bg-muted/50">
               <p className="text-xs text-muted-foreground">Total points</p>
-              <p className="font-bold">{exam.total_points}</p>
+              <p className="font-serif text-2xl font-bold">{exam.total_points}</p>
             </div>
             <div className="p-3 rounded-md bg-muted/50">
               <p className="text-xs text-muted-foreground">Pass mark</p>
-              <p className="font-bold">{exam.passing_score}%</p>
+              <p className="font-serif text-2xl font-bold">{exam.passing_score}%</p>
             </div>
             <div className="p-3 rounded-md bg-muted/50">
               <p className="text-xs text-muted-foreground">Tab switches allowed</p>
-              <p className="font-bold">{exam.max_tab_switches}</p>
+              <p className="font-serif text-2xl font-bold">{exam.max_tab_switches}</p>
             </div>
           </div>
 
-          <div className="mt-5 p-4 rounded-md bg-amber-500/5 border border-amber-500/20">
-            <p className="text-sm font-medium mb-1 flex items-center gap-2"><Clock className="w-4 h-4" /> Window</p>
+          <div className="mt-5 p-4 rounded-md bg-[hsl(var(--gold)/0.08)] border border-[hsl(var(--gold)/0.25)]">
+            <p className="text-sm font-medium mb-1 flex items-center gap-2"><Clock className="w-4 h-4 text-gold" /> Exam Window</p>
             <p className="text-xs text-muted-foreground">
               Opens {format(new Date(exam.start_at), "PPpp")} · Closes {format(new Date(exam.end_at), "PPpp")}
             </p>
             {beforeStart && (
-              <p className="mt-2 text-2xl font-mono font-bold text-primary">{formatDuration(secondsToStart)}</p>
+              <p className="mt-2 text-2xl font-mono font-bold text-gold">{formatDuration(secondsToStart)}</p>
             )}
           </div>
         </Card>
@@ -129,9 +129,9 @@ export default function ExamLobby() {
 
           <div className="mt-5 flex justify-between items-center gap-3">
             <Button variant="outline" asChild><Link to="/student/exams">Cancel</Link></Button>
-            <Button size="lg" disabled={!canStart} onClick={startExam}>
+            <Button size="lg" variant="flame" disabled={!canStart} onClick={startExam}>
               <Monitor className="w-4 h-4 mr-2" />
-              {beforeStart ? `Starts in ${formatDuration(secondsToStart)}` : afterEnd ? "Window closed" : "Start Exam"}
+              {beforeStart ? `Starts in ${formatDuration(secondsToStart)}` : afterEnd ? "Window closed" : "Start Exam (Fullscreen)"}
             </Button>
           </div>
         </Card>
