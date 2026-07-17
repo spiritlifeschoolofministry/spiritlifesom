@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { r2Storage } from '@/lib/r2-storage';
 import { resolveReceiptUrl } from '@/lib/receipt-url';
@@ -225,113 +224,129 @@ const AdminPayments = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Payment Verification Queue</CardTitle>
-          <CardDescription>{pendingPayments.length} pending payment{pendingPayments.length !== 1 ? 's' : ''}</CardDescription>
+          <CardTitle>Payment Approvals</CardTitle>
+          <CardDescription>Review submitted payments and verify receipts · {pendingPayments.length} pending</CardDescription>
         </CardHeader>
         <CardContent>
           {pendingPayments.length === 0 ? (
             <p className="text-center py-8 text-muted-foreground">No pending payments to verify</p>
           ) : (
-            <div className="overflow-x-auto rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Student</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pendingPayments.map((payment) => (
-                    <TableRow key={payment.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{payment.student_name}</p>
-                          <p className="text-xs text-muted-foreground">{payment.student_email}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">₦{Number(payment.amount_paid).toLocaleString()}</TableCell>
-                      <TableCell>{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : ''}</TableCell>
-                      <TableCell>
-                        <Dialog open={isReviewModalOpen && selectedPayment?.id === payment.id} onOpenChange={setIsReviewModalOpen}>
-                          <DialogTrigger asChild>
-                            <Button variant="outline" size="sm" onClick={() => setSelectedPayment(payment)} className="flex items-center gap-2">
-                              <Eye className="h-4 w-4" /> Review
-                            </Button>
-                          </DialogTrigger>
-                          {selectedPayment && (
-                            <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto">
-                              <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
-                                <DialogTitle>Review Payment</DialogTitle>
-                                <DialogDescription>Student: {selectedPayment.student_name} ({selectedPayment.student_email})</DialogDescription>
-                              </DialogHeader>
-                              <div className="space-y-4 pt-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <Label className="text-xs text-muted-foreground">Amount</Label>
-                                    <p className="font-medium">₦{Number(selectedPayment.amount_paid).toLocaleString()}</p>
-                                  </div>
-                                  <div>
-                                    <Label className="text-xs text-muted-foreground">Submitted</Label>
-                                    <p className="font-medium">{selectedPayment.created_at ? new Date(selectedPayment.created_at).toLocaleDateString() : ''}</p>
-                                  </div>
-                                  <div>
-                                    <Label className="text-xs text-muted-foreground">Status</Label>
-                                    <Badge>{selectedPayment.status}</Badge>
-                                  </div>
-                                </div>
-
-                                {selectedPayment.admin_notes && (
-                                  <div>
-                                    <Label className="text-xs text-muted-foreground">Notes</Label>
-                                    <p className="text-sm">{selectedPayment.admin_notes}</p>
-                                  </div>
-                                )}
-
-                                {(receiptUrl || selectedPayment?.payment_proof_url) && (
-                                  <div>
-                                    <Label className="text-xs text-muted-foreground">Receipt Image</Label>
-                                    {receiptLoading ? (
-                                      <p className="text-sm text-muted-foreground mt-2">Loading receipt...</p>
-                                    ) : receiptUrl ? (
-                                      <img src={receiptUrl} alt="Receipt" className="max-h-[400px] rounded-lg border mt-2" />
-                                    ) : selectedPayment?.payment_proof_url ? (
-                                      <img src={selectedPayment.payment_proof_url} alt="Receipt" className="max-h-[400px] rounded-lg border mt-2" />
-                                    ) : (
-                                      <p className="text-sm text-destructive mt-2">Unable to load receipt image</p>
-                                    )}
-                                  </div>
-                                )}
-
-                                <div>
-                                  <Label>Rejection Reason (if rejecting)</Label>
-                                  <Textarea placeholder="Provide reason for rejection..." value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} className="min-h-[80px]" />
-                                </div>
-
-                                <div className="sticky bottom-0 bg-background pt-4 border-t">
-                                  <div className="flex gap-4">
-                                    <Button onClick={() => setPendingConfirm("approve")} disabled={isProcessing} className="flex-1">
-                                      <CheckCircle className="mr-2 h-4 w-4" /> Approve
-                                    </Button>
-                                    <Button variant="destructive" onClick={() => setPendingConfirm("reject")} disabled={isProcessing} className="flex-1">
-                                      <XCircle className="mr-2 h-4 w-4" /> Reject
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            </DialogContent>
-                          )}
-                        </Dialog>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <div className="flex flex-col gap-3">
+              {pendingPayments.map((payment) => {
+                const initials = (payment.student_name || "?").split(" ").filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+                return (
+                  <div key={payment.id} className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 sm:flex-row sm:items-center">
+                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary font-serif text-base font-semibold text-[#F9CB28]">
+                      {initials}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-foreground">{payment.student_name}</div>
+                      <div className="mt-0.5 truncate text-xs text-muted-foreground">{payment.student_email}</div>
+                    </div>
+                    <div className="text-center sm:px-2">
+                      <div className="font-serif text-2xl font-bold text-foreground">₦{Number(payment.amount_paid).toLocaleString()}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        Submitted {payment.created_at ? new Date(payment.created_at).toLocaleDateString() : ""}
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => { setSelectedPayment(payment); setIsReviewModalOpen(true); }}
+                    >
+                      <Eye className="h-4 w-4" /> View Receipt
+                    </Button>
+                    <div className="flex gap-2 sm:w-[150px] sm:flex-col">
+                      <Button
+                        size="sm"
+                        className="flex-1 bg-success text-white hover:bg-success/90"
+                        onClick={() => { setSelectedPayment(payment); setPendingConfirm("approve"); }}
+                      >
+                        <CheckCircle className="mr-1.5 h-4 w-4" /> Approve
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+                        onClick={() => { setSelectedPayment(payment); setIsReviewModalOpen(true); }}
+                      >
+                        <XCircle className="mr-1.5 h-4 w-4" /> Reject
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Review payment dialog (receipt + rejection reason) */}
+      <Dialog open={isReviewModalOpen} onOpenChange={(open) => { setIsReviewModalOpen(open); if (!open) { setSelectedPayment(null); setRejectionReason(''); } }}>
+        {selectedPayment && (
+          <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto">
+            <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
+              <DialogTitle>Review Payment</DialogTitle>
+              <DialogDescription>Student: {selectedPayment.student_name} ({selectedPayment.student_email})</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Amount</Label>
+                  <p className="font-medium">₦{Number(selectedPayment.amount_paid).toLocaleString()}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Submitted</Label>
+                  <p className="font-medium">{selectedPayment.created_at ? new Date(selectedPayment.created_at).toLocaleDateString() : ''}</p>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Status</Label>
+                  <Badge variant="warning">{selectedPayment.status}</Badge>
+                </div>
+              </div>
+
+              {selectedPayment.admin_notes && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Notes</Label>
+                  <p className="text-sm">{selectedPayment.admin_notes}</p>
+                </div>
+              )}
+
+              {(receiptUrl || selectedPayment?.payment_proof_url) && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">Receipt Image</Label>
+                  {receiptLoading ? (
+                    <p className="text-sm text-muted-foreground mt-2">Loading receipt...</p>
+                  ) : receiptUrl ? (
+                    <img src={receiptUrl} alt="Receipt" className="max-h-[400px] rounded-lg border mt-2" />
+                  ) : selectedPayment?.payment_proof_url ? (
+                    <img src={selectedPayment.payment_proof_url} alt="Receipt" className="max-h-[400px] rounded-lg border mt-2" />
+                  ) : (
+                    <p className="text-sm text-destructive mt-2">Unable to load receipt image</p>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <Label>Rejection Reason (if rejecting)</Label>
+                <Textarea placeholder="Provide reason for rejection..." value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} className="min-h-[80px]" />
+              </div>
+
+              <div className="sticky bottom-0 bg-background pt-4 border-t">
+                <div className="flex gap-4">
+                  <Button onClick={() => setPendingConfirm("approve")} disabled={isProcessing} className="flex-1 bg-success text-white hover:bg-success/90">
+                    <CheckCircle className="mr-2 h-4 w-4" /> Approve
+                  </Button>
+                  <Button variant="destructive" onClick={() => setPendingConfirm("reject")} disabled={isProcessing} className="flex-1">
+                    <XCircle className="mr-2 h-4 w-4" /> Reject
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
 
       {/* Confirmation dialog for verify / reject */}
       <ConfirmDialog
