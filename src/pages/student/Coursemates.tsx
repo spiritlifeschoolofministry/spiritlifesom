@@ -264,7 +264,7 @@ const Coursemates = () => {
                     <div className="flex items-start gap-4">
                       <Avatar className="h-14 w-14 border-2 border-background shadow-md shrink-0">
                         <AvatarImage src={classmate.avatar_url || ''} />
-                        <AvatarFallback className="text-sm font-bold bg-primary text-primary-foreground">
+                        <AvatarFallback className="text-sm font-bold bg-primary text-[#F9CB28] font-serif">
                           {getInitials(classmate.display_name)}
                         </AvatarFallback>
                       </Avatar>
@@ -302,7 +302,7 @@ const Coursemates = () => {
                 <div className="flex flex-col items-center text-center pt-2">
                   <Avatar className="h-20 w-20 border-4 border-background shadow-lg mb-3">
                     <AvatarImage src={selectedClassmate.avatar_url || ''} />
-                    <AvatarFallback className="text-xl font-bold bg-primary text-primary-foreground">
+                    <AvatarFallback className="text-xl font-bold bg-primary text-[#F9CB28] font-serif">
                       {getInitials(selectedClassmate.display_name)}
                     </AvatarFallback>
                   </Avatar>

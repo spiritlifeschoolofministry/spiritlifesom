@@ -117,7 +117,7 @@ const Graduates = () => {
                 <CardContent className="flex items-center gap-4 py-4">
                   <Avatar className="h-12 w-12">
                     {g.avatar_url && <AvatarImage src={g.avatar_url} />}
-                    <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                    <AvatarFallback className="bg-primary text-[#F9CB28] font-serif font-semibold text-sm">
                       {g.first_name[0]}{g.last_name[0]}
                     </AvatarFallback>
                   </Avatar>
@@ -125,7 +125,7 @@ const Graduates = () => {
                     <p className="font-medium text-sm truncate">{g.first_name} {g.last_name}</p>
                     <Badge variant="secondary" className="text-xs mt-1">{g.cohort_name}</Badge>
                   </div>
-                  <GraduationCap className="h-5 w-5 text-muted-foreground shrink-0" />
+                  <GraduationCap className="h-5 w-5 text-gold shrink-0" />
                 </CardContent>
               </Card>
             ))}

@@ -180,7 +180,7 @@ const StudentMaterials = () => {
                 key={m.id}
                 className={
                   m.is_pinned
-                    ? "shadow-[var(--shadow-card)] border-amber-200 bg-amber-50/60"
+                    ? "shadow-[var(--shadow-card)] border-[hsl(var(--gold)/0.35)] bg-[hsl(var(--gold)/0.08)]"
                     : "shadow-[var(--shadow-card)] border-border"
                 }
               >
@@ -201,7 +201,7 @@ const StudentMaterials = () => {
                     </div>
                   </div>
                   {m.is_pinned && (
-                    <Badge className="flex items-center gap-1 text-[10px] bg-amber-100 text-amber-800">
+                    <Badge variant="gold" className="flex items-center gap-1 text-[10px]">
                       <Star className="w-3 h-3" /> Featured
                     </Badge>
                   )}
