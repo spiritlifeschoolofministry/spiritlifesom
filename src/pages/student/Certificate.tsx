@@ -285,83 +285,67 @@ const StudentCertificate = () => {
           </div>
         </div>
 
-        {/* Certificate built with code to match official design */}
+        {/* Certificate built with code to match official Sanctuary design */}
         <div className="print:m-0 certificate-container">
           <div
-            className="relative overflow-hidden max-w-4xl mx-auto shadow-2xl print:shadow-none print:max-w-none certificate-content"
-            style={{ aspectRatio: "1.414 / 1", borderRadius: "12px" }}
+            className="relative overflow-hidden max-w-4xl mx-auto shadow-2xl print:shadow-none print:max-w-none certificate-content aspect-[1.414/1]"
+            style={{ borderRadius: "12px" }}
           >
-            {/* Background */}
-            <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, #faf6ed 0%, #f5f0e0 30%, #eee8d5 60%, #f8f4e8 100%)" }} />
+            {/* Parchment background */}
+            <div
+              className="absolute inset-0"
+              style={{ background: "linear-gradient(135deg, #faf6ed, #f5f0e0 40%, #f8f4e8)" }}
+            />
 
-            {/* Gold wave decorations - top */}
-            <svg className="absolute top-0 left-0 w-full" viewBox="0 0 1000 120" preserveAspectRatio="none" style={{ height: "15%" }}>
-              <path d="M0,40 Q150,10 300,50 T600,30 T900,60 L1000,40 L1000,0 L0,0 Z" fill="rgba(201,168,76,0.12)" />
-              <path d="M0,60 Q200,30 400,70 T800,40 L1000,60 L1000,0 L0,0 Z" fill="rgba(201,168,76,0.08)" />
-            </svg>
+            {/* Thin gold top bar */}
+            <div
+              className="absolute top-0 left-0 right-0"
+              style={{ height: "6px", background: "linear-gradient(90deg, #a08030, #f0d78c 50%, #c9a84c)" }}
+            />
 
-            {/* Gold wave decorations - bottom */}
-            <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1000 120" preserveAspectRatio="none" style={{ height: "12%", transform: "scaleY(-1)" }}>
-              <path d="M0,40 Q150,10 300,50 T600,30 T900,60 L1000,40 L1000,0 L0,0 Z" fill="rgba(201,168,76,0.10)" />
-            </svg>
+            {/* Purple corner triangle - bottom left */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: "linear-gradient(160deg, #2d1b69, #6b3fa0 60%, #e84393)",
+                clipPath: "polygon(0 100%, 0 20%, 60% 100%)",
+                opacity: 0.9,
+              }}
+            />
 
-            {/* Purple/pink corner accent - bottom left */}
-            <div className="absolute bottom-0 left-0" style={{ width: "12%", height: "35%" }}>
-              <svg viewBox="0 0 120 350" className="w-full h-full">
-                <defs>
-                  <linearGradient id="purpleGrad" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#2d1b69" />
-                    <stop offset="50%" stopColor="#6b3fa0" />
-                    <stop offset="100%" stopColor="#e84393" />
-                  </linearGradient>
-                </defs>
-                <path d="M0,350 L0,80 Q10,120 40,160 Q80,220 60,280 Q40,320 0,350 Z" fill="url(#purpleGrad)" opacity="0.9" />
-                <path d="M0,350 L0,150 Q30,180 50,220 Q70,270 40,310 Q20,340 0,350 Z" fill="#e84393" opacity="0.5" />
-              </svg>
-            </div>
-
-            {/* Gold medal/seal - top right */}
-            <div className="absolute" style={{ top: "4%", right: "5%", width: "16%", aspectRatio: "1" }}>
-              <svg viewBox="0 0 200 200" className="w-full h-full">
-                {/* Red rosette */}
-                {Array.from({ length: 16 }).map((_, i) => (
-                  <circle key={i} cx={100 + 20 * Math.cos((i * Math.PI * 2) / 16)} cy={100 + 20 * Math.sin((i * Math.PI * 2) / 16)} r="30" fill="#c0392b" opacity="0.9" />
-                ))}
-                {/* Gold outer ring */}
-                <circle cx="100" cy="100" r="70" fill="url(#goldGrad)" />
-                {/* Gold inner ring */}
-                <circle cx="100" cy="100" r="55" fill="url(#goldGrad2)" />
-                {/* Red ribbon tails */}
-                <path d="M85,165 L75,230 L100,210 L95,170 Z" fill="#c0392b" />
-                <path d="M115,165 L125,230 L100,210 L105,170 Z" fill="#c0392b" />
-                <defs>
-                  <radialGradient id="goldGrad" cx="40%" cy="35%">
-                    <stop offset="0%" stopColor="#f0d78c" />
-                    <stop offset="50%" stopColor="#c9a84c" />
-                    <stop offset="100%" stopColor="#a08030" />
-                  </radialGradient>
-                  <radialGradient id="goldGrad2" cx="45%" cy="40%">
-                    <stop offset="0%" stopColor="#f5e6b0" />
-                    <stop offset="40%" stopColor="#d4b85c" />
-                    <stop offset="100%" stopColor="#b8942e" />
-                  </radialGradient>
-                </defs>
-              </svg>
+            {/* Gold seal circle - top right */}
+            <div
+              className="absolute rounded-full flex items-center justify-center"
+              style={{
+                top: "7%",
+                right: "7%",
+                width: "13%",
+                aspectRatio: "1",
+                background: "radial-gradient(circle at 40% 35%, #f0d78c, #c9a84c 60%, #a08030)",
+                boxShadow: "0 4px 14px rgba(160,128,48,0.35)",
+              }}
+            >
+              <div
+                className="rounded-full flex items-center justify-center"
+                style={{ width: "72%", height: "72%", border: "2px solid rgba(255,255,255,0.5)" }}
+              >
+                <Award className="text-white/90" style={{ width: "45%", height: "45%" }} />
+              </div>
             </div>
 
             {/* Content */}
-            <div className="absolute inset-0 flex flex-col items-center" style={{ padding: "5% 8%" }}>
+            <div className="absolute inset-0 flex flex-col items-center text-center" style={{ padding: "6% 9% 5%" }}>
               {/* Header: Logo + School Name */}
-              <div className="flex items-center gap-3 sm:gap-4 mb-2" style={{ marginTop: "2%" }}>
+              <div className="flex items-center gap-3 sm:gap-4" style={{ marginTop: "1%" }}>
                 <img
                   src="/certificate-logo.png"
                   alt="Spirit Life School of Ministry"
-                  className="w-16 h-16 sm:w-20 sm:h-20 lg:w-28 lg:h-28 object-contain"
+                  className="w-14 h-14 sm:w-20 sm:h-20 lg:w-24 lg:h-24 object-contain"
                   style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.12))" }}
                 />
                 <h2
-                  className="text-xl sm:text-3xl lg:text-4xl font-black uppercase tracking-wide"
-                  style={{ color: "#5B2D8E", fontFamily: "'Georgia', serif", letterSpacing: "2px" }}
+                  className="font-serif text-xl sm:text-3xl lg:text-4xl font-bold uppercase leading-tight text-left"
+                  style={{ color: "#2d1b69", letterSpacing: "1.5px" }}
                 >
                   The Spirit Life<br />School of Ministry
                 </h2>
@@ -369,82 +353,76 @@ const StudentCertificate = () => {
 
               {/* Certificate of Completion */}
               <h3
-                className="text-lg sm:text-2xl lg:text-3xl italic mt-2 sm:mt-4"
-                style={{ color: "#c0392b", fontFamily: "'Georgia', serif" }}
+                className="font-serif text-lg sm:text-2xl lg:text-3xl italic mt-3 sm:mt-4"
+                style={{ color: "#c0392b" }}
               >
                 Certificate of Completion
               </h3>
 
               {/* Certify text */}
-              <p className="text-xs sm:text-sm mt-2 sm:mt-3" style={{ color: "#444", fontFamily: "serif" }}>
+              <p className="font-serif text-sm sm:text-base mt-2 sm:mt-3" style={{ color: "#4a4a4a" }}>
                 This is to proudly certify that
               </p>
 
               {/* Student Name */}
-              <div className="mt-4 sm:mt-6 flex items-end gap-3 sm:gap-6 w-full justify-center">
-                <h1
-                  className="text-xl sm:text-3xl lg:text-4xl font-bold italic"
-                  style={{
-                    fontFamily: "'Georgia', 'Brush Script MT', cursive",
-                  color: "#1a1a2e",
-                }}
+              <h1
+                className="font-serif text-3xl sm:text-5xl lg:text-6xl font-semibold italic mt-3 sm:mt-4"
+                style={{ color: "#1a1a2e" }}
               >
                 {customName || fullName}
               </h1>
-              {(student?.student_code || student?.graduation_date || cohortData?.graduation_date) && (
-                <div className="flex flex-col items-end">
-                  {student?.student_code && (
-                    <span
-                      className="text-xs sm:text-sm font-bold italic whitespace-nowrap"
-                      style={{ color: "#1a1a2e", fontFamily: "serif" }}
-                    >
-                      {student.student_code}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
 
-              {/* Line under name */}
-              <div className="w-3/4 sm:w-2/3 mt-1 flex items-center gap-2">
-                <div className="flex-1 h-[2px]" style={{ background: "linear-gradient(90deg, transparent, #1a1a2e, transparent)" }} />
-              </div>
+              {/* Hairline under name */}
+              <div
+                className="mt-1"
+                style={{
+                  width: "55%",
+                  height: "1px",
+                  background: "linear-gradient(90deg, transparent, #c9a84c, transparent)",
+                }}
+              />
+              {student?.student_code && (
+                <span className="font-serif text-xs sm:text-sm italic mt-1" style={{ color: "#6b6b6b" }}>
+                  {student.student_code}
+                </span>
+              )}
 
               {/* Completion text */}
-              <p className="text-xs sm:text-sm text-center mt-3 sm:mt-4 leading-relaxed px-4" style={{ color: "#444", fontFamily: "serif", maxWidth: "85%" }}>
+              <p
+                className="font-serif text-sm sm:text-base text-center mt-3 sm:mt-4 leading-relaxed"
+                style={{ color: "#4a4a4a", maxWidth: "78%" }}
+              >
                 {cohortData?.certificate_text_main || 'has successfully completed a year of intensive training and teaching in the School of Ministry'}
                 {cohortData?.certificate_text_sub && <><br />{cohortData.certificate_text_sub}</>}
               </p>
 
               {/* Date */}
-              <p className="text-xs sm:text-sm font-bold mt-3 sm:mt-5" style={{ color: "#1a1a2e", fontFamily: "serif" }}>
-                DATE: {student?.graduation_date 
-                  ? new Date(student.graduation_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) 
-                  : cohortData?.graduation_date 
+              <p className="font-serif text-sm sm:text-base font-bold mt-3 sm:mt-4" style={{ color: "#1a1a2e" }}>
+                DATE: {student?.graduation_date
+                  ? new Date(student.graduation_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+                  : cohortData?.graduation_date
                     ? new Date(cohortData.graduation_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
                     : globalDate}
               </p>
 
               {/* Signatories */}
-              <div className="flex justify-between w-full mt-auto pb-4 sm:pb-6 px-4 sm:px-12" style={{ marginTop: "auto" }}>
+              <div className="flex justify-between items-end w-full mt-auto px-6 sm:px-16" style={{ marginTop: "auto" }}>
                 <div className="text-center">
-                  <p className="text-xs sm:text-sm font-bold uppercase" style={{ color: "#1a1a2e", fontFamily: "serif" }}>
+                  <div style={{ width: "9rem", maxWidth: "18vw", height: "1px", background: "#8a8a8a", margin: "0 auto 6px" }} />
+                  <p className="font-serif text-xs sm:text-sm font-bold uppercase" style={{ color: "#1a1a2e" }}>
                     Pastor Folakemi Obadare
                   </p>
-                  <p className="text-[10px] sm:text-xs uppercase tracking-wider" style={{ color: "#666", fontFamily: "serif" }}>
+                  <p className="font-serif text-[10px] sm:text-xs uppercase tracking-wider" style={{ color: "#666" }}>
                     Residence Pastor
                   </p>
                 </div>
-                {/* Scroll icon placeholder */}
-                <div className="flex items-center">
-                  <span className="text-2xl sm:text-3xl">📜</span>
-                </div>
                 <div className="text-center">
-                  <p className="text-xs sm:text-sm font-bold uppercase" style={{ color: "#1a1a2e", fontFamily: "serif" }}>
+                  <div style={{ width: "9rem", maxWidth: "18vw", height: "1px", background: "#8a8a8a", margin: "0 auto 6px" }} />
+                  <p className="font-serif text-xs sm:text-sm font-bold uppercase" style={{ color: "#1a1a2e" }}>
                     Prophet Cherub Obadare
                   </p>
-                  <p className="text-[10px] sm:text-xs uppercase tracking-wider" style={{ color: "#666", fontFamily: "serif" }}>
-                    Founder/Proprietor
+                  <p className="font-serif text-[10px] sm:text-xs uppercase tracking-wider" style={{ color: "#666" }}>
+                    Founder / Proprietor
                   </p>
                 </div>
               </div>
