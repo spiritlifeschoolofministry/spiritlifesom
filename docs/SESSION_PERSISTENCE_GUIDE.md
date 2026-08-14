@@ -45,13 +45,18 @@ Enhanced the AuthProvider to:
 **File:** `/src/components/ProtectedRoute.tsx`
 
 Fixed the loading spinner behavior:
-- Only shows spinner on **initial page load**, not on every route navigation
-- Uses `didInitialLoad` ref to track first load completion
-- Navigation between authenticated routes is now instant
+- Shows a loading screen whenever auth data (user/profile/student) is being
+  resolved — initial page load, refresh, and the brief window after signing in
+- Prevents the `/complete-profile` redirect from firing with null profile/student
+  data mid-fetch (which briefly flashed "Complete your profile" to users with
+  already-complete profiles)
+- `isLoading` only toggles during auth resolution, never during SPA navigation,
+  so navigation between authenticated routes stays instant
 - Error recovery no longer clears `localStorage`
 
-**Before:** Spinner appeared on every route change → confusing UX
-**After:** Spinner only on app startup → smooth navigation
+**Before:** Sign-in/refresh briefly bounced to `/complete-profile` before showing the dashboard
+**After:** Loading screen until auth data is ready, then straight to the correct route
+
 
 ### 4. ✅ Session Manager Hook (New!)
 **File:** `/src/hooks/use-session-manager.ts`
@@ -208,7 +213,7 @@ Monitor these logs in DevTools Console to verify session is active.
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
-| "Loading..." on every page | Route re-initializing auth | ✅ Fixed - use `didInitialLoad` ref |
+| "Loading..." on every page | Route re-initializing auth | ✅ Fixed - `isLoading` only toggles during auth resolution, never on navigation |
 | Session lost on refresh | localStorage not persisted | ✅ Fixed - Supabase persists automatically |
 | Token expired after 1h | No refresh mechanism | ✅ Fixed - 50-min refresh interval |
 | Logout on tab switch | Stale session detected | ✅ Fixed - Session Manager refreshes on tab visibility |

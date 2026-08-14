@@ -43,6 +43,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const profileLoadedRef = useRef(false);
+  const getProfileInFlightRef = useRef(false);
 
   const clearAuthTimeout = () => {
     if (timeoutRef.current) {
@@ -63,6 +64,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const getProfile = useCallback(async (userId: string, userMeta?: UserMetadata): Promise<void> => {
     console.log('[Auth] Fetching profile for:', userId);
+    // Prevent concurrent profile fetches (e.g. a TOKEN_REFRESHED event racing
+    // with initSession on page load) — one fetch resolves profile + student.
+    if (getProfileInFlightRef.current) return;
+    getProfileInFlightRef.current = true;
+    // Mark loading before fetching. On a fresh sign-in the app is usually
+    // already idle (isLoading=false), so without this the route guard would see
+    // null profile/student mid-fetch and briefly bounce users to /complete-profile
+    // before their dashboard appears.
+    setIsLoading(true);
     try {
       let profileData = null;
       let retries = 0;
@@ -148,6 +158,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsNewUser(false);
       setAuthError('Failed to load profile data.');
     } finally {
+      getProfileInFlightRef.current = false;
       clearAuthTimeout();
       setIsLoading(false);
       setIsAuthReady(true);

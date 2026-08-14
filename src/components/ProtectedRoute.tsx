@@ -2,7 +2,6 @@ import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/useAuth';
 import { Button } from '@/components/ui/button';
 import { Loader2, LogOut, AlertTriangle } from 'lucide-react';
-import { useRef, useEffect } from 'react';
 import { isStudentProfileComplete } from '@/lib/profile-complete';
 
 interface ProtectedRouteProps {
@@ -14,16 +13,14 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
   const { user, profile, student, role, isLoading, authError, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const didInitialLoad = useRef(false);
 
-  useEffect(() => {
-    if (!isLoading) {
-      didInitialLoad.current = true;
-    }
-  }, [isLoading]);
-
-  // Only show loading spinner on first page load, not during navigation
-  if (isLoading && !didInitialLoad.current) {
+  // Hold on a loading screen while auth data (user/profile/student) is being
+  // resolved — this covers initial load, page refresh, AND the brief window
+  // right after signing in. Without this, the profile-complete redirect below
+  // could run with null profile/student data and briefly show /complete-profile
+  // to users whose profiles are already complete. isLoading only toggles during
+  // auth resolution, never on normal SPA navigation.
+  if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-primary" />
@@ -33,7 +30,7 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
   }
 
   // Auth error fallback — show error with retry option (don't clear localStorage)
-  if (authError && !user && didInitialLoad.current) {
+  if (authError && !user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4 text-center">
         <AlertTriangle className="w-10 h-10 text-destructive" />
@@ -64,7 +61,8 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
   const normalizedRole = (role ?? "").toLowerCase();
 
   // Force students to finish their profile before entering any portal route.
-  // Admins/teachers are exempt.
+  // Admins/teachers are exempt. By this point auth data is fully loaded, so a
+  // null profile/student genuinely means an incomplete profile — not "still loading".
   if (normalizedRole === "student" || normalizedRole === "") {
     if (!isStudentProfileComplete(profile, student) && location.pathname !== "/complete-profile") {
       return <Navigate to="/complete-profile" replace />;
