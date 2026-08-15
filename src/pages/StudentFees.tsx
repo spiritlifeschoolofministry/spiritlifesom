@@ -23,6 +23,8 @@ import { r2Storage } from '@/lib/r2-storage';
 type Fee = Tables<'fees'>;
 type Payment = Tables<'payments'>;
 
+const MAX_RECEIPT_BYTES = 10 * 1024 * 1024;
+
 interface SubmitPaymentFormData {
   fee_id: string;
   amount: string;
@@ -247,23 +249,35 @@ const StudentFees = () => {
                   <Textarea placeholder="Any additional information..." {...register('notes')} className="min-h-[80px]" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Bank Transfer Receipt</Label>
-                  <div className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/50">
+                  <Label htmlFor="receipt">Bank Transfer Receipt</Label>
+                  {/* The input itself covers the whole box: a hidden (display:none)
+                      input driven by a label is ignored by some mobile browsers and
+                      in-app webviews, and taps on the padding hit nothing. */}
+                  <div className="relative border-2 border-dashed rounded-lg p-6 text-center hover:bg-muted/50">
                     <input
                       id="receipt"
                       type="file"
-                      accept="image/*"
-                      className="hidden"
+                      accept="image/*,application/pdf,.pdf,.jpg,.jpeg,.png"
+                      aria-label="Bank transfer receipt"
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) setReceiptFile(file);
+                        if (file) {
+                          if (file.size > MAX_RECEIPT_BYTES) {
+                            toast.error('That file is larger than 10MB. Please upload a smaller image.');
+                          } else {
+                            setReceiptFile(file);
+                          }
+                        }
+                        // Allow re-picking the same file after an error or a change of mind
+                        e.target.value = '';
                       }}
                     />
-                    <label htmlFor="receipt" className="cursor-pointer block">
+                    <div className="pointer-events-none">
                       <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                      <p className="text-sm font-medium">{receiptFile ? 'Change receipt image' : 'Click to upload receipt image'}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{receiptFile?.name || 'PNG, JPG, GIF up to 10MB'}</p>
-                    </label>
+                      <p className="text-sm font-medium">{receiptFile ? 'Change receipt' : 'Tap to upload your receipt'}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{receiptFile?.name || 'JPG, PNG or PDF up to 10MB'}</p>
+                    </div>
                   </div>
                 </div>
                 <Button type="submit" disabled={isSubmitting || unpaidFees.length === 0} className="w-full">
