@@ -76,6 +76,9 @@ const StudentFees = () => {
   const isFullyPaid = remainingBalance <= 0 && fees.length > 0;
   const hasBalance = remainingBalance > 0;
 
+  const feeNameFor = (payment: { student_fee_id?: string | null }) =>
+    fees.find((f) => f.id === payment.student_fee_id)?.fee_type || '—';
+
   const handleDownload = async (payment: any) => {
     try {
       if (payment.storage_provider === 'r2') {
@@ -92,6 +95,12 @@ const StudentFees = () => {
   const onSubmit = async (data: SubmitPaymentFormData) => {
     if (!user || !student?.id || !receiptFile) {
       toast.error('Please complete all fields and select a receipt file');
+      return;
+    }
+    // A receipt must pay off a fee that has actually been assigned to this student.
+    const selectedFee = unpaidFees.find((f) => f.id === data.fee_id);
+    if (!selectedFee) {
+      toast.error('Select the fee this receipt is for');
       return;
     }
     try {
@@ -113,22 +122,22 @@ const StudentFees = () => {
         storageProvider = 'supabase';
       }
 
-      // Look up fee_structure id from the selected fee record
+      // Optional legacy link: not every cohort has a matching fee_structure row
       let feeStructureId: string | null = null;
-      const selectedFee = fees.find(f => f.id === data.fee_id);
-      if (selectedFee) {
+      if (selectedFee.cohort_id) {
         const { data: fs } = await supabase
           .from('fee_structures')
           .select('id')
           .eq('fee_name', selectedFee.fee_type)
-          .eq('cohort_id', selectedFee.cohort_id!)
+          .eq('cohort_id', selectedFee.cohort_id)
           .maybeSingle();
         feeStructureId = fs?.id || null;
       }
 
       const { error: paymentError } = await supabase.from('payments').insert({
-        student_id: student.id, 
+        student_id: student.id,
         amount_paid: parseFloat(data.amount),
+        student_fee_id: selectedFee.id,
         fee_id: feeStructureId,
         payment_proof_url: fileUrl, 
         storage_path: filePath,
@@ -199,15 +208,18 @@ const StudentFees = () => {
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Fee</Label>
+                  <input type="hidden" {...register('fee_id', { required: 'Select the fee this receipt is for' })} />
                   <Select value={selectedFeeId} onValueChange={(value) => {
-                    setValue('fee_id', value);
+                    setValue('fee_id', value, { shouldValidate: true });
                     const fee = unpaidFees.find(f => f.id === value);
                     if (fee) {
                       const balance = (fee.amount_due || 0) - (fee.amount_paid || 0);
                       setValue('amount', balance.toString());
                     }
                   }}>
-                    <SelectTrigger><SelectValue placeholder="Select fee to pay" /></SelectTrigger>
+                    <SelectTrigger disabled={unpaidFees.length === 0}>
+                      <SelectValue placeholder={unpaidFees.length === 0 ? 'No outstanding fees' : 'Select fee to pay'} />
+                    </SelectTrigger>
                     <SelectContent>
                       {unpaidFees.map((fee) => (
                         <SelectItem key={fee.id} value={fee.id}>
@@ -216,6 +228,14 @@ const StudentFees = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {errors.fee_id && <p className="text-sm text-destructive">{errors.fee_id.message}</p>}
+                  {unpaidFees.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      {fees.length === 0
+                        ? 'No fees have been assigned to you yet. Receipts can only be submitted once the school creates your fee.'
+                        : 'All your assigned fees are settled — there is nothing to pay right now.'}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Amount (₦)</Label>
@@ -246,7 +266,7 @@ const StudentFees = () => {
                     </label>
                   </div>
                 </div>
-                <Button type="submit" disabled={isSubmitting} className="w-full">
+                <Button type="submit" disabled={isSubmitting || unpaidFees.length === 0} className="w-full">
                   {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting...</>) : (<><CreditCard className="mr-2 h-4 w-4" />Submit Payment</>)}
                 </Button>
               </form>
@@ -403,6 +423,7 @@ const StudentFees = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>Fee</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>Date</TableHead>
                         <TableHead>Status</TableHead>
@@ -412,6 +433,7 @@ const StudentFees = () => {
                     <TableBody>
                       {payments.map((payment) => (
                         <TableRow key={payment.id}>
+                          <TableCell className="text-sm">{feeNameFor(payment)}</TableCell>
                           <TableCell className="font-medium">₦{(payment.amount_paid || 0).toLocaleString()}</TableCell>
                           <TableCell className="text-muted-foreground">{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : '—'}</TableCell>
                           <TableCell>{getPaymentStatusBadge(payment.status)}</TableCell>
@@ -434,6 +456,7 @@ const StudentFees = () => {
                     <div key={payment.id} className="rounded-lg border border-border p-3 flex items-center justify-between">
                       <div>
                         <p className="text-sm font-semibold">₦{(payment.amount_paid || 0).toLocaleString()}</p>
+                        <p className="text-xs text-muted-foreground">{feeNameFor(payment)}</p>
                         <p className="text-xs text-muted-foreground">{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : '—'}</p>
                       </div>
                       {getPaymentStatusBadge(payment.status)}

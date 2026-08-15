@@ -1235,6 +1235,7 @@ export type Database = {
           status: string | null
           storage_path: string | null
           storage_provider: string | null
+          student_fee_id: string | null
           student_id: string | null
         }
         Insert: {
@@ -1249,6 +1250,7 @@ export type Database = {
           status?: string | null
           storage_path?: string | null
           storage_provider?: string | null
+          student_fee_id?: string | null
           student_id?: string | null
         }
         Update: {
@@ -1263,9 +1265,17 @@ export type Database = {
           status?: string | null
           storage_path?: string | null
           storage_provider?: string | null
+          student_fee_id?: string | null
           student_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "payments_student_fee_id_fkey"
+            columns: ["student_fee_id"]
+            isOneToOne: false
+            referencedRelation: "fees"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payments_fee_id_fkey"
             columns: ["fee_id"]
@@ -1700,6 +1710,11 @@ export type Database = {
       }
     }
     Functions: {
+      admin_approve_payment: { Args: { p_payment_id: string }; Returns: undefined }
+      admin_set_payment_fee: {
+        Args: { p_payment_id: string; p_student_fee_id: string }
+        Returns: undefined
+      }
       approve_student_by_token: { Args: { token: string }; Returns: Json }
       approve_student_payment: {
         Args: {

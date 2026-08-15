@@ -7,9 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Eye, Check, X, Download, Trash2, CheckCheck, Search } from 'lucide-react';
+import { Loader2, Eye, Check, X, Download, Trash2, CheckCheck, Search, ArrowLeftRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { resolveReceiptUrl } from '@/lib/receipt-url';
 import { downloadCSV } from '@/lib/csv-export';
@@ -29,6 +29,8 @@ type PaymentWithStudent = Tables<'payments'> & {
   cohort_id?: string | null;
   fee_name?: string | null;
 };
+
+type StudentFee = Tables<'fees'>;
 
 const AdminFees = () => {
   const [tab, setTab] = useState<'manager' | 'approvals'>('manager');
@@ -56,6 +58,11 @@ const AdminFees = () => {
   const [deleteTarget, setDeleteTarget] = useState<PaymentWithStudent | null>(null);
   const [deleteFeeId, setDeleteFeeId] = useState<string | null>(null);
 
+  // Re-assign a receipt to the right fee
+  const [studentFees, setStudentFees] = useState<StudentFee[]>([]);
+  const [reassignTarget, setReassignTarget] = useState<PaymentWithStudent | null>(null);
+  const [reassignFeeId, setReassignFeeId] = useState('');
+
   const { register, handleSubmit, reset, setValue, watch } = useForm<AddFeeFormData>({
     defaultValues: { cohort_id: '', fee_name: '', amount: '', learning_mode: 'All' },
   });
@@ -74,7 +81,7 @@ const AdminFees = () => {
       const studentIds = [...new Set(payments.map((p) => p.student_id).filter(Boolean))] as string[];
       const feeIds = [...new Set(payments.map((p) => p.fee_id).filter(Boolean))] as string[];
 
-      const [{ data: studs }, { data: feeRows }] = await Promise.all([
+      const [{ data: studs }, { data: feeRows }, { data: assignedFees }] = await Promise.all([
         studentIds.length
           ? supabase
               .from('students')
@@ -84,20 +91,28 @@ const AdminFees = () => {
         feeIds.length
           ? supabase.from('fee_structures').select('id, fee_name').in('id', feeIds)
           : Promise.resolve({ data: [] as any[] }),
+        studentIds.length
+          ? supabase.from('fees').select('*').in('student_id', studentIds)
+          : Promise.resolve({ data: [] as StudentFee[] }),
       ]);
 
       const studMap = new Map((studs || []).map((s: any) => [s.id, s]));
       const feeMap = new Map((feeRows || []).map((f: any) => [f.id, f.fee_name]));
+      const assignedMap = new Map((assignedFees || []).map((f: StudentFee) => [f.id, f]));
+      setStudentFees(assignedFees || []);
 
       const enriched: PaymentWithStudent[] = payments.map((p) => {
         const s: any = p.student_id ? studMap.get(p.student_id) : null;
         const name = s?.profile ? `${s.profile.first_name || ''} ${s.profile.last_name || ''}`.trim() : 'Unknown';
+        // The student's own fee record is the real target; the fee_structures
+        // link is only a fallback for receipts submitted before that existed.
+        const assigned = p.student_fee_id ? assignedMap.get(p.student_fee_id) : null;
         return {
           ...p,
           student_name: name || 'Unknown',
           student_email: s?.profile?.email || '',
           cohort_id: s?.cohort_id || null,
-          fee_name: p.fee_id ? feeMap.get(p.fee_id) || null : null,
+          fee_name: assigned?.fee_type || (p.fee_id ? feeMap.get(p.fee_id) || null : null),
         };
       });
 
@@ -197,22 +212,39 @@ const AdminFees = () => {
   };
 
   const approvePayment = async (payment: PaymentWithStudent) => {
+    if (!payment.student_fee_id) {
+      toast.error('Assign this receipt to a fee before verifying it');
+      openReassign(payment);
+      return;
+    }
     try {
       setIsProcessing(true);
-      if (payment.fee_id && payment.student_id) {
-        const { data: fs } = await supabase.from('fee_structures').select('fee_name').eq('id', payment.fee_id).single();
-        const { error } = await supabase.rpc('approve_student_payment', {
-          p_payment_id: payment.id,
-          p_amount: payment.amount_paid,
-          p_student_id: payment.student_id,
-          p_fee_type: fs?.fee_name || '',
-        });
-        if (error) { toast.error('Failed to approve'); return; }
-      } else {
-        const { error } = await supabase.from('payments').update({ status: 'VERIFIED' }).eq('id', payment.id);
-        if (error) { toast.error('Failed to approve'); return; }
-      }
+      const { error } = await supabase.rpc('admin_approve_payment', { p_payment_id: payment.id });
+      if (error) { toast.error('Failed to approve: ' + error.message); return; }
       toast.success('Payment approved');
+      await fetchPaymentsWithStudents();
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const openReassign = (p: PaymentWithStudent) => {
+    setReassignTarget(p);
+    setReassignFeeId(p.student_fee_id || '');
+  };
+
+  const confirmReassign = async () => {
+    if (!reassignTarget || !reassignFeeId) return;
+    try {
+      setIsProcessing(true);
+      const { error } = await supabase.rpc('admin_set_payment_fee', {
+        p_payment_id: reassignTarget.id,
+        p_student_fee_id: reassignFeeId,
+      });
+      if (error) { toast.error('Failed to reassign: ' + error.message); return; }
+      toast.success('Receipt assigned to the selected fee');
+      setReassignTarget(null);
+      setReassignFeeId('');
       await fetchPaymentsWithStudents();
     } finally {
       setIsProcessing(false);
@@ -251,26 +283,18 @@ const AdminFees = () => {
     if (!window.confirm(`Verify all ${pendingPayments.length} pending payment(s)?`)) return;
     try {
       setIsProcessing(true);
-      let ok = 0, fail = 0;
+      let ok = 0, fail = 0, skipped = 0;
       for (const p of pendingPayments) {
+        if (!p.student_fee_id) { skipped++; continue; }
         try {
-          if (p.fee_id && p.student_id) {
-            const { data: fs } = await supabase.from('fee_structures').select('fee_name').eq('id', p.fee_id).single();
-            const { error } = await supabase.rpc('approve_student_payment', {
-              p_payment_id: p.id,
-              p_amount: p.amount_paid,
-              p_student_id: p.student_id,
-              p_fee_type: fs?.fee_name || '',
-            });
-            if (error) throw error;
-          } else {
-            const { error } = await supabase.from('payments').update({ status: 'VERIFIED' }).eq('id', p.id);
-            if (error) throw error;
-          }
+          const { error } = await supabase.rpc('admin_approve_payment', { p_payment_id: p.id });
+          if (error) throw error;
           ok++;
         } catch { fail++; }
       }
-      toast.success(`Verified ${ok}${fail ? `, ${fail} failed` : ''}`);
+      toast.success(
+        `Verified ${ok}${fail ? `, ${fail} failed` : ''}${skipped ? `, ${skipped} skipped (no fee assigned)` : ''}`,
+      );
       await fetchPaymentsWithStudents();
     } finally {
       setIsProcessing(false);
@@ -485,7 +509,11 @@ const AdminFees = () => {
                       {pendingPayments.map((p) => (
                         <TableRow key={p.id}>
                           <TableCell className="font-medium">{p.student_name}</TableCell>
-                          <TableCell className="text-xs">{p.fee_name || '—'}</TableCell>
+                          <TableCell className="text-xs">
+                            <button onClick={() => openReassign(p)} className="hover:underline text-left">
+                              {p.fee_name || <span className="text-destructive">Not assigned — set fee</span>}
+                            </button>
+                          </TableCell>
                           <TableCell className="text-right">₦{Number(p.amount_paid).toLocaleString()}</TableCell>
                           <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : ''}</TableCell>
                           <TableCell>
@@ -497,6 +525,9 @@ const AdminFees = () => {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex gap-1 justify-end">
+                              <Button size="sm" variant="outline" onClick={() => openReassign(p)} disabled={isProcessing} title="Change fee">
+                                <ArrowLeftRight className="h-4 w-4" />
+                              </Button>
                               <Button size="sm" onClick={() => approvePayment(p)} disabled={isProcessing}><Check className="h-4 w-4" /></Button>
                               <Button size="sm" variant="destructive" onClick={() => rejectPayment(p.id)} disabled={isProcessing}><X className="h-4 w-4" /></Button>
                               <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(p)} disabled={isProcessing}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -566,7 +597,11 @@ const AdminFees = () => {
                         <TableRow key={p.id}>
                           <TableCell className="font-medium">{p.student_name}</TableCell>
                           <TableCell className="text-xs">{cohorts.find((c) => c.id === p.cohort_id)?.name || '—'}</TableCell>
-                          <TableCell className="text-xs">{p.fee_name || '—'}</TableCell>
+                          <TableCell className="text-xs">
+                            <button onClick={() => openReassign(p)} className="hover:underline text-left">
+                              {p.fee_name || <span className="text-destructive">Not assigned — set fee</span>}
+                            </button>
+                          </TableCell>
                           <TableCell className="text-right">₦{Number(p.amount_paid).toLocaleString()}</TableCell>
                           <TableCell>{(p.payment_date || p.created_at) ? new Date(p.payment_date || p.created_at!).toLocaleDateString() : ''}</TableCell>
                           <TableCell>
@@ -577,9 +612,14 @@ const AdminFees = () => {
                             ) : <span className="text-muted-foreground text-sm">No receipt</span>}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(p)} disabled={isProcessing}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                            <div className="flex gap-1 justify-end">
+                              <Button size="sm" variant="outline" onClick={() => openReassign(p)} disabled={isProcessing} title="Change fee">
+                                <ArrowLeftRight className="h-4 w-4" />
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(p)} disabled={isProcessing}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -618,6 +658,58 @@ const AdminFees = () => {
               </a>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Re-assign a receipt to the correct fee */}
+      <Dialog open={!!reassignTarget} onOpenChange={(o) => { if (!o) { setReassignTarget(null); setReassignFeeId(''); } }}>
+        <DialogContent className="max-h-[90vh] w-[95vw] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Assign receipt to a fee</DialogTitle>
+            <DialogDescription>
+              {reassignTarget
+                ? `₦${Number(reassignTarget.amount_paid).toLocaleString()} from ${reassignTarget.student_name}. Only fees assigned to this student are listed.`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            {(() => {
+              const options = studentFees.filter((f) => f.student_id === reassignTarget?.student_id);
+              if (!options.length) {
+                return (
+                  <p className="text-sm text-destructive">
+                    This student has no fee records yet. Create the fee and assign it to the student first.
+                  </p>
+                );
+              }
+              return (
+                <>
+                  <Label>Fee</Label>
+                  <Select value={reassignFeeId} onValueChange={setReassignFeeId}>
+                    <SelectTrigger><SelectValue placeholder="Select fee" /></SelectTrigger>
+                    <SelectContent>
+                      {options.map((f) => (
+                        <SelectItem key={f.id} value={f.id}>
+                          {f.fee_type} — ₦{Number(f.amount_paid || 0).toLocaleString()} of ₦{Number(f.amount_due || 0).toLocaleString()} paid
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {['VERIFIED', 'APPROVED'].includes((reassignTarget?.status || '').toUpperCase()) && (
+                    <p className="text-xs text-muted-foreground">
+                      This payment is already verified — the amount will be moved off its current fee and onto the one you pick.
+                    </p>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setReassignTarget(null)} disabled={isProcessing}>Cancel</Button>
+            <Button onClick={confirmReassign} disabled={isProcessing || !reassignFeeId || reassignFeeId === reassignTarget?.student_fee_id}>
+              {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

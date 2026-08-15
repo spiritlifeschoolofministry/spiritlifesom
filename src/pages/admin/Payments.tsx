@@ -117,8 +117,12 @@ const AdminPayments = () => {
   const approvePayment = async (payment: PaymentReview) => {
     try {
       setIsProcessing(true);
-      const { error } = await supabase.from('payments').update({ status: 'VERIFIED' }).eq('id', payment.id);
-      if (error) { toast.error('Failed to approve payment'); return; }
+      if (!payment.student_fee_id) {
+        toast.error('Assign this receipt to a fee in Fee Management before verifying it');
+        return;
+      }
+      const { error } = await supabase.rpc('admin_approve_payment', { p_payment_id: payment.id });
+      if (error) { toast.error('Failed to approve payment: ' + error.message); return; }
       toast.success('Payment approved');
       setIsReviewModalOpen(false);
       setSelectedPayment(null);
