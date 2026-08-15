@@ -230,17 +230,54 @@ const AdminFees = () => {
 
   const openReassign = (p: PaymentWithStudent) => {
     setReassignTarget(p);
-    setReassignFeeId(p.student_fee_id || '');
+    setReassignFeeId(p.student_fee_id ? `fee:${p.student_fee_id}` : '');
   };
+
+  // Every fee in the system, whatever the learning mode: the student's own fee
+  // records first, then any fee definition they haven't been assigned yet.
+  const reassignOptions = useMemo(() => {
+    if (!reassignTarget) return [];
+    const own = studentFees.filter((f) => f.student_id === reassignTarget.student_id);
+    const ownTypes = new Set(own.map((f) => f.fee_type));
+    const statusOf = (f: StudentFee) => {
+      if (f.waived) return 'Waived';
+      const s = (f.payment_status || '').toLowerCase();
+      if (s === 'paid') return 'Paid';
+      if (s === 'partial') return 'Partial';
+      return 'Unpaid';
+    };
+    return [
+      ...own.map((f) => ({
+        value: `fee:${f.id}`,
+        status: statusOf(f),
+        label: `${f.fee_type} — ₦${Number(f.amount_paid || 0).toLocaleString()} of ₦${Number(f.amount_due || 0).toLocaleString()} paid`,
+      })),
+      ...feeStructures
+        .filter((fs) => !ownTypes.has(fs.fee_name))
+        .map((fs) => ({
+          value: `structure:${fs.id}`,
+          status: 'Unpaid',
+          label: `${fs.fee_name} — ₦${Number(fs.amount).toLocaleString()} (${cohorts.find((c) => c.id === fs.cohort_id)?.name || 'no cohort'}, not yet assigned)`,
+        })),
+    ];
+  }, [reassignTarget, studentFees, feeStructures, cohorts]);
 
   const confirmReassign = async () => {
     if (!reassignTarget || !reassignFeeId) return;
     try {
       setIsProcessing(true);
-      const { error } = await supabase.rpc('admin_set_payment_fee', {
-        p_payment_id: reassignTarget.id,
-        p_student_fee_id: reassignFeeId,
-      });
+      const [kind, id] = reassignFeeId.split(':');
+      // A fee the student was never assigned has no fees row yet — the
+      // by_structure RPC creates it before moving the receipt onto it.
+      const { error } = kind === 'structure'
+        ? await supabase.rpc('admin_set_payment_fee_by_structure', {
+            p_payment_id: reassignTarget.id,
+            p_fee_structure_id: id,
+          })
+        : await supabase.rpc('admin_set_payment_fee', {
+            p_payment_id: reassignTarget.id,
+            p_student_fee_id: id,
+          });
       if (error) { toast.error('Failed to reassign: ' + error.message); return; }
       toast.success('Receipt assigned to the selected fee');
       setReassignTarget(null);
@@ -668,45 +705,53 @@ const AdminFees = () => {
             <DialogTitle>Assign receipt to a fee</DialogTitle>
             <DialogDescription>
               {reassignTarget
-                ? `₦${Number(reassignTarget.amount_paid).toLocaleString()} from ${reassignTarget.student_name}. Only fees assigned to this student are listed.`
+                ? `₦${Number(reassignTarget.amount_paid).toLocaleString()} from ${reassignTarget.student_name}. Picking a fee the student doesn't have yet will assign it to them.`
                 : ''}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 pt-2">
-            {(() => {
-              const options = studentFees.filter((f) => f.student_id === reassignTarget?.student_id);
-              if (!options.length) {
-                return (
-                  <p className="text-sm text-destructive">
-                    This student has no fee records yet. Create the fee and assign it to the student first.
+            {reassignOptions.length === 0 ? (
+              <p className="text-sm text-destructive">
+                No fees exist yet. Create one under Fee Manager first.
+              </p>
+            ) : (
+              <>
+                <Label>Fee</Label>
+                <Select value={reassignFeeId} onValueChange={setReassignFeeId}>
+                  <SelectTrigger><SelectValue placeholder="Select fee" /></SelectTrigger>
+                  <SelectContent>
+                    {reassignOptions.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        <span className="inline-flex items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className={
+                              o.status === 'Paid' || o.status === 'Waived'
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                : o.status === 'Partial'
+                                  ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                  : 'bg-red-100 text-red-800 border-red-300'
+                            }
+                          >
+                            {o.status}
+                          </Badge>
+                          {o.label}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {['VERIFIED', 'APPROVED'].includes((reassignTarget?.status || '').toUpperCase()) && (
+                  <p className="text-xs text-muted-foreground">
+                    This payment is already verified — the amount will be moved off its current fee and onto the one you pick.
                   </p>
-                );
-              }
-              return (
-                <>
-                  <Label>Fee</Label>
-                  <Select value={reassignFeeId} onValueChange={setReassignFeeId}>
-                    <SelectTrigger><SelectValue placeholder="Select fee" /></SelectTrigger>
-                    <SelectContent>
-                      {options.map((f) => (
-                        <SelectItem key={f.id} value={f.id}>
-                          {f.fee_type} — ₦{Number(f.amount_paid || 0).toLocaleString()} of ₦{Number(f.amount_due || 0).toLocaleString()} paid
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {['VERIFIED', 'APPROVED'].includes((reassignTarget?.status || '').toUpperCase()) && (
-                    <p className="text-xs text-muted-foreground">
-                      This payment is already verified — the amount will be moved off its current fee and onto the one you pick.
-                    </p>
-                  )}
-                </>
-              );
-            })()}
+                )}
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setReassignTarget(null)} disabled={isProcessing}>Cancel</Button>
-            <Button onClick={confirmReassign} disabled={isProcessing || !reassignFeeId || reassignFeeId === reassignTarget?.student_fee_id}>
+            <Button onClick={confirmReassign} disabled={isProcessing || !reassignFeeId || reassignFeeId === `fee:${reassignTarget?.student_fee_id}`}>
               {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
             </Button>
           </DialogFooter>

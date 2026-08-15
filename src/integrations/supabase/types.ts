@@ -1715,6 +1715,10 @@ export type Database = {
         Args: { p_payment_id: string; p_student_fee_id: string }
         Returns: undefined
       }
+      admin_set_payment_fee_by_structure: {
+        Args: { p_fee_structure_id: string; p_payment_id: string }
+        Returns: string
+      }
       approve_student_by_token: { Args: { token: string }; Returns: Json }
       approve_student_payment: {
         Args: {
