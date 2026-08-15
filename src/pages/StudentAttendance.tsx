@@ -19,6 +19,14 @@ interface AttendanceRow {
   status: string;
   is_verified: boolean;
   check_in_time: string | null;
+  schedule_id: string | null;
+}
+
+/** One class session the cohort held, with this student's record for it (if any). */
+interface SessionRow {
+  sessionId: string;
+  date: string;
+  record: AttendanceRow | null;
 }
 
 interface CohortToggle {
@@ -37,7 +45,7 @@ const todayDateString = () => new Date().toISOString().split("T")[0];
 
 const StudentAttendance = () => {
   const { student } = useAuth();
-  const [history, setHistory] = useState<AttendanceRow[]>([]);
+  const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [todayScheduleId, setTodayScheduleId] = useState<string | null>(null);
   const [checkedInToday, setCheckedInToday] = useState(false);
   const [pendingToday, setPendingToday] = useState(false);
@@ -57,14 +65,27 @@ const StudentAttendance = () => {
       const { data: studentData } = await supabase.from("students").select("cohort_id").eq("id", student.id).maybeSingle();
       const cohortId = studentData?.cohort_id;
 
-      const [historyRes, classSettingRes] = await Promise.all([
+      const [historyRes, classSettingRes, sessionRes] = await Promise.all([
         supabase.from("attendance").select("id, marked_at, status, is_verified, check_in_time, schedule_id").eq("student_id", student.id).order("marked_at", { ascending: false }),
         supabase.from("system_settings").select("value").eq("key", "class_today").maybeSingle(),
+        // Every class session this cohort has held to date — the denominator.
+        cohortId
+          ? supabase.from("schedule").select("id, date").eq("cohort_id", cohortId).eq("counts_for_attendance", true).lte("date", today).order("date", { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
       ]);
 
       if (historyRes.error) throw historyRes.error;
+      if (sessionRes.error) throw sessionRes.error;
+
       const rows = (historyRes.data || []) as AttendanceRow[];
-      setHistory(rows);
+      const recordBySessionId = new Map(rows.filter((r) => r.schedule_id).map((r) => [r.schedule_id as string, r]));
+      setSessions(
+        (sessionRes.data || []).map((s) => ({
+          sessionId: s.id,
+          date: s.date,
+          record: recordBySessionId.get(s.id) ?? null,
+        }))
+      );
 
       let scheduleId: string | null = null;
       let toggle: CohortToggle | null = null;
@@ -99,7 +120,7 @@ const StudentAttendance = () => {
           setOutsideWindow(false);
           setWindowMessage("");
         }
-        const { data: scheduleData } = await supabase.from("schedule").select("id").eq("date", today).limit(1);
+        const { data: scheduleData } = await supabase.from("schedule").select("id").eq("date", today).eq("cohort_id", cohortId).limit(1);
         scheduleId = scheduleData && scheduleData.length > 0 ? scheduleData[0].id : null;
       } else {
         setOutsideWindow(false);
@@ -176,10 +197,17 @@ const StudentAttendance = () => {
     }
   };
 
-  const totalClasses = history.length;
-  const presentCount = history.filter((r) => (r.status || "").toUpperCase() === "PRESENT").length;
-  const lateCount = history.filter((r) => (r.status || "").toUpperCase() === "LATE").length;
-  const absentCount = history.filter((r) => (r.status || "").toUpperCase() === "ABSENT").length;
+  // Measured against classes the cohort actually held, not against records that exist.
+  // Only verified records count as attended, matching the admin statistics.
+  const totalClasses = sessions.length;
+  const countedAs = (s: SessionRow) => {
+    if (!s.record || !s.record.is_verified) return "ABSENT";
+    const status = (s.record.status || "").toUpperCase();
+    return status === "PRESENT" || status === "LATE" ? status : "ABSENT";
+  };
+  const presentCount = sessions.filter((s) => countedAs(s) === "PRESENT").length;
+  const lateCount = sessions.filter((s) => countedAs(s) === "LATE").length;
+  const absentCount = sessions.filter((s) => countedAs(s) === "ABSENT").length;
   const attended = presentCount + lateCount;
   const percentage = totalClasses > 0 ? Math.round((attended / totalClasses) * 100) : 0;
 
@@ -330,8 +358,8 @@ const StudentAttendance = () => {
             <CardTitle className="text-base">Attendance History</CardTitle>
           </CardHeader>
           <CardContent>
-            {history.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No attendance records yet.</p>
+            {sessions.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No classes have been held yet.</p>
             ) : (
               <>
                 {/* Desktop table */}
@@ -346,21 +374,25 @@ const StudentAttendance = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {history.map((row) => (
-                        <TableRow key={row.id}>
+                      {sessions.map((s) => (
+                        <TableRow key={s.sessionId}>
                           <TableCell className="font-medium">
-                            {row.marked_at ? new Date(row.marked_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                            {new Date(`${s.date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                           </TableCell>
                           <TableCell className="text-muted-foreground">
-                            {row.check_in_time ? new Date(row.check_in_time).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                            {s.record?.check_in_time ? new Date(s.record.check_in_time).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "—"}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className={statusBadgeClass(row.status)}>{statusLabel(row.status)}</Badge>
+                            <Badge variant="outline" className={statusBadgeClass(countedAs(s))}>{statusLabel(countedAs(s))}</Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className={row.is_verified ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-amber-100 text-amber-800 border-amber-300"}>
-                              {row.is_verified ? "Verified" : "Pending"}
-                            </Badge>
+                            {s.record ? (
+                              <Badge variant="outline" className={s.record.is_verified ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-amber-100 text-amber-800 border-amber-300"}>
+                                {s.record.is_verified ? "Verified" : "Pending"}
+                              </Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">No check-in</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -369,19 +401,21 @@ const StudentAttendance = () => {
                 </div>
                 {/* Mobile cards */}
                 <div className="sm:hidden space-y-3">
-                  {history.map((row) => (
-                    <div key={row.id} className="rounded-lg border border-border p-3 space-y-2">
+                  {sessions.map((s) => (
+                    <div key={s.sessionId} className="rounded-lg border border-border p-3 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-foreground">
-                          {row.marked_at ? new Date(row.marked_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}
+                          {new Date(`${s.date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </span>
-                        <Badge variant="outline" className={statusBadgeClass(row.status)}>{statusLabel(row.status)}</Badge>
+                        <Badge variant="outline" className={statusBadgeClass(countedAs(s))}>{statusLabel(countedAs(s))}</Badge>
                       </div>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{row.check_in_time ? new Date(row.check_in_time).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "No check-in"}</span>
-                        <Badge variant="outline" className={`text-[10px] ${row.is_verified ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-amber-100 text-amber-800 border-amber-300"}`}>
-                          {row.is_verified ? "Verified" : "Pending"}
-                        </Badge>
+                        <span>{s.record?.check_in_time ? new Date(s.record.check_in_time).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "No check-in"}</span>
+                        {s.record && (
+                          <Badge variant="outline" className={`text-[10px] ${s.record.is_verified ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-amber-100 text-amber-800 border-amber-300"}`}>
+                            {s.record.is_verified ? "Verified" : "Pending"}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   ))}

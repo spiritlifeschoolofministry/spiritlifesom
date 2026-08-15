@@ -285,19 +285,20 @@ const AdminAttendance = () => {
       }
       await saveClassToday(current);
 
-      // Ensure schedule entry exists when enabling
+      // Ensure a schedule entry exists for THIS cohort when enabling. Sessions are
+      // per-cohort: two cohorts meeting the same day are two separate sessions.
       if (enabled) {
         const today = todayDateString();
         const { data: existing } = await supabase
           .from("schedule")
           .select("id")
           .eq("date", today)
-          .eq("activity_type", "Lecture")
-          .is("course_id", null)
+          .eq("cohort_id", cohortId)
           .limit(1);
         if (!existing || existing.length === 0) {
           await supabase.from("schedule").insert({
             date: today,
+            cohort_id: cohortId,
             activity_type: "Lecture",
             description: "Class session",
             day: new Date().toLocaleDateString("en-US", { weekday: "long" }),
@@ -403,41 +404,65 @@ const AdminAttendance = () => {
 
   const loadStudentStats = useCallback(async () => {
     try {
+      const today = todayDateString();
+
       const { data: studentsData, error: studentsError } = await supabase
         .from("students")
-        .select("id, profiles(first_name, last_name), cohorts(name)")
+        .select("id, cohort_id, profiles(first_name, last_name), cohorts(name)")
         .not("cohort_id", "is", null);
 
       if (studentsError) throw studentsError;
 
       const students = (studentsData || []) as Array<{
         id: string;
+        cohort_id: string;
         cohorts: { name: string } | null;
         profiles: { first_name: string; last_name: string } | null;
       }>;
 
+      // Denominator: class sessions each cohort has actually held to date. Rows with
+      // no cohort_id, or flagged counts_for_attendance = false (graduations, breaks,
+      // the untracked 2025 curriculum), count for nobody.
+      const { data: sessionData, error: sessionError } = await supabase
+        .from("schedule")
+        .select("id, cohort_id")
+        .not("cohort_id", "is", null)
+        .eq("counts_for_attendance", true)
+        .lte("date", today);
+
+      if (sessionError) throw sessionError;
+
+      const sessionsHeldByCohort = new Map<string, number>();
+      const cohortBySessionId = new Map<string, string>();
+      for (const s of sessionData || []) {
+        const cid = s.cohort_id as string;
+        cohortBySessionId.set(s.id, cid);
+        sessionsHeldByCohort.set(cid, (sessionsHeldByCohort.get(cid) || 0) + 1);
+      }
+
       const { data: attData, error: attError } = await supabase
         .from("attendance")
-        .select("id, student_id, status, is_verified");
+        .select("id, student_id, schedule_id, status, is_verified");
 
       if (attError) throw attError;
       const attList = attData || [];
 
+      // Numerator: verified Present/Late, restricted to the same counted sessions
+      // that form the denominator, so a student can never exceed 100%.
       const presentByStudent = new Map<string, number>();
-      const totalByStudent = new Map<string, number>();
       for (const a of attList) {
         const sid = (a as { student_id: string }).student_id;
-        totalByStudent.set(sid, (totalByStudent.get(sid) || 0) + 1);
+        const scheduleId = (a as { schedule_id?: string | null }).schedule_id;
+        if (!scheduleId || !cohortBySessionId.has(scheduleId)) continue;
         const status = ((a as { status?: string }).status || "").toUpperCase();
         const verified = Boolean((a as { is_verified?: boolean }).is_verified);
-        // Count verified Present and verified Late as attended for statistics
         if (verified && (status === "PRESENT" || status === "LATE")) {
           presentByStudent.set(sid, (presentByStudent.get(sid) || 0) + 1);
         }
       }
 
       const result: StudentStat[] = students.map((s) => {
-        const total = totalByStudent.get(s.id) || 0;
+        const total = sessionsHeldByCohort.get(s.cohort_id) || 0;
         const present = presentByStudent.get(s.id) || 0;
         const pct = total > 0 ? Math.round((present / total) * 100) : 0;
         return {
@@ -652,33 +677,23 @@ const AdminAttendance = () => {
       return;
     }
     try {
-      // Try to find existing schedule, or auto-create one
+      // Find this cohort's session for the date, or auto-create one.
       let scheduleId: string | null = null;
       const { data: cohortSchedule } = await supabase
         .from("schedule")
-        .select("id, date, courses!inner(cohort_id)")
+        .select("id")
         .eq("date", newDate)
-        .eq("courses.cohort_id", detailCohortId)
+        .eq("cohort_id", detailCohortId)
         .limit(1);
       if (cohortSchedule && cohortSchedule.length > 0) {
-        scheduleId = (cohortSchedule[0] as { id: string }).id;
-      } else {
-        const { data: genericSchedule } = await supabase
-          .from("schedule")
-          .select("id")
-          .eq("date", newDate)
-          .is("course_id", null)
-          .limit(1);
-        if (genericSchedule && genericSchedule.length > 0) {
-          scheduleId = genericSchedule[0].id;
-        }
+        scheduleId = cohortSchedule[0].id;
       }
       // Auto-create a schedule entry if none exists
       if (!scheduleId) {
         const dayName = new Date(`${newDate}T00:00:00`).toLocaleDateString("en-US", { weekday: "long" });
         const { data: created, error: createErr } = await supabase
           .from("schedule")
-          .insert({ date: newDate, activity_type: "Lecture", description: "Admin-created session", day: dayName })
+          .insert({ date: newDate, cohort_id: detailCohortId, activity_type: "Lecture", description: "Admin-created session", day: dayName })
           .select("id")
           .single();
         if (createErr) throw createErr;

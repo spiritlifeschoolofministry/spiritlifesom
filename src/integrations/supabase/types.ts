@@ -1408,6 +1408,8 @@ export type Database = {
       schedule: {
         Row: {
           activity_type: string | null
+          cohort_id: string | null
+          counts_for_attendance: boolean
           course_id: string | null
           created_at: string | null
           date: string
@@ -1419,6 +1421,8 @@ export type Database = {
         }
         Insert: {
           activity_type?: string | null
+          cohort_id?: string | null
+          counts_for_attendance?: boolean
           course_id?: string | null
           created_at?: string | null
           date: string
@@ -1430,6 +1434,8 @@ export type Database = {
         }
         Update: {
           activity_type?: string | null
+          cohort_id?: string | null
+          counts_for_attendance?: boolean
           course_id?: string | null
           created_at?: string | null
           date?: string
@@ -1440,6 +1446,13 @@ export type Database = {
           start_time?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "schedule_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "schedule_course_id_fkey"
             columns: ["course_id"]
