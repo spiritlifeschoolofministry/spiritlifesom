@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { downloadCSV } from "@/lib/csv-export";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,6 +42,9 @@ import type { Json } from "@/integrations/supabase/types";
 
 const todayDateString = () => new Date().toISOString().split("T")[0];
 
+/** Students below this percentage are surfaced by the Low Attendance alert. */
+const LOW_ATTENDANCE_THRESHOLD = 75;
+
 interface CohortToggle {
   enabled: boolean;
   start_time: string; // HH:mm
@@ -64,6 +67,7 @@ interface PendingRow {
   marked_at: string | null;
   student_id: string;
   student_name: string;
+  cohort_id: string | null;
   cohort_name: string;
   is_verified?: boolean | null;
 }
@@ -71,10 +75,33 @@ interface PendingRow {
 interface StudentStat {
   student_id: string;
   name: string;
+  cohort_id: string;
   cohort_name: string;
   total_classes: number;
   verified_present: number;
+  late_count: number;
+  absent_count: number;
   attendance_pct: number;
+}
+
+/** Raw rows kept in state so statistics can be recomputed over a date range
+ *  without refetching. */
+interface RawStudent {
+  id: string;
+  cohort_id: string;
+  name: string;
+  cohort_name: string;
+}
+interface RawSession {
+  id: string;
+  cohort_id: string;
+  date: string;
+}
+interface RawAttendance {
+  student_id: string;
+  schedule_id: string | null;
+  status: string;
+  is_verified: boolean;
 }
 
 interface AttendanceHistoryRow {
@@ -200,13 +227,20 @@ const AttendanceRecordRow = ({
 
 const AdminAttendance = () => {
   const [pending, setPending] = useState<PendingRow[]>([]);
-  const [stats, setStats] = useState<StudentStat[]>([]);
+  const [rawStudents, setRawStudents] = useState<RawStudent[]>([]);
+  const [rawSessions, setRawSessions] = useState<RawSession[]>([]);
+  const [rawAttendance, setRawAttendance] = useState<RawAttendance[]>([]);
   const [totalPending, setTotalPending] = useState(0);
-  const [lowAttendanceCount, setLowAttendanceCount] = useState(0);
   const [todayTurnout, setTodayTurnout] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statsCohortFilter, setStatsCohortFilter] = useState("all");
+  const [statsFrom, setStatsFrom] = useState("");
+  const [statsTo, setStatsTo] = useState("");
+  const [belowThresholdOnly, setBelowThresholdOnly] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [queueCohortFilter, setQueueCohortFilter] = useState("all");
+  const [queueDate, setQueueDate] = useState("");
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [bulkVerifying, setBulkVerifying] = useState(false);
 
@@ -367,6 +401,7 @@ const AdminAttendance = () => {
         marked_at: a.marked_at,
         student_id: a.student_id,
         student_name: "",
+        cohort_id: null as string | null,
         cohort_name: "",
         is_verified: a.is_verified,
       }));
@@ -377,10 +412,11 @@ const AdminAttendance = () => {
       }
       const { data: studentsData } = await supabase
         .from("students")
-        .select("id, profiles(first_name, last_name), cohorts(name)")
+        .select("id, cohort_id, profiles(first_name, last_name), cohorts(name)")
         .in("id", studentIds);
       const students = (studentsData || []) as Array<{
         id: string;
+        cohort_id: string | null;
         cohorts: { name: string } | null;
         profiles: { first_name: string; last_name: string } | null;
       }>;
@@ -392,6 +428,7 @@ const AdminAttendance = () => {
           student_name: s?.profiles
             ? `${s.profiles.first_name || ""} ${s.profiles.last_name || ""}`.trim()
             : "—",
+          cohort_id: s?.cohort_id ?? null,
           cohort_name: (s?.cohorts as { name?: string })?.name ?? "—",
         };
       });
@@ -425,66 +462,106 @@ const AdminAttendance = () => {
       // the untracked 2025 curriculum), count for nobody.
       const { data: sessionData, error: sessionError } = await supabase
         .from("schedule")
-        .select("id, cohort_id")
+        .select("id, cohort_id, date")
         .not("cohort_id", "is", null)
         .eq("counts_for_attendance", true)
         .lte("date", today);
 
       if (sessionError) throw sessionError;
 
-      const sessionsHeldByCohort = new Map<string, number>();
-      const cohortBySessionId = new Map<string, string>();
-      for (const s of sessionData || []) {
-        const cid = s.cohort_id as string;
-        cohortBySessionId.set(s.id, cid);
-        sessionsHeldByCohort.set(cid, (sessionsHeldByCohort.get(cid) || 0) + 1);
-      }
-
       const { data: attData, error: attError } = await supabase
         .from("attendance")
-        .select("id, student_id, schedule_id, status, is_verified");
+        .select("student_id, schedule_id, status, is_verified");
 
       if (attError) throw attError;
-      const attList = attData || [];
 
-      // Numerator: verified Present/Late, restricted to the same counted sessions
-      // that form the denominator, so a student can never exceed 100%.
-      const presentByStudent = new Map<string, number>();
-      for (const a of attList) {
-        const sid = (a as { student_id: string }).student_id;
-        const scheduleId = (a as { schedule_id?: string | null }).schedule_id;
-        if (!scheduleId || !cohortBySessionId.has(scheduleId)) continue;
-        const status = ((a as { status?: string }).status || "").toUpperCase();
-        const verified = Boolean((a as { is_verified?: boolean }).is_verified);
-        if (verified && (status === "PRESENT" || status === "LATE")) {
-          presentByStudent.set(sid, (presentByStudent.get(sid) || 0) + 1);
-        }
-      }
-
-      const result: StudentStat[] = students.map((s) => {
-        const total = sessionsHeldByCohort.get(s.cohort_id) || 0;
-        const present = presentByStudent.get(s.id) || 0;
-        const pct = total > 0 ? Math.round((present / total) * 100) : 0;
-        return {
-          student_id: s.id,
+      setRawStudents(
+        students.map((s) => ({
+          id: s.id,
+          cohort_id: s.cohort_id,
           name: s.profiles
             ? `${s.profiles.first_name || ""} ${s.profiles.last_name || ""}`.trim()
             : "—",
           cohort_name: (s.cohorts as { name?: string })?.name ?? "—",
-          total_classes: total,
-          verified_present: present,
-          attendance_pct: pct,
-        };
-      });
-
-      setStats(result);
-      const below75 = result.filter((r) => r.attendance_pct < 75).length;
-      setLowAttendanceCount(below75);
+        }))
+      );
+      setRawSessions((sessionData || []) as RawSession[]);
+      setRawAttendance((attData || []) as RawAttendance[]);
     } catch (err) {
       console.error("[AdminAttendance] Stats error:", err);
       toast.error("Failed to load student statistics");
     }
   }, []);
+
+  // Statistics are derived, not fetched, so the date range can be changed without a
+  // round trip. An empty range means "everything to date".
+  const stats: StudentStat[] = useMemo(() => {
+    const inRange = rawSessions.filter(
+      (s) => (!statsFrom || s.date >= statsFrom) && (!statsTo || s.date <= statsTo)
+    );
+
+    const sessionsHeldByCohort = new Map<string, number>();
+    const cohortBySessionId = new Map<string, string>();
+    for (const s of inRange) {
+      cohortBySessionId.set(s.id, s.cohort_id);
+      sessionsHeldByCohort.set(s.cohort_id, (sessionsHeldByCohort.get(s.cohort_id) || 0) + 1);
+    }
+
+    // Numerator: verified Present/Late, restricted to the same counted sessions that
+    // form the denominator, so a student can never exceed 100%.
+    const presentByStudent = new Map<string, number>();
+    const lateByStudent = new Map<string, number>();
+    for (const a of rawAttendance) {
+      if (!a.schedule_id || !cohortBySessionId.has(a.schedule_id)) continue;
+      if (!a.is_verified) continue;
+      const status = (a.status || "").toUpperCase();
+      if (status !== "PRESENT" && status !== "LATE") continue;
+      presentByStudent.set(a.student_id, (presentByStudent.get(a.student_id) || 0) + 1);
+      if (status === "LATE") lateByStudent.set(a.student_id, (lateByStudent.get(a.student_id) || 0) + 1);
+    }
+
+    return rawStudents.map((s) => {
+      const total = sessionsHeldByCohort.get(s.cohort_id) || 0;
+      const present = presentByStudent.get(s.id) || 0;
+      return {
+        student_id: s.id,
+        name: s.name,
+        cohort_id: s.cohort_id,
+        cohort_name: s.cohort_name,
+        total_classes: total,
+        verified_present: present,
+        late_count: lateByStudent.get(s.id) || 0,
+        // Absence is derived: a counted session with no verified attendance.
+        absent_count: Math.max(0, total - present),
+        attendance_pct: total > 0 ? Math.round((present / total) * 100) : 0,
+      };
+    });
+  }, [rawStudents, rawSessions, rawAttendance, statsFrom, statsTo]);
+
+  const lowAttendanceCount = useMemo(
+    () => stats.filter((r) => r.total_classes > 0 && r.attendance_pct < LOW_ATTENDANCE_THRESHOLD).length,
+    [stats]
+  );
+
+  // Exports exactly what the statistics table is showing, so the CSV matches the
+  // screen. handleExportAllAttendance remains the raw, unfiltered record dump.
+  const handleExportFilteredStats = () => {
+    if (filteredStats.length === 0) {
+      toast.error("No students match the current filters");
+      return;
+    }
+    const period = statsFrom || statsTo ? `${statsFrom || "start"}_to_${statsTo || todayDateString()}` : "to_date";
+    const rows = filteredStats.map((s) => ({
+      "Student Name": s.name,
+      "Cohort": s.cohort_name,
+      "Classes Held": s.total_classes,
+      "Attended (Verified)": s.verified_present,
+      "Late": s.late_count,
+      "Missed": s.absent_count,
+      "Attendance %": s.attendance_pct,
+    }));
+    downloadCSV(rows, `attendance_summary_${period}`);
+  };
 
   const handleExportAllAttendance = async () => {
     try {
@@ -577,17 +654,19 @@ const AdminAttendance = () => {
     }
   };
 
+  // Scoped to the filtered queue — bulk-verifying another cohort by accident is
+  // not recoverable without hunting down the individual records.
   const verifyAllPending = async () => {
-    if (pending.length === 0) return;
+    if (filteredPending.length === 0) return;
     setBulkVerifying(true);
     try {
-      const ids = pending.map((p) => p.id);
+      const ids = filteredPending.map((p) => p.id);
       const { error } = await supabase
         .from("attendance")
         .update({ is_verified: true })
         .in("id", ids);
       if (error) throw error;
-      toast.success(`Verified ${pending.length} record(s)`);
+      toast.success(`Verified ${ids.length} record(s)`);
       await loadAll();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Bulk verify failed";
@@ -723,15 +802,49 @@ const AdminAttendance = () => {
     }
   };
 
-  const filteredStats = stats.filter(
-    (s) => {
-      const matchesSearch = !search ||
-        s.name.toLowerCase().includes(search.toLowerCase()) ||
-        s.cohort_name.toLowerCase().includes(search.toLowerCase());
-      const matchesCohort = statsCohortFilter === "all" || s.cohort_name === cohorts.find(c => c.id === statsCohortFilter)?.name;
-      return matchesSearch && matchesCohort;
-    }
+  const filteredStats = useMemo(
+    () =>
+      stats.filter((s) => {
+        const q = search.trim().toLowerCase();
+        const matchesSearch =
+          !q || s.name.toLowerCase().includes(q) || s.cohort_name.toLowerCase().includes(q);
+        // Match on id, not name — two cohorts sharing a name would otherwise collide.
+        const matchesCohort = statsCohortFilter === "all" || s.cohort_id === statsCohortFilter;
+        const matchesThreshold =
+          !belowThresholdOnly || (s.total_classes > 0 && s.attendance_pct < LOW_ATTENDANCE_THRESHOLD);
+        const matchesStatus =
+          statusFilter === "all" ||
+          (statusFilter === "present" && s.verified_present - s.late_count > 0) ||
+          (statusFilter === "late" && s.late_count > 0) ||
+          (statusFilter === "absent" && s.absent_count > 0);
+        return matchesSearch && matchesCohort && matchesThreshold && matchesStatus;
+      }),
+    [stats, search, statsCohortFilter, belowThresholdOnly, statusFilter]
   );
+
+  const filteredPending = useMemo(
+    () =>
+      pending.filter((p) => {
+        const matchesCohort = queueCohortFilter === "all" || p.cohort_id === queueCohortFilter;
+        const matchesDate =
+          !queueDate || (p.marked_at ? p.marked_at.slice(0, 10) === queueDate : false);
+        return matchesCohort && matchesDate;
+      }),
+    [pending, queueCohortFilter, queueDate]
+  );
+
+  const statsFiltersActive =
+    Boolean(search.trim()) || statsCohortFilter !== "all" || belowThresholdOnly ||
+    statusFilter !== "all" || Boolean(statsFrom) || Boolean(statsTo);
+
+  const clearStatsFilters = () => {
+    setSearch("");
+    setStatsCohortFilter("all");
+    setBelowThresholdOnly(false);
+    setStatusFilter("all");
+    setStatsFrom("");
+    setStatsTo("");
+  };
 
   const pctColor = (pct: number) => {
     if (pct < 70) return "text-red-600 font-semibold";
@@ -767,7 +880,7 @@ const AdminAttendance = () => {
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={handleExportAllAttendance} className="gap-2 self-start">
-          <Download className="h-4 w-4" /> Export All Attendance
+          <Download className="h-4 w-4" /> Export Everything
         </Button>
       </div>
 
@@ -868,7 +981,21 @@ const AdminAttendance = () => {
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-[var(--shadow-card)] border-border">
+        <Card
+          role="button"
+          tabIndex={0}
+          aria-pressed={belowThresholdOnly}
+          onClick={() => setBelowThresholdOnly((v) => !v)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setBelowThresholdOnly((v) => !v);
+            }
+          }}
+          className={`shadow-[var(--shadow-card)] cursor-pointer transition-colors hover:bg-red-50/50 ${
+            belowThresholdOnly ? "border-red-400 ring-2 ring-red-200 bg-red-50/50" : "border-border"
+          }`}
+        >
           <CardContent className="p-5 flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center">
               <AlertTriangle className="w-6 h-6 text-red-600" />
@@ -877,7 +1004,10 @@ const AdminAttendance = () => {
               <p className="text-xs text-muted-foreground font-medium">Low Attendance Alert</p>
               <p className="text-2xl font-bold text-foreground">
                 {lowAttendanceCount}
-                <span className="text-sm font-normal text-muted-foreground"> below 75%</span>
+                <span className="text-sm font-normal text-muted-foreground"> below {LOW_ATTENDANCE_THRESHOLD}%</span>
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {belowThresholdOnly ? "Filtering — click to clear" : "Click to filter the table"}
               </p>
             </div>
           </CardContent>
@@ -897,27 +1027,68 @@ const AdminAttendance = () => {
 
       {/* Verification Queue */}
       <Card className="shadow-[var(--shadow-card)] border-border">
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Verification Queue</CardTitle>
-          {pending.length > 0 && (
-            <Button
-              size="sm"
-              onClick={verifyAllPending}
-              disabled={bulkVerifying}
-              className="bg-emerald-600 hover:bg-emerald-700"
+        <CardHeader className="pb-3 space-y-3">
+          <div className="flex flex-row items-center justify-between gap-3">
+            <CardTitle className="text-base">
+              Verification Queue
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                {filteredPending.length === pending.length
+                  ? `${pending.length} pending`
+                  : `${filteredPending.length} of ${pending.length} pending`}
+              </span>
+            </CardTitle>
+            {filteredPending.length > 0 && (
+              <Button
+                size="sm"
+                onClick={verifyAllPending}
+                disabled={bulkVerifying}
+                className="bg-emerald-600 hover:bg-emerald-700 shrink-0"
+              >
+                {bulkVerifying ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                ) : (
+                  <CheckCircle className="w-4 h-4 mr-1" />
+                )}
+                Verify {filteredPending.length === pending.length ? "All" : `These ${filteredPending.length}`}
+              </Button>
+            )}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <select
+              className="border border-input bg-background rounded-md px-3 py-2 text-sm"
+              value={queueCohortFilter}
+              onChange={(e) => setQueueCohortFilter(e.target.value)}
+              aria-label="Filter queue by cohort"
             >
-              {bulkVerifying ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-1" />
-              ) : (
-                <CheckCircle className="w-4 h-4 mr-1" />
-              )}
-              Verify All Pending
-            </Button>
-          )}
+              <option value="all">All Cohorts</option>
+              {cohorts.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <Input
+              type="date"
+              value={queueDate}
+              onChange={(e) => setQueueDate(e.target.value)}
+              className="sm:max-w-[180px]"
+              aria-label="Filter queue by date"
+            />
+            {(queueCohortFilter !== "all" || queueDate) && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { setQueueCohortFilter("all"); setQueueDate(""); }}
+                className="self-start"
+              >
+                Clear
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          {pending.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">No pending approvals.</p>
+          {filteredPending.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              {pending.length === 0 ? "No pending approvals." : "No pending approvals match these filters."}
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -930,7 +1101,7 @@ const AdminAttendance = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pending.map((row) => (
+                  {filteredPending.map((row) => (
                     <TableRow key={row.id}>
                       <TableCell className="font-medium">{row.student_name || "—"}</TableCell>
                       <TableCell>{row.cohort_name}</TableCell>
@@ -973,9 +1144,21 @@ const AdminAttendance = () => {
       {/* Student Statistics */}
       <Card className="shadow-[var(--shadow-card)] border-border">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Student Statistics</CardTitle>
-          <div className="flex flex-col sm:flex-row gap-3 mt-2">
-            <div className="relative flex-1 max-w-xs">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle className="text-base">
+              Student Statistics
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                {filteredStats.length === stats.length
+                  ? `${stats.length} students`
+                  : `${filteredStats.length} of ${stats.length} students`}
+              </span>
+            </CardTitle>
+            <Button variant="outline" size="sm" onClick={handleExportFilteredStats} className="gap-2">
+              <Download className="h-4 w-4" /> Export This View
+            </Button>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 mt-2">
+            <div className="relative flex-1 min-w-[200px] max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search by name..."
@@ -988,13 +1171,53 @@ const AdminAttendance = () => {
               className="border border-input bg-background rounded-md px-3 py-2 text-sm"
               value={statsCohortFilter}
               onChange={(e) => setStatsCohortFilter(e.target.value)}
+              aria-label="Filter by cohort"
             >
               <option value="all">All Cohorts</option>
               {cohorts.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
+            <select
+              className="border border-input bg-background rounded-md px-3 py-2 text-sm"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              aria-label="Filter by status"
+            >
+              <option value="all">Any Status</option>
+              <option value="present">Has Present</option>
+              <option value="late">Has Late</option>
+              <option value="absent">Has Missed Class</option>
+            </select>
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={statsFrom}
+                max={statsTo || undefined}
+                onChange={(e) => setStatsFrom(e.target.value)}
+                className="max-w-[160px]"
+                aria-label="Statistics from date"
+              />
+              <span className="text-xs text-muted-foreground">to</span>
+              <Input
+                type="date"
+                value={statsTo}
+                min={statsFrom || undefined}
+                onChange={(e) => setStatsTo(e.target.value)}
+                className="max-w-[160px]"
+                aria-label="Statistics to date"
+              />
+            </div>
+            {statsFiltersActive && (
+              <Button size="sm" variant="ghost" onClick={clearStatsFilters}>Clear filters</Button>
+            )}
           </div>
+          {(statsFrom || statsTo) && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Percentages are recalculated over the selected period — "Classes Held" counts only
+              sessions in range.
+            </p>
+          )}
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -1003,8 +1226,10 @@ const AdminAttendance = () => {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Cohort</TableHead>
-                  <TableHead>Total Classes</TableHead>
-                  <TableHead>Verified Present/Late</TableHead>
+                  <TableHead>Classes Held</TableHead>
+                  <TableHead>Attended</TableHead>
+                  <TableHead>Late</TableHead>
+                  <TableHead>Missed</TableHead>
                   <TableHead>Attendance %</TableHead>
                   <TableHead className="text-right">Edit</TableHead>
                 </TableRow>
@@ -1012,7 +1237,7 @@ const AdminAttendance = () => {
               <TableBody>
                 {filteredStats.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                       No students found.
                     </TableCell>
                   </TableRow>
@@ -1031,6 +1256,12 @@ const AdminAttendance = () => {
                       <TableCell>{s.cohort_name}</TableCell>
                       <TableCell>{s.total_classes}</TableCell>
                       <TableCell>{s.verified_present}</TableCell>
+                      <TableCell className={s.late_count > 0 ? "text-amber-600 font-medium" : "text-muted-foreground"}>
+                        {s.late_count}
+                      </TableCell>
+                      <TableCell className={s.absent_count > 0 ? "text-red-600 font-medium" : "text-muted-foreground"}>
+                        {s.absent_count}
+                      </TableCell>
                       <TableCell>
                         <span className={pctColor(s.attendance_pct)}>{s.attendance_pct}%</span>
                       </TableCell>
