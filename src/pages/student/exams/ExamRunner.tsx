@@ -25,6 +25,9 @@ export default function ExamRunner() {
   const [submitting, setSubmitting] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
   const sessionIdRef = useRef(generateSessionId());
+  // Mirrors of the answer state, so the autosave callback can stay stable.
+  const answersRef = useRef<Record<string, unknown>>({});
+  const dirtyRef = useRef<Set<string>>(new Set());
   const submittedRef = useRef(false);
   const questionStartRef = useRef(Date.now());
 
@@ -65,6 +68,7 @@ export default function ExamRunner() {
       const { data: saved } = await supabase.from("exam_answers").select("*").eq("attempt_id", att.id);
       const map: Record<string, unknown> = {};
       (saved ?? []).forEach((a) => { map[a.question_id] = a.answer; });
+      answersRef.current = map;
       setAnswers(map);
       setTabSwitches(att.tab_switch_count ?? 0);
     })();
@@ -85,12 +89,22 @@ export default function ExamRunner() {
   }, [attempt]);
 
   // --- Autosave loop ---
-  const autosave = useCallback(async (event?: { type: string; data?: unknown }) => {
-    if (!attempt || submittedRef.current) return;
-    const dirtyIds = Array.from(dirty);
+  //
+  // Reads pending work from refs rather than state on purpose. With `answers`
+  // and `dirty` as dependencies this callback changed identity on every
+  // keystroke, which tore down and recreated the interval below — so a student
+  // answering steadily kept restarting the countdown and the autosave never
+  // fired at all.
+  const autosave = useCallback(async (
+    event?: { type: string; data?: unknown },
+    opts?: { force?: boolean },
+  ) => {
+    if (!attempt) return;
+    if (submittedRef.current && !opts?.force) return;
+    const dirtyIds = Array.from(dirtyRef.current);
     const payload = dirtyIds.map((qid) => ({
       question_id: qid,
-      answer: answers[qid],
+      answer: answersRef.current[qid],
       time_spent_seconds: 0,
     }));
     const { data, error } = await supabase.functions.invoke("exam-autosave", {
@@ -106,9 +120,16 @@ export default function ExamRunner() {
       submitExam("timeout");
       return;
     }
-    if (!error && !data?.error) setDirty(new Set());
+    if (!error && !data?.error) {
+      // Clear only what this call actually saved; anything answered while the
+      // request was in flight has to stay pending.
+      const remaining = new Set(dirtyRef.current);
+      dirtyIds.forEach((qid) => remaining.delete(qid));
+      dirtyRef.current = remaining;
+      setDirty(remaining);
+    }
     // eslint-disable-next-line
-  }, [attempt, answers, dirty, navigate]);
+  }, [attempt, navigate]);
 
   useEffect(() => {
     if (!exam) return;
@@ -147,6 +168,10 @@ export default function ExamRunner() {
       }
     };
     const onFsChange = () => {
+      // Submitting leaves fullscreen by design, and the browser fires this
+      // before the page changes — so the student was told off for exiting
+      // fullscreen as their paper went in. Only flag it while the exam is live.
+      if (submittedRef.current) return;
       if (exam.enforce_fullscreen && !document.fullscreenElement) {
         autosave({ type: "fullscreen_exit" });
         setWarning("You exited fullscreen. Please return to fullscreen to continue.");
@@ -179,15 +204,20 @@ export default function ExamRunner() {
   }, [exam, tabSwitches, autosave]);
 
   const updateAnswer = (qid: string, val: unknown) => {
-    setAnswers((p) => ({ ...p, [qid]: val }));
-    setDirty((d) => new Set(d).add(qid));
+    answersRef.current = { ...answersRef.current, [qid]: val };
+    dirtyRef.current = new Set(dirtyRef.current).add(qid);
+    setAnswers(answersRef.current);
+    setDirty(dirtyRef.current);
   };
 
   const submitExam = async (reason: string) => {
     if (submittedRef.current) return;
     submittedRef.current = true;
     setSubmitting(true);
-    await autosave();
+    // Forced, because the guard above has already been set: without this the
+    // flush returned immediately and every answer since the last autosave —
+    // in practice all of them — was lost.
+    await autosave(undefined, { force: true });
     const { data, error } = await supabase.functions.invoke("exam-submit", {
       body: { attempt_id: attempt.id, reason },
     });
