@@ -72,7 +72,12 @@ export const parseQuestionCSV = (csv: string) => {
   const out: Array<Record<string, unknown>> = [];
   for (let i = 1; i < lines.length; i++) {
     const cells = splitCSVLine(lines[i]);
-    const type = (cells[idx("question_type")] || "mcq_single").trim();
+    const type = (cells[idx("question_type")] || "mcq_single").trim().toLowerCase();
+    if (!(type in QUESTION_TYPE_LABELS)) {
+      throw new Error(
+        `Row ${i + 1}: unknown question_type "${type}". Use one of: ${Object.keys(QUESTION_TYPE_LABELS).join(", ")}`,
+      );
+    }
     const text = cells[idx("question_text")] || "";
     const opts = ["option_a", "option_b", "option_c", "option_d"]
       .map((k) => cells[idx(k)])
