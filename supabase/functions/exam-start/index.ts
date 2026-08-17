@@ -64,32 +64,52 @@ Deno.serve(async (req) => {
       .eq("exam_id", exam_id)
       .eq("student_id", student.id);
 
-    if (existingAttempts && existingAttempts.length > 0) {
-      const active = existingAttempts.find((a: any) => a.status !== "submitted");
-      if (active) {
-        // A staff rehearsal is throwaway, and it is hidden from the monitor, so
-        // a half-finished one would lock the admin out of their own dry run with
-        // nothing on screen to clear. Discard it and start clean. Answers,
-        // events and snapshots cascade with the attempt.
-        if (student.is_staff_preview) {
-          const { error: discardError } = await supabase
-            .from("exam_attempts")
-            .delete()
-            .eq("id", active.id);
-          if (discardError) {
-            console.error("Discard rehearsal attempt error:", discardError);
-            return new Response(
-              JSON.stringify({ error: "Could not clear the previous rehearsal attempt" }),
-              { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-            );
-          }
-        } else {
-          return new Response(
-            JSON.stringify({ error: "You already have an active attempt at this exam" }),
-            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-          );
-        }
+    const activeAttempt = existingAttempts?.find((a: any) => a.status !== "submitted");
+    const submittedAttempt = existingAttempts?.find((a: any) => a.status === "submitted");
+
+    // Resume, rather than refuse.
+    //
+    // The runner calls this endpoint on every mount, including when the student
+    // taps Resume, so answering an unfinished attempt with 409 made a crashed
+    // browser unrecoverable — the rules promise a resume and the list offers the
+    // button, but both dead-ended here. Hand back the attempt already in flight:
+    // its question order, option order and server deadline are the ones this
+    // student was working to, and the runner reloads saved answers from
+    // exam_answers.
+    //
+    // The session id has to move to this tab or exam-autosave, which rejects a
+    // mismatched session, would refuse every save from the resumed sitting.
+    if (activeAttempt) {
+      const { data: resumed, error: resumeError } = await supabase
+        .from("exam_attempts")
+        .update({
+          active_session_id: session_id,
+          device_fingerprint,
+          last_heartbeat_at: new Date().toISOString(),
+        })
+        .eq("id", activeAttempt.id)
+        .select()
+        .single();
+
+      if (resumeError || !resumed) {
+        console.error("Resume attempt error:", resumeError);
+        return new Response(JSON.stringify({ error: "Failed to resume your exam attempt" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+
+      return new Response(
+        JSON.stringify({ attempt: resumed, resumed: true }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // One sitting each — the rules page says so, and without this a student
+    // could submit and immediately sit the paper again for a second score.
+    // Staff rehearsals are exempt so a dry run can be repeated.
+    if (submittedAttempt && !student.is_staff_preview) {
+      return new Response(
+        JSON.stringify({ error: "You have already submitted this exam" }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // Questions hang off an exam through exam_questions — question_bank has no

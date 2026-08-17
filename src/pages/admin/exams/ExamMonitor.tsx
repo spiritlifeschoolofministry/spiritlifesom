@@ -58,6 +58,24 @@ export default function ExamMonitor() {
     return () => { supabase.removeChannel(channel); };
   }, [id, showRehearsals]);
 
+  /**
+   * Throw away a staff dry run.
+   *
+   * exam-start resumes an unfinished attempt rather than replacing it, which is
+   * what a real student needs — so this is how staff clear a rehearsal and sit
+   * the paper again from the top. Answers, events and snapshots cascade.
+   */
+  const discardRehearsal = async (attempt: any) => {
+    if (!confirm("Discard this rehearsal attempt? Its answers and snapshots are deleted.")) return;
+    const { error } = await supabase.from("exam_attempts").delete().eq("id", attempt.id);
+    if (error) {
+      toast.error(error.message || "Could not discard the rehearsal");
+      return;
+    }
+    toast.success("Rehearsal discarded");
+    load();
+  };
+
   const releaseResults = async () => {
     if (!confirm("Release results to all students? This pushes scores into Grades.")) return;
     const { data, error } = await supabase.functions.invoke("exam-release-results", { body: { exam_id: id } });
@@ -273,6 +291,11 @@ export default function ExamMonitor() {
                       {loadingSnapsFor === a.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Camera className="w-3 h-3 mr-1" />}
                       Snapshots
                     </Button>
+                    {a.isRehearsal && (
+                      <Button size="sm" variant="destructive" onClick={() => discardRehearsal(a)}>
+                        <Trash2 className="w-3 h-3 mr-1" /> Discard
+                      </Button>
+                    )}
                   </div>
                 </td>
               </tr>
