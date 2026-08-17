@@ -45,6 +45,35 @@ const RELINK_COLUMNS = [
   { table: "assignment_submissions", column: "file_url" },
 ];
 
+/**
+ * Every column anywhere in the schema that can hold a link to a stored file.
+ * The orphan audit treats a key mentioned by any of these as still in use, so
+ * this list errs on the side of over-inclusion: a column listed here that turns
+ * out to be irrelevant costs nothing, a missing one costs a live file.
+ */
+const URL_REF_COLUMNS = [
+  { table: "profiles", column: "avatar_url", bucket: "avatars" },
+  { table: "faculty_members", column: "photo_url", bucket: "avatars" },
+  { table: "students", column: "profile_image_url", bucket: "avatars" },
+  { table: "question_bank", column: "image_url", bucket: "question-images" },
+  { table: "payments", column: "payment_proof_url", bucket: "submissions" },
+  { table: "course_materials", column: "file_url", bucket: "course-materials" },
+  { table: "assignment_submissions", column: "file_url", bucket: "assignments" },
+];
+
+/** Free-text/JSON settings rows that can embed an R2 link (logos, banners). */
+const TEXT_REF_SOURCES = [
+  { table: "app_settings", column: "value" },
+  { table: "site_content", column: "content" },
+  { table: "system_settings", column: "value" },
+];
+
+/**
+ * An object younger than this is never reported or deleted as unused: its row
+ * may still be in flight from an upload that has not committed yet.
+ */
+const ORPHAN_GRACE_MS = 60 * 60 * 1000;
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -119,6 +148,96 @@ async function copyToR2(
   if (!res.ok) throw new Error(`R2 PUT ${res.status}: ${await res.text()}`);
 }
 
+/** Pull the in-bucket object key out of an R2 public URL. */
+function keyFromR2Url(url: string): string | null {
+  if (!url.startsWith(`${R2_PUBLIC_BASE}/`)) return null;
+  const raw = url.slice(R2_PUBLIC_BASE.length + 1).split("?")[0];
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+/** Every object in the bucket, straight from ListObjectsV2. */
+async function listR2Objects(
+  r2: ReturnType<typeof r2Client>,
+): Promise<{ objects: Array<{ key: string; size: number; lastModified: string }>; truncated: boolean }> {
+  const objects: Array<{ key: string; size: number; lastModified: string }> = [];
+  let token: string | undefined;
+  let pages = 0;
+
+  do {
+    const qs = new URLSearchParams({ "list-type": "2", "max-keys": "1000" });
+    if (token) qs.set("continuation-token", token);
+
+    const res = await r2.client.fetch(`${r2.bucketUrl}?${qs.toString()}`, { method: "GET" });
+    if (!res.ok) throw new Error(`R2 list failed (${res.status}): ${await res.text()}`);
+
+    const xml = await res.text();
+    pages++;
+
+    for (const m of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+      const chunk = m[1];
+      objects.push({
+        key: chunk.match(/<Key>([\s\S]*?)<\/Key>/)?.[1] ?? "",
+        size: Number(chunk.match(/<Size>(\d+)<\/Size>/)?.[1] ?? 0),
+        lastModified: chunk.match(/<LastModified>([\s\S]*?)<\/LastModified>/)?.[1] ?? "",
+      });
+    }
+
+    const isTruncated = /<IsTruncated>true<\/IsTruncated>/.test(xml);
+    token = isTruncated
+      ? xml.match(/<NextContinuationToken>([\s\S]*?)<\/NextContinuationToken>/)?.[1]
+      : undefined;
+  } while (token && pages < 50);
+
+  return { objects, truncated: !!token };
+}
+
+/**
+ * Every R2 key the database still points at. Anything outside this set is an
+ * orphan — a file left behind by a deleted record or a replaced upload.
+ */
+async function referencedKeys(admin: any): Promise<Set<string>> {
+  const keys = new Set<string>();
+
+  const add = (key: string | null | undefined) => {
+    if (!key) return;
+    keys.add(key);
+    // Avatars were re-prefixed on migration; accept a row that still names the
+    // pre-migration key so the prefixed object is not read as an orphan.
+    if (!key.startsWith("avatars/")) keys.add(`avatars/${key}`);
+  };
+
+  for (const { table } of TRACKED) {
+    const { data } = await admin.from(table).select("storage_path").not("storage_path", "is", null);
+    for (const row of data ?? []) add(row.storage_path as string);
+  }
+
+  for (const { table, column, bucket } of URL_REF_COLUMNS) {
+    const { data } = await admin.from(table).select(column).not(column, "is", null);
+    for (const row of (data ?? []) as any[]) {
+      const value = row[column] as string;
+      add(keyFromR2Url(value) ?? keyFromSupabaseUrl(value, bucket));
+    }
+  }
+
+  // Settings blobs: scoop up any R2 link mentioned anywhere in the text.
+  const escapedBase = R2_PUBLIC_BASE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const linkPattern = new RegExp(`${escapedBase}/[^\\s"'<>)]+`, "g");
+  for (const { table, column } of TEXT_REF_SOURCES) {
+    const { data } = await admin.from(table).select(column);
+    for (const row of (data ?? []) as any[]) {
+      const value = row[column];
+      const text = typeof value === "string" ? value : JSON.stringify(value ?? "");
+      for (const match of text.matchAll(linkPattern)) add(keyFromR2Url(match[0]));
+    }
+  }
+
+  return keys;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: `Method ${req.method} not allowed` }, 405);
@@ -189,6 +308,85 @@ Deno.serve(async (req) => {
       const totalPending = Object.values(pending).reduce((a, b) => a + b, 0);
       const totalMigrated = Object.values(migrated).reduce((a, b) => a + b, 0);
       return json({ pending, migrated, totalPending, totalMigrated, relinkPending, publicBase: R2_PUBLIC_BASE });
+    }
+
+    // ---------------- AUDIT ----------------
+    // Walks the R2 bucket and marks each object as still referenced by the
+    // database or orphaned. Read-only — nothing is deleted here.
+    if (action === "audit") {
+      const r2 = r2Client();
+      const [{ objects, truncated }, referenced] = await Promise.all([
+        listR2Objects(r2),
+        referencedKeys(admin),
+      ]);
+
+      const now = Date.now();
+      let usedCount = 0, usedBytes = 0, unusedCount = 0, unusedBytes = 0, recentCount = 0;
+
+      const files = objects.map((o) => {
+        const used = referenced.has(o.key);
+        const age = o.lastModified ? now - Date.parse(o.lastModified) : Number.POSITIVE_INFINITY;
+        const recent = Number.isFinite(age) && age < ORPHAN_GRACE_MS;
+        if (used) { usedCount++; usedBytes += o.size; }
+        else if (recent) { recentCount++; }
+        else { unusedCount++; unusedBytes += o.size; }
+        return { ...o, used, recent };
+      });
+
+      files.sort((a, b) => b.size - a.size);
+
+      return json({
+        objects: objects.length,
+        bytes: objects.reduce((sum, o) => sum + o.size, 0),
+        usedCount,
+        usedBytes,
+        unusedCount,
+        unusedBytes,
+        recentCount,
+        truncated,
+        graceMinutes: Math.round(ORPHAN_GRACE_MS / 60000),
+        // Capped so a huge bucket cannot blow the response size.
+        files: files.slice(0, 1000),
+        fileLimit: 1000,
+      });
+    }
+
+    // ---------------- DELETE UNUSED ----------------
+    // Deletes R2 objects the caller picked, but re-derives the reference set
+    // first: anything the database still points at is refused, never deleted.
+    if (action === "delete-unused") {
+      const keys: string[] = Array.isArray(body.keys) ? body.keys.filter((k: unknown) => typeof k === "string") : [];
+      if (!keys.length) return json({ error: "No files selected" }, 400);
+      if (keys.length > 200) return json({ error: "Delete at most 200 files at a time" }, 400);
+
+      const r2 = r2Client();
+      const referenced = await referencedKeys(admin);
+
+      const deleted: string[] = [];
+      const kept: Array<{ key: string; reason: string }> = [];
+
+      for (const key of keys) {
+        if (referenced.has(key)) {
+          kept.push({ key, reason: "still referenced by a record" });
+          continue;
+        }
+
+        const head = await r2.client.fetch(`${r2.bucketUrl}/${encodeKey(key)}`, { method: "HEAD" });
+        const modified = head.headers.get("last-modified");
+        if (head.ok && modified && Date.now() - Date.parse(modified) < ORPHAN_GRACE_MS) {
+          kept.push({ key, reason: "uploaded too recently" });
+          continue;
+        }
+
+        const res = await r2.client.fetch(`${r2.bucketUrl}/${encodeKey(key)}`, { method: "DELETE" });
+        if (!res.ok && res.status !== 404) {
+          kept.push({ key, reason: `R2 refused the delete (${res.status})` });
+          continue;
+        }
+        deleted.push(key);
+      }
+
+      return json({ deleted: deleted.length, kept: kept.length, keptDetail: kept.slice(0, 20) });
     }
 
     // ---------------- MIGRATE ----------------
