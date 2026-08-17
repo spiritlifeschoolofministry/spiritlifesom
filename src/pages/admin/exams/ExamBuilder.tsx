@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { QuestionRenderer } from "@/components/exam/QuestionRenderer";
 import { sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType } from "@/lib/exam-utils";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import { AlertCircle, ArrowLeft, Download, Loader2, Lock, Save, Send } from "lucide-react";
 
@@ -65,6 +66,30 @@ const DEFAULT: any = {
 const FieldError = ({ message }: { message?: string }) =>
   message ? <p className="text-xs text-destructive mt-1">{message}</p> : null;
 
+/** Shift a datetime-local string ("2026-08-17T15:30") by n minutes, keeping the same format. */
+const addMinutes = (local: string, minutes: number) => {
+  const d = new Date(local);
+  if (Number.isNaN(d.getTime())) return "";
+  d.setMinutes(d.getMinutes() + minutes);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+/** Minutes between two datetime-local strings, or null if either is unusable. */
+const minutesBetween = (from: string, to: string) => {
+  const a = new Date(from).getTime();
+  const b = new Date(to).getTime();
+  if (Number.isNaN(a) || Number.isNaN(b)) return null;
+  return Math.round((b - a) / 60000);
+};
+
+const humanDuration = (minutes: number) => {
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m ? `${h} hr ${m} min` : `${h} hr`;
+};
+
 export default function ExamBuilder() {
   const { id } = useParams();
   const isNew = !id || id === "new";
@@ -90,7 +115,18 @@ export default function ExamBuilder() {
 
   /** Patch the exam and mark the form dirty, clearing any error on the touched fields. */
   const update = (patch: Record<string, unknown>) => {
-    setExam((prev: any) => ({ ...prev, ...patch }));
+    setExam((prev: any) => {
+      const next = { ...prev, ...patch };
+      // Picking a start time with no sensible close time yet is the common case, so
+      // derive one from the duration rather than making the admin compute it.
+      if ("start_at" in patch && next.start_at) {
+        const span = next.end_at ? minutesBetween(next.start_at, next.end_at) : null;
+        if (span === null || span <= 0) {
+          next.end_at = addMinutes(next.start_at, Number(next.duration_minutes) || 60);
+        }
+      }
+      return next;
+    });
     setDirty(true);
     setErrors((prev) => {
       if (!Object.keys(patch).some((k) => k in prev)) return prev;
@@ -172,9 +208,11 @@ export default function ExamBuilder() {
       if (end <= start) {
         errs.end_at = "The closing time must be after the opening time.";
       } else if ((end.getTime() - start.getTime()) / 60000 < Number(exam.duration_minutes || 0)) {
-        errs.duration_minutes =
-          `The exam window is only ${Math.round((end.getTime() - start.getTime()) / 60000)} minutes long, ` +
-          `which is shorter than the ${exam.duration_minutes}-minute duration.`;
+        const span = Math.round((end.getTime() - start.getTime()) / 60000);
+        errs.end_at =
+          `The exam is only open for ${humanDuration(span)} (${format(start, "p")} to ${format(end, "p")}), ` +
+          `but each student needs ${humanDuration(Number(exam.duration_minutes))} to finish. ` +
+          `Push the closing time back, or lower the time limit.`;
       }
     }
     if (Number(exam.duration_minutes) < 1) errs.duration_minutes = "Duration must be at least 1 minute.";
@@ -240,6 +278,9 @@ export default function ExamBuilder() {
 
   const pickedQuestions = picked.map((id) => bank.find((q) => q.id === id)).filter(Boolean);
   const previewQ = pickedQuestions[previewIdx];
+  const windowMinutes =
+    exam.start_at && exam.end_at ? minutesBetween(exam.start_at, exam.end_at) : null;
+  const windowTooShort = windowMinutes !== null && windowMinutes < Number(exam.duration_minutes || 0);
 
   return (
     <div className="space-y-4">
@@ -326,24 +367,26 @@ export default function ExamBuilder() {
                 <FieldError message={errors.cohort_id} />
               </div>
               <div>
-                <Label>Start *</Label>
+                <Label>Opens *</Label>
                 <Input type="datetime-local" value={exam.start_at} onChange={(e) => update({ start_at: e.target.value })}
                   aria-invalid={!!errors.start_at} />
                 <FieldError message={errors.start_at} />
+                <p className="text-xs text-muted-foreground mt-1">Earliest a student may start.</p>
               </div>
               <div>
-                <Label>End *</Label>
+                <Label>Closes *</Label>
                 <Input type="datetime-local" value={exam.end_at} onChange={(e) => update({ end_at: e.target.value })}
                   aria-invalid={!!errors.end_at} />
                 <FieldError message={errors.end_at} />
+                <p className="text-xs text-muted-foreground mt-1">Everyone is submitted by this time.</p>
               </div>
               <div>
-                <Label>Duration (minutes)</Label>
+                <Label>Time limit per student (minutes)</Label>
                 <Input type="number" min={1} value={exam.duration_minutes}
                   onChange={(e) => update({ duration_minutes: Number(e.target.value) })} aria-invalid={!!errors.duration_minutes} />
                 <FieldError message={errors.duration_minutes} />
                 <p className="text-xs text-muted-foreground mt-1">
-                  How long each student gets once they start, within the window above.
+                  Each student's own countdown, which starts when they begin — not the same as the window above.
                 </p>
               </div>
               <div>
@@ -356,6 +399,40 @@ export default function ExamBuilder() {
                 )}
               </div>
             </div>
+            {windowMinutes !== null && windowMinutes > 0 && (
+              <div
+                className={`p-3 rounded-md border text-sm ${
+                  windowTooShort ? "border-amber-500/30 bg-amber-500/5" : "border-border"
+                }`}
+              >
+                <p>
+                  The exam is open for <strong>{humanDuration(windowMinutes)}</strong>, and each student gets{" "}
+                  <strong>{humanDuration(Number(exam.duration_minutes) || 0)}</strong> once they start.
+                </p>
+                {windowTooShort ? (
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <span className="text-amber-700 dark:text-amber-500">
+                      Nobody can finish — the window is shorter than the time limit.
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => update({ end_at: addMinutes(exam.start_at, Number(exam.duration_minutes) || 60) })}
+                    >
+                      Close at {format(new Date(addMinutes(exam.start_at, Number(exam.duration_minutes) || 60)), "PPp")} instead
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    A student who starts after{" "}
+                    {format(new Date(addMinutes(exam.end_at, -(Number(exam.duration_minutes) || 0))), "p")} will be
+                    submitted when the window closes, before their own time is up.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center justify-between p-3 rounded-md border border-border">
               <div><Label>Allow late entry</Label><p className="text-xs text-muted-foreground">Students may join after start time</p></div>
               <Switch checked={exam.allow_late_entry} onCheckedChange={(v) => update({ allow_late_entry: v })} />
