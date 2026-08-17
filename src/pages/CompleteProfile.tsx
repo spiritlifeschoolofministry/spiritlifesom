@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +11,7 @@ import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import SEO from "@/components/SEO";
+import { saveProfileCompletion } from "@/lib/complete-profile-save";
 import {
   isStudentProfileComplete,
   missingProfileFields,
@@ -146,26 +146,18 @@ const CompleteProfile = () => {
     submittingRef.current = true;
     setSaving(true);
     try {
-      const profileUpdate: Record<string, unknown> = {};
-      if (missing.includes("first_name")) profileUpdate.first_name = firstName.trim();
-      if (missing.includes("last_name")) profileUpdate.last_name = lastName.trim();
-      if (middleName.trim()) profileUpdate.middle_name = middleName.trim();
-      if (missing.includes("phone")) profileUpdate.phone = phone.trim();
-
-      if (Object.keys(profileUpdate).length) {
-        const { error: pErr } = await supabase.from("profiles").update(profileUpdate).eq("id", user.id);
-        if (pErr) throw pErr;
-      }
-
-      const studentUpdate: Record<string, unknown> = {};
-      if (missing.includes("gender")) studentUpdate.gender = gender;
-      if (missing.includes("age")) studentUpdate.age = parseInt(age, 10);
-      if (missing.includes("learning_mode")) studentUpdate.learning_mode = learningMode;
-
-      if (Object.keys(studentUpdate).length) {
-        const { error: sErr } = await supabase.from("students").update(studentUpdate).eq("profile_id", user.id);
-        if (sErr) throw sErr;
-      }
+      await saveProfileCompletion({
+        userId: user.id,
+        email: user.email ?? "",
+        firstName,
+        middleName,
+        lastName,
+        phone,
+        gender,
+        age: parseInt(age, 10),
+        learningMode,
+        missing,
+      });
 
       toast.success("Profile completed! Welcome aboard.");
       // Re-read auth state in place, then route client-side. A full page load
