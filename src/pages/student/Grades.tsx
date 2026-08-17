@@ -36,6 +36,7 @@ interface CategorySummary {
 }
 
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
+  Exam: GraduationCap,
   Assignment: ClipboardList,
   Project: Briefcase,
   "Class Work": BookOpen,
@@ -84,7 +85,29 @@ const StudentGrades = () => {
           course_title: a.courses?.title || "—",
         };
       });
-      setItems(gradedItems);
+      // Released exam results belong here too. They used to live only on the
+      // exams page, so a mark counted for nothing in the student's grade
+      // summary even though the release dialog promised it went "into Grades".
+      const { data: examAttempts } = await supabase
+        .from("exam_attempts")
+        .select("id, score, manual_score_override, status, exams(id, title, total_points, results_released, courses(title))")
+        .eq("student_id", student.id)
+        .in("status", ["submitted", "graded"]);
+
+      const examItems: GradedItem[] = (examAttempts ?? [])
+        .filter((a: any) => a.exams?.results_released)
+        .map((a: any) => ({
+          id: a.id,
+          title: a.exams.title,
+          category: "Exam",
+          max_points: Number(a.exams.total_points) || 0,
+          grade: Number(a.manual_score_override ?? a.score ?? 0),
+          feedback: null,
+          reviewed_at: null,
+          course_title: a.exams.courses?.title || "—",
+        }));
+
+      setItems([...gradedItems, ...examItems]);
     } catch (err) {
       // silent
     } finally {

@@ -6,7 +6,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const VALID_REASONS = ["manual", "timeout", "tab_switches", "fullscreen_exit", "admin", "disconnect"];
+// Must match what the runner actually sends. "tab_switch_exceeded" used to be
+// missing, so an exam auto-submitted for tab switching was filed as a manual
+// submission — the record showed a student choosing to finish when they had
+// been cut off.
+const VALID_REASONS = [
+  "manual",
+  "timeout",
+  "tab_switches",
+  "tab_switch_exceeded",
+  "fullscreen_exit",
+  "camera_blocked",
+  "admin",
+  "disconnect",
+];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {

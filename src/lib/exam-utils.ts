@@ -94,6 +94,33 @@ export const formatAnswer = (
   }
 };
 
+/**
+ * Whether a question has been fully answered.
+ *
+ * Matching needs every pair chosen, not just the first — a half-filled
+ * matching question used to show green in the navigator and count towards
+ * "answered 7/7", telling a student they were finished when they were not.
+ */
+export const isAnswered = (
+  question: { question_type?: string | null; question_text?: string | null },
+  value: unknown,
+): boolean => {
+  if (value === null || value === undefined || value === "") return false;
+  if (Array.isArray(value)) return value.length > 0;
+
+  if (question.question_type === "matching") {
+    if (typeof value !== "object") return true;
+    const chosen = Object.values(value as Record<string, unknown>).filter(
+      (v) => v !== null && v !== undefined && v !== "",
+    ).length;
+    const parsed = parseMatchingQuestion(question.question_text || "");
+    // Unparseable prompts fall back to a free-text answer, where anything counts.
+    return parsed ? chosen >= parsed.left.length : chosen > 0;
+  }
+
+  return true;
+};
+
 /** Question types the server marks on submission from the saved answer key. */
 export const AUTO_GRADED_TYPES: QuestionType[] = [
   "mcq_single",
@@ -101,6 +128,7 @@ export const AUTO_GRADED_TYPES: QuestionType[] = [
   "true_false",
   "short_answer",
   "fill_blank",
+  "matching",
 ];
 
 export const sanitizeHtml = (html: string) =>
@@ -305,8 +333,32 @@ export const parseQuestionCSV = (csv: string) => {
       correct_answer = v === "true";
     } else if (type === "short_answer" || type === "fill_blank") {
       correct_answer = correctRaw.split("|").map((s) => s.trim()).filter(Boolean);
+    } else if (type === "matching") {
+      // "A-1, B-2" (also A=1 or A:1). Left with the key blank, the question
+      // still imports and is simply marked by hand.
+      if (correctRaw) {
+        const pairs: Record<string, string> = {};
+        for (const token of correctRaw.split(/[|,]/).map((s) => s.trim()).filter(Boolean)) {
+          const m = token.match(/^([A-Za-z])\s*[-=:>]+\s*(\d{1,2})$/);
+          if (!m) {
+            throw new Error(
+              `Row ${rowNo}: matching answers look like "A-1, B-2". "${token}" does not.`,
+            );
+          }
+          pairs[m[1].toUpperCase()] = m[2];
+        }
+        const prompts = parseMatchingQuestion(text);
+        if (prompts) {
+          const missing = prompts.left.map((l) => l.key).filter((k) => !(k in pairs));
+          if (missing.length) {
+            throw new Error(`Row ${rowNo}: no correct match given for ${missing.join(", ")}.`);
+          }
+        }
+        correct_answer = pairs;
+      }
+      if (opts.length) options = opts;
     } else if (opts.length) {
-      // essay / matching: keep any supplied options for reference, answer is graded by hand
+      // essay: keep any supplied options for reference, answer is graded by hand
       options = opts;
     }
 

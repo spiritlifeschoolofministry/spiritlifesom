@@ -35,7 +35,11 @@ Deno.serve(async (req) => {
     // Get the attempt to verify ownership and check status
     const { data: attempt, error: attemptError } = await supabase
       .from("exam_attempts")
-      .select("id, student_id, submitted_at, server_deadline_at, active_session_id, tab_switch_count, status")
+      // fullscreen_exits and suspicious_events are read below to build their
+      // next value. They were missing from this list, so both came back
+      // undefined: the exit counter reset to 1 every time, and each new
+      // suspicious event overwrote the whole log instead of appending to it.
+      .select("id, student_id, submitted_at, server_deadline_at, active_session_id, tab_switch_count, status, fullscreen_exits, suspicious_events")
       .eq("id", attempt_id)
       .single();
 
@@ -80,10 +84,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Save/update answers
+    // Save/update answers.
+    //
+    // Write failures are reported, not swallowed. This loop used to ignore its
+    // errors, so a rejected write looked identical to a successful one and the
+    // runner would clear the answer as saved — the student loses work and
+    // nobody finds out until the paper is marked.
     for (const ans of answers) {
       if (!ans.question_id) continue;
-      await supabase
+      const { error: saveError } = await supabase
         .from("exam_answers")
         .upsert({
           attempt_id,
@@ -92,6 +101,14 @@ Deno.serve(async (req) => {
           time_spent_seconds: ans.time_spent_seconds || 0,
           autosaved_at: new Date().toISOString(),
         }, { onConflict: "attempt_id,question_id" });
+
+      if (saveError) {
+        console.error("Autosave write error:", saveError, { attempt_id, question_id: ans.question_id });
+        return new Response(
+          JSON.stringify({ error: "Your answer could not be saved. Check your connection." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
     }
 
     // Log event if provided

@@ -83,7 +83,7 @@ export default function ExamMonitor() {
   };
 
   const releaseResults = async () => {
-    if (!confirm("Release results to all students? This pushes scores into Grades.")) return;
+    if (!confirm("Release results to all students? Scores appear on their exams page and in their Grades.")) return;
     const { data, error } = await supabase.functions.invoke("exam-release-results", { body: { exam_id: id } });
     if (error || data?.error) return toast.error(error?.message || data?.error);
     toast.success(`Released to ${data.released} students`);

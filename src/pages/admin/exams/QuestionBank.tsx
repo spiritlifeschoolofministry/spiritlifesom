@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 const RichTextEditor = lazy(() =>
   import("@/components/exam/RichTextEditor").then((m) => ({ default: m.RichTextEditor }))
 );
-import { QUESTION_TYPE_LABELS, QuestionType, parseQuestionCSV, sanitizeHtml } from "@/lib/exam-utils";
+import { QUESTION_TYPE_LABELS, QuestionType, parseMatchingQuestion, parseQuestionCSV, sanitizeHtml } from "@/lib/exam-utils";
 import { toast } from "sonner";
 import { Plus, Upload, Archive, Edit, Trash2, Search, Loader2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -257,7 +257,8 @@ export default function QuestionBank() {
                     if (v === "mcq_single") { next.options = ["", ""]; next.correct_answer = 0; }
                     else if (v === "mcq_multi") { next.options = ["", ""]; next.correct_answer = []; }
                     else if (v === "true_false") { next.options = null; next.correct_answer = true; }
-                    else if (v === "essay" || v === "matching") { next.options = null; next.correct_answer = null; }
+                    else if (v === "essay") { next.options = null; next.correct_answer = null; }
+                    else if (v === "matching") { next.options = null; next.correct_answer = {}; }
                     else { next.options = null; next.correct_answer = []; }
                     setEditing(next);
                   }}>
@@ -351,6 +352,49 @@ export default function QuestionBank() {
                   />
                 </div>
               )}
+
+              {editing.question_type === "matching" && (() => {
+                // The pairs live in the question text as "A) …" and "1) …"
+                // lines, so the key is built from whatever is written there.
+                const parsed = parseMatchingQuestion(editing.question_text || "");
+                if (!parsed) {
+                  return (
+                    <p className="text-xs text-muted-foreground">
+                      Write the pairs in the question text as "A) …" / "B) …" and "1) …" / "2) …" lines,
+                      then set the correct match for each. Until then this question is marked by hand.
+                    </p>
+                  );
+                }
+                const key: Record<string, string> =
+                  editing.correct_answer && typeof editing.correct_answer === "object" && !Array.isArray(editing.correct_answer)
+                    ? (editing.correct_answer as Record<string, string>)
+                    : {};
+                return (
+                  <div className="space-y-2">
+                    <Label>Correct matches</Label>
+                    {parsed.left.map((item) => (
+                      <div key={item.key} className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <p className="flex-1 text-sm"><span className="font-medium mr-1">{item.key})</span>{item.text}</p>
+                        <Select
+                          value={key[item.key] ?? ""}
+                          onValueChange={(v) => setEditing({ ...editing, correct_answer: { ...key, [item.key]: v } })}
+                        >
+                          <SelectTrigger className="w-full sm:w-[260px]"><SelectValue placeholder="Correct match" /></SelectTrigger>
+                          <SelectContent>
+                            {parsed.right.map((opt) => (
+                              <SelectItem key={opt.key} value={opt.key}>{opt.key}) {opt.text}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                    <p className="text-xs text-muted-foreground">
+                      Marked automatically, one pair at a time — get one of two right and half the marks follow.
+                      You can still change any mark when reviewing.
+                    </p>
+                  </div>
+                );
+              })()}
 
               <div>
                 <Label>Explanation (shown only to admins)</Label>

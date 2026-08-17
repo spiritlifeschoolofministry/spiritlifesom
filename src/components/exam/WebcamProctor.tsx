@@ -8,13 +8,15 @@ interface Props {
   examId: string;
   studentId: string;
   intervalSeconds?: number;
+  /** Called when the camera stops during the exam, for whatever reason. */
+  onCameraLost?: (reason: string) => void;
 }
 
 /**
  * Captures a webcam snapshot every N seconds and uploads to Cloudflare R2.
  * Records each upload in the `exam_snapshots` table for admin review.
  */
-export default function WebcamProctor({ attemptId, examId, studentId, intervalSeconds = 30 }: Props) {
+export default function WebcamProctor({ attemptId, examId, studentId, intervalSeconds = 30, onCameraLost }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -24,6 +26,18 @@ export default function WebcamProctor({ attemptId, examId, studentId, intervalSe
 
   useEffect(() => {
     let cancelled = false;
+    // Report the loss once. A revoked camera fires several signals at once
+    // (track ended, permission change), and each would otherwise trigger a
+    // separate submission.
+    let reported = false;
+    const lose = (reason: string) => {
+      if (cancelled || reported) return;
+      reported = true;
+      setActive(false);
+      setError(reason);
+      onCameraLost?.(reason);
+    };
+
     (async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -37,15 +51,55 @@ export default function WebcamProctor({ attemptId, examId, studentId, intervalSe
           await videoRef.current.play().catch(() => {});
         }
         setActive(true);
+
+        // Covers the camera being unplugged, taken by another app, or switched
+        // off at the OS level — the track simply ends.
+        stream.getVideoTracks().forEach((track) => {
+          track.addEventListener("ended", () => lose("Camera was turned off"));
+        });
       } catch (e: any) {
-        setError(e?.message || "Camera blocked");
+        lose(e?.message || "Camera blocked");
       }
     })();
+
+    // Covers permission being revoked in the browser's site settings, which
+    // does not always end the track on its own.
+    let permission: PermissionStatus | null = null;
+    const onPermissionChange = () => {
+      if (permission?.state === "denied") lose("Camera permission was withdrawn");
+    };
+    navigator.permissions
+      ?.query({ name: "camera" as PermissionName })
+      .then((status) => {
+        if (cancelled) return;
+        permission = status;
+        status.addEventListener("change", onPermissionChange);
+      })
+      .catch(() => {/* Firefox has no camera permission query; the track handler covers it. */});
+
     return () => {
       cancelled = true;
+      permission?.removeEventListener("change", onPermissionChange);
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // A stopped stream that never fired `ended` (some browsers on tab throttling)
+  // still has to be caught, so poll the track's liveness alongside captures.
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => {
+      const track = streamRef.current?.getVideoTracks()[0];
+      if (!track || track.readyState === "ended" || !track.enabled) {
+        setActive(false);
+        setError("Camera stopped");
+        onCameraLost?.("Camera stopped");
+      }
+    }, 5000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
 
   useEffect(() => {
     if (!active) return;

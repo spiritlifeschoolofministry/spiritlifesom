@@ -9,8 +9,11 @@
  *   true_false   key: boolean                      answer: boolean
  *   short_answer key: array of accepted strings    answer: string
  *   fill_blank   key: array of accepted strings    answer: string
+ *   matching     key: {A: "1", B: "2"}             answer: same shape
  *   essay        no key — manual
- *   matching     no key — manual
+ *
+ * Matching is scored proportionally: get one pair of two right and half the
+ * marks follow. A lecturer can still change any mark afterwards.
  */
 
 export const AUTO_GRADED_TYPES = [
@@ -19,6 +22,7 @@ export const AUTO_GRADED_TYPES = [
   "true_false",
   "short_answer",
   "fill_blank",
+  "matching",
 ] as const;
 
 export type Question = {
@@ -59,6 +63,24 @@ export function gradeAnswer(question: Question, answer: unknown): GradeResult {
   const points = Number(question.points) || 0;
   // Unanswered is a definite zero, not something to hand to a marker.
   const blank = answer === null || answer === undefined || answer === "";
+
+  // Matching earns marks pair by pair, so it cannot use the all-or-nothing
+  // path below.
+  if (question.question_type === "matching") {
+    const expected = (key ?? {}) as Record<string, unknown>;
+    const given = (blank || typeof answer !== "object" || Array.isArray(answer)
+      ? {}
+      : answer) as Record<string, unknown>;
+    const pairs = Object.keys(expected);
+    if (pairs.length === 0) return manual;
+
+    const hits = pairs.filter((k) => norm(given[k]) !== "" && norm(given[k]) === norm(expected[k])).length;
+    return {
+      pointsAwarded: Math.round((points * hits) / pairs.length * 100) / 100,
+      isCorrect: hits === pairs.length,
+      needsManual: false,
+    };
+  }
 
   let correct = false;
   if (!blank) {

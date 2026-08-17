@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
     // Check if student already has an active/submitted attempt
     const { data: existingAttempts } = await supabase
       .from("exam_attempts")
-      .select("id, status")
+      .select("id, status, device_fingerprint")
       .eq("exam_id", exam_id)
       .eq("student_id", student.id);
 
@@ -80,6 +80,22 @@ Deno.serve(async (req) => {
     // The session id has to move to this tab or exam-autosave, which rejects a
     // mismatched session, would refuse every save from the resumed sitting.
     if (activeAttempt) {
+      // One device per sitting. A fresh tab or a browser restart on the same
+      // machine still resumes, because the fingerprint is unchanged; a second
+      // device cannot pick the paper up mid-flight.
+      if (
+        activeAttempt.device_fingerprint &&
+        device_fingerprint &&
+        activeAttempt.device_fingerprint !== device_fingerprint
+      ) {
+        return new Response(
+          JSON.stringify({
+            error: "This exam was started on another device. Continue on that device, or ask your lecturer to reset your attempt.",
+          }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
       const { data: resumed, error: resumeError } = await supabase
         .from("exam_attempts")
         .update({
@@ -171,9 +187,41 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Calculate server deadline
+    // Entry window.
+    //
+    // The exam's own window is authoritative here, not just in the lobby: a
+    // request can arrive straight from the runner. late_entry_cutoff_minutes
+    // was stored and never read, so a student could stroll in at any point
+    // before the exam closed.
+    const nowMs = Date.now();
+    const startMs = new Date(exam.start_at).getTime();
+    const endMs = new Date(exam.end_at).getTime();
+
+    if (nowMs < startMs) {
+      return new Response(JSON.stringify({ error: "This exam has not opened yet" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (nowMs > endMs) {
+      return new Response(JSON.stringify({ error: "This exam has closed" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (exam.allow_late_entry === false && nowMs > startMs) {
+      return new Response(JSON.stringify({ error: "Late entry is not allowed for this exam" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const cutoff = Number(exam.late_entry_cutoff_minutes) || 0;
+    if (exam.allow_late_entry && cutoff > 0 && nowMs > startMs + cutoff * 60 * 1000) {
+      return new Response(
+        JSON.stringify({ error: `Entry closed ${cutoff} minutes after the exam opened` }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // Calculate server deadline, capped at the exam's closing time.
+    //
+    // Uncapped, starting a 60-minute paper 10 minutes before the window shuts
+    // handed out the full hour and let the sitting run well past the close.
     const durationMinutes = exam.duration_minutes || 60;
-    const serverDeadline = new Date(Date.now() + durationMinutes * 60 * 1000).toISOString();
+    const serverDeadline = new Date(
+      Math.min(nowMs + durationMinutes * 60 * 1000, endMs),
+    ).toISOString();
 
     // Create exam attempt
     const { data: attempt, error: createError } = await supabase

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { QuestionRenderer } from "@/components/exam/QuestionRenderer";
 import WebcamProctor from "@/components/exam/WebcamProctor";
-import { formatDuration, generateFingerprint, generateSessionId } from "@/lib/exam-utils";
+import { formatDuration, generateFingerprint, generateSessionId, isAnswered } from "@/lib/exam-utils";
 import { AlertTriangle, ChevronLeft, ChevronRight, Send, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
@@ -210,6 +210,21 @@ export default function ExamRunner() {
     setDirty(dirtyRef.current);
   };
 
+  /**
+   * Losing the camera ends a proctored exam.
+   *
+   * Entry is gated on the camera working, so carrying on without it would let
+   * a student switch it off the moment the paper opened and sit the rest
+   * unwatched. The answers saved so far go in with the submission.
+   */
+  const handleCameraLost = useCallback((reason: string) => {
+    if (submittedRef.current) return;
+    toast.error(`${reason}. Your exam is being submitted.`);
+    setWarning(`${reason}. This exam requires the camera, so it is being submitted now.`);
+    submitExam("camera_blocked");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const submitExam = async (reason: string) => {
     if (submittedRef.current) return;
     submittedRef.current = true;
@@ -233,7 +248,7 @@ export default function ExamRunner() {
 
   const current = questions[idx];
   const optOrder = (attempt.option_orders as Record<string, number[]>)?.[current.id] ?? null;
-  const answeredCount = questions.filter((q) => answers[q.id] != null && answers[q.id] !== "").length;
+  const answeredCount = questions.filter((q) => isAnswered(q, answers[q.id])).length;
   const progress = (answeredCount / questions.length) * 100;
   const urgent = secondsLeft < 300;
 
@@ -241,6 +256,7 @@ export default function ExamRunner() {
     <div className="min-h-screen bg-background select-none" onCopy={(e) => e.preventDefault()}>
       {exam.enable_webcam_proctoring && (
         <WebcamProctor
+          onCameraLost={handleCameraLost}
           attemptId={attempt.id}
           examId={exam.id}
           studentId={attempt.student_id}
@@ -302,8 +318,7 @@ export default function ExamRunner() {
           <p className="text-xs text-muted-foreground mb-2">Question navigator</p>
           <div className="grid grid-cols-8 sm:grid-cols-12 gap-1.5">
             {questions.map((q, i) => {
-              const ans = answers[q.id];
-              const answered = ans != null && ans !== "" && !(Array.isArray(ans) && ans.length === 0);
+              const answered = isAnswered(q, answers[q.id]);
               return (
                 <button key={q.id} onClick={() => setIdx(i)}
                   className={`h-8 rounded text-xs font-medium border transition-colors ${
