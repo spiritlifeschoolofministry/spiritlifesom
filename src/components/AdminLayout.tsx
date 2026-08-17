@@ -32,6 +32,7 @@ import {
   MoreHorizontal,
   ClipboardCheck,
   Mail,
+  HardDrive,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -47,6 +48,7 @@ const NAV_ITEMS = [
   { label: "Fees", icon: CreditCard, path: "/admin/fees" },
   { label: "Announcements", icon: Bell, path: "/admin/announcements" },
   { label: "Calendar", icon: CalendarDays, path: "/admin/calendar" },
+  { label: "Storage", icon: HardDrive, path: "/admin/storage" },
   { label: "Settings", icon: Settings, path: "/admin/settings" },
   { label: "Profile", icon: UserCircle, path: "/admin/profile" },
 ];
@@ -170,7 +172,7 @@ const AdminLayout = () => {
         <aside className="hidden md:flex flex-col w-56 shrink-0 gradient-purple text-primary-foreground overflow-y-auto">
           <nav className="flex-1 py-4 space-y-1 px-2">
             {NAV_ITEMS.filter(item => {
-              if (item.path === "/admin/settings" && role?.toLowerCase() !== "admin") return false;
+              if ((item.path === "/admin/settings" || item.path === "/admin/storage") && role?.toLowerCase() !== "admin") return false;
               if (item.path === "/admin/audit" && role?.toLowerCase() !== "admin") return false;
               if (item.path === "/admin/email-history" && role?.toLowerCase() !== "admin") return false;
               return true;
@@ -204,7 +206,7 @@ const AdminLayout = () => {
             <aside className="absolute left-0 top-0 bottom-0 w-60 gradient-purple text-primary-foreground overflow-y-auto pt-14" onClick={(e) => e.stopPropagation()}>
               <nav className="py-4 space-y-1 px-2">
                 {NAV_ITEMS.filter(item => {
-                  if (item.path === "/admin/settings" && role?.toLowerCase() !== "admin") return false;
+                  if ((item.path === "/admin/settings" || item.path === "/admin/storage") && role?.toLowerCase() !== "admin") return false;
                   if (item.path === "/admin/audit" && role?.toLowerCase() !== "admin") return false;
                   if (item.path === "/admin/email-history" && role?.toLowerCase() !== "admin") return false;
                   return true;
@@ -270,7 +272,7 @@ const AdminLayout = () => {
             </SheetHeader>
             <div className="grid grid-cols-3 gap-3 pt-4 pb-6">
               {NAV_ITEMS.filter(item => {
-                if (item.path === "/admin/settings" && role?.toLowerCase() !== "admin") return false;
+                if ((item.path === "/admin/settings" || item.path === "/admin/storage") && role?.toLowerCase() !== "admin") return false;
                 if (item.path === "/admin/audit" && role?.toLowerCase() !== "admin") return false;
                 if (item.path === "/admin/email-history" && role?.toLowerCase() !== "admin") return false;
                 return true;

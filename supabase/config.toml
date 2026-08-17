@@ -59,3 +59,8 @@ entrypoint = "./functions/resend-student-email/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/r2-storage/index.ts"
+
+[functions.migrate-storage]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/migrate-storage/index.ts"

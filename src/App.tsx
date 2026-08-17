@@ -70,6 +70,7 @@ const AdminExamsList = lazy(() => import("./pages/admin/exams/ExamsList"));
 const AdminExamBuilder = lazy(() => import("./pages/admin/exams/ExamBuilder"));
 const AdminExamMonitor = lazy(() => import("./pages/admin/exams/ExamMonitor"));
 const AdminQuestionBank = lazy(() => import("./pages/admin/exams/QuestionBank"));
+const AdminStorage = lazy(() => import("./pages/admin/StorageManagement"));
 const ComingSoon = lazy(() => import("./pages/ComingSoon"));
 const AdminComingSoon = lazy(() => import("./pages/AdminComingSoon"));
 
@@ -164,6 +165,7 @@ const App = () => {
             <Route path="/admin/audit" element={<ProtectedRoute requiredRole="superadmin"><AdminAuditLog /></ProtectedRoute>} />
             <Route path="/admin/email-history" element={<ProtectedRoute requiredRole="superadmin"><AdminEmailHistory /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute requiredRole="superadmin"><AdminSettings /></ProtectedRoute>} />
+            <Route path="/admin/storage" element={<ProtectedRoute requiredRole="superadmin"><AdminStorage /></ProtectedRoute>} />
             <Route path="/admin/exams" element={<ProtectedRoute requiredRole="admin"><AdminExamsList /></ProtectedRoute>} />
             <Route path="/admin/exams/questions" element={<ProtectedRoute requiredRole="admin"><AdminQuestionBank /></ProtectedRoute>} />
             <Route path="/admin/exams/new" element={<ProtectedRoute requiredRole="admin"><AdminExamBuilder /></ProtectedRoute>} />

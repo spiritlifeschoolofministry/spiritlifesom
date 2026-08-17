@@ -1,5 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
 
+/** Public R2 base. Override per-environment with VITE_R2_PUBLIC_URL. */
+export const R2_PUBLIC_BASE = (
+  import.meta.env.VITE_R2_PUBLIC_URL || 'https://media.spiritlifesom.org'
+).replace(/\/+$/, '');
+
 /** Unwrap an edge function error, preferring the message the function sent back. */
 async function unwrap(error: unknown, data: any, fallback: string): Promise<never> {
   const fromBody = data?.error;
@@ -42,10 +47,13 @@ export const r2Storage = {
     if (error || !data?.success) await unwrap(error, data, 'Failed to delete file');
   },
 
-  /** Get public URL (direct, no signing needed). For public files like avatars and materials. */
+  /**
+   * Public URL for a stored object, for files rendered directly by the browser
+   * (avatars, course material links). Requires the bucket's public access.
+   */
   getPublicUrl(path: string): string {
-    const bucket = 'spiritlifesom';
-    return `https://${bucket}.cd.r2.dev/${encodeURIComponent(path)}`;
+    const encoded = path.split('/').map(encodeURIComponent).join('/');
+    return `${R2_PUBLIC_BASE}/${encoded}`;
   },
 
   /** Connectivity check: proves the R2 credentials and bucket are reachable. */
