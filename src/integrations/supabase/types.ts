@@ -1690,6 +1690,25 @@ export type Database = {
       }
     }
     Views: {
+      exam_result_answers: {
+        Row: {
+          answer: Json | null
+          attempt_id: string | null
+          correct_answer: Json | null
+          exam_id: string | null
+          explanation: string | null
+          id: string | null
+          is_correct: boolean | null
+          manual_feedback: string | null
+          options: Json | null
+          points: number | null
+          points_awarded: number | null
+          question_id: string | null
+          question_text: string | null
+          question_type: string | null
+        }
+        Relationships: []
+      }
       exam_question_paper: {
         Row: {
           code_language: string | null

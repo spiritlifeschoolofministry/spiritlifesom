@@ -19,6 +19,42 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   matching: "Matching",
 };
 
+/**
+ * Turn a stored answer into something a person can read.
+ *
+ * Answers are kept in the shape the runner produced — an option index, a list
+ * of indices, a boolean — which is fine for scoring and unreadable on screen.
+ */
+export const formatAnswer = (
+  value: unknown,
+  question: { question_type?: string | null; options?: unknown },
+): string => {
+  if (value === null || value === undefined || value === "") return "";
+  const options = Array.isArray(question.options) ? (question.options as unknown[]) : null;
+  switch (question.question_type) {
+    case "mcq_single":
+      return options ? String(options[Number(value)] ?? value) : String(value);
+    case "mcq_multi":
+      if (!Array.isArray(value)) return String(value);
+      return options
+        ? value.map((i) => options[Number(i)]).filter(Boolean).join(", ")
+        : value.join(", ");
+    case "true_false":
+      return value ? "True" : "False";
+    default:
+      return Array.isArray(value) ? value.join(", ") : String(value);
+  }
+};
+
+/** Question types the server marks on submission from the saved answer key. */
+export const AUTO_GRADED_TYPES: QuestionType[] = [
+  "mcq_single",
+  "mcq_multi",
+  "true_false",
+  "short_answer",
+  "fill_blank",
+];
+
 export const sanitizeHtml = (html: string) =>
   DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [

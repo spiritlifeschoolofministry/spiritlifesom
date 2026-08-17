@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Download, AlertTriangle, CheckCircle2, Send, Camera, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { sanitizeHtml } from "@/lib/exam-utils";
+import { AUTO_GRADED_TYPES, formatAnswer, sanitizeHtml } from "@/lib/exam-utils";
 import { r2Storage } from "@/lib/r2-storage";
 
 export default function ExamMonitor() {
@@ -59,20 +59,26 @@ export default function ExamMonitor() {
   }, [id, showRehearsals]);
 
   /**
-   * Throw away a staff dry run.
+   * Delete an attempt outright.
    *
-   * exam-start resumes an unfinished attempt rather than replacing it, which is
-   * what a real student needs — so this is how staff clear a rehearsal and sit
-   * the paper again from the top. Answers, events and snapshots cascade.
+   * exam-start resumes an unfinished attempt and refuses a second sitting after
+   * submission, so this is the only way to give a student another go — after a
+   * genuine technical failure, say — and the way staff clear their own dry runs.
+   * Answers, events and snapshots cascade with the row.
    */
-  const discardRehearsal = async (attempt: any) => {
-    if (!confirm("Discard this rehearsal attempt? Its answers and snapshots are deleted.")) return;
+  const deleteAttempt = async (attempt: any) => {
+    const who = attempt.isRehearsal
+      ? "this rehearsal attempt"
+      : `${attempt.students?.profiles?.first_name ?? ""} ${attempt.students?.profiles?.last_name ?? ""}`.trim() || "this student";
+    if (!confirm(
+      `Delete the attempt for ${who}? Their answers, score and snapshots are permanently deleted, and they will be able to sit the exam again.`,
+    )) return;
     const { error } = await supabase.from("exam_attempts").delete().eq("id", attempt.id);
     if (error) {
-      toast.error(error.message || "Could not discard the rehearsal");
+      toast.error(error.message || "Could not delete the attempt");
       return;
     }
-    toast.success("Rehearsal discarded");
+    toast.success("Attempt deleted");
     load();
   };
 
@@ -131,16 +137,36 @@ export default function ExamMonitor() {
     }
     const total = gradeData.answers.reduce((s, a) => s + (Number(a.points_awarded) || 0), 0);
     const override = gradeData.override === "" ? null : Number(gradeData.override);
+
+    // Regrading is allowed, so keep what the mark used to be. Without this a
+    // score can change after release with no record of the previous figure.
+    const priorScore = grading.manual_score_override ?? grading.score;
+    const newScore = override ?? total;
+    const history = Array.isArray(grading.regrade_history) ? grading.regrade_history : [];
+    const changed = grading.status === "graded" && Number(priorScore) !== Number(newScore);
+
     await supabase.from("exam_attempts").update({
       score: total,
       manual_score_override: override,
       status: "graded",
       graded_at: new Date().toISOString(),
+      regrade_history: changed
+        ? [...history, { at: new Date().toISOString(), from: priorScore, to: newScore }]
+        : history,
     }).eq("id", grading.id);
-    toast.success("Saved grading");
+    toast.success(grading.status === "graded" ? "Regraded" : "Saved grading");
     setGrading(null);
     load();
   };
+
+  const gradedTotal = gradeData.answers.reduce((s, a) => s + (Number(a.points_awarded) || 0), 0);
+  const gradeMax = gradeData.questions.reduce((s, q) => s + (Number(q.points) || 0), 0);
+  const manualRemaining = gradeData.questions.filter((q) => {
+    const ans = gradeData.answers.find((a) => a.question_id === q.id);
+    if (!ans) return false;
+    const needsMark = !AUTO_GRADED_TYPES.includes(q.question_type) || q.correct_answer == null;
+    return needsMark && ans.points_awarded == null;
+  }).length;
 
   const loadSnapshots = async (attemptId: string) => {
     setLoadingSnapsFor(attemptId);
@@ -285,17 +311,17 @@ export default function ExamMonitor() {
                 <td className="py-2 pr-3">
                   <div className="flex flex-wrap gap-1.5">
                     {a.status !== "in_progress" && (
-                      <Button size="sm" variant="outline" onClick={() => openGrading(a)}>Grade / Review</Button>
+                      <Button size="sm" variant="outline" onClick={() => openGrading(a)}>
+                        {a.status === "graded" ? "Regrade" : "Grade"}
+                      </Button>
                     )}
                     <Button size="sm" variant="outline" onClick={() => loadSnapshots(a.id)} disabled={loadingSnapsFor === a.id}>
                       {loadingSnapsFor === a.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Camera className="w-3 h-3 mr-1" />}
                       Snapshots
                     </Button>
-                    {a.isRehearsal && (
-                      <Button size="sm" variant="destructive" onClick={() => discardRehearsal(a)}>
-                        <Trash2 className="w-3 h-3 mr-1" /> Discard
-                      </Button>
-                    )}
+                    <Button size="sm" variant="destructive" onClick={() => deleteAttempt(a)}>
+                      <Trash2 className="w-3 h-3 mr-1" /> {a.isRehearsal ? "Discard" : "Delete"}
+                    </Button>
                   </div>
                 </td>
               </tr>
@@ -348,56 +374,125 @@ export default function ExamMonitor() {
 
       <Dialog open={!!grading} onOpenChange={(v) => !v && setGrading(null)}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Grade attempt — {grading?.students?.profiles?.first_name} {grading?.students?.profiles?.last_name}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
+          <DialogHeader>
+            <DialogTitle>
+              {grading?.students?.profiles?.first_name} {grading?.students?.profiles?.last_name}
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {gradedTotal} out of {gradeMax} marks
+              {manualRemaining > 0
+                ? ` · ${manualRemaining} answer${manualRemaining === 1 ? "" : "s"} still to mark`
+                : " · nothing left to mark"}
+            </p>
+          </DialogHeader>
+          <div className="space-y-3">
             {gradeData.questions.map((q, idx) => {
               const ans = gradeData.answers.find((a) => a.question_id === q.id);
               if (!ans) return null;
+              const needsMark = !AUTO_GRADED_TYPES.includes(q.question_type) || q.correct_answer == null;
+              const max = Number(q.points) || 0;
+              const setAnswer = (patch: any) => {
+                const next = [...gradeData.answers];
+                next[next.indexOf(ans)] = { ...ans, ...patch };
+                setGradeData({ ...gradeData, answers: next });
+              };
               return (
                 <Card key={q.id} className="p-3 space-y-2">
-                  <div className="flex justify-between gap-2">
-                    <p className="text-xs text-muted-foreground">Q{idx + 1} · {q.question_type} · {q.points} pt</p>
-                    {ans.is_correct === true && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium">Question {idx + 1}</p>
+                    {needsMark ? (
+                      <Badge variant="outline" className="text-[10px]">Needs your mark</Badge>
+                    ) : ans.is_correct ? (
+                      <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                        Correct · {ans.points_awarded ?? 0}/{max}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] bg-destructive/10 text-destructive border-destructive/20">
+                        Wrong · 0/{max}
+                      </Badge>
+                    )}
                   </div>
-                  <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(q.question_text) }} />
-                  <div className="bg-muted/50 p-2 rounded text-sm">
-                    <p className="text-xs text-muted-foreground mb-1">Student answer:</p>
-                    <pre className="whitespace-pre-wrap font-sans">{JSON.stringify(ans.answer, null, 2)}</pre>
+
+                  <div className="prose prose-sm dark:prose-invert max-w-none text-sm" dangerouslySetInnerHTML={{ __html: sanitizeHtml(q.question_text) }} />
+
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Their answer: </span>
+                    {formatAnswer(ans.answer, q) || <span className="italic text-muted-foreground">No answer given</span>}
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs">Points awarded (max {q.points})</Label>
-                      <Input type="number" min={0} max={q.points} step={0.5}
-                        value={ans.points_awarded ?? ""}
-                        onChange={(e) => {
-                          const next = [...gradeData.answers];
-                          next[next.indexOf(ans)] = { ...ans, points_awarded: e.target.value === "" ? null : Number(e.target.value) };
-                          setGradeData({ ...gradeData, answers: next });
-                        }} />
+                  {!needsMark && q.correct_answer != null && !ans.is_correct && (
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">Correct answer: </span>
+                      <span className="text-emerald-600">{formatAnswer(q.correct_answer, q)}</span>
                     </div>
-                    <div>
-                      <Label className="text-xs">Feedback</Label>
-                      <Input value={ans.manual_feedback ?? ""}
-                        onChange={(e) => {
-                          const next = [...gradeData.answers];
-                          next[next.indexOf(ans)] = { ...ans, manual_feedback: e.target.value };
-                          setGradeData({ ...gradeData, answers: next });
-                        }} />
-                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <span className="text-xs text-muted-foreground">Marks:</span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={Number(ans.points_awarded) === max && max > 0 ? "default" : "outline"}
+                      onClick={() => setAnswer({ points_awarded: max })}
+                    >
+                      Full ({max})
+                    </Button>
+                    {max > 1 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={Number(ans.points_awarded) === max / 2 ? "default" : "outline"}
+                        onClick={() => setAnswer({ points_awarded: max / 2 })}
+                      >
+                        Half ({max / 2})
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={Number(ans.points_awarded) === 0 ? "default" : "outline"}
+                      onClick={() => setAnswer({ points_awarded: 0 })}
+                    >
+                      None (0)
+                    </Button>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={max}
+                      step={0.5}
+                      className="w-20 h-9"
+                      value={ans.points_awarded ?? ""}
+                      onChange={(e) => setAnswer({ points_awarded: e.target.value === "" ? null : Number(e.target.value) })}
+                    />
                   </div>
+
+                  <Input
+                    placeholder="Comment for the student (optional)"
+                    value={ans.manual_feedback ?? ""}
+                    onChange={(e) => setAnswer({ manual_feedback: e.target.value })}
+                  />
                 </Card>
               );
             })}
-            <div>
-              <Label>Manual score override (optional, audited)</Label>
-              <Input type="number" value={gradeData.override}
+
+            <Card className="p-3">
+              <Label className="text-sm">Final mark</Label>
+              <p className="text-xs text-muted-foreground mt-0.5 mb-2">
+                Adds up to <strong>{gradedTotal}</strong> from the marks above. Type a different number here only if you want to overrule that total.
+              </p>
+              <Input
+                type="number"
+                value={gradeData.override}
                 onChange={(e) => setGradeData({ ...gradeData, override: e.target.value })}
-                placeholder="Leave blank to use computed total" />
-            </div>
+                placeholder={`Using ${gradedTotal}`}
+                className="max-w-[160px]"
+              />
+            </Card>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setGrading(null)}>Cancel</Button>
-            <Button onClick={saveGrading}>Save grading</Button>
+            <Button onClick={saveGrading}>
+              {grading?.status === "graded" ? "Save regrade" : "Save marks"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

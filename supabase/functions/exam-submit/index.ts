@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { gradeAnswer } from "../_shared/autograde.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -72,19 +73,55 @@ Deno.serve(async (req) => {
     // Get all answers for this attempt
     const { data: answers } = await supabase
       .from("exam_answers")
-      .select("question_id, answer, points_awarded")
+      .select("id, question_id, answer, points_awarded")
       .eq("attempt_id", attempt_id);
 
-    // Calculate score: sum of points_awarded (if manually graded) or auto-score if supported
+    // Mark every objective question now, so a lecturer only opens the paper for
+    // the ones that need judgement.
+    //
+    // Service role, because the answer key lives in question_bank, which is
+    // staff-only under RLS — the student's own token cannot read it, and it must
+    // stay that way. Ownership of this attempt was verified above.
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY")!,
+    );
+
+    const questionIds = (answers ?? []).map((a) => a.question_id);
+    const { data: questions } = questionIds.length
+      ? await admin
+          .from("question_bank")
+          .select("id, question_type, correct_answer, points")
+          .in("id", questionIds)
+      : { data: [] };
+
+    const questionById = new Map((questions ?? []).map((q) => [q.id, q]));
+
     let totalScore = 0;
-    if (answers) {
-      for (const ans of answers) {
-        // If points_awarded is set (manual grading), use it
+    let awaitingManual = false;
+
+    for (const ans of answers ?? []) {
+      const question = questionById.get(ans.question_id);
+      const graded = question
+        ? gradeAnswer(question, ans.answer)
+        : { pointsAwarded: null, isCorrect: null, needsManual: true };
+
+      if (graded.needsManual) {
+        // Respect a mark a lecturer has already entered by hand.
         if (ans.points_awarded !== null) {
           totalScore += Number(ans.points_awarded) || 0;
+        } else {
+          awaitingManual = true;
         }
-        // Otherwise, scoring happens during admin grading or auto-calculation
+        continue;
       }
+
+      totalScore += graded.pointsAwarded ?? 0;
+      const { error: markError } = await admin
+        .from("exam_answers")
+        .update({ points_awarded: graded.pointsAwarded, is_correct: graded.isCorrect })
+        .eq("id", ans.id);
+      if (markError) console.error("Auto-grade write error:", markError);
     }
 
     // Mark as submitted
@@ -94,8 +131,10 @@ Deno.serve(async (req) => {
         submitted_at: now.toISOString(),
         submission_reason: validReason,
         auto_submitted: isAutoSubmit,
-        status: "submitted",
-        score: totalScore || null,
+        // Nothing left for a person to mark means this is finished, not pending.
+        status: awaitingManual ? "submitted" : "graded",
+        graded_at: awaitingManual ? null : now.toISOString(),
+        score: totalScore,
       })
       .eq("id", attempt_id);
 

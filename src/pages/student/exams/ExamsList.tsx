@@ -41,15 +41,40 @@ export default function StudentExamsList() {
     })();
   }, [student?.id, student?.cohort_id]);
 
+  /**
+   * Read a marked paper back through exam_result_answers.
+   *
+   * Not exam_answers embedding question_bank: the bank is staff-only under RLS,
+   * so that embed came back null for every real student. The view also withholds
+   * the answer key unless the exam is released and set to show it.
+   *
+   * Rows arrive flat and are nested back into `question_bank` so the renderer
+   * and the CSV export keep the shape they already expect.
+   */
+  const fetchBreakdown = async (attemptId: string) => {
+    const { data } = await supabase
+      .from("exam_result_answers")
+      .select("*")
+      .eq("attempt_id", attemptId);
+    return (data ?? []).map((r: any) => ({
+      ...r,
+      question_bank: {
+        question_text: r.question_text,
+        question_type: r.question_type,
+        options: r.options,
+        correct_answer: r.correct_answer,
+        explanation: r.explanation,
+        points: r.points,
+      },
+    }));
+  };
+
   const loadBreakdown = async (exam: any) => {
     if (breakdowns[exam.id]) return;
     const attempt = attempts[exam.id];
     if (!attempt) return;
-    const { data: ans } = await supabase
-      .from("exam_answers")
-      .select("*, question_bank(question_text, question_type, options, correct_answer, explanation, points)")
-      .eq("attempt_id", attempt.id);
-    setBreakdowns((b) => ({ ...b, [exam.id]: ans ?? [] }));
+    const rows = await fetchBreakdown(attempt.id);
+    setBreakdowns((b) => ({ ...b, [exam.id]: rows }));
   };
 
   const renderAnswer = (val: unknown, q: any) => {
@@ -79,11 +104,7 @@ export default function StudentExamsList() {
     if (!rows) {
       const attempt = attempts[exam.id];
       if (!attempt) return;
-      const { data: ans } = await supabase
-        .from("exam_answers")
-        .select("*, question_bank(question_text, question_type, options, correct_answer, explanation, points)")
-        .eq("attempt_id", attempt.id);
-      rows = ans ?? [];
+      rows = await fetchBreakdown(attempt.id);
       setBreakdowns((b) => ({ ...b, [exam.id]: rows! }));
     }
     const csv = rows.map((a, i) => {

@@ -62,20 +62,27 @@ Deno.serve(async (req) => {
     const previewIds = new Set((previewRows ?? []).map((r: { id: string }) => r.id));
     const attempts = (allAttempts ?? []).filter((a: { student_id: string }) => !previewIds.has(a.student_id));
 
-    if (attempts.length === 0) {
-      return new Response(
-        JSON.stringify({ success: true, released: 0, message: "No submitted attempts found" }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    // Note there is no early return when the count is zero. Releasing is a
+    // property of the exam, not of who happens to have sat it, and an exam so
+    // far sat only as a rehearsal still has to show its result to the account
+    // that sat it.
 
-    // Mark all attempts as having their results released
-    // The scores are already in exam_attempts.score and exam_attempts.manual_score_override
+    // Flip the flag the student portal actually reads.
+    //
+    // This function used to count the attempts and return, without writing
+    // anything — exams.results_released stayed false, so "Released to N
+    // students" was reported while every student still saw nothing.
     const releasedCount = attempts.length;
 
-    // Optional: if you have a separate grades/transcripts table, insert there
-    // For now, just confirm the operation — scores in exam_attempts are already visible to admins
-    // and will be visible to students once the admin confirms the release
+    const { error: releaseError } = await supabase
+      .from("exams")
+      .update({ results_released: true })
+      .eq("id", exam_id);
+
+    if (releaseError) {
+      console.error("Release flag error:", releaseError);
+      return new Response(JSON.stringify({ error: "Failed to release results" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     return new Response(
       JSON.stringify({
