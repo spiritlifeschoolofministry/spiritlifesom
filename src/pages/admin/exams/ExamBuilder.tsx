@@ -14,8 +14,25 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { QuestionRenderer } from "@/components/exam/QuestionRenderer";
 import { sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType } from "@/lib/exam-utils";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Send, Lock, Download } from "lucide-react";
+import { AlertCircle, ArrowLeft, Download, Loader2, Lock, Save, Send } from "lucide-react";
+
+const STATUS_STYLES: Record<string, string> = {
+  draft: "bg-muted text-muted-foreground",
+  published: "bg-blue-500/10 text-blue-600 border-blue-500/20",
+  in_progress: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+  closed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+  archived: "bg-muted text-muted-foreground",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  draft: "Draft",
+  published: "Scheduled",
+  in_progress: "Live",
+  closed: "Closed",
+  archived: "Archived",
+};
 
 const DEFAULT: any = {
   title: "",
@@ -45,6 +62,9 @@ const DEFAULT: any = {
   snapshot_interval_seconds: 30,
 };
 
+const FieldError = ({ message }: { message?: string }) =>
+  message ? <p className="text-xs text-destructive mt-1">{message}</p> : null;
+
 export default function ExamBuilder() {
   const { id } = useParams();
   const isNew = !id || id === "new";
@@ -64,6 +84,37 @@ export default function ExamBuilder() {
   const [importExamId, setImportExamId] = useState<string>("");
   const [importQids, setImportQids] = useState<string[]>([]);
   const [importQuestions, setImportQuestions] = useState<any[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [dirty, setDirty] = useState(false);
+  const [confirmPublish, setConfirmPublish] = useState(false);
+
+  /** Patch the exam and mark the form dirty, clearing any error on the touched fields. */
+  const update = (patch: Record<string, unknown>) => {
+    setExam((prev: any) => ({ ...prev, ...patch }));
+    setDirty(true);
+    setErrors((prev) => {
+      if (!Object.keys(patch).some((k) => k in prev)) return prev;
+      const next = { ...prev };
+      for (const k of Object.keys(patch)) delete next[k];
+      return next;
+    });
+  };
+
+  // Warn before a browser reload/close throws away unsaved edits.
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
+
+  const leaveBuilder = () => {
+    if (dirty && !window.confirm("You have unsaved changes. Leave without saving?")) return;
+    navigate("/admin/exams");
+  };
 
   useEffect(() => {
     (async () => {
@@ -107,42 +158,82 @@ export default function ExamBuilder() {
     return sum + (q ? Number(q.points) : 0);
   }, 0);
 
+  /** Returns a per-field message for everything that would stop this exam being saved. */
+  const validate = () => {
+    const errs: Record<string, string> = {};
+    if (!exam.title?.trim()) errs.title = "Give the exam a title.";
+    if (!exam.course_id) errs.course_id = "Pick the course this exam belongs to.";
+    if (!exam.cohort_id) errs.cohort_id = "Pick the cohort that will sit this exam.";
+    if (!exam.start_at) errs.start_at = "Set when the exam opens.";
+    if (!exam.end_at) errs.end_at = "Set when the exam closes.";
+    if (exam.start_at && exam.end_at) {
+      const start = new Date(exam.start_at);
+      const end = new Date(exam.end_at);
+      if (end <= start) {
+        errs.end_at = "The closing time must be after the opening time.";
+      } else if ((end.getTime() - start.getTime()) / 60000 < Number(exam.duration_minutes || 0)) {
+        errs.duration_minutes =
+          `The exam window is only ${Math.round((end.getTime() - start.getTime()) / 60000)} minutes long, ` +
+          `which is shorter than the ${exam.duration_minutes}-minute duration.`;
+      }
+    }
+    if (Number(exam.duration_minutes) < 1) errs.duration_minutes = "Duration must be at least 1 minute.";
+    return errs;
+  };
+
   const save = async (newStatus?: string) => {
-    if (!exam.title || !exam.course_id || !exam.cohort_id || !exam.start_at || !exam.end_at) {
-      return toast.error("Fill all required fields");
+    const errs = validate();
+    setErrors(errs);
+    if (Object.keys(errs).length) {
+      setTab("settings");
+      return toast.error(Object.values(errs)[0]);
     }
     if (exam.locked_at) return toast.error("Exam is locked — students have started");
 
     setSaving(true);
-    const payload = {
-      ...exam,
-      start_at: new Date(exam.start_at).toISOString(),
-      end_at: new Date(exam.end_at).toISOString(),
-      total_points: totalPoints,
-      status: newStatus ?? exam.status,
-    };
-    delete payload.id;
-    delete payload.created_at;
-    delete payload.updated_at;
-    delete payload.locked_at;
+    try {
+      const payload = {
+        ...exam,
+        start_at: new Date(exam.start_at).toISOString(),
+        end_at: new Date(exam.end_at).toISOString(),
+        total_points: totalPoints,
+        status: newStatus ?? exam.status,
+      };
+      delete payload.id;
+      delete payload.created_at;
+      delete payload.updated_at;
+      delete payload.locked_at;
+      if (isNew) payload.created_by = (await supabase.auth.getUser()).data.user?.id ?? null;
 
-    const { data: saved, error } = isNew
-      ? await supabase.from("exams").insert(payload).select().single()
-      : await supabase.from("exams").update(payload).eq("id", id).select().single();
+      const { data: saved, error } = isNew
+        ? await supabase.from("exams").insert(payload).select().single()
+        : await supabase.from("exams").update(payload).eq("id", id).select().single();
+      if (error) throw error;
 
-    if (error) { setSaving(false); return toast.error(error.message); }
+      // Sync exam_questions. These failing silently used to leave a "Saved" exam with no questions.
+      const examId = saved.id;
+      const { error: clearError } = await supabase.from("exam_questions").delete().eq("exam_id", examId);
+      if (clearError) throw clearError;
+      if (picked.length) {
+        const { error: linkError } = await supabase.from("exam_questions").insert(
+          picked.map((qid, i) => ({ exam_id: examId, question_id: qid, display_order: i })),
+        );
+        if (linkError) throw linkError;
+      }
 
-    const examId = saved.id;
-    // Sync exam_questions
-    await supabase.from("exam_questions").delete().eq("exam_id", examId);
-    if (picked.length) {
-      await supabase.from("exam_questions").insert(
-        picked.map((qid, i) => ({ exam_id: examId, question_id: qid, display_order: i })),
+      setExam((prev: any) => ({ ...prev, id: examId, status: payload.status }));
+      setDirty(false);
+      toast.success(
+        newStatus === "published"
+          ? "Exam published — students in this cohort can see it now"
+          : `Saved as ${payload.status === "draft" ? "draft" : payload.status}`,
       );
+      if (isNew) navigate(`/admin/exams/${examId}/edit`, { replace: true });
+    } catch (err: any) {
+      toast.error(err.message || "Could not save the exam");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    toast.success(newStatus === "published" ? "Exam published" : "Saved");
-    if (isNew) navigate(`/admin/exams/${examId}/edit`);
   };
 
   if (loading) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
@@ -152,25 +243,54 @@ export default function ExamBuilder() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/admin/exams")}><ArrowLeft className="w-4 h-4" /></Button>
-          <div>
-            <h1 className="text-xl font-bold">{isNew ? "New Exam" : exam.title || "Edit Exam"}</h1>
-            {exam.locked_at && (
-              <Badge variant="destructive" className="mt-1"><Lock className="w-3 h-3 mr-1" /> Locked — attempts started</Badge>
-            )}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <Button variant="ghost" size="icon" onClick={leaveBuilder}><ArrowLeft className="w-4 h-4" /></Button>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold truncate">{isNew ? "New Exam" : exam.title || "Edit Exam"}</h1>
+            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+              <Badge variant="outline" className={STATUS_STYLES[exam.status] || ""}>
+                {STATUS_LABELS[exam.status] ?? exam.status}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                {picked.length} question{picked.length === 1 ? "" : "s"} · {totalPoints} pts
+              </span>
+              {dirty && <span className="text-xs text-amber-600">Unsaved changes</span>}
+              {exam.locked_at && (
+                <Badge variant="destructive"><Lock className="w-3 h-3 mr-1" /> Locked — attempts started</Badge>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => save()} disabled={saving}><Save className="w-4 h-4 mr-1.5" /> Save</Button>
+          <Button variant="outline" onClick={() => save()} disabled={saving}>
+            {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
+            Save draft
+          </Button>
           {exam.status !== "published" && (
-            <Button onClick={() => save("published")} disabled={saving || picked.length === 0}>
+            <Button
+              onClick={() => setConfirmPublish(true)}
+              disabled={saving || picked.length === 0}
+              title={picked.length === 0 ? "Add at least one question before publishing" : undefined}
+            >
               <Send className="w-4 h-4 mr-1.5" /> Publish
             </Button>
           )}
         </div>
       </div>
+
+      {picked.length === 0 && (
+        <Card className="p-3 flex items-start gap-2 border-amber-500/30 bg-amber-500/5">
+          <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+          <p className="text-sm">
+            This exam has no questions yet. Saving keeps it as a draft; add questions on the{" "}
+            <button type="button" className="underline font-medium" onClick={() => setTab("questions")}>
+              Questions
+            </button>{" "}
+            tab before publishing.
+          </p>
+        </Card>
+      )}
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
@@ -182,33 +302,66 @@ export default function ExamBuilder() {
 
         <TabsContent value="settings" className="space-y-3">
           <Card className="p-4 space-y-3">
-            <div><Label>Title *</Label><Input value={exam.title} onChange={(e) => setExam({ ...exam, title: e.target.value })} maxLength={200} /></div>
-            <div><Label>Description</Label><Textarea value={exam.description ?? ""} onChange={(e) => setExam({ ...exam, description: e.target.value })} rows={2} /></div>
-            <div><Label>Instructions (shown on rules page)</Label><Textarea value={exam.instructions ?? ""} onChange={(e) => setExam({ ...exam, instructions: e.target.value })} rows={4} /></div>
+            <div>
+              <Label>Title *</Label>
+              <Input value={exam.title} onChange={(e) => update({ title: e.target.value })} maxLength={200}
+                aria-invalid={!!errors.title} />
+              <FieldError message={errors.title} />
+            </div>
+            <div><Label>Description</Label><Textarea value={exam.description ?? ""} onChange={(e) => update({ description: e.target.value })} rows={2} /></div>
+            <div><Label>Instructions (shown on rules page)</Label><Textarea value={exam.instructions ?? ""} onChange={(e) => update({ instructions: e.target.value })} rows={4} /></div>
             <div className="grid grid-cols-2 gap-3">
               <div><Label>Course *</Label>
-                <Select value={exam.course_id} onValueChange={(v) => setExam({ ...exam, course_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Pick course" /></SelectTrigger>
+                <Select value={exam.course_id} onValueChange={(v) => update({ course_id: v })}>
+                  <SelectTrigger aria-invalid={!!errors.course_id}><SelectValue placeholder="Pick course" /></SelectTrigger>
                   <SelectContent>{courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.code} — {c.title}</SelectItem>)}</SelectContent>
                 </Select>
+                <FieldError message={errors.course_id} />
               </div>
               <div><Label>Cohort *</Label>
-                <Select value={exam.cohort_id} onValueChange={(v) => setExam({ ...exam, cohort_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Pick cohort" /></SelectTrigger>
+                <Select value={exam.cohort_id} onValueChange={(v) => update({ cohort_id: v })}>
+                  <SelectTrigger aria-invalid={!!errors.cohort_id}><SelectValue placeholder="Pick cohort" /></SelectTrigger>
                   <SelectContent>{cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}{c.is_active ? " (active)" : ""}</SelectItem>)}</SelectContent>
                 </Select>
+                <FieldError message={errors.cohort_id} />
               </div>
-              <div><Label>Start *</Label><Input type="datetime-local" value={exam.start_at} onChange={(e) => setExam({ ...exam, start_at: e.target.value })} /></div>
-              <div><Label>End *</Label><Input type="datetime-local" value={exam.end_at} onChange={(e) => setExam({ ...exam, end_at: e.target.value })} /></div>
-              <div><Label>Duration (minutes)</Label><Input type="number" min={1} value={exam.duration_minutes} onChange={(e) => setExam({ ...exam, duration_minutes: Number(e.target.value) })} /></div>
-              <div><Label>Passing score (% of total)</Label><Input type="number" min={0} max={100} value={exam.passing_score} onChange={(e) => setExam({ ...exam, passing_score: Number(e.target.value) })} /></div>
+              <div>
+                <Label>Start *</Label>
+                <Input type="datetime-local" value={exam.start_at} onChange={(e) => update({ start_at: e.target.value })}
+                  aria-invalid={!!errors.start_at} />
+                <FieldError message={errors.start_at} />
+              </div>
+              <div>
+                <Label>End *</Label>
+                <Input type="datetime-local" value={exam.end_at} onChange={(e) => update({ end_at: e.target.value })}
+                  aria-invalid={!!errors.end_at} />
+                <FieldError message={errors.end_at} />
+              </div>
+              <div>
+                <Label>Duration (minutes)</Label>
+                <Input type="number" min={1} value={exam.duration_minutes}
+                  onChange={(e) => update({ duration_minutes: Number(e.target.value) })} aria-invalid={!!errors.duration_minutes} />
+                <FieldError message={errors.duration_minutes} />
+                <p className="text-xs text-muted-foreground mt-1">
+                  How long each student gets once they start, within the window above.
+                </p>
+              </div>
+              <div>
+                <Label>Passing score (% of total)</Label>
+                <Input type="number" min={0} max={100} value={exam.passing_score} onChange={(e) => update({ passing_score: Number(e.target.value) })} />
+                {totalPoints > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {Math.round((Number(exam.passing_score) / 100) * totalPoints * 100) / 100} of {totalPoints} pts to pass.
+                  </p>
+                )}
+              </div>
             </div>
             <div className="flex items-center justify-between p-3 rounded-md border border-border">
               <div><Label>Allow late entry</Label><p className="text-xs text-muted-foreground">Students may join after start time</p></div>
-              <Switch checked={exam.allow_late_entry} onCheckedChange={(v) => setExam({ ...exam, allow_late_entry: v })} />
+              <Switch checked={exam.allow_late_entry} onCheckedChange={(v) => update({ allow_late_entry: v })} />
             </div>
             {exam.allow_late_entry && (
-              <div><Label>Late entry cutoff (minutes after start)</Label><Input type="number" min={1} value={exam.late_entry_cutoff_minutes ?? 15} onChange={(e) => setExam({ ...exam, late_entry_cutoff_minutes: Number(e.target.value) })} /></div>
+              <div><Label>Late entry cutoff (minutes after start)</Label><Input type="number" min={1} value={exam.late_entry_cutoff_minutes ?? 15} onChange={(e) => update({ late_entry_cutoff_minutes: Number(e.target.value) })} /></div>
             )}
           </Card>
         </TabsContent>
@@ -292,6 +445,7 @@ export default function ExamBuilder() {
                     <Button disabled={importQids.length === 0} onClick={() => {
                       const merged = Array.from(new Set([...picked, ...importQids]));
                       setPicked(merged);
+                      setDirty(true);
                       toast.success(`Imported ${importQids.length} question${importQids.length === 1 ? "" : "s"}`);
                       setImportOpen(false);
                       setImportQids([]);
@@ -311,6 +465,7 @@ export default function ExamBuilder() {
                     <div key={q.id} className="flex items-start gap-3 p-3 rounded-md border border-border">
                       <Checkbox checked={checked} onCheckedChange={(v) => {
                         setPicked(v ? [...picked, q.id] : picked.filter((p) => p !== q.id));
+                        setDirty(true);
                       }} className="mt-0.5" />
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap gap-1.5 mb-1">
@@ -345,13 +500,13 @@ export default function ExamBuilder() {
             ].map((row) => (
               <div key={row.k} className="flex items-center justify-between">
                 <Label>{row.label}</Label>
-                <Switch checked={!!exam[row.k]} onCheckedChange={(v) => setExam({ ...exam, [row.k]: v })} />
+                <Switch checked={!!exam[row.k]} onCheckedChange={(v) => update({ [row.k]: v })} />
               </div>
             ))}
-            <div><Label>Max tab switches before auto-submit</Label><Input type="number" min={0} value={exam.max_tab_switches} onChange={(e) => setExam({ ...exam, max_tab_switches: Number(e.target.value) })} /></div>
-            <div><Label>Autosave interval (seconds)</Label><Input type="number" min={5} value={exam.autosave_interval_seconds} onChange={(e) => setExam({ ...exam, autosave_interval_seconds: Number(e.target.value) })} /></div>
+            <div><Label>Max tab switches before auto-submit</Label><Input type="number" min={0} value={exam.max_tab_switches} onChange={(e) => update({ max_tab_switches: Number(e.target.value) })} /></div>
+            <div><Label>Autosave interval (seconds)</Label><Input type="number" min={5} value={exam.autosave_interval_seconds} onChange={(e) => update({ autosave_interval_seconds: Number(e.target.value) })} /></div>
             {exam.enable_webcam_proctoring && (
-              <div><Label>Snapshot interval (seconds, min 10)</Label><Input type="number" min={10} value={exam.snapshot_interval_seconds ?? 30} onChange={(e) => setExam({ ...exam, snapshot_interval_seconds: Number(e.target.value) })} /></div>
+              <div><Label>Snapshot interval (seconds, min 10)</Label><Input type="number" min={10} value={exam.snapshot_interval_seconds ?? 30} onChange={(e) => update({ snapshot_interval_seconds: Number(e.target.value) })} /></div>
             )}
           </Card>
         </TabsContent>
@@ -375,6 +530,32 @@ export default function ExamBuilder() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ConfirmDialog
+        open={confirmPublish}
+        onOpenChange={setConfirmPublish}
+        title="Publish this exam?"
+        description={
+          <div className="space-y-2">
+            <p>Students in the selected cohort will be able to see this exam and sit it during its window.</p>
+            <ul className="text-sm space-y-1">
+              <li>{picked.length} question{picked.length === 1 ? "" : "s"}, {totalPoints} points total</li>
+              <li>{exam.duration_minutes} minutes per student</li>
+              {exam.start_at && <li>Opens {new Date(exam.start_at).toLocaleString()}</li>}
+              {exam.end_at && <li>Closes {new Date(exam.end_at).toLocaleString()}</li>}
+            </ul>
+            <p className="text-muted-foreground text-sm">
+              You can unpublish it later from the exam list, as long as nobody has started an attempt.
+            </p>
+          </div>
+        }
+        confirmLabel="Publish"
+        loading={saving}
+        onConfirm={async () => {
+          await save("published");
+          setConfirmPublish(false);
+        }}
+      />
     </div>
   );
 }
