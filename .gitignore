@@ -27,9 +27,6 @@ dist-ssr
 *.sw?
 .env
 
-# Supabase functions (shouldn't be built by Vite)
-supabase/functions/
-
 # Capacitor
 android/.gradle
 android/app/build

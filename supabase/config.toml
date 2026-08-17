@@ -37,5 +37,5 @@ entrypoint = "./functions/resend-student-email/index.ts"
 
 [functions.r2-storage]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 entrypoint = "./functions/r2-storage/index.ts"

@@ -1,72 +1,54 @@
 import { supabase } from '@/integrations/supabase/client';
 
+/** Unwrap an edge function error, preferring the message the function sent back. */
+async function unwrap(error: unknown, data: any, fallback: string): Promise<never> {
+  const fromBody = data?.error;
+  if (fromBody) throw new Error(fromBody);
+
+  const context = (error as any)?.context;
+  if (context instanceof Response) {
+    const body = await context.json().catch(() => null);
+    if (body?.error) throw new Error(body.error);
+  }
+
+  throw new Error((error as any)?.message || fallback);
+}
+
 export const r2Storage = {
   async uploadFile(file: File, path: string): Promise<string> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('path', path);
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data, error } = await supabase.functions.invoke('r2-storage', { body: formData });
+    if (error || !data?.success) await unwrap(error, data, 'Upload failed');
 
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/r2-storage?action=upload`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
-        body: formData,
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Upload failed');
-    }
-
-    const result = await response.json();
-    return result.path;
+    return data.path as string;
   },
 
   async getDownloadUrl(path: string): Promise<string> {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data, error } = await supabase.functions.invoke('r2-storage', {
+      body: { action: 'download', path },
+    });
+    if (error || !data?.url) await unwrap(error, data, 'Failed to get download URL');
 
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/r2-storage?action=download&path=${encodeURIComponent(path)}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Failed to get download URL');
-    }
-
-    const result = await response.json();
-    return result.url;
+    return data.url as string;
   },
 
   async deleteFile(path: string): Promise<void> {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data, error } = await supabase.functions.invoke('r2-storage', {
+      body: { action: 'delete', path },
+    });
+    if (error || !data?.success) await unwrap(error, data, 'Failed to delete file');
+  },
 
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/r2-storage?action=delete&path=${encodeURIComponent(path)}`,
-      {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
-      }
-    );
+  /** Connectivity check: proves the R2 credentials and bucket are reachable. */
+  async ping(): Promise<{ ok: boolean; bucket: string }> {
+    const { data, error } = await supabase.functions.invoke('r2-storage', {
+      body: { action: 'ping' },
+    });
+    if (error || !data?.ok) await unwrap(error, data, 'R2 is unreachable');
 
-    if (!response.ok) {
-      throw new Error('Failed to delete file');
-    }
+    return data;
   },
 };
