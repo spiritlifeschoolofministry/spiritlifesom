@@ -39,7 +39,7 @@ type StepKey = "name" | "contact" | "details";
 
 const CompleteProfile = () => {
   const navigate = useNavigate();
-  const { user, profile, student, role, isLoading } = useAuth();
+  const { user, profile, student, role, isLoading, refreshProfile } = useAuth();
 
   const submittingRef = useRef(false);
   const [saving, setSaving] = useState(false);
@@ -168,7 +168,11 @@ const CompleteProfile = () => {
       }
 
       toast.success("Profile completed! Welcome aboard.");
-      window.location.assign("/student/dashboard");
+      // Re-read auth state in place, then route client-side. A full page load
+      // here threw away the whole app just to pick up the saved fields.
+      await refreshProfile();
+      const r = (role || "").toLowerCase();
+      navigate(r === "admin" || r === "teacher" ? "/admin/dashboard" : "/student/dashboard", { replace: true });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Could not save profile";
       toast.error(msg);

@@ -1,19 +1,31 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Session Manager Hook
- * 
+ *
  * Keeps the session alive and forces logout on truly stale sessions.
- */ 
+ *
+ * Deliberately quiet: supabase-js already auto-refreshes tokens in the
+ * background. Extra validation here is a safety net, so it runs on a timer
+ * rather than on every navigation, and only refreshes a token that is actually
+ * close to expiring. Over-eager refreshing churned the token (which the auth
+ * context broadcasts to every page) and turned momentary network failures into
+ * surprise logouts that looked like the app reloading itself.
+ */
+
+// Don't re-validate more often than this, no matter how many tabs/focus events.
+const VALIDATE_INTERVAL_MS = 5 * 60 * 1000;
+// Refresh only when the access token expires within this window.
+const REFRESH_LEEWAY_S = 120;
+
 export const useSessionManager = () => {
   const { user, signOut } = useAuth();
-  const location = useLocation();
   const navigate = useNavigate();
-  const tokenRefreshRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastRouteRef = useRef(location.pathname);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastValidatedRef = useRef(0);
 
   const handleForceLogout = useCallback(async () => {
     console.warn('[SessionManager] Forcing logout due to stale session');
@@ -21,106 +33,71 @@ export const useSessionManager = () => {
     navigate('/login', { replace: true });
   }, [signOut, navigate]);
 
-  // Verify session is actually valid on route change
+  /**
+   * Returns false only when the session is definitively gone — never for
+   * network blips or 5xx responses.
+   */
+  const validateSession = useCallback(async (): Promise<boolean> => {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) {
+      console.log('[SessionManager] getSession failed, keeping user signed in:', error.message);
+      return true;
+    }
+    if (!session) {
+      console.warn('[SessionManager] No session in storage');
+      return false;
+    }
+
+    const expiresAt = session.expires_at ?? 0;
+    const secondsLeft = expiresAt - Math.floor(Date.now() / 1000);
+    if (secondsLeft > REFRESH_LEEWAY_S) return true;
+
+    const { data, error: refreshError } = await supabase.auth.refreshSession();
+    if (!refreshError && data.session) return true;
+
+    // Refresh failed on an (almost) expired token — confirm with the server
+    // before kicking anyone out.
+    const { error: userError } = await supabase.auth.getUser();
+    if (userError && userError.status && [400, 401, 403].includes(userError.status)) {
+      console.warn('[SessionManager] Session rejected by server:', userError.message);
+      return false;
+    }
+    console.log('[SessionManager] Refresh failed transiently, keeping user signed in');
+    return true;
+  }, []);
+
+  const maybeValidate = useCallback(async (force = false) => {
+    if (document.hidden) return;
+    const now = Date.now();
+    if (!force && now - lastValidatedRef.current < VALIDATE_INTERVAL_MS) return;
+    lastValidatedRef.current = now;
+    try {
+      if (!(await validateSession())) await handleForceLogout();
+    } catch (err) {
+      // Throwing here means we couldn't reach anything — not a reason to log out.
+      console.error('[SessionManager] Validation error (ignored):', err);
+    }
+  }, [validateSession, handleForceLogout]);
+
   useEffect(() => {
     if (!user) return;
-    if (lastRouteRef.current === location.pathname) return;
-    lastRouteRef.current = location.pathname;
+    lastValidatedRef.current = Date.now();
 
-    // Use getUser() instead of getSession() — getUser validates the token server-side
-    supabase.auth.getUser().then(({ data, error }) => {
-      if (error) {
-        // Only force logout if it's a definitive auth error (400, 401, 403)
-        // Network errors or 500s shouldn't kick the user out
-        const isDefinitiveAuthError = error.status && [400, 401, 403].includes(error.status);
-        
-        if (isDefinitiveAuthError) {
-          console.warn('[SessionManager] Definitive auth error on route change:', error.message, 'Status:', error.status);
-          handleForceLogout();
-        } else {
-          console.log('[SessionManager] Transient or server error on route change (ignoring force logout):', error.message);
-        }
-        return;
-      }
-      
-      if (!data.user) {
-        console.warn('[SessionManager] No user found on route change');
-        handleForceLogout();
-      }
-    });
-  }, [location.pathname, user, handleForceLogout]);
-
-  // Visibility change + proactive token refresh
-  useEffect(() => {
-    if (!user) return;
-
-    const handleVisibilityChange = async () => {
-      if (!document.hidden) {
-        console.log('[SessionManager] Tab visible, validating session');
-        try {
-          // First check if we have a valid session
-          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-          
-          if (sessionError || !session) {
-            console.warn('[SessionManager] No valid session on tab return');
-            await handleForceLogout();
-            return;
-          }
-
-          // Try to refresh
-          const { error } = await supabase.auth.refreshSession();
-          if (error) {
-            console.warn('[SessionManager] Refresh failed on tab return:', error.message);
-            // If refresh fails, validate with server
-            const { error: userError } = await supabase.auth.getUser();
-            if (userError) {
-              await handleForceLogout();
-              return;
-            }
-          }
-          console.log('[SessionManager] Session validated successfully');
-        } catch (err) {
-          console.error('[SessionManager] Failed to validate session:', err);
-          await handleForceLogout();
-        }
-      }
-    };
-
+    const handleVisibilityChange = () => { void maybeValidate(); };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    const scheduleTokenRefresh = () => {
-      if (tokenRefreshRef.current) clearTimeout(tokenRefreshRef.current);
-      
-      // Schedule next check in 10 minutes
-      tokenRefreshRef.current = setTimeout(async () => {
-        // Only refresh if tab is visible to avoid unnecessary calls
-        if (!document.hidden) {
-          try {
-            console.log('[SessionManager] Scheduled token refresh check...');
-            const { data, error } = await supabase.auth.refreshSession();
-            if (error) {
-              console.warn('[SessionManager] Scheduled refresh failed:', error.message);
-              // Validate server-side before force logout
-              const { error: userError } = await supabase.auth.getUser();
-              if (userError && userError.status && [400, 401, 403].includes(userError.status)) {
-                await handleForceLogout();
-                return;
-              }
-            }
-          } catch (err) {
-            console.error('[SessionManager] Token refresh error:', err);
-          }
-        }
-        // Always reschedule the next check regardless of success/failure/visibility
-        scheduleTokenRefresh();
-      }, 10 * 60 * 1000); // Check every 10 mins
+    const schedule = () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(async () => {
+        await maybeValidate(true);
+        schedule();
+      }, VALIDATE_INTERVAL_MS);
     };
-
-    scheduleTokenRefresh();
+    schedule();
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (tokenRefreshRef.current) clearTimeout(tokenRefreshRef.current);
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [user, handleForceLogout]);
+  }, [user, maybeValidate]);
 };

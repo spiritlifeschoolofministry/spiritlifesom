@@ -107,7 +107,9 @@ const StudentDashboard = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      // Reuse the already-resolved auth user; a getUser() round trip here just
+      // delayed every dashboard load behind an extra network call.
+      const authUser = user ?? (await supabase.auth.getUser()).data.user;
       if (!authUser) {
         setData(EMPTY_DATA);
         return;
@@ -239,7 +241,7 @@ const StudentDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -309,7 +311,9 @@ const StudentDashboard = () => {
   return (
     <StudentLayout admissionStatus={data?.admissionStatus}>
       {/* Profile Completion Dialog */}
-      <Dialog open={showProfileCompletion} onOpenChange={() => undefined}>
+      {/* Only once the dashboard's own data has resolved — otherwise a re-read
+          (e.g. after a token refresh) pops this over a half-loaded page. */}
+      <Dialog open={showProfileCompletion && !loading} onOpenChange={() => undefined}>
         <DialogContent onEscapeKeyDown={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Complete your profile</DialogTitle>

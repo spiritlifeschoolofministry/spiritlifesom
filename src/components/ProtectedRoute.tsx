@@ -10,9 +10,14 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
-  const { user, profile, student, role, isLoading, authError, signOut } = useAuth();
+  const { user, profile, student, role, isLoading, isAuthReady, authError, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // A signed-in user whose profile hasn't resolved yet is still "loading", even
+  // if isLoading has already flipped (e.g. a getSession error resolved while the
+  // auth listener was mid-fetch). Deciding anything here would bounce them.
+  const authPending = isLoading || (!!user && !isAuthReady);
 
   // Hold on a loading screen while auth data (user/profile/student) is being
   // resolved — this covers initial load, page refresh, AND the brief window
@@ -20,17 +25,19 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
   // could run with null profile/student data and briefly show /complete-profile
   // to users whose profiles are already complete. isLoading only toggles during
   // auth resolution, never on normal SPA navigation.
-  if (isLoading) {
+  if (authPending) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-primary" />
         <p className="text-sm text-muted-foreground">Loading your session...</p>
       </div>
     );
   }
 
-  // Auth error fallback — show error with retry option (don't clear localStorage)
-  if (authError && !user) {
+  // Auth error fallback — show error with retry option (don't clear localStorage).
+  // Also covers a signed-in user whose profile never loaded: showing the error
+  // is honest, where redirecting them to /complete-profile is not.
+  if (authError && (!user || !profile)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4 text-center">
         <AlertTriangle className="w-10 h-10 text-destructive" />

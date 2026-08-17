@@ -1,9 +1,10 @@
-import { useMemo, useState, useRef, useCallback } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import ScrollToTop from "@/components/ScrollToTop";
 import SEO from "@/components/SEO";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
+import { preloadPath, preloadPortal } from "@/routes/lazy-pages";
 
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -91,11 +92,22 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
   // Case-insensitive role check for admin access
   const isAdmin = (role ?? "").toLowerCase() === "admin" || (role ?? "").toLowerCase() === "teacher";
 
+  // Warm the other portal pages' chunks while the browser is idle so switching
+  // pages doesn't wait on a download.
+  useEffect(() => { preloadPortal("/student"); }, []);
+
   const handleLogout = async () => {
     await signOut();
     toast.success("Logged out");
     navigate("/login", { replace: true });
   };
+
+  // Fetch a page's chunk as soon as the user shows intent to visit it.
+  const prefetch = (path: string) => ({
+    onMouseEnter: () => preloadPath(path),
+    onFocus: () => preloadPath(path),
+    onTouchStart: () => preloadPath(path),
+  });
 
   const fullName = authProfile ? [authProfile.first_name, authProfile.middle_name, authProfile.last_name].filter(Boolean).join(' ') : "";
   const initials = authProfile ? `${(authProfile.first_name || 'S')[0]}${(authProfile.last_name || 'U')[0]}` : "";
@@ -114,7 +126,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
         );
       }
       return (
-        <Link key={item.path} to={item.path} className={`flex flex-col items-center gap-0.5 text-[10px] relative ${active ? "text-accent" : "text-muted-foreground"}`}>
+        <Link key={item.path} to={item.path} {...prefetch(item.path)} className={`flex flex-col items-center gap-0.5 text-[10px] relative ${active ? "text-accent" : "text-muted-foreground"}`}>
           <item.icon className="w-5 h-5" />
           {item.label.split(" ")[0]}
         </Link>
@@ -139,6 +151,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
       <Link
         key={item.path}
         to={item.path}
+        {...prefetch(item.path)}
         onClick={opts.closeSidebar ? () => setSidebarOpen(false) : undefined}
         className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all relative ${
           active ? "gradient-flame text-accent-foreground shadow-md" : "text-primary-foreground/80 hover:bg-primary-foreground/10"
@@ -323,6 +336,7 @@ const StudentLayout = ({ children, admissionStatus }: StudentLayoutProps) => {
                   <Link
                     key={item.path}
                     to={item.path}
+                    {...prefetch(item.path)}
                     onClick={() => setSheetOpen(false)}
                     className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition-colors ${
                       active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"

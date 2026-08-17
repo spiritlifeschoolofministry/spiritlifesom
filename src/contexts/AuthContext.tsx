@@ -12,6 +12,7 @@ export interface AuthContextType {
   isNewUser: boolean;
   authError: string | null;
   isAuthReady: boolean;
+  refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -43,7 +44,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const profileLoadedRef = useRef(false);
-  const getProfileInFlightRef = useRef(false);
+  // Holds the running fetch so concurrent callers await the same work instead of
+  // being dropped — a dropped call used to resolve instantly and let the caller
+  // continue as if auth data were ready.
+  const getProfileInFlightRef = useRef<Promise<void> | null>(null);
+  const userIdRef = useRef<string | null>(null);
 
   const clearAuthTimeout = () => {
     if (timeoutRef.current) {
@@ -62,17 +67,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, AUTH_TIMEOUT_MS);
   };
 
-  const getProfile = useCallback(async (userId: string, userMeta?: UserMetadata): Promise<void> => {
+  const runProfileFetch = useCallback(async (
+    userId: string,
+    userMeta?: UserMetadata,
+    opts?: { silent?: boolean },
+  ): Promise<void> => {
     console.log('[Auth] Fetching profile for:', userId);
-    // Prevent concurrent profile fetches (e.g. a TOKEN_REFRESHED event racing
-    // with initSession on page load) — one fetch resolves profile + student.
-    if (getProfileInFlightRef.current) return;
-    getProfileInFlightRef.current = true;
     // Mark loading before fetching. On a fresh sign-in the app is usually
     // already idle (isLoading=false), so without this the route guard would see
     // null profile/student mid-fetch and briefly bounce users to /complete-profile
-    // before their dashboard appears.
-    setIsLoading(true);
+    // before their dashboard appears. A silent refresh (post-save re-read) skips
+    // this so the current screen stays put instead of blanking to a spinner.
+    if (!opts?.silent) {
+      setIsAuthReady(false);
+      setIsLoading(true);
+    }
     try {
       let profileData = null;
       let retries = 0;
@@ -111,9 +120,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           first_name: profileData.first_name || 'Student',
           last_name: profileData.last_name || 'User',
         };
-        setProfile(safeProfile);
-        setRole(profileData.role);
-        profileLoadedRef.current = true;
         console.log('[Auth] Profile loaded, role:', profileData.role);
 
         let studentData = null;
@@ -127,18 +133,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             studentData = data;
             break;
           }
-          if (attempt < 2 && profileData.role === 'student') {
+          // Only students are expected to have a row — don't retry for staff.
+          if (profileData.role !== 'student') break;
+          if (attempt < 2) {
             await new Promise(r => setTimeout(r, 1500));
           }
         }
 
-        if (studentData) {
-          setStudent(studentData);
-          setIsNewUser(false);
-        } else {
-          setStudent(null);
-          setIsNewUser(profileData.role === 'student');
-        }
+        // Publish profile + student together. Setting profile first would render
+        // one frame with a profile but no student row, which the route guard
+        // reads as "profile incomplete" and turns into a /complete-profile flash.
+        setProfile(safeProfile);
+        setRole(profileData.role);
+        setStudent(studentData);
+        setIsNewUser(!studentData && profileData.role === 'student');
+        profileLoadedRef.current = true;
       } else {
         console.warn('[Auth] No profile found after retries, using metadata fallback');
         const fallbackRole = userMeta?.role || 'student';
@@ -152,20 +161,56 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('[Auth] Error fetching profile:', errorMessage);
-      setProfile(null);
-      setRole(null);
-      setStudent(null);
-      setIsNewUser(false);
+      // Keep whatever we already had — discarding a good profile because a
+      // re-read failed would drop the user onto /complete-profile.
+      if (!profileLoadedRef.current) {
+        setProfile(null);
+        setRole(null);
+        setStudent(null);
+        setIsNewUser(false);
+      }
       setAuthError('Failed to load profile data.');
     } finally {
-      getProfileInFlightRef.current = false;
       clearAuthTimeout();
       setIsLoading(false);
       setIsAuthReady(true);
     }
   }, []);
 
+  // Coalesce concurrent fetches (e.g. a TOKEN_REFRESHED event racing initSession
+  // on page load) onto one promise every caller can await.
+  const getProfile = useCallback((
+    userId: string,
+    userMeta?: UserMetadata,
+    opts?: { silent?: boolean },
+  ): Promise<void> => {
+    if (getProfileInFlightRef.current) return getProfileInFlightRef.current;
+    const run = runProfileFetch(userId, userMeta, opts).finally(() => {
+      getProfileInFlightRef.current = null;
+    });
+    getProfileInFlightRef.current = run;
+    return run;
+  }, [runProfileFetch]);
+
+  // Re-read profile + student without blanking the screen. Used after a save
+  // (e.g. /complete-profile) so the app can navigate on fresh data instead of
+  // doing a full page reload to pick it up.
+  const refreshProfile = useCallback(async (): Promise<void> => {
+    const userId = userIdRef.current;
+    if (!userId) return;
+    await getProfile(userId, undefined, { silent: true });
+  }, [getProfile]);
+
+  // Keep the same User object when a token refresh returns the same identity.
+  // Pages key data fetches off `user`, so handing them a fresh object on every
+  // tab focus / hourly refresh made them re-fetch and flash their skeletons.
+  const applyUser = useCallback((next: User, force = false) => {
+    userIdRef.current = next.id;
+    setUser(prev => (!force && prev && prev.id === next.id ? prev : next));
+  }, []);
+
   const clearState = useCallback(() => {
+    userIdRef.current = null;
     setUser(null);
     setProfile(null);
     setStudent(null);
@@ -188,15 +233,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.log('[Auth] State change:', event);
 
         if ((event === 'SIGNED_IN' || event === 'USER_UPDATED') && session?.user) {
-          setUser(session.user);
+          applyUser(session.user, event === 'USER_UPDATED');
           // Fetch profile if it's a new sign in or if user data was updated (like email)
           if (!profileLoadedRef.current || event === 'USER_UPDATED') {
             startAuthTimeout();
-            await getProfile(session.user.id, session.user.user_metadata as UserMetadata | undefined);
+            // A re-read for an already-loaded user shouldn't blank the screen.
+            await getProfile(
+              session.user.id,
+              session.user.user_metadata as UserMetadata | undefined,
+              { silent: profileLoadedRef.current },
+            );
           }
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           console.log('[Auth] Token refreshed successfully');
-          setUser(session.user);
+          applyUser(session.user);
           // Update profile if not loaded yet
           if (!profileLoadedRef.current) {
             await getProfile(session.user.id, session.user.user_metadata as UserMetadata | undefined);
@@ -221,7 +271,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (session?.user) {
           console.log('[Auth] Existing session found for:', session.user.email);
-          setUser(session.user);
+          applyUser(session.user);
           await getProfile(session.user.id, session.user.user_metadata as UserMetadata | undefined);
         } else {
           console.log('[Auth] No existing session');
@@ -232,6 +282,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('[Auth] Initialization error:', errorMessage);
+        // The listener may already be resolving this user's profile. Declaring
+        // auth "ready" here would expose a signed-in user with no profile yet,
+        // which the route guard turns into a /complete-profile flash.
+        if (getProfileInFlightRef.current) return;
         clearAuthTimeout();
         setIsLoading(false);
         setIsAuthReady(true);
@@ -261,7 +315,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [clearState]);
 
   return (
-    <AuthContext.Provider value={{ user, profile, student, role, isLoading, isNewUser, authError, isAuthReady, signOut }}>
+    <AuthContext.Provider value={{ user, profile, student, role, isLoading, isNewUser, authError, isAuthReady, refreshProfile, signOut }}>
       {children}
     </AuthContext.Provider>
   );

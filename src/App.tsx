@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -28,51 +28,49 @@ import NotFound from "./pages/NotFound";
 import CompleteProfile from "./pages/CompleteProfile";
 import { InstallPWA } from "./components/InstallPWA";
 
-// Student portal — lazy
-const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
-const StudentCourses = lazy(() => import("./pages/StudentCourses"));
-const StudentAttendance = lazy(() => import("./pages/StudentAttendance"));
-const StudentProfile = lazy(() => import("./pages/student/Profile"));
-const StudentMaterials = lazy(() => import("./pages/StudentMaterials"));
-const StudentFees = lazy(() => import("./pages/StudentFees"));
-const Coursemates = lazy(() => import("./pages/student/Coursemates"));
-const StudentAssignments = lazy(() => import("./pages/student/Assignments"));
-const StudentGrades = lazy(() => import("./pages/student/Grades"));
-const StudentAnnouncements = lazy(() => import("./pages/student/Announcements"));
-const StudentCalendar = lazy(() => import("./pages/student/Calendar"));
-const Graduates = lazy(() => import("./pages/student/Graduates"));
-const StudentTranscript = lazy(() => import("./pages/student/Transcript"));
-const StudentCertificate = lazy(() => import("./pages/student/Certificate"));
-const StudentExamsList = lazy(() => import("./pages/student/exams/ExamsList"));
-const StudentExamLobby = lazy(() => import("./pages/student/exams/ExamLobby"));
-const StudentExamRunner = lazy(() => import("./pages/student/exams/ExamRunner"));
-
-// Admin portal — lazy
-const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
-const AdminProfile = lazy(() => import("./pages/admin/Profile"));
-const AdminStudentProfile = lazy(() => import("./pages/admin/StudentProfile"));
-const AdminPayments = lazy(() => import("./pages/admin/Payments"));
-const AdminStudents = lazy(() => import("./pages/AdminStudents"));
-const AdminAdmissions = lazy(() => import("./pages/AdminAdmissions"));
-const AdminSettings = lazy(() => import("./pages/AdminSettings"));
-const AdminAttendance = lazy(() => import("./pages/AdminAttendance"));
-const AdminMaterials = lazy(() => import("./pages/admin/Materials"));
-const AdminAssignments = lazy(() => import("./pages/admin/Assignments"));
-const AdminAnalytics = lazy(() => import("./pages/admin/Analytics"));
-const AdminFees = lazy(() => import("./pages/admin/Fees"));
-const AdminCourses = lazy(() => import("./pages/admin/Courses"));
-const AdminAuditLog = lazy(() => import("./pages/admin/AuditLog"));
-const AdminEmailHistory = lazy(() => import("./pages/admin/EmailHistory"));
-const AdminApprove = lazy(() => import("./pages/AdminApprove"));
-const AdminAnnouncements = lazy(() => import("./pages/admin/Announcements"));
-const AdminCalendar = lazy(() => import("./pages/admin/Calendar"));
-const AdminExamsList = lazy(() => import("./pages/admin/exams/ExamsList"));
-const AdminExamBuilder = lazy(() => import("./pages/admin/exams/ExamBuilder"));
-const AdminExamMonitor = lazy(() => import("./pages/admin/exams/ExamMonitor"));
-const AdminQuestionBank = lazy(() => import("./pages/admin/exams/QuestionBank"));
-const AdminStorage = lazy(() => import("./pages/admin/StorageManagement"));
-const ComingSoon = lazy(() => import("./pages/ComingSoon"));
-const AdminComingSoon = lazy(() => import("./pages/AdminComingSoon"));
+// Portal pages — lazy, declared in one place so nav links can prefetch them
+import {
+  StudentDashboard,
+  StudentCourses,
+  StudentAttendance,
+  StudentProfile,
+  StudentMaterials,
+  StudentFees,
+  Coursemates,
+  StudentAssignments,
+  StudentGrades,
+  StudentAnnouncements,
+  StudentCalendar,
+  Graduates,
+  StudentTranscript,
+  StudentCertificate,
+  StudentExamsList,
+  StudentExamLobby,
+  StudentExamRunner,
+  AdminDashboard,
+  AdminProfile,
+  AdminStudentProfile,
+  AdminPayments,
+  AdminStudents,
+  AdminAdmissions,
+  AdminSettings,
+  AdminAttendance,
+  AdminMaterials,
+  AdminAssignments,
+  AdminAnalytics,
+  AdminFees,
+  AdminCourses,
+  AdminAuditLog,
+  AdminEmailHistory,
+  AdminApprove,
+  AdminAnnouncements,
+  AdminCalendar,
+  AdminExamsList,
+  AdminExamBuilder,
+  AdminExamMonitor,
+  AdminQuestionBank,
+  AdminStorage,
+} from "@/routes/lazy-pages";
 
 const queryClient = new QueryClient();
 
@@ -105,7 +103,10 @@ const App = () => {
         <InstallPWA />
         <ScrollToTop />
         <DomainRedirect />
-        <BrowserRouter>
+        {/* v7_startTransition: route changes run as transitions, so React keeps
+            the current screen on-screen while the next page's lazy chunk loads
+            instead of unmounting everything to show the Suspense fallback. */}
+        <BrowserRouter future={{ v7_startTransition: true }}>
           <SessionManagerProvider>
           <MaintenanceGate>
         <Suspense fallback={<RouteFallback />}>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -10,6 +10,7 @@ import SEO from "@/components/SEO";
 import NotificationsBell from "@/components/NotificationsBell";
 import { Badge } from "@/components/ui/badge";
 import { usePendingAdmissionsCount } from "@/hooks/use-pending-admissions";
+import { preloadPath, preloadPortal } from "@/routes/lazy-pages";
 import {
   LayoutDashboard,
   Users,
@@ -75,6 +76,10 @@ const AdminLayout = () => {
     }
   }, []);
 
+  // Warm the other admin pages' chunks while the browser is idle so switching
+  // pages doesn't wait on a download.
+  useEffect(() => { preloadPortal("/admin"); }, []);
+
   useEffect(() => {
     if (role && role.toLowerCase() !== "admin" && role.toLowerCase() !== "teacher") {
       toast.error("Unauthorized access");
@@ -87,6 +92,13 @@ const AdminLayout = () => {
     toast.success("Logged out");
     navigate("/login", { replace: true });
   };
+
+  // Fetch a page's chunk as soon as the user shows intent to visit it.
+  const prefetch = (path: string) => ({
+    onMouseEnter: () => preloadPath(path),
+    onFocus: () => preloadPath(path),
+    onTouchStart: () => preloadPath(path),
+  });
 
   const initials = authProfile ? `${(authProfile.first_name || 'A')[0]}${(authProfile.last_name || 'U')[0]}` : "";
 
@@ -183,6 +195,7 @@ const AdminLayout = () => {
                 <Link
                   key={item.path}
                   to={item.path}
+                  {...prefetch(item.path)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                     active ? "gradient-flame text-accent-foreground shadow-md" : "text-primary-foreground/80 hover:bg-primary-foreground/10"
                   }`}
@@ -217,6 +230,7 @@ const AdminLayout = () => {
                     <Link
                       key={item.path}
                       to={item.path}
+                      {...prefetch(item.path)}
                       onClick={() => setSidebarOpen(false)}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                         active ? "gradient-flame text-accent-foreground shadow-md" : "text-primary-foreground/80 hover:bg-primary-foreground/10"
@@ -238,7 +252,17 @@ const AdminLayout = () => {
         )}
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-20 md:pb-8">
-          <Outlet />
+          {/* Boundary lives inside the shell so a lazy page load only replaces
+              the content area — the header and sidebar stay put. */}
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center min-h-[60vh]">
+                <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" aria-label="Loading" />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 
@@ -248,7 +272,7 @@ const AdminLayout = () => {
           const active = location.pathname === item.path;
           const showBadge = item.path === "/admin/admissions" && pendingCount > 0;
           return (
-            <Link key={item.path} to={item.path} className={`relative flex flex-col items-center gap-0.5 text-[10px] ${active ? "text-accent" : "text-muted-foreground"}`}>
+            <Link key={item.path} to={item.path} {...prefetch(item.path)} className={`relative flex flex-col items-center gap-0.5 text-[10px] ${active ? "text-accent" : "text-muted-foreground"}`}>
               <item.icon className="w-5 h-5" />
               {item.shortLabel ?? item.label.split(" ")[0]}
               {showBadge && (
@@ -282,6 +306,7 @@ const AdminLayout = () => {
                   <Link
                     key={item.path}
                     to={item.path}
+                    {...prefetch(item.path)}
                     onClick={() => setSheetOpen(false)}
                     className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition-colors ${
                       active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"
