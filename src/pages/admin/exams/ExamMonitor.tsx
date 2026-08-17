@@ -23,6 +23,8 @@ export default function ExamMonitor() {
   const [snapshots, setSnapshots] = useState<Record<string, Array<{ id: string; storage_path: string; captured_at: string; storage_provider: string; signedUrl?: string }>>>({});
   const [snapshotViewer, setSnapshotViewer] = useState<{ url: string; meta: string } | null>(null);
   const [loadingSnapsFor, setLoadingSnapsFor] = useState<string | null>(null);
+  const [showRehearsals, setShowRehearsals] = useState(false);
+  const [hiddenRehearsals, setHiddenRehearsals] = useState(0);
 
   const load = async () => {
     setLoading(true);
@@ -41,7 +43,9 @@ export default function ExamMonitor() {
       supabase.from("students").select("id").eq("is_staff_preview", true),
     ]);
     const previewIds = new Set((previewRows ?? []).map((r: any) => r.id));
-    setAttempts((a ?? []).filter((att: any) => !previewIds.has(att.student_id)));
+    const rows = (a ?? []).map((att: any) => ({ ...att, isRehearsal: previewIds.has(att.student_id) }));
+    setHiddenRehearsals(rows.filter((r: any) => r.isRehearsal).length);
+    setAttempts(showRehearsals ? rows : rows.filter((r: any) => !r.isRehearsal));
     setLoading(false);
   };
 
@@ -52,7 +56,7 @@ export default function ExamMonitor() {
       .on("postgres_changes", { event: "*", schema: "public", table: "exam_attempts", filter: `exam_id=eq.${id}` }, load)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [id]);
+  }, [id, showRehearsals]);
 
   const releaseResults = async () => {
     if (!confirm("Release results to all students? This pushes scores into Grades.")) return;
@@ -212,6 +216,16 @@ export default function ExamMonitor() {
         <Card className="p-3"><p className="text-xs text-muted-foreground">Total attempts</p><p className="text-2xl font-bold">{attempts.length}</p></Card>
       </div>
 
+      {(hiddenRehearsals > 0 || showRehearsals) && (
+        <p className="text-xs text-muted-foreground">
+          {hiddenRehearsals} staff rehearsal{hiddenRehearsals === 1 ? "" : "s"}{" "}
+          {showRehearsals ? "shown in the list below" : "excluded from these figures"}.{" "}
+          <button className="underline hover:text-foreground" onClick={() => setShowRehearsals((v) => !v)}>
+            {showRehearsals ? "Hide" : "Show"}
+          </button>
+        </p>
+      )}
+
       <Card className="p-4 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="border-b border-border">
@@ -229,7 +243,10 @@ export default function ExamMonitor() {
               <Fragment key={a.id}>
               <tr className="border-b border-border/50">
                 <td className="py-2 pr-3">
-                  <p className="font-medium">{a.students?.profiles?.first_name} {a.students?.profiles?.last_name}</p>
+                  <p className="font-medium">
+                    {a.students?.profiles?.first_name} {a.students?.profiles?.last_name}
+                    {a.isRehearsal && <Badge variant="outline" className="ml-2 text-[10px]">rehearsal</Badge>}
+                  </p>
                   <p className="text-xs text-muted-foreground">{a.students?.student_code}</p>
                 </td>
                 <td className="py-2 pr-3">

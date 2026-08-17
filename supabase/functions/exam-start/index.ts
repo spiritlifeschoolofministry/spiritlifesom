@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     // Get exam and user's student record
     const [examRes, studentRes] = await Promise.all([
       supabase.from("exams").select("*").eq("id", exam_id).single(),
-      supabase.from("students").select("id, profile_id").eq("profile_id", user.id).single(),
+      supabase.from("students").select("id, profile_id, is_staff_preview").eq("profile_id", user.id).single(),
     ]);
 
     if (examRes.error || !examRes.data) {
@@ -67,10 +67,28 @@ Deno.serve(async (req) => {
     if (existingAttempts && existingAttempts.length > 0) {
       const active = existingAttempts.find((a: any) => a.status !== "submitted");
       if (active) {
-        return new Response(
-          JSON.stringify({ error: "You already have an active attempt at this exam" }),
-          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
+        // A staff rehearsal is throwaway, and it is hidden from the monitor, so
+        // a half-finished one would lock the admin out of their own dry run with
+        // nothing on screen to clear. Discard it and start clean. Answers,
+        // events and snapshots cascade with the attempt.
+        if (student.is_staff_preview) {
+          const { error: discardError } = await supabase
+            .from("exam_attempts")
+            .delete()
+            .eq("id", active.id);
+          if (discardError) {
+            console.error("Discard rehearsal attempt error:", discardError);
+            return new Response(
+              JSON.stringify({ error: "Could not clear the previous rehearsal attempt" }),
+              { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+            );
+          }
+        } else {
+          return new Response(
+            JSON.stringify({ error: "You already have an active attempt at this exam" }),
+            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
       }
     }
 

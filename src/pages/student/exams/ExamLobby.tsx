@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import StudentLayout from "@/components/StudentLayout";
-import { AlertTriangle, Clock, ShieldAlert, Monitor, Smartphone } from "lucide-react";
+import { AlertTriangle, Camera, CameraOff, Clock, ShieldAlert, Monitor, Smartphone } from "lucide-react";
 import { formatDuration } from "@/lib/exam-utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -22,6 +22,8 @@ export default function ExamLobby() {
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [isMobile] = useState(/Mobi|Android|iPhone|iPad/.test(navigator.userAgent));
+  const [camera, setCamera] = useState<"idle" | "checking" | "granted" | "denied">("idle");
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -33,6 +35,44 @@ export default function ExamLobby() {
     return () => clearInterval(t);
   }, [id]);
 
+  /**
+   * Prove the camera actually works before the exam can be entered.
+   *
+   * The proctor component used to ask once the paper was already open, and a
+   * refusal only greyed out a badge — the exam carried on unwatched. Asking
+   * here means a refusal stops the start instead.
+   *
+   * The probe stream is stopped immediately; this is a permission check, not
+   * the recording session, and leaving it open would sit the camera light on
+   * through the rules page and fight the proctor for the device.
+   */
+  const requestCamera = useCallback(async () => {
+    setCamera("checking");
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      stream.getTracks().forEach((t) => t.stop());
+      setCamera("granted");
+    } catch (e: any) {
+      setCamera("denied");
+      setCameraError(
+        e?.name === "NotFoundError"
+          ? "No camera was found on this device."
+          : e?.name === "NotAllowedError"
+            ? "Camera access was blocked. Allow it in your browser's site settings, then try again."
+            : e?.message || "The camera could not be started.",
+      );
+    }
+  }, []);
+
+  // Ask as soon as the rules are on screen, so a student sorts the camera out
+  // before the clock is running rather than after.
+  useEffect(() => {
+    if (exam?.enable_webcam_proctoring && camera === "idle") {
+      requestCamera();
+    }
+  }, [exam?.enable_webcam_proctoring, camera, requestCamera]);
+
   if (loading) return <StudentLayout><p className="p-6">Loading…</p></StudentLayout>;
   if (!exam) return <StudentLayout><p className="p-6">Exam not found</p></StudentLayout>;
 
@@ -42,7 +82,9 @@ export default function ExamLobby() {
   const afterEnd = now > endMs;
   const secondsToStart = Math.max(0, Math.floor((startMs - now) / 1000));
 
-  const canStart = !beforeStart && !afterEnd && agreed && (!isMobile || exam.allow_mobile);
+  const cameraRequired = !!exam.enable_webcam_proctoring;
+  const cameraReady = !cameraRequired || camera === "granted";
+  const canStart = !beforeStart && !afterEnd && agreed && (!isMobile || exam.allow_mobile) && cameraReady;
 
   const startExam = async () => {
     if (!canStart) return;
@@ -101,6 +143,7 @@ export default function ExamLobby() {
             <li>You have <strong>only one attempt</strong>.</li>
             {exam.enforce_fullscreen && <li>The exam will run in <strong>fullscreen</strong>. Exiting fullscreen is recorded.</li>}
             {exam.block_shortcuts && <li>Copy, paste, right-click, and developer tools are <strong>disabled</strong>.</li>}
+            {exam.enable_webcam_proctoring && <li>Your <strong>webcam is required</strong> and takes snapshots every {exam.snapshot_interval_seconds ?? 30}s for your lecturer to review.</li>}
             <li>Switching tabs/windows is tracked. After <strong>{exam.max_tab_switches} switches</strong> your exam is auto-submitted.</li>
             <li>Your answers <strong>autosave every {exam.autosave_interval_seconds}s</strong>. If your browser crashes, you can resume.</li>
             <li>You can only be logged in <strong>on one device</strong>. A second login will block your active session.</li>
@@ -120,6 +163,43 @@ export default function ExamLobby() {
             </div>
           )}
 
+          {cameraRequired && (
+            <div
+              className={`mt-4 p-3 rounded border flex items-start gap-2 ${
+                camera === "granted"
+                  ? "bg-emerald-500/10 border-emerald-500/20"
+                  : camera === "denied"
+                    ? "bg-destructive/10 border-destructive/20"
+                    : "bg-muted/40 border-border"
+              }`}
+            >
+              {camera === "granted" ? (
+                <Camera className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+              ) : (
+                <CameraOff className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">
+                  {camera === "granted"
+                    ? "Camera ready"
+                    : camera === "checking"
+                      ? "Checking your camera…"
+                      : "Camera access is required for this exam"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {camera === "granted"
+                    ? "You are being recorded by snapshot throughout this exam."
+                    : cameraError || "This exam is proctored. You cannot start until the camera is working."}
+                </p>
+                {camera === "denied" && (
+                  <Button size="sm" variant="outline" className="mt-2" onClick={requestCamera}>
+                    Try again
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="mt-5 flex items-start gap-3 p-3 rounded-md border border-border">
             <Checkbox id="agree" checked={agreed} onCheckedChange={(v) => setAgreed(!!v)} />
             <Label htmlFor="agree" className="text-sm leading-relaxed cursor-pointer">
@@ -131,7 +211,13 @@ export default function ExamLobby() {
             <Button variant="outline" asChild><Link to="/student/exams">Cancel</Link></Button>
             <Button size="lg" disabled={!canStart} onClick={startExam}>
               <Monitor className="w-4 h-4 mr-2" />
-              {beforeStart ? `Starts in ${formatDuration(secondsToStart)}` : afterEnd ? "Window closed" : "Start Exam"}
+              {beforeStart
+                ? `Starts in ${formatDuration(secondsToStart)}`
+                : afterEnd
+                  ? "Window closed"
+                  : !cameraReady
+                    ? "Camera required"
+                    : "Start Exam"}
             </Button>
           </div>
         </Card>
