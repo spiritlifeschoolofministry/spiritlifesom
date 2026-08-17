@@ -19,6 +19,7 @@ import { Loader2, Upload, CreditCard, Wallet, TrendingDown, CheckCircle, AlertCi
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { r2Storage } from '@/lib/r2-storage';
+import { resolveReceiptUrl } from '@/lib/receipt-url';
 
 type Fee = Tables<'fees'>;
 type Payment = Tables<'payments'>;
@@ -81,16 +82,16 @@ const StudentFees = () => {
   const feeNameFor = (payment: { student_fee_id?: string | null }) =>
     fees.find((f) => f.id === payment.student_fee_id)?.fee_type || '—';
 
-  const handleDownload = async (payment: any) => {
+  const handleDownload = async (payment: Payment) => {
     try {
-      if (payment.storage_provider === 'r2') {
-        const url = await r2Storage.getDownloadUrl(payment.storage_path || payment.payment_proof_url);
-        window.open(url, '_blank');
-      } else {
-        window.open(`${payment.payment_proof_url}?download=`, '_blank');
+      const url = await resolveReceiptUrl(payment);
+      if (!url) {
+        toast.error('This receipt has no file attached');
+        return;
       }
-    } catch (err) {
-      toast.error("Failed to get download link");
+      window.open(url, '_blank');
+    } catch {
+      toast.error('Failed to get download link');
     }
   };
 

@@ -26,6 +26,7 @@ interface ScanResult {
   migrated: Record<string, number>;
   totalPending: number;
   totalMigrated: number;
+  relinkPending: number;
   publicBase: string;
 }
 
@@ -34,6 +35,7 @@ export default function StorageManagement() {
   const [loading, setLoading] = useState(true);
   const [migrating, setMigrating] = useState(false);
   const [cleaning, setCleaning] = useState(false);
+  const [relinking, setRelinking] = useState(false);
   const [confirmMigrate, setConfirmMigrate] = useState(false);
   const [confirmCleanup, setConfirmCleanup] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
@@ -106,6 +108,23 @@ export default function StorageManagement() {
     }
   };
 
+  /** Repoint legacy URL columns (payment_proof_url, file_url) at R2. */
+  const runRelink = async () => {
+    setRelinking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('migrate-storage', { body: { action: 'relink' } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data.skipped) toast.warning(`Relinked ${data.updated}, skipped ${data.skipped}`);
+      else toast.success(`Relinked ${data.updated} record(s) to R2`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Relink failed');
+    } finally {
+      setRelinking(false);
+      await runScan(true);
+    }
+  };
+
   const runCleanup = async () => {
     setCleaning(true);
     let deleted = 0;
@@ -150,6 +169,7 @@ export default function StorageManagement() {
 
   const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
   const allMigrated = (scan?.totalPending ?? 0) === 0;
+  const relinkPending = scan?.relinkPending ?? 0;
 
   return (
     <div className="space-y-6">
@@ -323,10 +343,26 @@ export default function StorageManagement() {
                   </AlertDescription>
                 </Alert>
               )}
+              {relinkPending > 0 && (
+                <Alert>
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Repoint the old links first</AlertTitle>
+                  <AlertDescription className="space-y-2">
+                    <p>
+                      {relinkPending} record(s) have their file in R2 but their legacy link column still pointing at
+                      Supabase. Pages that use those columns would break if the originals were deleted.
+                    </p>
+                    <Button size="sm" variant="outline" onClick={runRelink} disabled={relinking}>
+                      {relinking && <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />}
+                      Relink {relinkPending} record(s) to R2
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
               <Button
                 variant="destructive"
                 className="w-full"
-                disabled={cleaning || !allMigrated}
+                disabled={cleaning || !allMigrated || relinkPending > 0}
                 onClick={() => setConfirmCleanup(true)}
               >
                 {cleaning && <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />}

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileText, Link as LinkIcon, Star, Search, X } from "lucide-react";
+import { resolveMaterialUrl } from "@/lib/material-url";
 
 interface Material {
   id: string;
@@ -20,6 +21,8 @@ interface Material {
   learning_mode: string | null;
   is_pinned: boolean | null;
   file_type: string | null;
+  storage_path: string | null;
+  storage_provider: string | null;
 }
 
 const mapStudentLearningMode = (learningMode?: string | null) => {
@@ -51,7 +54,7 @@ const StudentMaterials = () => {
       const learningModes = mapStudentLearningMode(student.learning_mode);
       const { data, error } = await supabase
         .from("course_materials")
-        .select("id, title, description, file_url, created_at, material_type, learning_mode, is_pinned, file_type, cohort_id")
+        .select("id, title, description, file_url, created_at, material_type, learning_mode, is_pinned, file_type, cohort_id, storage_path, storage_provider")
         .eq("cohort_id", student.cohort_id)
         .in("learning_mode", learningModes)
         .order("is_pinned", { ascending: false, nullsFirst: false })
@@ -223,14 +226,14 @@ const StudentMaterials = () => {
                         ? new Date(m.created_at).toLocaleDateString()
                         : ""}
                     </span>
-                    {m.file_url && (
+                    {resolveMaterialUrl(m) && (
                       <Button
                         asChild
                         size="sm"
                         variant="outline"
                         className="h-7 px-2 text-xs"
                       >
-                        <a href={`${m.file_url}?download=`} download>
+                        <a href={resolveMaterialUrl(m) as string} download>
                           <LinkIcon className="w-3 h-3 mr-1" />
                           Download
                         </a>

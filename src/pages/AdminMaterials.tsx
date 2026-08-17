@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Pin, PinOff, FileText, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
+import { resolveMaterialUrl } from "@/lib/material-url";
 
 interface Material {
   id: string;
@@ -23,6 +24,8 @@ interface Material {
   created_at: string | null;
   material_type: string | null;
   is_pinned: boolean | null;
+  storage_path: string | null;
+  storage_provider: string | null;
 }
 
 const AdminMaterials = () => {
@@ -35,7 +38,7 @@ const AdminMaterials = () => {
     try {
       const { data, error } = await supabase
         .from("course_materials")
-        .select("id, title, description, file_url, created_at, material_type, is_pinned")
+        .select("id, title, description, file_url, created_at, material_type, is_pinned, storage_path, storage_provider")
         .order("is_pinned", { ascending: false, nullsFirst: false })
         .order("created_at", { ascending: false });
 
@@ -138,9 +141,9 @@ const AdminMaterials = () => {
                           : "—"}
                       </TableCell>
                       <TableCell>
-                        {m.file_url ? (
+                        {resolveMaterialUrl(m) ? (
                           <a
-                            href={m.file_url}
+                            href={resolveMaterialUrl(m) as string}
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex items-center gap-1 text-xs text-primary hover:underline"

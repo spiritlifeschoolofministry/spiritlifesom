@@ -34,6 +34,17 @@ const URL_COLUMNS = [
   { table: "faculty_members", column: "photo_url", bucket: "avatars" },
 ];
 
+/**
+ * Denormalised URL columns that sit alongside storage_path. The file itself is
+ * already in R2 once storage_provider flips; these columns still hold the old
+ * Supabase URL and are repointed by `relink`.
+ */
+const RELINK_COLUMNS = [
+  { table: "payments", column: "payment_proof_url" },
+  { table: "course_materials", column: "file_url" },
+  { table: "assignment_submissions", column: "file_url" },
+];
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -160,9 +171,24 @@ Deno.serve(async (req) => {
         migrated[`${table}.${column}`] = urls.filter((u) => u.startsWith(R2_PUBLIC_BASE)).length;
       }
 
+      // Rows whose file is in R2 but whose legacy URL column still points at Supabase.
+      let relinkPending = 0;
+      for (const { table, column } of RELINK_COLUMNS) {
+        const { data, error } = await admin
+          .from(table)
+          .select(column)
+          .eq("storage_provider", "r2")
+          .not("storage_path", "is", null);
+        if (error) continue;
+        relinkPending += (data ?? []).filter((r: any) => {
+          const v = r[column] as string | null;
+          return !!v && !v.startsWith(R2_PUBLIC_BASE);
+        }).length;
+      }
+
       const totalPending = Object.values(pending).reduce((a, b) => a + b, 0);
       const totalMigrated = Object.values(migrated).reduce((a, b) => a + b, 0);
-      return json({ pending, migrated, totalPending, totalMigrated, publicBase: R2_PUBLIC_BASE });
+      return json({ pending, migrated, totalPending, totalMigrated, relinkPending, publicBase: R2_PUBLIC_BASE });
     }
 
     // ---------------- MIGRATE ----------------
@@ -249,10 +275,66 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ---------------- RELINK ----------------
+    // Repoints the legacy URL columns at R2 for rows already migrated. Pages that
+    // read these columns directly would otherwise still be served from Supabase.
+    if (action === "relink") {
+      const r2 = r2Client();
+      let updated = 0;
+      const skipped: Array<{ ref: string; reason: string }> = [];
+
+      for (const { table, column } of RELINK_COLUMNS) {
+        const { data, error } = await admin
+          .from(table)
+          .select(`id, storage_path, ${column}`)
+          .eq("storage_provider", "r2")
+          .not("storage_path", "is", null);
+        if (error || !data?.length) continue;
+
+        for (const row of data as any[]) {
+          const key = row.storage_path as string;
+          const current = row[column] as string | null;
+          const target = `${R2_PUBLIC_BASE}/${encodeKey(key)}`;
+          if (current === target) continue;
+
+          if (!(await existsInR2(r2, key))) {
+            skipped.push({ ref: `${table}:${row.id}`, reason: "object not found in R2" });
+            continue;
+          }
+          const { error: upErr } = await admin.from(table).update({ [column]: target }).eq("id", row.id);
+          if (upErr) skipped.push({ ref: `${table}:${row.id}`, reason: upErr.message });
+          else updated++;
+        }
+      }
+
+      return json({ updated, skipped: skipped.length, skippedDetail: skipped.slice(0, 20) });
+    }
+
     // ---------------- CLEANUP ----------------
     // Deletes Supabase originals, but only for objects re-verified in R2.
     if (action === "cleanup") {
       const r2 = r2Client();
+
+      // Refuse while any legacy URL column still points at Supabase — deleting
+      // the originals would break every page that reads those columns.
+      for (const { table, column } of RELINK_COLUMNS) {
+        const { data } = await admin
+          .from(table)
+          .select(column)
+          .eq("storage_provider", "r2")
+          .not("storage_path", "is", null);
+        const stale = (data ?? []).filter((r: any) => {
+          const v = r[column] as string | null;
+          return !!v && !v.startsWith(R2_PUBLIC_BASE);
+        }).length;
+        if (stale > 0) {
+          return json(
+            { error: `${stale} ${table}.${column} value(s) still point at Supabase. Run the relink step before cleanup.` },
+            409,
+          );
+        }
+      }
+
       const deleted: string[] = [];
       const kept: Array<{ ref: string; reason: string }> = [];
       let processed = 0;
