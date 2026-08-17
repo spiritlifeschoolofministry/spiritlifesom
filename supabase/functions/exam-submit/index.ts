@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
     // Get the attempt
     const { data: attempt, error: attemptError } = await supabase
       .from("exam_attempts")
-      .select("id, student_id, submitted_at, exam_id")
+      .select("id, student_id, submitted_at, exam_id, question_order")
       .eq("id", attempt_id)
       .single();
 
@@ -87,29 +87,57 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY")!,
     );
 
-    const questionIds = (answers ?? []).map((a) => a.question_id);
-    const { data: questions } = questionIds.length
+    // Walk the questions this attempt was served, not the rows the student
+    // saved. A question left blank has no exam_answers row, so scoring off the
+    // saved rows skipped it entirely — an unanswered essay then looked like
+    // "nothing to mark" and the attempt filed itself as graded before anyone
+    // had read it.
+    const servedIds: string[] = Array.isArray(attempt.question_order)
+      ? (attempt.question_order as string[])
+      : (answers ?? []).map((a) => a.question_id);
+
+    const { data: questions } = servedIds.length
       ? await admin
           .from("question_bank")
           .select("id, question_type, correct_answer, points")
-          .in("id", questionIds)
+          .in("id", servedIds)
       : { data: [] };
 
     const questionById = new Map((questions ?? []).map((q) => [q.id, q]));
+    const answerByQuestion = new Map((answers ?? []).map((a) => [a.question_id, a]));
 
     let totalScore = 0;
     let awaitingManual = false;
 
-    for (const ans of answers ?? []) {
-      const question = questionById.get(ans.question_id);
-      const graded = question
-        ? gradeAnswer(question, ans.answer)
-        : { pointsAwarded: null, isCorrect: null, needsManual: true };
+    for (const questionId of servedIds) {
+      const question = questionById.get(questionId);
+      if (!question) continue;
+      const ans = answerByQuestion.get(questionId);
+      const value = ans?.answer ?? null;
+      const blank = value === null || value === undefined || value === "";
+      const graded = gradeAnswer(question, value);
 
       if (graded.needsManual) {
-        // Respect a mark a lecturer has already entered by hand.
-        if (ans.points_awarded !== null) {
+        if (ans && ans.points_awarded !== null) {
+          // A mark already entered by hand stands.
           totalScore += Number(ans.points_awarded) || 0;
+        } else if (blank) {
+          // Nothing written is nothing to read: score it zero rather than
+          // sending a lecturer to look at an empty box.
+          if (ans) {
+            await admin
+              .from("exam_answers")
+              .update({ points_awarded: 0, is_correct: false })
+              .eq("id", ans.id);
+          } else {
+            await admin.from("exam_answers").insert({
+              attempt_id,
+              question_id: questionId,
+              answer: null,
+              points_awarded: 0,
+              is_correct: false,
+            });
+          }
         } else {
           awaitingManual = true;
         }
@@ -117,11 +145,24 @@ Deno.serve(async (req) => {
       }
 
       totalScore += graded.pointsAwarded ?? 0;
-      const { error: markError } = await admin
-        .from("exam_answers")
-        .update({ points_awarded: graded.pointsAwarded, is_correct: graded.isCorrect })
-        .eq("id", ans.id);
-      if (markError) console.error("Auto-grade write error:", markError);
+      if (ans) {
+        const { error: markError } = await admin
+          .from("exam_answers")
+          .update({ points_awarded: graded.pointsAwarded, is_correct: graded.isCorrect })
+          .eq("id", ans.id);
+        if (markError) console.error("Auto-grade write error:", markError);
+      } else {
+        // Record the zero so the marking screen and the student's breakdown
+        // both show the question rather than silently omitting it.
+        const { error: insertError } = await admin.from("exam_answers").insert({
+          attempt_id,
+          question_id: questionId,
+          answer: null,
+          points_awarded: graded.pointsAwarded,
+          is_correct: graded.isCorrect,
+        });
+        if (insertError) console.error("Auto-grade insert error:", insertError);
+      }
     }
 
     // Mark as submitted

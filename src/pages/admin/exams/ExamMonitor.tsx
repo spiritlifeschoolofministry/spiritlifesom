@@ -119,39 +119,78 @@ export default function ExamMonitor() {
 
   const openGrading = async (attempt: any) => {
     const { data: ans } = await supabase.from("exam_answers").select("*").eq("attempt_id", attempt.id);
-    const qIds = (ans ?? []).map((a) => a.question_id);
-    const { data: qs } = qIds.length ? await supabase.from("question_bank").select("*").in("id", qIds) : { data: [] };
+
+    // Every question this attempt was served, in the order it was served —
+    // not only the ones with a saved answer. A question the student skipped
+    // still has to be visible and markable.
+    const served: string[] = Array.isArray(attempt.question_order)
+      ? attempt.question_order
+      : (ans ?? []).map((a: any) => a.question_id);
+    const { data: qs } = served.length
+      ? await supabase.from("question_bank").select("*").in("id", served)
+      : { data: [] };
+    const byId = new Map((qs ?? []).map((q: any) => [q.id, q]));
+    const questions = served.map((qid) => byId.get(qid)).filter(Boolean);
+
+    // Stand-in rows for skipped questions so they can be marked; saveGrading
+    // inserts the ones that were never persisted.
+    const answers = questions.map((q: any) =>
+      (ans ?? []).find((a: any) => a.question_id === q.id) ?? {
+        id: null,
+        attempt_id: attempt.id,
+        question_id: q.id,
+        answer: null,
+        points_awarded: null,
+        is_correct: null,
+        manual_feedback: null,
+      },
+    );
+
     setGrading(attempt);
-    setGradeData({ answers: ans ?? [], questions: qs ?? [], override: attempt.manual_score_override ?? "" });
+    setGradeData({ answers, questions, override: "" });
   };
 
   const saveGrading = async () => {
     if (!grading) return;
-    // Update each manual answer's points_awarded
+    // Save each question's mark. Rows that never existed — questions the
+    // student skipped — are inserted rather than silently dropped.
     for (const a of gradeData.answers) {
-      await supabase.from("exam_answers").update({
+      const fields = {
         points_awarded: a.points_awarded,
         is_correct: a.points_awarded != null && a.points_awarded > 0,
         manual_feedback: a.manual_feedback ?? null,
-      }).eq("id", a.id);
+      };
+      if (a.id) {
+        await supabase.from("exam_answers").update(fields).eq("id", a.id);
+      } else {
+        await supabase.from("exam_answers").insert({
+          attempt_id: grading.id,
+          question_id: a.question_id,
+          answer: null,
+          ...fields,
+        });
+      }
     }
+
+    // The total is the sum of the question marks, full stop. There is no
+    // separate figure to type in: a score has to be traceable to the answers
+    // it came from, and any change is made by regrading the question itself.
     const total = gradeData.answers.reduce((s, a) => s + (Number(a.points_awarded) || 0), 0);
-    const override = gradeData.override === "" ? null : Number(gradeData.override);
 
     // Regrading is allowed, so keep what the mark used to be. Without this a
     // score can change after release with no record of the previous figure.
     const priorScore = grading.manual_score_override ?? grading.score;
-    const newScore = override ?? total;
     const history = Array.isArray(grading.regrade_history) ? grading.regrade_history : [];
-    const changed = grading.status === "graded" && Number(priorScore) !== Number(newScore);
+    const changed = grading.status === "graded" && Number(priorScore) !== Number(total);
 
     await supabase.from("exam_attempts").update({
       score: total,
-      manual_score_override: override,
+      // Clear any legacy typed-in figure so the question marks always govern.
+      manual_score_override: null,
       status: "graded",
       graded_at: new Date().toISOString(),
       regrade_history: changed
-        ? [...history, { at: new Date().toISOString(), from: priorScore, to: newScore }]
+        ? [...history, { at: new Date().toISOString(), from: priorScore, to: total }]
         : history,
     }).eq("id", grading.id);
     toast.success(grading.status === "graded" ? "Regraded" : "Saved grading");
@@ -474,19 +513,28 @@ export default function ExamMonitor() {
               );
             })}
 
-            <Card className="p-3">
-              <Label className="text-sm">Final mark</Label>
-              <p className="text-xs text-muted-foreground mt-0.5 mb-2">
-                Adds up to <strong>{gradedTotal}</strong> from the marks above. Type a different number here only if you want to overrule that total.
+            <Card className="p-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">Total</p>
+                <p className="text-xs text-muted-foreground">Adds up the marks you gave each question above.</p>
+              </div>
+              <p className="text-xl font-bold tabular-nums">
+                {gradedTotal}<span className="text-sm font-normal text-muted-foreground"> / {gradeMax}</span>
               </p>
-              <Input
-                type="number"
-                value={gradeData.override}
-                onChange={(e) => setGradeData({ ...gradeData, override: e.target.value })}
-                placeholder={`Using ${gradedTotal}`}
-                className="max-w-[160px]"
-              />
             </Card>
+
+            {Array.isArray(grading?.regrade_history) && grading.regrade_history.length > 0 && (
+              <Card className="p-3">
+                <p className="text-sm font-medium mb-1">Previous marks</p>
+                <ul className="text-xs text-muted-foreground space-y-0.5">
+                  {grading.regrade_history.map((h: any, i: number) => (
+                    <li key={i}>
+                      {new Date(h.at).toLocaleString()} · changed from {h.from ?? 0} to {h.to ?? 0}
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setGrading(null)}>Cancel</Button>
