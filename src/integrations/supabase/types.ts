@@ -1690,6 +1690,21 @@ export type Database = {
       }
     }
     Views: {
+      exam_question_paper: {
+        Row: {
+          code_language: string | null
+          code_snippet: string | null
+          display_order: number | null
+          exam_id: string | null
+          id: string | null
+          image_url: string | null
+          options: Json | null
+          points: number | null
+          question_text: string | null
+          question_type: string | null
+        }
+        Relationships: []
+      }
       classmate_directory: {
         Row: {
           avatar_url: string | null

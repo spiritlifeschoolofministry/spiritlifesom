@@ -51,7 +51,13 @@ export default function ExamRunner() {
       setAttempt(att);
 
       const qIds = att.question_order ?? [];
-      const { data: qs } = await supabase.from("question_bank").select("*").in("id", qIds);
+      // exam_question_paper, not question_bank: the bank is staff-only under RLS
+      // and carries the answer key. The view exposes just the sittable columns.
+      const { data: qs } = await supabase
+        .from("exam_question_paper")
+        .select("*")
+        .eq("exam_id", id!)
+        .in("id", qIds);
       const ordered = qIds.map((qid: string) => qs?.find((q) => q.id === qid)).filter(Boolean);
       setQuestions(ordered);
 

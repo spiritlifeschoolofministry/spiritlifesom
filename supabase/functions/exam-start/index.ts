@@ -74,25 +74,62 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Get question bank for the exam
-    const { data: questions } = await supabase
+    // Questions hang off an exam through exam_questions — question_bank has no
+    // exam_id of its own. Querying it by exam_id failed at the schema level, and
+    // because the error was dropped it surfaced as "Exam has no questions",
+    // which is why no attempt had ever been created.
+    const { data: links, error: linksError } = await supabase
+      .from("exam_questions")
+      .select("question_id, display_order")
+      .eq("exam_id", exam_id)
+      .order("display_order", { ascending: true });
+
+    if (linksError) {
+      console.error("Load exam questions error:", linksError);
+      return new Response(JSON.stringify({ error: "Failed to load exam questions" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const linkedIds = (links ?? []).map((l) => l.question_id).filter(Boolean);
+    if (linkedIds.length === 0) {
+      return new Response(JSON.stringify({ error: "Exam has no questions" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const { data: questions, error: questionsError } = await supabase
       .from("question_bank")
       .select("id, options")
-      .eq("exam_id", exam_id);
+      .in("id", linkedIds);
 
+    if (questionsError) {
+      console.error("Load question bank error:", questionsError);
+      return new Response(JSON.stringify({ error: "Failed to load exam questions" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     if (!questions || questions.length === 0) {
       return new Response(JSON.stringify({ error: "Exam has no questions" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const questionIds = questions.map((q) => q.id);
-    const shuffledQuestionIds = shuffle(questionIds);
+    // Honour the builder's toggles rather than always shuffling. linkedIds is
+    // already in display_order, so the un-randomised path is the order the
+    // teacher set.
+    const byId = new Map(questions.map((q) => [q.id, q]));
+    let questionIds = linkedIds.filter((qid) => byId.has(qid));
+    if (exam.randomize_questions) {
+      questionIds = shuffle(questionIds);
+    }
+
+    const perAttempt = exam.questions_per_attempt;
+    if (perAttempt && perAttempt > 0 && perAttempt < questionIds.length) {
+      questionIds = questionIds.slice(0, perAttempt);
+    }
 
     // Build option_orders: for each question, shuffle its options
     const optionOrders: Record<string, number[]> = {};
-    for (const q of questions) {
-      if (Array.isArray(q.options) && q.options.length > 0) {
-        const indices = Array.from({ length: q.options.length }, (_, i) => i);
-        optionOrders[q.id] = shuffle(indices);
+    if (exam.randomize_options) {
+      for (const qid of questionIds) {
+        const q = byId.get(qid);
+        if (Array.isArray(q?.options) && q.options.length > 0) {
+          const indices = Array.from({ length: q.options.length }, (_, i) => i);
+          optionOrders[qid] = shuffle(indices);
+        }
       }
     }
 
@@ -106,7 +143,7 @@ Deno.serve(async (req) => {
       .insert({
         exam_id,
         student_id: student.id,
-        question_order: shuffledQuestionIds,
+        question_order: questionIds,
         option_orders: optionOrders,
         server_deadline_at: serverDeadline,
         device_fingerprint,
