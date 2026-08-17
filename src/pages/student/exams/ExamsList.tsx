@@ -9,7 +9,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import StudentLayout from "@/components/StudentLayout";
 import { format, isAfter, isBefore } from "date-fns";
 import { ChevronDown, CheckCircle2, XCircle, Trophy, Download } from "lucide-react";
-import { sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType } from "@/lib/exam-utils";
+import { formatAnswer, sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType } from "@/lib/exam-utils";
 import { downloadCSV } from "@/lib/csv-export";
 
 export default function StudentExamsList() {
@@ -79,23 +79,12 @@ export default function StudentExamsList() {
 
   const renderAnswer = (val: unknown, q: any) => {
     if (val === null || val === undefined || val === "") return <span className="italic text-muted-foreground">No answer</span>;
-    if (q.question_type === "mcq_single" && Array.isArray(q.options)) return String(q.options[val as number] ?? val);
-    if (q.question_type === "mcq_multi" && Array.isArray(q.options) && Array.isArray(val)) {
-      return (val as number[]).map((i) => q.options[i]).filter(Boolean).join(", ");
-    }
-    if (q.question_type === "true_false") return val ? "True" : "False";
-    return String(val);
+    // Shared with the marking screen so a matching answer reads "A → 2" in both
+    // places rather than "[object Object]" here.
+    return formatAnswer(val, q);
   };
 
-  const answerToText = (val: unknown, q: any): string => {
-    if (val === null || val === undefined || val === "") return "";
-    if (q.question_type === "mcq_single" && Array.isArray(q.options)) return String(q.options[val as number] ?? val);
-    if (q.question_type === "mcq_multi" && Array.isArray(q.options) && Array.isArray(val)) {
-      return (val as number[]).map((i) => q.options[i]).filter(Boolean).join("; ");
-    }
-    if (q.question_type === "true_false") return val ? "True" : "False";
-    return String(val);
-  };
+  const answerToText = (val: unknown, q: any): string => formatAnswer(val, q);
 
   const stripHtml = (html: string) => (html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 

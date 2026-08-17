@@ -19,6 +19,46 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   matching: "Matching",
 };
 
+export type MatchingItem = { key: string; text: string };
+export type ParsedMatching = { stem: string; left: MatchingItem[]; right: MatchingItem[] };
+
+/**
+ * Pull the two halves of a matching question out of its prompt.
+ *
+ * Matching questions carry no options and no answer key — the importer leaves
+ * the pairs inside question_text as "A) …" prompts and "1) …" choices. Parsing
+ * them is what lets the runner offer a control per left-hand item instead of
+ * printing the lot as one paragraph with nothing to answer.
+ *
+ * Returns null when the text does not hold at least two of each, so a question
+ * written some other way falls back to plain text rather than rendering an
+ * empty grid.
+ */
+export const parseMatchingQuestion = (raw: string): ParsedMatching | null => {
+  const text = (raw || "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li)>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .trim();
+  if (!text) return null;
+
+  const left: MatchingItem[] = [];
+  const right: MatchingItem[] = [];
+  const stem: string[] = [];
+
+  for (const line of text.split(/\r?\n/).map((l) => l.trim())) {
+    if (!line) continue;
+    const asLeft = line.match(/^([A-Za-z])[).]\s*(.+)$/);
+    const asRight = line.match(/^(\d{1,2})[).]\s*(.+)$/);
+    if (asLeft) left.push({ key: asLeft[1].toUpperCase(), text: asLeft[2].trim() });
+    else if (asRight) right.push({ key: asRight[1], text: asRight[2].trim() });
+    else if (left.length === 0 && right.length === 0) stem.push(line);
+  }
+
+  if (left.length < 2 || right.length < 2) return null;
+  return { stem: stem.join(" "), left, right };
+};
+
 /**
  * Turn a stored answer into something a person can read.
  *
@@ -41,6 +81,14 @@ export const formatAnswer = (
         : value.join(", ");
     case "true_false":
       return value ? "True" : "False";
+    case "matching":
+      if (typeof value === "object" && !Array.isArray(value)) {
+        return Object.entries(value as Record<string, unknown>)
+          .filter(([, v]) => v !== null && v !== undefined && v !== "")
+          .map(([k, v]) => `${k} → ${v}`)
+          .join(", ");
+      }
+      return String(value);
     default:
       return Array.isArray(value) ? value.join(", ") : String(value);
   }

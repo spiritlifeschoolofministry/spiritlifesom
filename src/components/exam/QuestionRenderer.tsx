@@ -3,7 +3,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { sanitizeHtml } from "@/lib/exam-utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { parseMatchingQuestion, sanitizeHtml } from "@/lib/exam-utils";
 
 interface Props {
   question: any;
@@ -25,11 +26,29 @@ export const QuestionRenderer = ({ question, optionOrder, answer, onChange, disa
     return question.options.map((t: string, i: number) => ({ original: i, text: String(t) }));
   })();
 
+  // Matching prompts carry their pairs as "A) …" / "1) …" lines inside the text.
+  // When they parse, the pairs become controls below and only the stem is shown
+  // here — printing them twice would just be noise.
+  const matching =
+    question.question_type === "matching"
+      ? parseMatchingQuestion(question.question_text || "")
+      : null;
+  const matchValue: Record<string, string> =
+    answer && typeof answer === "object" && !Array.isArray(answer)
+      ? (answer as Record<string, string>)
+      : {};
+
   return (
     <div className="space-y-4 select-none">
+      {/* pre-line: prompts are written with real line breaks, and without this
+          a multi-line question collapses into one run-on paragraph. */}
       <div
-        className="prose prose-sm dark:prose-invert max-w-none"
-        dangerouslySetInnerHTML={{ __html: sanitizeHtml(question.question_text || "") }}
+        className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-line"
+        dangerouslySetInnerHTML={{
+          __html: sanitizeHtml(
+            (matching?.stem || question.question_text || "").trim(),
+          ),
+        }}
       />
 
       {question.image_url && (
@@ -127,9 +146,49 @@ export const QuestionRenderer = ({ question, optionOrder, answer, onChange, disa
       )}
 
       {question.question_type === "matching" && (
-        <p className="text-sm text-muted-foreground italic">
-          Matching questions are evaluated manually.
-        </p>
+        matching ? (
+          <div className="space-y-2">
+            {matching.left.map((item) => (
+              <div key={item.key} className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-md border border-border p-3">
+                <p className="flex-1 text-sm">
+                  <span className="font-medium mr-1.5">{item.key})</span>
+                  {item.text}
+                </p>
+                <Select
+                  value={matchValue[item.key] ?? ""}
+                  onValueChange={(v) => onChange({ ...matchValue, [item.key]: v })}
+                  disabled={disabled}
+                >
+                  <SelectTrigger className="w-full sm:w-[280px]">
+                    <SelectValue placeholder="Choose a match" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {matching.right.map((opt) => (
+                      <SelectItem key={opt.key} value={opt.key}>
+                        {opt.key}) {opt.text}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+            <p className="text-xs text-muted-foreground italic">
+              Your lecturer marks this question by hand.
+            </p>
+          </div>
+        ) : (
+          // The prompt did not hold parseable pairs, so give somewhere to write
+          // the matching out rather than leaving the question unanswerable.
+          <div className="space-y-1">
+            <Label className="text-xs">Write your pairs, e.g. A-1, B-2</Label>
+            <Input
+              value={typeof answer === "string" ? answer : ""}
+              onChange={(e) => onChange(e.target.value)}
+              disabled={disabled}
+              placeholder="A-1, B-2"
+            />
+          </div>
+        )
       )}
     </div>
   );
