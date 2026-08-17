@@ -57,74 +57,229 @@ export const formatDuration = (totalSeconds: number) => {
   return [h, m, sec].map((v) => String(v).padStart(2, "0")).join(":");
 };
 
+/** Collapse a label to a comparison key: "Multiple Choice (one answer)" -> "multiplechoiceoneanswer". */
+const typeKey = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** Every spelling of a question type we accept in a CSV: the slug, the UI label, and common shorthands. */
+const QUESTION_TYPE_ALIASES: Record<string, QuestionType> = (() => {
+  const map: Record<string, QuestionType> = {};
+  for (const slug of Object.keys(QUESTION_TYPE_LABELS) as QuestionType[]) {
+    map[typeKey(slug)] = slug;
+    map[typeKey(QUESTION_TYPE_LABELS[slug])] = slug;
+  }
+  Object.assign(map, {
+    mcq: "mcq_single",
+    multiplechoice: "mcq_single",
+    multiplechoicesingle: "mcq_single",
+    singlechoice: "mcq_single",
+    multiplechoicemultipleanswer: "mcq_multi",
+    multiplechoicemultiple: "mcq_multi",
+    multiselect: "mcq_multi",
+    tf: "true_false",
+    fillintheblanks: "fill_blank",
+    blank: "fill_blank",
+  } satisfies Record<string, QuestionType>);
+  return map;
+})();
+
+const ACCEPTED_TYPES = Object.entries(QUESTION_TYPE_LABELS)
+  .map(([slug, label]) => `"${label}" (or ${slug})`)
+  .join(", ");
+
+/** Matches an inline option line such as "A) Apostle" or "b. Prophet". */
+const INLINE_OPTION_RE = /^\s*([A-Za-z])[).:]\s+(\S.*)$/;
+
+/**
+ * Pull "A) ...", "B) ..." lines out of a question body and return them as options.
+ * Only trailing runs starting at A are treated as options, so prose containing an
+ * incidental "A)" mid-question is left alone.
+ */
+const extractInlineOptions = (text: string) => {
+  const lines = text.split(/\r?\n/);
+  let start = -1;
+  const found: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(INLINE_OPTION_RE);
+    if (!m) {
+      if (start >= 0) break; // run ended
+      continue;
+    }
+    const expected = String.fromCharCode(97 + found.length); // a, b, c, ...
+    if (m[1].toLowerCase() !== expected) {
+      if (start >= 0) break;
+      continue;
+    }
+    if (start < 0) start = i;
+    found.push(m[2].trim());
+  }
+  if (found.length < 2) return { text, options: [] as string[] };
+  const remaining = [...lines.slice(0, start), ...lines.slice(start + found.length)];
+  return { text: remaining.join("\n").trim(), options: found };
+};
+
+/** Resolve one `correct` token for an MCQ to an option index: either a letter or the option's own text. */
+const resolveOptionIndex = (token: string, options: string[]) => {
+  const t = token.trim();
+  if (/^[A-Za-z]$/.test(t)) {
+    const byLetter = t.toLowerCase().charCodeAt(0) - 97;
+    if (byLetter >= 0 && byLetter < options.length) return byLetter;
+  }
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+  return options.findIndex((o) => norm(o) === norm(t));
+};
+
 /** CSV import format:
  * question_type,question_text,option_a,option_b,option_c,option_d,correct,points,explanation
- * For MCQ correct = letter(s) joined with | (e.g. "a" or "a|c").
- * For true_false correct = "true" or "false".
- * For short_answer/fill_blank correct = accepted answers joined with |.
- * For essay leave correct empty.
+ * Only question_type and question_text are required.
+ *
+ * question_type accepts the slug (mcq_single) or the label shown in the app
+ * ("Multiple Choice (one answer)").
+ *
+ * Options may be given as option_a..option_d columns, or written inline in the
+ * question text as "A) ...", "B) ..." lines — inline options are moved out of the
+ * text and become the answer choices.
+ *
+ * correct:
+ *   MCQ                    letters or the option text, separated by | or comma ("a|c", "Pastor", "Apostle, Prophet")
+ *   true_false             "true" or "false"
+ *   short_answer/fill_blank  accepted answers separated by | (commas are kept as-is)
+ *   essay/matching         ignored; matching is graded manually
  */
 export const parseQuestionCSV = (csv: string) => {
-  const lines = csv.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return [];
-  const headers = splitCSVLine(lines[0]).map((h) => h.trim().toLowerCase());
-  const idx = (k: string) => headers.indexOf(k);
+  const rows = parseCSV(csv);
+  if (rows.length < 2) return [];
+  const headers = rows[0].map((h) => h.trim().toLowerCase());
+  const cellAt = (cells: string[], key: string) => {
+    const i = headers.indexOf(key);
+    return i < 0 ? "" : (cells[i] ?? "");
+  };
   const out: Array<Record<string, unknown>> = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cells = splitCSVLine(lines[i]);
-    const type = (cells[idx("question_type")] || "mcq_single").trim().toLowerCase();
-    if (!(type in QUESTION_TYPE_LABELS)) {
-      throw new Error(
-        `Row ${i + 1}: unknown question_type "${type}". Use one of: ${Object.keys(QUESTION_TYPE_LABELS).join(", ")}`,
-      );
+
+  for (let i = 1; i < rows.length; i++) {
+    const cells = rows[i];
+    if (cells.every((c) => !c.trim())) continue;
+    const rowNo = i + 1;
+
+    const rawType = cellAt(cells, "question_type").trim();
+    const type = QUESTION_TYPE_ALIASES[typeKey(rawType || "mcq_single")];
+    if (!type) {
+      throw new Error(`Row ${rowNo}: unknown question_type "${rawType}". Use one of: ${ACCEPTED_TYPES}`);
     }
-    const text = cells[idx("question_text")] || "";
-    const opts = ["option_a", "option_b", "option_c", "option_d"]
-      .map((k) => cells[idx(k)])
-      .filter((v) => v && v.trim());
-    const correctRaw = (cells[idx("correct")] || "").trim();
+
+    let text = cellAt(cells, "question_text").trim();
+    let opts = ["option_a", "option_b", "option_c", "option_d"]
+      .map((k) => cellAt(cells, k).trim())
+      .filter(Boolean);
+
+    const isMcq = type === "mcq_single" || type === "mcq_multi";
+    if (isMcq && !opts.length) {
+      const extracted = extractInlineOptions(text);
+      text = extracted.text;
+      opts = extracted.options;
+    }
+
+    if (!text) throw new Error(`Row ${rowNo}: question_text is empty.`);
+
+    const correctRaw = cellAt(cells, "correct").trim();
     let correct_answer: unknown = null;
     let options: string[] | null = null;
-    if (type === "mcq_single" || type === "mcq_multi") {
+
+    if (isMcq) {
+      if (opts.length < 2) {
+        throw new Error(
+          `Row ${rowNo}: multiple-choice questions need at least 2 options. ` +
+            `Provide option_a/option_b columns, or list them in the question text as "A) ...", "B) ...".`,
+        );
+      }
       options = opts;
-      const letters = correctRaw.split("|").map((s) => s.trim().toLowerCase());
-      const indices = letters.map((l) => "abcd".indexOf(l)).filter((n) => n >= 0);
-      correct_answer = type === "mcq_single" ? indices[0] ?? 0 : indices;
+      const tokens = correctRaw.split(/[|,]/).map((s) => s.trim()).filter(Boolean);
+      const indices: number[] = [];
+      for (const token of tokens) {
+        const at = resolveOptionIndex(token, opts);
+        if (at < 0) {
+          throw new Error(
+            `Row ${rowNo}: correct answer "${token}" does not match any option. ` +
+              `Use the option letter (a, b, ...) or its exact text.`,
+          );
+        }
+        if (!indices.includes(at)) indices.push(at);
+      }
+      if (!indices.length) throw new Error(`Row ${rowNo}: correct answer is required for multiple-choice questions.`);
+      if (type === "mcq_single") {
+        if (indices.length > 1) {
+          throw new Error(`Row ${rowNo}: "${QUESTION_TYPE_LABELS.mcq_single}" accepts one correct answer, got ${indices.length}.`);
+        }
+        correct_answer = indices[0];
+      } else {
+        correct_answer = indices.sort((a, b) => a - b);
+      }
     } else if (type === "true_false") {
-      correct_answer = correctRaw.toLowerCase() === "true";
+      const v = correctRaw.toLowerCase();
+      if (v !== "true" && v !== "false") {
+        throw new Error(`Row ${rowNo}: true/false questions need correct set to "true" or "false", got "${correctRaw}".`);
+      }
+      correct_answer = v === "true";
     } else if (type === "short_answer" || type === "fill_blank") {
       correct_answer = correctRaw.split("|").map((s) => s.trim()).filter(Boolean);
-    } else {
-      correct_answer = null;
+    } else if (opts.length) {
+      // essay / matching: keep any supplied options for reference, answer is graded by hand
+      options = opts;
     }
+
+    const pointsRaw = cellAt(cells, "points").trim();
     out.push({
       question_type: type,
       question_text: text,
       options,
       correct_answer,
-      points: Number(cells[idx("points")] || 1) || 1,
-      explanation: cells[idx("explanation")] || null,
+      points: Number(pointsRaw) > 0 ? Number(pointsRaw) : 1,
+      explanation: cellAt(cells, "explanation").trim() || null,
     });
   }
   return out;
 };
 
-const splitCSVLine = (line: string) => {
-  const result: string[] = [];
+/** Tokenize a whole CSV document into rows of cells. Quoted fields may span newlines. */
+const parseCSV = (csv: string) => {
+  const rows: string[][] = [];
+  let row: string[] = [];
   let cur = "";
   let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        cur += '"';
-        i++;
-      } else inQuotes = !inQuotes;
-    } else if (ch === "," && !inQuotes) {
-      result.push(cur);
+  const text = csv.replace(/^﻿/, "");
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else inQuotes = false;
+      } else cur += ch;
+      continue;
+    }
+    if (ch === '"') inQuotes = true;
+    else if (ch === ",") {
+      row.push(cur);
+      cur = "";
+    } else if (ch === "\r") {
+      // handled by the \n branch; bare \r also ends a row
+      if (text[i + 1] !== "\n") {
+        row.push(cur);
+        rows.push(row);
+        row = [];
+        cur = "";
+      }
+    } else if (ch === "\n") {
+      row.push(cur);
+      rows.push(row);
+      row = [];
       cur = "";
     } else cur += ch;
   }
-  result.push(cur);
-  return result;
+  if (cur || row.length) {
+    row.push(cur);
+    rows.push(row);
+  }
+  return rows.filter((r) => r.some((c) => c.trim()));
 };

@@ -395,9 +395,19 @@ export default function QuestionBank() {
                   className="block w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-border file:text-sm file:font-medium file:bg-background file:text-foreground hover:file:bg-accent cursor-pointer"
                 />
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                CSV format: question_type, question_text, option_a, option_b, option_c, option_d, correct, points, explanation (header required)
-              </p>
+              <div className="text-xs text-muted-foreground mt-2 space-y-1">
+                <p>
+                  Header row required. Columns: question_type, question_text, option_a, option_b, option_c,
+                  option_d, correct, points, explanation — only question_type and question_text are needed.
+                </p>
+                <p>
+                  question_type accepts the labels shown above (e.g. "Multiple Choice (one answer)") or the short
+                  codes (mcq_single). Options can go in the option_a–option_d columns, or be written inside the
+                  question text as "A) …", "B) …" lines. For correct, use the option letters or the option text
+                  (separate multiple answers with a comma), "true"/"false" for True / False, and separate
+                  alternative short answers with |.
+                </p>
+              </div>
             </div>
 
             {importPreview.length > 0 && (
