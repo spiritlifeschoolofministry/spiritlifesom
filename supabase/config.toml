@@ -5,14 +5,34 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/send-registration-email/index.ts"
 
+[functions.exam-start]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/exam-start/index.ts"
+
+[functions.exam-autosave]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/exam-autosave/index.ts"
+
+[functions.exam-submit]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/exam-submit/index.ts"
+
+[functions.exam-release-results]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/exam-release-results/index.ts"
+
 [functions.send-student-email]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 entrypoint = "./functions/send-student-email/index.ts"
 
 [functions.delete-user]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 entrypoint = "./functions/delete-user/index.ts"
 
 [functions.send-contact-email]
@@ -32,7 +52,7 @@ entrypoint = "./functions/purge-old-snapshots/index.ts"
 
 [functions.resend-student-email]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 entrypoint = "./functions/resend-student-email/index.ts"
 
 [functions.r2-storage]
