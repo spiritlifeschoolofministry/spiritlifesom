@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
+import { r2Storage } from '@/lib/r2-storage';
 import { useAuth } from '@/contexts/useAuth';
 import StudentLayout from '@/components/StudentLayout';
 import { Button } from '@/components/ui/button';
@@ -509,10 +510,8 @@ const StudentProfile = () => {
     try {
       setIsUploadingAvatar(true);
       const filePath = `avatars/${user.id}/${Date.now()}_${avatarFile.name}`;
-      const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarFile, { upsert: true });
-      if (uploadError) throw uploadError;
-      const { data: publicData } = await supabase.storage.from('avatars').getPublicUrl(filePath);
-      const publicUrl = (publicData as unknown as { publicUrl?: string; public_url?: string })?.publicUrl || (publicData as unknown as { publicUrl?: string; public_url?: string })?.public_url || '';
+      await r2Storage.uploadFile(avatarFile, filePath);
+      const publicUrl = r2Storage.getPublicUrl(filePath);
       const { error } = await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
       if (error) throw error;
       toast.success('Avatar uploaded');

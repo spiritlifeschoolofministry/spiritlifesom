@@ -103,21 +103,11 @@ const AdminMaterials = () => {
     try {
       setIsUploading(true);
       const fileName = `materials/${data.cohort_id}/${Date.now()}-${selectedFile.name}`;
-      
-      let storageProvider = 'r2';
-      let filePath = fileName;
-      let fileUrl = fileName;
 
-      try {
-        await r2Storage.uploadFile(selectedFile, fileName);
-      } catch (err) {
-        console.error("R2 upload failed, falling back to Supabase:", err);
-        const { data: uploadData, error: uploadError } = await supabase.storage.from('course-materials').upload(fileName, selectedFile);
-        if (uploadError) throw uploadError;
-        const { data: urlData } = supabase.storage.from('course-materials').getPublicUrl(uploadData.path);
-        fileUrl = urlData.publicUrl;
-        storageProvider = 'supabase';
-      }
+      await r2Storage.uploadFile(selectedFile, fileName);
+      const storageProvider = 'r2';
+      const filePath = fileName;
+      const fileUrl = fileName;
 
       const { error: insertError } = await supabase.from('course_materials').insert({
         cohort_id: data.cohort_id,
@@ -155,10 +145,9 @@ const AdminMaterials = () => {
         if (material.storage_provider === 'r2') {
           await r2Storage.deleteFile(material.storage_path || material.file_url);
         } else {
-          // Extract path from Supabase URL if needed, or if we have storage_path
-          const path = material.storage_path || material.file_url.split('/public/course-materials/')[1];
-          if (path) {
-            await supabase.storage.from('course-materials').remove([path]);
+          // Delete from R2 if we have storage_path
+          if (material.storage_path) {
+            await r2Storage.deleteFile(material.storage_path);
           }
         }
       }

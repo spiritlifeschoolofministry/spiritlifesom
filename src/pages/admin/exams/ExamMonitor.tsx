@@ -124,12 +124,7 @@ export default function ExamMonitor() {
     const withUrls = await Promise.all((data ?? []).map(async (s) => {
       let url = null;
       try {
-        if (s.storage_provider === 'r2') {
-          url = await r2Storage.getDownloadUrl(s.storage_path);
-        } else {
-          const { data: signed } = await supabase.storage.from("proctor-snapshots").createSignedUrl(s.storage_path, 3600);
-          url = signed?.signedUrl;
-        }
+        url = await r2Storage.getDownloadUrl(s.storage_path);
       } catch (err) {
         console.error("Failed to get snapshot URL:", err);
       }
@@ -142,15 +137,10 @@ export default function ExamMonitor() {
 
   const deleteSnapshot = async (attemptId: string, snap: { id: string; storage_path: string; storage_provider: string }) => {
     if (!confirm("Delete this snapshot permanently?")) return;
-    
+
     try {
-      if (snap.storage_provider === 'r2') {
-        await r2Storage.deleteFile(snap.storage_path);
-      } else {
-        const { error: sErr } = await supabase.storage.from("proctor-snapshots").remove([snap.storage_path]);
-        if (sErr) throw sErr;
-      }
-      
+      await r2Storage.deleteFile(snap.storage_path);
+
       const { error: dErr } = await supabase.from("exam_snapshots").delete().eq("id", snap.id);
       if (dErr) throw dErr;
       
@@ -168,16 +158,12 @@ export default function ExamMonitor() {
     const list = snapshots[attemptId] ?? [];
     if (list.length === 0) return;
     if (!confirm(`Delete all ${list.length} snapshots for this attempt?`)) return;
-    
+
     try {
       for (const s of list) {
-        if (s.storage_provider === 'r2') {
-          await r2Storage.deleteFile(s.storage_path);
-        } else {
-          await supabase.storage.from("proctor-snapshots").remove([s.storage_path]);
-        }
+        await r2Storage.deleteFile(s.storage_path);
       }
-      
+
       await supabase.from("exam_snapshots").delete().eq("attempt_id", attemptId);
       setSnapshots((prev) => ({ ...prev, [attemptId]: [] }));
       toast.success("All snapshots deleted");

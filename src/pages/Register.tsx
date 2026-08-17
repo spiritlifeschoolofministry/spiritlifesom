@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { r2Storage } from "@/lib/r2-storage";
 
 import StepIndicator from "@/components/StepIndicator";
 import LearningModeCard from "@/components/LearningModeCard";
@@ -277,20 +278,15 @@ const Register = () => {
         console.error('[Register] Student update failed:', studentUpdateError.message);
       }
 
-      // Save passport photo (non-blocking — doesn't fail registration).
+      // Save passport photo to R2 (non-blocking — doesn't fail registration).
       // Priority: uploaded File > pasted URL. If neither, user can add it from profile later.
       try {
         if (form.passportPhoto) {
           const fileExt = form.passportPhoto.name.split(".").pop();
-          const fileName = `${userId}.${fileExt}`;
-          const { error: uploadError } = await supabase.storage
-            .from("avatars")
-            .upload(fileName, form.passportPhoto, { upsert: true });
-
-          if (!uploadError) {
-            const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(fileName);
-            await supabase.from("profiles").update({ avatar_url: urlData.publicUrl }).eq("id", userId);
-          }
+          const fileName = `avatars/${userId}.${fileExt}`;
+          await r2Storage.uploadFile(form.passportPhoto, fileName);
+          const publicUrl = r2Storage.getPublicUrl(fileName);
+          await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", userId);
         } else if (form.photoUrl.trim()) {
           await supabase.from("profiles").update({ avatar_url: form.photoUrl.trim() }).eq("id", userId);
         }

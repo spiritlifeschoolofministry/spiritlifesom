@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { r2Storage } from "@/lib/r2-storage";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,10 +80,9 @@ const FacultyManager = () => {
     try {
       const ext = file.name.split(".").pop();
       const path = `faculty/${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
-      if (error) throw error;
-      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-      setForm((f) => ({ ...f, photo_url: data.publicUrl }));
+      await r2Storage.uploadFile(file, path);
+      const publicUrl = r2Storage.getPublicUrl(path);
+      setForm((f) => ({ ...f, photo_url: publicUrl }));
       toast.success("Photo uploaded");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed");

@@ -42,6 +42,12 @@ export const r2Storage = {
     if (error || !data?.success) await unwrap(error, data, 'Failed to delete file');
   },
 
+  /** Get public URL (direct, no signing needed). For public files like avatars and materials. */
+  getPublicUrl(path: string): string {
+    const bucket = 'spiritlifesom';
+    return `https://${bucket}.cd.r2.dev/${encodeURIComponent(path)}`;
+  },
+
   /** Connectivity check: proves the R2 credentials and bucket are reachable. */
   async ping(): Promise<{ ok: boolean; bucket: string }> {
     const { data, error } = await supabase.functions.invoke('r2-storage', {

@@ -82,21 +82,11 @@ const StudentAssignments = () => {
     try {
       setSubmitting(assignmentId);
       const fileName = `assignments/${student.id}/${assignmentId}/${Date.now()}_${selectedFile.name}`;
-      
-      let storageProvider = 'r2';
-      let filePath = fileName;
-      let fileUrl = fileName;
 
-      try {
-        await r2Storage.uploadFile(selectedFile, fileName);
-      } catch (err) {
-        console.error("R2 upload failed, falling back to Supabase:", err);
-        const { error: uploadError } = await supabase.storage.from('assignments').upload(fileName, selectedFile);
-        if (uploadError) throw uploadError;
-        const { data: urlData } = supabase.storage.from('assignments').getPublicUrl(fileName);
-        fileUrl = urlData?.publicUrl || fileName;
-        storageProvider = 'supabase';
-      }
+      await r2Storage.uploadFile(selectedFile, fileName);
+      const storageProvider = 'r2';
+      const filePath = fileName;
+      const fileUrl = fileName;
 
       const { error: insertError } = await supabase.from('assignment_submissions').insert({
         assignment_id: assignmentId, 

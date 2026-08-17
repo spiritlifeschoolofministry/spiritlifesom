@@ -107,22 +107,12 @@ const StudentFees = () => {
     }
     try {
       setIsSubmitting(true);
-      const fileName = `${user.id}/${Date.now()}-${receiptFile.name}`;
-      
-      let storageProvider = 'r2';
-      let filePath = fileName;
-      let fileUrl = fileName;
+      const fileName = `receipts/${user.id}/${Date.now()}-${receiptFile.name}`;
 
-      try {
-        await r2Storage.uploadFile(receiptFile, fileName);
-      } catch (err) {
-        console.error("R2 upload failed, falling back to Supabase:", err);
-        const { data: uploadData, error: uploadError } = await supabase.storage.from('submissions').upload(fileName, receiptFile);
-        if (uploadError) throw uploadError;
-        const { data: urlData } = supabase.storage.from('submissions').getPublicUrl(uploadData.path);
-        fileUrl = urlData.publicUrl;
-        storageProvider = 'supabase';
-      }
+      await r2Storage.uploadFile(receiptFile, fileName);
+      const storageProvider = 'r2';
+      const filePath = fileName;
+      const fileUrl = fileName;
 
       // Optional legacy link: not every cohort has a matching fee_structure row
       let feeStructureId: string | null = null;
