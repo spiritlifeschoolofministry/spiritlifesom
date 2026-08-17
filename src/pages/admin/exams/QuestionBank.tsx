@@ -28,8 +28,9 @@ export default function QuestionBank() {
   const [editing, setEditing] = useState<any | null>(null);
   const [openEditor, setOpenEditor] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [csvText, setCsvText] = useState("");
   const [importCourse, setImportCourse] = useState("");
+  const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [importLoading, setImportLoading] = useState(false);
   const [questionToDelete, setQuestionToDelete] = useState<any | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -106,25 +107,55 @@ export default function QuestionBank() {
     }
   };
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportLoading(true);
+    try {
+      const text = await file.text();
+      const rows = parseQuestionCSV(text);
+      if (!rows.length) {
+        toast.error("No valid questions found in file");
+        setImportPreview([]);
+      } else {
+        setImportPreview(rows);
+        toast.success(`Parsed ${rows.length} question(s) from file`);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to read file");
+      setImportPreview([]);
+    } finally {
+      setImportLoading(false);
+      e.target.value = "";
+    }
+  };
+
   const handleImport = async () => {
     if (!importCourse) return toast.error("Pick a course");
-    const rows = parseQuestionCSV(csvText);
-    if (!rows.length) return toast.error("No rows parsed");
-    const payload = rows.map((r: any) => ({
-      course_id: importCourse,
-      question_type: r.question_type,
-      question_text: r.question_text,
-      options: r.options,
-      correct_answer: r.correct_answer,
-      points: r.points,
-      explanation: r.explanation,
-    }));
-    const { error } = await supabase.from("question_bank").insert(payload as any);
-    if (error) return toast.error(error.message);
-    toast.success(`Imported ${rows.length} question(s)`);
-    setImportOpen(false);
-    setCsvText("");
-    load();
+    if (!importPreview.length) return toast.error("No questions to import");
+    try {
+      setImportLoading(true);
+      const payload = importPreview.map((r: any) => ({
+        course_id: importCourse,
+        question_type: r.question_type,
+        question_text: r.question_text,
+        options: r.options,
+        correct_answer: r.correct_answer,
+        points: r.points,
+        explanation: r.explanation,
+      }));
+      const { error } = await supabase.from("question_bank").insert(payload as any);
+      if (error) throw error;
+      toast.success(`Imported ${payload.length} question(s)`);
+      setImportOpen(false);
+      setImportPreview([]);
+      setImportCourse("");
+      load();
+    } catch (err: any) {
+      toast.error(err.message || "Import failed");
+    } finally {
+      setImportLoading(false);
+    }
   };
 
   return (
@@ -335,10 +366,13 @@ export default function QuestionBank() {
       </Dialog>
 
       {/* Import dialog */}
-      <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="max-w-2xl">
+      <Dialog open={importOpen} onOpenChange={(open) => {
+        setImportOpen(open);
+        if (!open) { setImportPreview([]); setImportCourse(""); }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Bulk import from CSV</DialogTitle></DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div>
               <Label>Target course</Label>
               <Select value={importCourse} onValueChange={setImportCourse}>
@@ -348,19 +382,80 @@ export default function QuestionBank() {
                 </SelectContent>
               </Select>
             </div>
+
             <div>
-              <Label>CSV content</Label>
-              <Textarea value={csvText} onChange={(e) => setCsvText(e.target.value)} rows={10} className="font-mono text-xs"
-                placeholder="question_type,question_text,option_a,option_b,option_c,option_d,correct,points,explanation" />
-              <p className="text-xs text-muted-foreground mt-1">
-                Header required. <code>correct</code> uses letters (a/b/c/d), separated by | for multi-select. true/false uses "true"/"false".
-                Short answer accepts multiple values joined with |.
+              <Label htmlFor="csv-file">Choose CSV file</Label>
+              <div className="mt-2">
+                <input
+                  id="csv-file"
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileSelect}
+                  disabled={importLoading}
+                  className="block w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-border file:text-sm file:font-medium file:bg-background file:text-foreground hover:file:bg-accent cursor-pointer"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                CSV format: question_type, question_text, option_a, option_b, option_c, option_d, correct, points, explanation (header required)
               </p>
             </div>
+
+            {importPreview.length > 0 && (
+              <div>
+                <Label>Preview ({importPreview.length} questions)</Label>
+                <div className="border rounded-md overflow-hidden">
+                  <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted sticky top-0">
+                        <tr>
+                          <th className="text-left px-3 py-2 font-medium">Type</th>
+                          <th className="text-left px-3 py-2 font-medium">Question</th>
+                          <th className="text-left px-3 py-2 font-medium">Options</th>
+                          <th className="text-right px-3 py-2 font-medium">Pts</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {importPreview.map((q, i) => (
+                          <tr key={i} className="hover:bg-muted/50">
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <Badge variant="secondary" className="text-[10px]">
+                                {QUESTION_TYPE_LABELS[q.question_type as QuestionType] || q.question_type}
+                              </Badge>
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="line-clamp-2 max-w-sm text-xs">{q.question_text}</div>
+                            </td>
+                            <td className="px-3 py-2 text-xs">
+                              {q.options && Array.isArray(q.options) ? (
+                                <div className="space-y-0.5">
+                                  {q.options.map((opt, j) => (
+                                    <div key={j} className="line-clamp-1 max-w-xs">
+                                      {opt}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : q.question_type === "true_false" ? (
+                                "True/False"
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right">{q.points}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setImportOpen(false)}>Cancel</Button>
-            <Button onClick={handleImport}>Import</Button>
+            <Button variant="outline" onClick={() => { setImportOpen(false); setImportPreview([]); }}>Cancel</Button>
+            <Button onClick={handleImport} disabled={importLoading || importPreview.length === 0}>
+              {importLoading ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : null}
+              Import {importPreview.length > 0 ? `(${importPreview.length})` : ""}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
