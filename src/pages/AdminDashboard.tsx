@@ -57,10 +57,11 @@ const AdminDashboard = () => {
   const loadStats = async () => {
     try {
       const [studentsRes, pendingCountRes, coursesRes, cohortRes, recentRes, pendingRes, learningModeRequestsRes, certRequestsRes] = await Promise.all([
-        supabase.from("students").select("id", { count: "exact", head: true }),
+        supabase.from("students").select("id", { count: "exact", head: true }).eq("is_staff_preview", false),
         supabase
           .from("students")
           .select("id", { count: "exact", head: true })
+          .eq("is_staff_preview", false)
           .ilike("admission_status", "pending"),
         supabase.from("courses").select("id", { count: "exact", head: true }),
         supabase.from("cohorts").select("name").eq("is_active", true).maybeSingle(),
@@ -73,18 +74,21 @@ const AdminDashboard = () => {
         supabase
           .from("students")
           .select("id, learning_mode, profile:profiles(first_name, last_name, avatar_url)")
+          .eq("is_staff_preview", false)
           .ilike("admission_status", "pending")
           .order("created_at", { ascending: false })
           .limit(10),
         supabase
           .from("students")
           .select("id, learning_mode, requested_learning_mode, profile:profiles(first_name, last_name, avatar_url)", { count: "exact" })
+          .eq("is_staff_preview", false)
           .not("requested_learning_mode", "is", null)
           .order("created_at", { ascending: false })
           .limit(10),
         supabase
           .from("students")
           .select("id, pending_name_change, profile:profiles(first_name, last_name, avatar_url)", { count: "exact" })
+          .eq("is_staff_preview", false)
           .not("pending_name_change", "is", null)
           .order("created_at", { ascending: false })
           .limit(10),

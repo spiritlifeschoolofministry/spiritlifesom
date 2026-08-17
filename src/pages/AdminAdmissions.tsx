@@ -200,17 +200,20 @@ const AdminAdmissions = () => {
             cohort_id,
             profile:profiles(first_name, last_name, middle_name, email, phone)
           `)
+          .eq("is_staff_preview", false)
           .in("admission_status", ["Pending", "PENDING"])
           .order("created_at", { ascending: false }),
         supabase.from("cohorts").select("id, name").order("name"),
         supabase
           .from("students")
           .select("id, learning_mode, requested_learning_mode, profile:profiles(first_name, last_name, middle_name, email, phone, avatar_url), created_at")
+          .eq("is_staff_preview", false)
           .not("requested_learning_mode", "is", null)
           .order("created_at", { ascending: false }),
         supabase
           .from("students")
           .select("id, pending_name_change, profile:profiles(first_name, last_name, middle_name, email, phone, avatar_url), created_at")
+          .eq("is_staff_preview", false)
           .not("pending_name_change", "is", null)
           .order("created_at", { ascending: false }),
       ]);

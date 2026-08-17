@@ -108,7 +108,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
   };
 
   const loadEnrollment = async () => {
-    let query = supabase.from("students").select("id, created_at, admission_status, cohort_id, gender, learning_mode");
+    let query = supabase.from("students").select("id, created_at, admission_status, cohort_id, gender, learning_mode").eq("is_staff_preview", false);
     if (cohortFilter !== "all") query = query.eq("cohort_id", cohortFilter);
     const { data } = await query;
     if (!data) return;
@@ -192,7 +192,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
     let query = supabase.from("attendance").select("status, schedule_id, student_id");
     
     if (cohortFilter !== "all") {
-      const { data: students } = await supabase.from("students").select("id").eq("cohort_id", cohortFilter);
+      const { data: students } = await supabase.from("students").select("id").eq("is_staff_preview", false).eq("cohort_id", cohortFilter);
       const studentIds = (students || []).map(s => s.id);
       if (studentIds.length === 0) {
         setAttendanceData([]);
@@ -257,7 +257,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
     });
 
     const totalSubmissions = (submissions || []).length;
-    let studQuery = supabase.from("students").select("id", { count: "exact", head: true }).eq("admission_status", "ADMITTED");
+    let studQuery = supabase.from("students").select("id", { count: "exact", head: true }).eq("is_staff_preview", false).eq("admission_status", "ADMITTED");
     if (cohortFilter !== "all") studQuery = studQuery.eq("cohort_id", cohortFilter);
     const { count: studentCount } = await studQuery;
     const expected = (studentCount || 1) * assignments.length;

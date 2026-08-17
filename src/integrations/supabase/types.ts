@@ -1563,6 +1563,7 @@ export type Database = {
           id: string
           is_approved: boolean | null
           is_born_again: boolean | null
+          is_staff_preview: boolean
           learning_mode: string | null
           marital_status: string | null
           ministry_description: string | null
@@ -1596,6 +1597,7 @@ export type Database = {
           id?: string
           is_approved?: boolean | null
           is_born_again?: boolean | null
+          is_staff_preview?: boolean
           learning_mode?: string | null
           marital_status?: string | null
           ministry_description?: string | null
@@ -1629,6 +1631,7 @@ export type Database = {
           id?: string
           is_approved?: boolean | null
           is_born_again?: boolean | null
+          is_staff_preview?: boolean
           learning_mode?: string | null
           marital_status?: string | null
           ministry_description?: string | null

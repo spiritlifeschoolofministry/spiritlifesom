@@ -45,6 +45,7 @@ const Graduates = () => {
               profiles!students_profile_id_fkey ( first_name, last_name, avatar_url ),
               cohorts!students_cohort_id_fkey ( name )
             `)
+            .eq('is_staff_preview', false)
             .eq('admission_status', 'Graduate'),
           supabase.from('cohorts').select('id, name').order('name'),
         ]);

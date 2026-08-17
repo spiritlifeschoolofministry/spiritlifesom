@@ -15,11 +15,11 @@ export const usePendingAdmissionsCount = (enabled: boolean = true) => {
         { count: lmRequestsCount },
         { count: certRequestsCount },
       ] = await Promise.all([
-        supabase.from("students").select("id", { count: "exact", head: true }).ilike("admission_status", "pending"),
+        supabase.from("students").select("id", { count: "exact", head: true }).eq("is_staff_preview", false).ilike("admission_status", "pending"),
         // Count students who have a pending learning mode request
-        supabase.from("students").select("id", { count: "exact", head: true }).not("requested_learning_mode", "is", null),
+        supabase.from("students").select("id", { count: "exact", head: true }).eq("is_staff_preview", false).not("requested_learning_mode", "is", null),
         // Count students who have a pending certificate name change
-        supabase.from("students").select("id", { count: "exact", head: true }).not("pending_name_change", "is", null),
+        supabase.from("students").select("id", { count: "exact", head: true }).eq("is_staff_preview", false).not("pending_name_change", "is", null),
       ]);
       const a = admissionsCount ?? 0;
       const l = lmRequestsCount ?? 0;

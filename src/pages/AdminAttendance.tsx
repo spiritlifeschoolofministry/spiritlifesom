@@ -446,6 +446,7 @@ const AdminAttendance = () => {
       const { data: studentsData, error: studentsError } = await supabase
         .from("students")
         .select("id, cohort_id, profiles(first_name, last_name), cohorts(name)")
+        .eq("is_staff_preview", false)
         .not("cohort_id", "is", null);
 
       if (studentsError) throw studentsError;

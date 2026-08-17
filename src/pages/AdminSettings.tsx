@@ -154,6 +154,7 @@ const AdminSettings = () => {
       const { data, error } = await supabase
         .from('students')
         .select(`id, profile_id, profiles!students_profile_id_fkey ( id, email, first_name, last_name )`)
+        .eq('is_staff_preview', false)
         .order('created_at', { ascending: false });
       if (error) throw error;
       const studentList = (data as any)?.map((s: any) => ({

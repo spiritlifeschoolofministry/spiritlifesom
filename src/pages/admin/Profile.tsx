@@ -94,7 +94,7 @@ const AdminProfile = () => {
       try {
         setLoading(true);
         const [{ count: studentsCount }, { count: coursesCount }] = await Promise.all([
-          supabase.from('students').select('*', { count: 'exact', head: true }),
+          supabase.from('students').select('*', { count: 'exact', head: true }).eq('is_staff_preview', false),
           supabase.from('courses').select('*', { count: 'exact', head: true }),
         ]);
         setStudentCount(studentsCount || 0);

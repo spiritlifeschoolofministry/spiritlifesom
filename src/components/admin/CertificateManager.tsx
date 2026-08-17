@@ -91,6 +91,7 @@ const CertificateManager = () => {
           pending_name_change, 
           profile:profiles(first_name, last_name, email)
         `)
+        .eq('is_staff_preview', false)
         .not('pending_name_change', 'is', null);
 
       if (error) throw error;

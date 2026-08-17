@@ -59,6 +59,7 @@ const BulkGradeImport = ({ assignments, onImportComplete }: Props) => {
     const { data: students } = await supabase
       .from("students")
       .select("id, profile_id, profiles(email)")
+      .eq("is_staff_preview", false)
       .eq("cohort_id", selectedAssignment.cohort_id);
 
     const emailToStudent = new Map<string, string>();
