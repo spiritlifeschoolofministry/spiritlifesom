@@ -37,6 +37,7 @@ const FILTERS = [
   { key: "draft", label: "Drafts" },
   { key: "published", label: "Scheduled" },
   { key: "in_progress", label: "Live" },
+  { key: "ended", label: "Ended" },
   { key: "closed", label: "Closed" },
 ] as const;
 
@@ -44,6 +45,7 @@ const STATUS_STYLES: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
   published: "bg-blue-500/10 text-blue-600 border-blue-500/20",
   in_progress: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+  ended: "bg-slate-500/10 text-slate-600 border-slate-500/20",
   closed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
   archived: "bg-muted text-muted-foreground",
 };
@@ -52,8 +54,26 @@ const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
   published: "Scheduled",
   in_progress: "Live",
+  ended: "Ended",
   closed: "Closed",
   archived: "Archived",
+};
+
+/**
+ * What the exam is doing right now, as opposed to the lifecycle stage stored on
+ * the row.
+ *
+ * `status` only ever moves when an admin moves it — nothing flips a published
+ * exam to in_progress when its window opens. The student list works off the
+ * clock instead, so the same exam read "Scheduled" here and "Live" there. This
+ * derives the same answer the student side reaches, so both agree.
+ */
+const effectiveStatus = (exam: Pick<Exam, "status" | "start_at" | "end_at">) => {
+  if (exam.status !== "published") return exam.status;
+  const now = new Date();
+  if (isBefore(now, new Date(exam.start_at))) return "published";
+  if (isAfter(now, new Date(exam.end_at))) return "ended";
+  return "in_progress";
 };
 
 export default function ExamsList() {
@@ -70,12 +90,13 @@ export default function ExamsList() {
     setLoadError(null);
     // Courses/cohorts are fetched separately rather than as PostgREST embeds so the
     // list keeps working regardless of how the exam foreign keys are configured.
-    const [examRes, courseRes, cohortRes, linkRes, attemptRes] = await Promise.all([
+    const [examRes, courseRes, cohortRes, linkRes, attemptRes, previewRes] = await Promise.all([
       supabase.from("exams").select("*").order("created_at", { ascending: false }),
       supabase.from("courses").select("id, code, title"),
       supabase.from("cohorts").select("id, name"),
       supabase.from("exam_questions").select("exam_id"),
-      supabase.from("exam_attempts").select("exam_id"),
+      supabase.from("exam_attempts").select("exam_id, student_id"),
+      supabase.from("students").select("id").eq("is_staff_preview", true),
     ]);
 
     if (examRes.error) {
@@ -93,7 +114,9 @@ export default function ExamsList() {
       return m;
     };
     const questionCounts = tally(linkRes.data);
-    const attemptCounts = tally(attemptRes.data);
+    // Staff rehearsals must not inflate the sat-the-paper count.
+    const previewIds = new Set((previewRes.data ?? []).map((r: any) => r.id));
+    const attemptCounts = tally((attemptRes.data ?? []).filter((r: any) => !previewIds.has(r.student_id)));
 
     setExams(
       (examRes.data ?? []).map((e: any) => {
@@ -116,14 +139,17 @@ export default function ExamsList() {
 
   const counts = useMemo(() => {
     const m: Record<string, number> = { all: exams.length };
-    for (const e of exams) m[e.status] = (m[e.status] ?? 0) + 1;
+    for (const e of exams) {
+      const s = effectiveStatus(e);
+      m[s] = (m[s] ?? 0) + 1;
+    }
     return m;
   }, [exams]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return exams.filter((e) => {
-      if (filter !== "all" && e.status !== filter) return false;
+      if (filter !== "all" && effectiveStatus(e) !== filter) return false;
       if (!q) return true;
       return `${e.title} ${e.courseLabel} ${e.cohortLabel}`.toLowerCase().includes(q);
     });
@@ -174,7 +200,7 @@ export default function ExamsList() {
     const start = new Date(exam.start_at);
     const end = new Date(exam.end_at);
     if (isBefore(now, start)) return `Opens ${format(start, "PPp")}`;
-    if (isAfter(now, end)) return `Closed ${format(end, "PPp")}`;
+    if (isAfter(now, end)) return `Ended ${format(end, "PPp")}`;
     return `Open until ${format(end, "p")}`;
   };
 
@@ -265,14 +291,15 @@ export default function ExamsList() {
           {visible.map((e) => {
             const busy = busyId === e.id;
             const isDraft = e.status === "draft";
+            const shown = effectiveStatus(e);
             return (
               <Card key={e.id} className="p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <h3 className="font-semibold">{e.title}</h3>
-                      <Badge variant="outline" className={STATUS_STYLES[e.status] || ""}>
-                        {STATUS_LABELS[e.status] ?? e.status}
+                      <Badge variant="outline" className={STATUS_STYLES[shown] || ""}>
+                        {STATUS_LABELS[shown] ?? shown}
                       </Badge>
                       {e.results_released && (
                         <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600">Released</Badge>

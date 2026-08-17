@@ -28,12 +28,20 @@ export default function ExamMonitor() {
     setLoading(true);
     const { data: e } = await supabase.from("exams").select("*, courses(code,title), cohorts(name)").eq("id", id).maybeSingle();
     setExam(e);
-    const { data: a } = await supabase
-      .from("exam_attempts")
-      .select("*, students(student_code, profile_id, profiles:profile_id(first_name, last_name, email))")
-      .eq("exam_id", id)
-      .order("started_at", { ascending: false });
-    setAttempts(a ?? []);
+    // Staff rehearsals are real attempts, so they have to be excluded here or
+    // they read as a candidate sitting the paper. Resolved as a separate id
+    // lookup rather than an embed filter to keep this working whatever shape
+    // the exam foreign keys are in.
+    const [{ data: a }, { data: previewRows }] = await Promise.all([
+      supabase
+        .from("exam_attempts")
+        .select("*, students(student_code, profile_id, profiles:profile_id(first_name, last_name, email))")
+        .eq("exam_id", id)
+        .order("started_at", { ascending: false }),
+      supabase.from("students").select("id").eq("is_staff_preview", true),
+    ]);
+    const previewIds = new Set((previewRows ?? []).map((r: any) => r.id));
+    setAttempts((a ?? []).filter((att: any) => !previewIds.has(att.student_id)));
     setLoading(false);
   };
 

@@ -44,17 +44,25 @@ Deno.serve(async (req) => {
     }
 
     // Get all submitted attempts with student info
-    const { data: attempts, error: attemptsError } = await supabase
-      .from("exam_attempts")
-      .select("id, student_id, score, manual_score_override, status")
-      .eq("exam_id", exam_id)
-      .eq("status", "submitted");
+    const [{ data: allAttempts, error: attemptsError }, { data: previewRows }] = await Promise.all([
+      supabase
+        .from("exam_attempts")
+        .select("id, student_id, score, manual_score_override, status")
+        .eq("exam_id", exam_id)
+        .eq("status", "submitted"),
+      supabase.from("students").select("id").eq("is_staff_preview", true),
+    ]);
 
     if (attemptsError) {
       return new Response(JSON.stringify({ error: "Failed to fetch attempts" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    if (!attempts || attempts.length === 0) {
+    // A staff rehearsal is a real attempt row; releasing it would publish a
+    // score for an account that never sat the exam as a candidate.
+    const previewIds = new Set((previewRows ?? []).map((r: { id: string }) => r.id));
+    const attempts = (allAttempts ?? []).filter((a: { student_id: string }) => !previewIds.has(a.student_id));
+
+    if (attempts.length === 0) {
       return new Response(
         JSON.stringify({ success: true, released: 0, message: "No submitted attempts found" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
