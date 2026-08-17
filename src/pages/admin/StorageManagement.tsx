@@ -21,6 +21,12 @@ const SOURCE_LABELS: Record<string, string> = {
   'faculty_members.photo_url': 'Faculty photos',
 };
 
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} kB`;
+  return `${(n / 1024 / 1024).toFixed(2)} MB`;
+}
+
 interface ScanResult {
   pending: Record<string, number>;
   migrated: Record<string, number>;
@@ -41,6 +47,7 @@ export default function StorageManagement() {
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [failures, setFailures] = useState<Array<{ ref: string; error?: string }>>([]);
   const [r2Status, setR2Status] = useState<'unknown' | 'ok' | 'down'>('unknown');
+  const [inventory, setInventory] = useState<{ objects: number; bytes: number } | null>(null);
 
   const runScan = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
@@ -49,6 +56,14 @@ export default function StorageManagement() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setScan(data as ScanResult);
+      // Live figure from R2 itself — the Cloudflare dashboard's count lags badly.
+      try {
+        const inv = await r2Storage.list();
+        setInventory({ objects: inv.objects, bytes: inv.bytes });
+        setR2Status('ok');
+      } catch {
+        setInventory(null);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to scan storage');
     } finally {
@@ -220,7 +235,13 @@ export default function StorageManagement() {
           <CardContent>
             <p className="text-3xl font-bold">{scan?.totalMigrated ?? 0}</p>
             <p className="text-sm text-muted-foreground">files served from R2</p>
-            <p className="text-xs text-muted-foreground mt-2 truncate">{scan?.publicBase || R2_PUBLIC_BASE}</p>
+            {inventory && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Bucket holds {inventory.objects} object(s), {formatBytes(inventory.bytes)} — counted live. The
+                Cloudflare dashboard&apos;s totals lag by hours.
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground mt-1 truncate">{scan?.publicBase || R2_PUBLIC_BASE}</p>
           </CardContent>
         </Card>
       </div>

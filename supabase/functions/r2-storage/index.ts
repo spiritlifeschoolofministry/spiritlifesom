@@ -131,6 +131,58 @@ Deno.serve(async (req) => {
     const action = body.action;
     const path = body.path;
 
+    // --- TRUE INVENTORY ---
+    // Walks the whole bucket with ListObjectsV2. The Cloudflare dashboard's
+    // object/size columns are lagging telemetry, so this is the live figure.
+    if (action === "list") {
+      const prefix: string = typeof body.prefix === "string" ? body.prefix : "";
+      const wantKeys = body.includeKeys === true;
+
+      let token: string | undefined;
+      let objects = 0;
+      let bytes = 0;
+      const byPrefix: Record<string, { objects: number; bytes: number }> = {};
+      const keys: Array<{ key: string; size: number }> = [];
+      let pages = 0;
+
+      do {
+        const qs = new URLSearchParams({ "list-type": "2", "max-keys": "1000" });
+        if (prefix) qs.set("prefix", prefix);
+        if (token) qs.set("continuation-token", token);
+
+        const res = await client.fetch(`${bucketUrl}?${qs.toString()}`, { method: "GET" });
+        if (!res.ok) {
+          return json({ error: `R2 list failed (${res.status}): ${await res.text()}` }, 502);
+        }
+        const xml = await res.text();
+        pages++;
+
+        for (const m of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+          const chunk = m[1];
+          const key = chunk.match(/<Key>([\s\S]*?)<\/Key>/)?.[1] ?? "";
+          const size = Number(chunk.match(/<Size>(\d+)<\/Size>/)?.[1] ?? 0);
+          objects++;
+          bytes += size;
+
+          // Group by first path segment so the UI can show a breakdown.
+          const top = key.includes("/") ? key.split("/")[0] : "(root)";
+          const bucketRow = byPrefix[top] ?? { objects: 0, bytes: 0 };
+          bucketRow.objects++;
+          bucketRow.bytes += size;
+          byPrefix[top] = bucketRow;
+
+          if (wantKeys && keys.length < 2000) keys.push({ key, size });
+        }
+
+        const truncated = /<IsTruncated>true<\/IsTruncated>/.test(xml);
+        token = truncated
+          ? xml.match(/<NextContinuationToken>([\s\S]*?)<\/NextContinuationToken>/)?.[1]
+          : undefined;
+      } while (token && pages < 100);
+
+      return json({ bucket, objects, bytes, byPrefix, pages, ...(wantKeys ? { keys } : {}) });
+    }
+
     // --- CONNECTIVITY CHECK ---
     // Lists a single key to prove the credentials and bucket actually work.
     if (action === "ping") {

@@ -56,6 +56,26 @@ export const r2Storage = {
     return `${R2_PUBLIC_BASE}/${encoded}`;
   },
 
+  /**
+   * True bucket inventory, straight from R2's ListObjectsV2.
+   * The Cloudflare dashboard's object/size columns are lagging telemetry;
+   * this is the live count.
+   */
+  async list(prefix?: string): Promise<{
+    bucket: string;
+    objects: number;
+    bytes: number;
+    byPrefix: Record<string, { objects: number; bytes: number }>;
+  }> {
+    const { data, error } = await supabase.functions.invoke('r2-storage', {
+      body: { action: 'list', ...(prefix ? { prefix } : {}) },
+    });
+    if (error || typeof data?.objects !== 'number') {
+      await unwrap(error, data, 'Failed to list R2 bucket');
+    }
+    return data;
+  },
+
   /** Connectivity check: proves the R2 credentials and bucket are reachable. */
   async ping(): Promise<{ ok: boolean; bucket: string }> {
     const { data, error } = await supabase.functions.invoke('r2-storage', {
