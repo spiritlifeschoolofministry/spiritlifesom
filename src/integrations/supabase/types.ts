@@ -184,6 +184,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          is_manual_record: boolean
           max_points: number
           passing_score: number | null
           title: string
@@ -197,6 +198,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          is_manual_record?: boolean
           max_points?: number
           passing_score?: number | null
           title: string
@@ -210,6 +212,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          is_manual_record?: boolean
           max_points?: number
           passing_score?: number | null
           title?: string

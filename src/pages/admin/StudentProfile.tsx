@@ -21,9 +21,10 @@ import {
 import { toast } from "sonner";
 import {
   ArrowLeft, Mail, Phone, MapPin, Calendar, BookOpen,
-  GraduationCap, CreditCard, ClipboardCheck, User2, Pencil, Save, Loader2, X
+  GraduationCap, CreditCard, ClipboardCheck, User2, Pencil, Save, Loader2, X, Plus
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import ManualRecordDialog from "@/components/admin/ManualRecordDialog";
 
 interface StudentDetail {
   id: string;
@@ -81,6 +82,7 @@ interface AssignmentRecord {
   max_points: number | null;
   grade: number | null;
   submitted: boolean;
+  is_manual_record: boolean;
 }
 
 const LEARNING_MODES = ["Online", "Physical", "Hybrid"];
@@ -386,6 +388,7 @@ const AdminStudentProfile = () => {
   const [attendance, setAttendance] = useState<AttendanceSummary>({ total: 0, present: 0, absent: 0, late: 0 });
   const [fees, setFees] = useState<FeeRecord[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRecord[]>([]);
+  const [courses, setCourses] = useState<Array<{ id: string; title: string; cohort_id: string | null }>>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -415,12 +418,22 @@ const AdminStudentProfile = () => {
           .eq("student_id", studentId!),
         supabase
           .from("assignment_submissions")
-          .select("id, grade, assignment:assignments(title, category, max_points)")
+          .select("id, grade, assignment:assignments(title, category, max_points, is_manual_record)")
           .eq("student_id", studentId!),
       ]);
 
       if (studentRes.data) {
         setStudent(studentRes.data as any);
+
+        // Courses the offline-record dialog can attach a mark to.
+        if (studentRes.data.cohort_id) {
+          const { data: courseData } = await supabase
+            .from("courses")
+            .select("id, title, cohort_id")
+            .eq("cohort_id", studentRes.data.cohort_id)
+            .order("title");
+          setCourses(courseData || []);
+        }
       }
 
       if (attendanceRes.data) {
@@ -444,6 +457,7 @@ const AdminStudentProfile = () => {
             max_points: s.assignment?.max_points || 100,
             grade: s.grade,
             submitted: true,
+            is_manual_record: !!s.assignment?.is_manual_record,
           }))
         );
       }
@@ -646,17 +660,32 @@ const AdminStudentProfile = () => {
 
             {/* Assignments */}
             <Card className="shadow-[var(--shadow-card)] border-border">
-              <CardHeader><CardTitle className="text-base flex items-center gap-2"><BookOpen className="w-4 h-4" /> Task Submissions</CardTitle></CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+                <CardTitle className="text-base flex items-center gap-2"><BookOpen className="w-4 h-4" /> Task Records</CardTitle>
+                <ManualRecordDialog
+                  cohorts={[]}
+                  courses={courses}
+                  student={{
+                    id: student.id,
+                    name: `${student.profile?.first_name || ""} ${student.profile?.last_name || ""}`.trim() || "this student",
+                    cohort_id: student.cohort_id,
+                  }}
+                  onSaved={loadStudentData}
+                  trigger={<Button variant="outline" size="sm" className="gap-1.5"><Plus className="w-3.5 h-3.5" /> Add Record</Button>}
+                />
+              </CardHeader>
               <CardContent>
                 {assignments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No submissions yet.</p>
+                  <p className="text-sm text-muted-foreground">No records yet.</p>
                 ) : (
                   <div className="space-y-2">
                     {assignments.map(a => (
                       <div key={a.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                         <div>
                           <p className="text-sm font-medium text-foreground">{a.title}</p>
-                          <p className="text-xs text-muted-foreground">{a.category}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {a.category}{a.is_manual_record ? " · Offline" : ""}
+                          </p>
                         </div>
                         <Badge variant={a.grade !== null ? (a.grade >= (a.max_points || 100) * 0.5 ? "default" : "destructive") : "secondary"}>
                           {a.grade !== null ? `${a.grade}/${a.max_points}` : "Ungraded"}

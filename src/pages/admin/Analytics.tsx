@@ -228,7 +228,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
   };
 
   const loadAssignments = async () => {
-    let assignQuery = supabase.from("assignments").select("id, title, cohort_id, course_id, max_points, category");
+    let assignQuery = supabase.from("assignments").select("id, title, cohort_id, course_id, max_points, category, is_manual_record");
     if (cohortFilter !== "all") assignQuery = assignQuery.eq("cohort_id", cohortFilter);
     const { data: assignments } = await assignQuery;
     if (!assignments || assignments.length === 0) {
@@ -256,11 +256,17 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
       };
     });
 
-    const totalSubmissions = (submissions || []).length;
+    // Completion is "how many of the students who were set this task turned it
+    // in". Offline records only ever hold marks for the students who did the
+    // work onsite, so counting them against the whole cohort would drag the
+    // rate down for work that was never set to anyone.
+    const onlineIds = new Set(assignments.filter((a: any) => !a.is_manual_record).map((a) => a.id));
+    const onlineSubmissions = (submissions || []).filter((s) => onlineIds.has(s.assignment_id));
+    const totalSubmissions = onlineSubmissions.length;
     let studQuery = supabase.from("students").select("id", { count: "exact", head: true }).eq("is_staff_preview", false).eq("admission_status", "ADMITTED");
     if (cohortFilter !== "all") studQuery = studQuery.eq("cohort_id", cohortFilter);
     const { count: studentCount } = await studQuery;
-    const expected = (studentCount || 1) * assignments.length;
+    const expected = (studentCount || 1) * onlineIds.size;
     const completionRate = expected > 0 ? Math.round((totalSubmissions / expected) * 100) : 0;
 
     setAssignmentData(result);

@@ -60,7 +60,7 @@ const StudentGrades = () => {
       setLoading(true);
       const { data: assignments, error: aErr } = await supabase
         .from("assignments")
-        .select("id, title, max_points, course_id, courses(title)")
+        .select("id, title, category, max_points, course_id, is_manual_record, courses(title)")
         .eq("cohort_id", student.cohort_id);
       if (aErr) throw aErr;
 
@@ -72,7 +72,13 @@ const StudentGrades = () => {
 
       const subMap = new Map((submissions || []).map((s) => [s.assignment_id, s]));
 
-      const gradedItems: GradedItem[] = (assignments || []).map((a: any) => {
+      const gradedItems: GradedItem[] = (assignments || [])
+        // Offline records are entered per student, not set for the cohort, so
+        // one only belongs on this page when this student actually has a mark
+        // on it — otherwise every student would see everyone else's onsite work
+        // listed as ungraded.
+        .filter((a: any) => !a.is_manual_record || subMap.has(a.id))
+        .map((a: any) => {
         const sub = subMap.get(a.id);
         return {
           id: a.id,

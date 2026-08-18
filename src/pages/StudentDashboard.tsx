@@ -180,7 +180,8 @@ const StudentDashboard = () => {
         if (isAdmitted && cohortId) {
           try {
             const [assignRes, submissionRes] = await Promise.all([
-              supabase.from("assignments").select("id").eq("cohort_id", cohortId),
+              // Offline records are never pending — the work is already done and marked.
+              supabase.from("assignments").select("id").eq("cohort_id", cohortId).eq("is_manual_record", false),
               supabase.from("assignment_submissions").select("assignment_id").eq("student_id", studentId),
             ]);
             const allIds = new Set((assignRes.data ?? []).map((a) => a.id));

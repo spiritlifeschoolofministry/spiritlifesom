@@ -49,7 +49,10 @@ const StudentAssignments = () => {
     try {
       setLoading(true);
       const [{ data: assignmentsData, error: aErr }, { data: submissionsData, error: sErr }] = await Promise.all([
-        supabase.from('assignments').select('*').eq('cohort_id', student.cohort_id).order('due_date', { ascending: true }),
+        // Offline records hold marks for work already done onsite; there is
+        // nothing here for a student to submit, so they stay off this page and
+        // show up under Grades instead.
+        supabase.from('assignments').select('*').eq('cohort_id', student.cohort_id).eq('is_manual_record', false).order('due_date', { ascending: true }),
         supabase.from('assignment_submissions').select('*').eq('student_id', student.id),
       ]);
       if (aErr) throw aErr;

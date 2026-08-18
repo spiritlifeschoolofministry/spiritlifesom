@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2, Plus, Eye, File, CheckCircle2, Edit2, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import BulkGradeImport from '@/components/BulkGradeImport';
+import ManualRecordDialog from '@/components/admin/ManualRecordDialog';
 import { downloadCSV } from '@/lib/csv-export';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import type { Tables } from '@/integrations/supabase/types';
@@ -277,6 +278,7 @@ const AdminAssignments = () => {
 
         <div className="flex gap-2 flex-wrap">
           <BulkGradeImport assignments={assignments.map(a => ({ id: a.id, title: a.title, max_points: a.max_points, cohort_id: a.cohort_id }))} onImportComplete={loadData} />
+          <ManualRecordDialog cohorts={cohorts} courses={courses} onSaved={loadData} />
           <Dialog>
             <DialogTrigger asChild>
               <Button className="flex items-center gap-2"><Plus className="h-4 w-4" /> Create Task</Button>
@@ -406,7 +408,12 @@ const AdminAssignments = () => {
                     const dueDate = assignment.due_date ? new Date(assignment.due_date) : null;
                     return (
                       <TableRow key={assignment.id}>
-                        <TableCell className="font-medium text-sm">{assignment.title}</TableCell>
+                        <TableCell className="font-medium text-sm">
+                          {assignment.title}
+                          {(assignment as any).is_manual_record && (
+                            <Badge variant="outline" className="ml-2 text-[10px] align-middle">Offline</Badge>
+                          )}
+                        </TableCell>
                         <TableCell><Badge variant="secondary" className="text-xs">{(assignment as any).category || 'Assignment'}</Badge></TableCell>
                         <TableCell className="font-medium text-sm">{assignment.max_points ?? 100} pts</TableCell>
                         <TableCell className="text-sm">{cohorts.find(c => c.id === assignment.cohort_id)?.name || assignment.cohort_id}</TableCell>
