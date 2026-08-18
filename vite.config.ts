@@ -20,6 +20,9 @@ export default defineConfig(({ mode }) => ({
       registerType: 'autoUpdate',
       workbox: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // Serve robots.txt, sitemap.xml, llms.txt and security.txt as themselves
+        // instead of falling back to the SPA shell.
+        navigateFallbackDenylist: [/^\/\.well-known\//, /\.(?:txt|xml)$/],
       },
       manifest: {
         name: 'Spirit Life School of Ministry',

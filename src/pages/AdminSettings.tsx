@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Check, X, Plus, Trash2, Star, BarChart3, ShieldCheck, Mail, Settings, Award, UserCheck } from 'lucide-react';
+import { Loader2, Check, X, Plus, Trash2, Star, BarChart3, ShieldCheck, Mail, Settings, Award, UserCheck, Globe } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AdminAnalytics from './admin/Analytics';
 import AdminAuditLog from './admin/AuditLog';
@@ -23,6 +23,7 @@ import MaintenanceModeCard from '@/components/admin/MaintenanceModeCard';
 import PurgeSnapshotsCard from '@/components/admin/PurgeSnapshotsCard';
 import StorageBrowserCard from '@/components/admin/StorageBrowserCard';
 import CertificateManager from '@/components/admin/CertificateManager';
+import SeoFilesManager from '@/components/admin/SeoFilesManager';
 
 interface SystemSettings {
   accepting_applications: boolean;
@@ -330,12 +331,15 @@ const AdminSettings = () => {
       </div>
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid grid-cols-2 md:grid-cols-5 lg:w-max mb-6">
+        <TabsList className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 lg:w-max mb-6">
           <TabsTrigger value="general" className="gap-2">
             <Settings className="w-4 h-4" /> General
           </TabsTrigger>
           <TabsTrigger value="certificates" className="gap-2">
             <Award className="w-4 h-4" /> Certificates
+          </TabsTrigger>
+          <TabsTrigger value="seo" className="gap-2">
+            <Globe className="w-4 h-4" /> SEO &amp; Crawlers
           </TabsTrigger>
           <TabsTrigger value="analytics" className="gap-2">
             <BarChart3 className="w-4 h-4" /> Analytics
@@ -498,6 +502,10 @@ const AdminSettings = () => {
 
     <TabsContent value="certificates" className="space-y-6">
       <CertificateManager />
+    </TabsContent>
+
+    <TabsContent value="seo" className="space-y-6">
+      <SeoFilesManager />
     </TabsContent>
 
     <TabsContent value="analytics" className="space-y-6">

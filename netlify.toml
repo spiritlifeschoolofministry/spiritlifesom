@@ -1,1 +1,52 @@
 SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_PROJECT_ID,VITE_SUPABASE_PUBLISHABLE_KEY,VITE_SUPABASE_URL"
+
+# SEO / GEO / security files are served from the seo-files edge function so an
+# admin can edit them without a redeploy. These must stay above any SPA
+# catch-all rule.
+[[redirects]]
+  from = "/robots.txt"
+  to = "https://siirpzuflcimkhnzvass.supabase.co/functions/v1/seo-files?file=robots"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/sitemap.xml"
+  to = "https://siirpzuflcimkhnzvass.supabase.co/functions/v1/seo-files?file=sitemap"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/llms.txt"
+  to = "https://siirpzuflcimkhnzvass.supabase.co/functions/v1/seo-files?file=llms"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/ai.txt"
+  to = "https://siirpzuflcimkhnzvass.supabase.co/functions/v1/seo-files?file=ai"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/security.txt"
+  to = "https://siirpzuflcimkhnzvass.supabase.co/functions/v1/seo-files?file=security"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/.well-known/security.txt"
+  to = "https://siirpzuflcimkhnzvass.supabase.co/functions/v1/seo-files?file=security"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# The Supabase gateway rewrites the sitemap's content type to text/plain, so
+# restore it here where the crawler actually reads it.
+[[headers]]
+  for = "/sitemap.xml"
+  [headers.values]
+    Content-Type = "application/xml; charset=utf-8"

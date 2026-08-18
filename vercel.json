@@ -1,8 +1,61 @@
 {
   "rewrites": [
     {
+      "source": "/robots.txt",
+      "destination": "https://siirpzuflcimkhnzvass.supabase.co/functions/v1/seo-files?file=robots"
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": "https://siirpzuflcimkhnzvass.supabase.co/functions/v1/seo-files?file=sitemap"
+    },
+    {
+      "source": "/llms.txt",
+      "destination": "https://siirpzuflcimkhnzvass.supabase.co/functions/v1/seo-files?file=llms"
+    },
+    {
+      "source": "/ai.txt",
+      "destination": "https://siirpzuflcimkhnzvass.supabase.co/functions/v1/seo-files?file=ai"
+    },
+    {
+      "source": "/security.txt",
+      "destination": "https://siirpzuflcimkhnzvass.supabase.co/functions/v1/seo-files?file=security"
+    },
+    {
+      "source": "/.well-known/security.txt",
+      "destination": "https://siirpzuflcimkhnzvass.supabase.co/functions/v1/seo-files?file=security"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/sitemap.xml",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/xml; charset=utf-8"
+        }
+      ]
+    },
+    {
+      "source": "/(robots.txt|llms.txt|ai.txt|security.txt)",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        }
+      ]
+    },
+    {
+      "source": "/.well-known/security.txt",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        }
+      ]
     }
   ]
 }

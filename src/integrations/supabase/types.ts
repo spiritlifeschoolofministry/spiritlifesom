@@ -1589,6 +1589,59 @@ export type Database = {
           },
         ]
       }
+      seo_files: {
+        Row: {
+          content: string
+          content_type: string
+          created_at: string
+          default_content: string
+          description: string | null
+          id: string
+          is_published: boolean
+          label: string
+          path: string
+          slug: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          content?: string
+          content_type?: string
+          created_at?: string
+          default_content?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          label: string
+          path: string
+          slug: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          content?: string
+          content_type?: string
+          created_at?: string
+          default_content?: string
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          label?: string
+          path?: string
+          slug?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seo_files_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_content: {
         Row: {
           content: string

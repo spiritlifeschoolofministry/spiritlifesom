@@ -64,3 +64,8 @@ entrypoint = "./functions/r2-storage/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/migrate-storage/index.ts"
+
+[functions.seo-files]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/seo-files/index.ts"
