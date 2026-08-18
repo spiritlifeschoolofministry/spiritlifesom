@@ -5,13 +5,27 @@ import { Button } from "@/components/ui/button";
 import { Trash2, Loader2, Camera } from "lucide-react";
 import { toast } from "sonner";
 
-interface PurgeResult {
+/** Per-media totals, keyed by table name, as the purge function reports them. */
+interface MediaOutcome {
   purged?: number;
   storage_files_removed?: number;
+  r2_files_removed?: number;
+  r2_failures?: number;
+  orphan_files_removed?: number;
+}
+
+interface PurgeResult {
+  purged?: number;
+  exam_snapshots?: MediaOutcome;
+  exam_audio_clips?: MediaOutcome;
   retention_days?: number;
   cutoff?: string;
   message?: string;
 }
+
+/** Files actually removed for one media kind, wherever they were stored. */
+const filesRemoved = (m?: MediaOutcome) =>
+  (m?.storage_files_removed ?? 0) + (m?.r2_files_removed ?? 0) + (m?.orphan_files_removed ?? 0);
 
 export default function PurgeSnapshotsCard() {
   const [running, setRunning] = useState(false);
@@ -27,7 +41,7 @@ export default function PurgeSnapshotsCard() {
     } else {
       setLast(data as PurgeResult);
       const n = (data as PurgeResult)?.purged ?? 0;
-      toast.success(n > 0 ? `Purged ${n} old snapshot${n === 1 ? "" : "s"}` : "Nothing to purge");
+      toast.success(n > 0 ? `Purged ${n} old recording${n === 1 ? "" : "s"}` : "Nothing to purge");
     }
     setRunning(false);
   };
@@ -36,7 +50,7 @@ export default function PurgeSnapshotsCard() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-lg flex items-center gap-2">
-          <Camera className="h-5 w-5" /> Proctor Snapshots
+          <Camera className="h-5 w-5" /> Proctor Recordings
         </CardTitle>
         <Button size="sm" variant="destructive" onClick={run} disabled={running} className="gap-1.5">
           {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
@@ -45,11 +59,15 @@ export default function PurgeSnapshotsCard() {
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
         <p className="text-muted-foreground">
-          Deletes proctor snapshot files & records older than 30 days. Runs automatically on a daily schedule, but you can trigger it manually.
+          Deletes proctor snapshot and audio clip files &amp; records older than 30 days. Runs automatically on a daily schedule, but you can trigger it manually.
         </p>
         {last ? (
           <div className="rounded-lg border bg-muted/40 p-3 text-xs space-y-1">
-            <p><span className="font-semibold">Last run:</span> purged {last.purged ?? 0} record(s), removed {last.storage_files_removed ?? 0} file(s).</p>
+            <p><span className="font-semibold">Last run:</span> purged {last.purged ?? 0} record(s).</p>
+            <p>
+              Snapshots: {last.exam_snapshots?.purged ?? 0} record(s), {filesRemoved(last.exam_snapshots)} file(s) ·{" "}
+              Audio: {last.exam_audio_clips?.purged ?? 0} record(s), {filesRemoved(last.exam_audio_clips)} file(s)
+            </p>
             {last.cutoff ? <p className="text-muted-foreground">Cutoff: {new Date(last.cutoff).toLocaleString()}</p> : null}
           </div>
         ) : null}

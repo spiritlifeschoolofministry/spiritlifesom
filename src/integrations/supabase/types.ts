@@ -858,6 +858,73 @@ export type Database = {
           },
         ]
       }
+      exam_audio_clips: {
+        Row: {
+          attempt_id: string
+          bytes: number | null
+          duration_seconds: number | null
+          exam_id: string
+          flagged: boolean
+          id: string
+          mime_type: string | null
+          notes: string | null
+          recorded_at: string
+          storage_path: string
+          storage_provider: string | null
+          student_id: string
+        }
+        Insert: {
+          attempt_id: string
+          bytes?: number | null
+          duration_seconds?: number | null
+          exam_id: string
+          flagged?: boolean
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          recorded_at?: string
+          storage_path: string
+          storage_provider?: string | null
+          student_id: string
+        }
+        Update: {
+          attempt_id?: string
+          bytes?: number | null
+          duration_seconds?: number | null
+          exam_id?: string
+          flagged?: boolean
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          recorded_at?: string
+          storage_path?: string
+          storage_provider?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_audio_clips_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "exam_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_audio_clips_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_audio_clips_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exam_snapshots: {
         Row: {
           attempt_id: string
@@ -928,6 +995,8 @@ export type Database = {
           created_by: string | null
           description: string | null
           duration_minutes: number
+          audio_clip_seconds: number
+          enable_audio_proctoring: boolean
           enable_webcam_proctoring: boolean
           end_at: string
           enforce_fullscreen: boolean
@@ -962,6 +1031,8 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           duration_minutes?: number
+          audio_clip_seconds?: number
+          enable_audio_proctoring?: boolean
           enable_webcam_proctoring?: boolean
           end_at: string
           enforce_fullscreen?: boolean
@@ -996,6 +1067,8 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           duration_minutes?: number
+          audio_clip_seconds?: number
+          enable_audio_proctoring?: boolean
           enable_webcam_proctoring?: boolean
           end_at?: string
           enforce_fullscreen?: boolean

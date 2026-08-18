@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import StudentLayout from "@/components/StudentLayout";
-import { AlertTriangle, Camera, CameraOff, Clock, ShieldAlert, Monitor, Smartphone } from "lucide-react";
+import { AlertTriangle, Camera, CameraOff, Clock, ShieldAlert, Monitor, Smartphone, Mic, MicOff } from "lucide-react";
 import { formatDuration } from "@/lib/exam-utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -24,6 +24,8 @@ export default function ExamLobby() {
   const [isMobile] = useState(/Mobi|Android|iPhone|iPad/.test(navigator.userAgent));
   const [camera, setCamera] = useState<"idle" | "checking" | "granted" | "denied">("idle");
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [mic, setMic] = useState<"idle" | "checking" | "granted" | "denied">("idle");
+  const [micError, setMicError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -65,6 +67,35 @@ export default function ExamLobby() {
     }
   }, []);
 
+  /**
+   * The same proof for the microphone. Recording starts with the paper, so a
+   * refusal has to stop the start rather than leave the exam half-monitored.
+   *
+   * The probe stream is stopped immediately, for the same reason as the camera:
+   * this is a permission check, not the recording session.
+   */
+  const requestMic = useCallback(async () => {
+    setMic("checking");
+    setMicError(null);
+    try {
+      if (typeof MediaRecorder === "undefined") {
+        throw Object.assign(new Error("This browser cannot record audio. Use Chrome, Edge, Firefox or Safari."), { name: "Unsupported" });
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      stream.getTracks().forEach((t) => t.stop());
+      setMic("granted");
+    } catch (e: any) {
+      setMic("denied");
+      setMicError(
+        e?.name === "NotFoundError"
+          ? "No microphone was found on this device."
+          : e?.name === "NotAllowedError"
+            ? "Microphone access was blocked. Allow it in your browser's site settings, then try again."
+            : e?.message || "The microphone could not be started.",
+      );
+    }
+  }, []);
+
   // Ask as soon as the rules are on screen, so a student sorts the camera out
   // before the clock is running rather than after.
   useEffect(() => {
@@ -72,6 +103,15 @@ export default function ExamLobby() {
       requestCamera();
     }
   }, [exam?.enable_webcam_proctoring, camera, requestCamera]);
+
+  // Asked after the camera has settled. Two getUserMedia calls in flight at
+  // once stack prompts on top of each other, and on some browsers the second
+  // is dismissed unanswered.
+  useEffect(() => {
+    if (!exam?.enable_audio_proctoring || mic !== "idle") return;
+    if (exam?.enable_webcam_proctoring && (camera === "idle" || camera === "checking")) return;
+    requestMic();
+  }, [exam?.enable_audio_proctoring, exam?.enable_webcam_proctoring, camera, mic, requestMic]);
 
   if (loading) return <StudentLayout><p className="p-6">Loading…</p></StudentLayout>;
   if (!exam) return <StudentLayout><p className="p-6">Exam not found</p></StudentLayout>;
@@ -84,7 +124,10 @@ export default function ExamLobby() {
 
   const cameraRequired = !!exam.enable_webcam_proctoring;
   const cameraReady = !cameraRequired || camera === "granted";
-  const canStart = !beforeStart && !afterEnd && agreed && (!isMobile || exam.allow_mobile) && cameraReady;
+  const micRequired = !!exam.enable_audio_proctoring;
+  const micReady = !micRequired || mic === "granted";
+  const canStart =
+    !beforeStart && !afterEnd && agreed && (!isMobile || exam.allow_mobile) && cameraReady && micReady;
 
   const startExam = async () => {
     if (!canStart) return;
@@ -144,6 +187,7 @@ export default function ExamLobby() {
             {exam.enforce_fullscreen && <li>The exam will run in <strong>fullscreen</strong>. Exiting fullscreen is recorded.</li>}
             {exam.block_shortcuts && <li>Copy, paste, right-click, and developer tools are <strong>disabled</strong>.</li>}
             {exam.enable_webcam_proctoring && <li>Your <strong>webcam is required</strong> and takes snapshots every {exam.snapshot_interval_seconds ?? 30}s for your lecturer to review.</li>}
+            {exam.enable_audio_proctoring && <li>Your <strong>microphone is required</strong> and is recorded in {exam.audio_clip_seconds ?? 60}s clips throughout the exam for your lecturer to review.</li>}
             <li>Switching tabs/windows is tracked. After <strong>{exam.max_tab_switches} switches</strong> your exam is auto-submitted.</li>
             <li>Your answers <strong>autosave every {exam.autosave_interval_seconds}s</strong>. If your browser crashes, you can resume.</li>
             <li>You can only be logged in <strong>on one device</strong>. A second login will block your active session.</li>
@@ -200,6 +244,43 @@ export default function ExamLobby() {
             </div>
           )}
 
+          {micRequired && (
+            <div
+              className={`mt-4 p-3 rounded border flex items-start gap-2 ${
+                mic === "granted"
+                  ? "bg-emerald-500/10 border-emerald-500/20"
+                  : mic === "denied"
+                    ? "bg-destructive/10 border-destructive/20"
+                    : "bg-muted/40 border-border"
+              }`}
+            >
+              {mic === "granted" ? (
+                <Mic className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+              ) : (
+                <MicOff className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">
+                  {mic === "granted"
+                    ? "Microphone ready"
+                    : mic === "checking"
+                      ? "Checking your microphone…"
+                      : "Microphone access is required for this exam"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {mic === "granted"
+                    ? "Your audio is recorded throughout this exam."
+                    : micError || "This exam is audio-monitored. You cannot start until the microphone is working."}
+                </p>
+                {mic === "denied" && (
+                  <Button size="sm" variant="outline" className="mt-2" onClick={requestMic}>
+                    Try again
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="mt-5 flex items-start gap-3 p-3 rounded-md border border-border">
             <Checkbox id="agree" checked={agreed} onCheckedChange={(v) => setAgreed(!!v)} />
             <Label htmlFor="agree" className="text-sm leading-relaxed cursor-pointer">
@@ -217,7 +298,9 @@ export default function ExamLobby() {
                   ? "Window closed"
                   : !cameraReady
                     ? "Camera required"
-                    : "Start Exam"}
+                    : !micReady
+                      ? "Microphone required"
+                      : "Start Exam"}
             </Button>
           </div>
         </Card>

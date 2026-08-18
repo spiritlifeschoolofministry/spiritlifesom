@@ -17,6 +17,7 @@ const VALID_REASONS = [
   "tab_switch_exceeded",
   "fullscreen_exit",
   "camera_blocked",
+  "microphone_blocked",
   "admin",
   "disconnect",
 ];

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Download, AlertTriangle, CheckCircle2, Send, Camera, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, Download, AlertTriangle, CheckCircle2, Send, Camera, Mic, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AUTO_GRADED_TYPES, formatAnswer, sanitizeHtml } from "@/lib/exam-utils";
 import { r2Storage } from "@/lib/r2-storage";
@@ -23,6 +23,8 @@ export default function ExamMonitor() {
   const [snapshots, setSnapshots] = useState<Record<string, Array<{ id: string; storage_path: string; captured_at: string; storage_provider: string; signedUrl?: string }>>>({});
   const [snapshotViewer, setSnapshotViewer] = useState<{ url: string; meta: string } | null>(null);
   const [loadingSnapsFor, setLoadingSnapsFor] = useState<string | null>(null);
+  const [audio, setAudio] = useState<Record<string, Array<{ id: string; storage_path: string; recorded_at: string; storage_provider: string | null; mime_type: string | null; duration_seconds: number | null; bytes: number | null; signedUrl?: string | null }>>>({});
+  const [loadingAudioFor, setLoadingAudioFor] = useState<string | null>(null);
   const [showRehearsals, setShowRehearsals] = useState(false);
   const [hiddenRehearsals, setHiddenRehearsals] = useState(0);
 
@@ -267,6 +269,61 @@ export default function ExamMonitor() {
     }
   };
 
+  const loadAudio = async (attemptId: string) => {
+    setLoadingAudioFor(attemptId);
+    const { data, error } = await supabase
+      .from("exam_audio_clips")
+      .select("id, storage_path, recorded_at, storage_provider, mime_type, duration_seconds, bytes")
+      .eq("attempt_id", attemptId)
+      .order("recorded_at", { ascending: false });
+    if (error) { toast.error(error.message); setLoadingAudioFor(null); return; }
+
+    const withUrls = await Promise.all((data ?? []).map(async (c) => {
+      let url: string | null = null;
+      try {
+        url = await r2Storage.getDownloadUrl(c.storage_path);
+      } catch (err) {
+        console.error("Failed to get audio clip URL:", err);
+      }
+      return { ...c, signedUrl: url };
+    }));
+
+    setAudio((prev) => ({ ...prev, [attemptId]: withUrls }));
+    setLoadingAudioFor(null);
+  };
+
+  const deleteAudioClip = async (attemptId: string, clip: { id: string; storage_path: string }) => {
+    if (!confirm("Delete this audio clip permanently?")) return;
+    try {
+      await r2Storage.deleteFile(clip.storage_path);
+      const { error: dErr } = await supabase.from("exam_audio_clips").delete().eq("id", clip.id);
+      if (dErr) throw dErr;
+      setAudio((prev) => ({
+        ...prev,
+        [attemptId]: (prev[attemptId] ?? []).filter((c) => c.id !== clip.id),
+      }));
+      toast.success("Audio clip deleted");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete audio clip");
+    }
+  };
+
+  const deleteAllAudio = async (attemptId: string) => {
+    const list = audio[attemptId] ?? [];
+    if (list.length === 0) return;
+    if (!confirm(`Delete all ${list.length} audio clips for this attempt?`)) return;
+    try {
+      for (const c of list) {
+        await r2Storage.deleteFile(c.storage_path);
+      }
+      await supabase.from("exam_audio_clips").delete().eq("attempt_id", attemptId);
+      setAudio((prev) => ({ ...prev, [attemptId]: [] }));
+      toast.success("All audio clips deleted");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete audio clips");
+    }
+  };
+
   if (loading) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
   if (!exam) return <p className="p-6">Exam not found</p>;
 
@@ -358,6 +415,10 @@ export default function ExamMonitor() {
                       {loadingSnapsFor === a.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Camera className="w-3 h-3 mr-1" />}
                       Snapshots
                     </Button>
+                    <Button size="sm" variant="outline" onClick={() => loadAudio(a.id)} disabled={loadingAudioFor === a.id}>
+                      {loadingAudioFor === a.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Mic className="w-3 h-3 mr-1" />}
+                      Audio
+                    </Button>
                     <Button size="sm" variant="destructive" onClick={() => deleteAttempt(a)}>
                       <Trash2 className="w-3 h-3 mr-1" /> {a.isRehearsal ? "Discard" : "Delete"}
                     </Button>
@@ -398,6 +459,48 @@ export default function ExamMonitor() {
                                 <Trash2 className="w-2.5 h-2.5" />
                               </button>
                               <p className="text-[9px] text-muted-foreground mt-0.5 truncate">{new Date(s.captured_at).toLocaleTimeString()}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              )}
+              {audio[a.id] && (
+                <tr key={`${a.id}-audio`}>
+                  <td colSpan={6} className="py-2 px-3 bg-muted/30">
+                    {audio[a.id].length === 0 ? (
+                      <p className="text-xs text-muted-foreground py-2">No audio recorded for this attempt.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-medium">{audio[a.id].length} audio clips</p>
+                          <Button size="sm" variant="destructive" onClick={() => deleteAllAudio(a.id)}>
+                            <Trash2 className="w-3 h-3 mr-1" /> Delete all
+                          </Button>
+                        </div>
+                        <div className="grid sm:grid-cols-2 gap-2">
+                          {audio[a.id].map((c) => (
+                            <div key={c.id} className="flex items-center gap-2 p-2 rounded border border-border bg-card">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[10px] text-muted-foreground">
+                                  {new Date(c.recorded_at).toLocaleString()}
+                                  {c.duration_seconds ? ` · ${c.duration_seconds}s` : ""}
+                                </p>
+                                {c.signedUrl ? (
+                                  <audio src={c.signedUrl} controls preload="none" className="w-full h-8 mt-1" />
+                                ) : (
+                                  <p className="text-[10px] text-destructive mt-1">Clip file unavailable</p>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => deleteAudioClip(a.id, c)}
+                                className="text-destructive hover:opacity-70 shrink-0"
+                                title="Delete clip"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           ))}
                         </div>

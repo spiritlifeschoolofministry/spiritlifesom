@@ -7,9 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { QuestionRenderer } from "@/components/exam/QuestionRenderer";
 import WebcamProctor from "@/components/exam/WebcamProctor";
+import AudioProctor from "@/components/exam/AudioProctor";
 import { formatDuration, generateFingerprint, generateSessionId, isAnswered } from "@/lib/exam-utils";
 import { AlertTriangle, ChevronLeft, ChevronRight, Send, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
+
+/** How long a student has to restore a lost camera or microphone. */
+const GRACE_SECONDS = 45;
 
 export default function ExamRunner() {
   const { id } = useParams();
@@ -24,11 +28,15 @@ export default function ExamRunner() {
   const [tabSwitches, setTabSwitches] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
+  const [deviceGrace, setDeviceGrace] = useState<{ device: string; reason: string; secondsLeft: number } | null>(null);
   const sessionIdRef = useRef(generateSessionId());
   // Mirrors of the answer state, so the autosave callback can stay stable.
   const answersRef = useRef<Record<string, unknown>>({});
   const dirtyRef = useRef<Set<string>>(new Set());
   const submittedRef = useRef(false);
+  // One grace window per device: a revoked camera fires several signals, and
+  // each must not restart the countdown.
+  const gracedDevicesRef = useRef<Set<string>>(new Set());
   const questionStartRef = useRef(Date.now());
 
   // --- Load + start ---
@@ -211,19 +219,36 @@ export default function ExamRunner() {
   };
 
   /**
-   * Losing the camera ends a proctored exam.
+   * Losing a required device ends the exam — but not instantly.
    *
-   * Entry is gated on the camera working, so carrying on without it would let
-   * a student switch it off the moment the paper opened and sit the rest
-   * unwatched. The answers saved so far go in with the submission.
+   * Entry is gated on the camera and microphone working, so carrying on without
+   * one would let a student switch it off the moment the paper opened and sit
+   * the rest unmonitored. Submitting on the first dropped signal was too harsh
+   * the other way: a device grabbed by another app, or a laptop waking from
+   * sleep, ended an otherwise honest sitting. So the student is told what
+   * happened and given GRACE_SECONDS to put it right — reloading this page
+   * resumes the same attempt with the answers already autosaved — after which
+   * the exam is submitted with the reason recorded.
    */
-  const handleCameraLost = useCallback((reason: string) => {
+  const beginDeviceGrace = useCallback((device: string, reason: string) => {
     if (submittedRef.current) return;
-    toast.error(`${reason}. Your exam is being submitted.`);
-    setWarning(`${reason}. This exam requires the camera, so it is being submitted now.`);
-    submitExam("camera_blocked");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (gracedDevicesRef.current.has(device)) return;
+    gracedDevicesRef.current.add(device);
+    toast.error(`${reason}. Fix it and reload within ${GRACE_SECONDS}s or your exam will be submitted.`);
+    setDeviceGrace({ device, reason, secondsLeft: GRACE_SECONDS });
   }, []);
+
+  const handleCameraLost = useCallback((reason: string) => {
+    beginDeviceGrace("camera", reason);
+  }, [beginDeviceGrace]);
+
+  /**
+   * Losing the microphone is treated exactly as losing the camera: entry was
+   * gated on it working.
+   */
+  const handleMicLost = useCallback((reason: string) => {
+    beginDeviceGrace("microphone", reason);
+  }, [beginDeviceGrace]);
 
   const submitExam = async (reason: string) => {
     if (submittedRef.current) return;
@@ -241,6 +266,24 @@ export default function ExamRunner() {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     navigate("/student/exams");
   };
+
+  // Runs the grace countdown, then submits. Kept as an effect rather than a
+  // timeout inside beginDeviceGrace so the remaining seconds can be shown, and
+  // so a submission from any other cause cancels it.
+  useEffect(() => {
+    if (!deviceGrace) return;
+    if (deviceGrace.secondsLeft <= 0) {
+      submitExam(deviceGrace.device === "camera" ? "camera_blocked" : "microphone_blocked");
+      setDeviceGrace(null);
+      return;
+    }
+    const t = setTimeout(() => {
+      if (submittedRef.current) { setDeviceGrace(null); return; }
+      setDeviceGrace((g) => (g ? { ...g, secondsLeft: g.secondsLeft - 1 } : g));
+    }, 1000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deviceGrace]);
 
   if (!exam || !attempt || !questions.length) {
     return <div className="min-h-screen flex items-center justify-center bg-background"><p>Loading exam…</p></div>;
@@ -263,6 +306,15 @@ export default function ExamRunner() {
           intervalSeconds={exam.snapshot_interval_seconds ?? 30}
         />
       )}
+      {exam.enable_audio_proctoring && (
+        <AudioProctor
+          onMicLost={handleMicLost}
+          attemptId={attempt.id}
+          examId={exam.id}
+          studentId={attempt.student_id}
+          clipSeconds={exam.audio_clip_seconds ?? 60}
+        />
+      )}
       {/* Top bar */}
       <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
@@ -276,6 +328,16 @@ export default function ExamRunner() {
         </div>
         <Progress value={progress} className="h-1 rounded-none" />
       </header>
+
+      {deviceGrace && (
+        <div className="bg-destructive text-destructive-foreground px-4 py-2 flex items-center gap-2">
+          <ShieldAlert className="w-4 h-4 shrink-0" />
+          <p className="text-sm">
+            <strong>{deviceGrace.reason}.</strong> This exam requires your {deviceGrace.device}. Restore it and reload
+            this page to carry on — your saved answers are kept. Submitting in {deviceGrace.secondsLeft}s.
+          </p>
+        </div>
+      )}
 
       {warning && (
         <div className="bg-destructive/10 border-b border-destructive/30 px-4 py-2 flex items-center gap-2 max-w-4xl mx-auto">
