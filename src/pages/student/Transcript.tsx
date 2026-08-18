@@ -60,7 +60,7 @@ const StudentTranscript = () => {
     try {
       setLoading(true);
 
-      const [coursesRes, subsRes, attRes, cohortRes] = await Promise.all([
+      const [coursesRes, subsRes, attRes, cohortRes, examsRes] = await Promise.all([
         supabase
           .from("courses")
           .select("id, title, code, lecturer, is_completed")
@@ -79,6 +79,14 @@ const StudentTranscript = () => {
           .select("name")
           .eq("id", student.cohort_id)
           .single(),
+        // Exams sit against a course just as assignments do, so a released
+        // result belongs in that course's record. Without this the transcript
+        // reported a student's standing from coursework alone.
+        supabase
+          .from("exam_attempts")
+          .select("id, score, manual_score_override, graded_at, exam:exams(id, title, total_points, course_id, results_released)")
+          .eq("student_id", student.id)
+          .in("status", ["submitted", "graded"]),
       ]);
 
       if (cohortRes.data) setCohortName(cohortRes.data.name);
@@ -92,16 +100,36 @@ const StudentTranscript = () => {
         subsByCourse.get(courseId)!.push(sub);
       }
 
+      // Released exam results, grouped by the course they belong to.
+      const examsByCourse = new Map<string, any[]>();
+      for (const att of (examsRes.data || []) as any[]) {
+        if (!att.exam?.results_released) continue;
+        const courseId = att.exam.course_id;
+        if (!courseId) continue;
+        if (!examsByCourse.has(courseId)) examsByCourse.set(courseId, []);
+        examsByCourse.get(courseId)!.push({
+          id: att.id,
+          title: att.exam.title,
+          category: "Exam",
+          max_points: Number(att.exam.total_points) || 0,
+          grade: Number(att.manual_score_override ?? att.score ?? 0),
+          reviewed_at: att.graded_at,
+        });
+      }
+
       const courseRecords: CourseRecord[] = (coursesRes.data || []).map((c: any) => {
         const subs = (subsByCourse.get(c.id) || []) as any[];
-        const assignments = subs.map((s: any) => ({
-          id: s.assignment?.id || "",
-          title: s.assignment?.title || "",
-          category: s.assignment?.category || "Assignment",
-          max_points: s.assignment?.max_points || 100,
-          grade: s.grade,
-          reviewed_at: s.reviewed_at,
-        }));
+        const assignments = [
+          ...subs.map((s: any) => ({
+            id: s.assignment?.id || "",
+            title: s.assignment?.title || "",
+            category: s.assignment?.category || "Assignment",
+            max_points: s.assignment?.max_points || 100,
+            grade: s.grade,
+            reviewed_at: s.reviewed_at,
+          })),
+          ...(examsByCourse.get(c.id) || []),
+        ];
 
         const graded = assignments.filter((a: any) => a.grade != null);
         const totalPts = graded.reduce((s: number, a: any) => s + a.max_points, 0);
