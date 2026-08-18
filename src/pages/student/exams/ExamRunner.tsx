@@ -13,7 +13,7 @@ import { AlertTriangle, ChevronLeft, ChevronRight, Send, ShieldAlert } from "luc
 import { toast } from "sonner";
 
 /** How long a student has to restore a lost camera or microphone. */
-const GRACE_SECONDS = 45;
+const GRACE_SECONDS = 10;
 
 export default function ExamRunner() {
   const { id } = useParams();
@@ -29,6 +29,8 @@ export default function ExamRunner() {
   const [submitting, setSubmitting] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
   const [deviceGrace, setDeviceGrace] = useState<{ device: string; reason: string; secondsLeft: number } | null>(null);
+  // Bumped when a device comes back, to remount the proctors onto a fresh stream.
+  const [proctorEpoch, setProctorEpoch] = useState(0);
   const sessionIdRef = useRef(generateSessionId());
   // Mirrors of the answer state, so the autosave callback can stay stable.
   const answersRef = useRef<Record<string, unknown>>({});
@@ -226,15 +228,16 @@ export default function ExamRunner() {
    * the rest unmonitored. Submitting on the first dropped signal was too harsh
    * the other way: a device grabbed by another app, or a laptop waking from
    * sleep, ended an otherwise honest sitting. So the student is told what
-   * happened and given GRACE_SECONDS to put it right — reloading this page
-   * resumes the same attempt with the answers already autosaved — after which
-   * the exam is submitted with the reason recorded.
+   * happened and given GRACE_SECONDS to put it right. The device is retried
+   * throughout that window, so plugging the camera back in or re-allowing it
+   * picks the sitting straight back up; only if the window runs out is the
+   * exam submitted, with the reason recorded.
    */
   const beginDeviceGrace = useCallback((device: string, reason: string) => {
     if (submittedRef.current) return;
     if (gracedDevicesRef.current.has(device)) return;
     gracedDevicesRef.current.add(device);
-    toast.error(`${reason}. Fix it and reload within ${GRACE_SECONDS}s or your exam will be submitted.`);
+    toast.error(`${reason}. Restore it within ${GRACE_SECONDS}s or your exam will be submitted.`);
     setDeviceGrace({ device, reason, secondsLeft: GRACE_SECONDS });
   }, []);
 
@@ -266,6 +269,35 @@ export default function ExamRunner() {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     navigate("/student/exams");
   };
+
+  // Keep trying the lost device for as long as the countdown runs.
+  //
+  // Ten seconds is not long enough to reload a page, and it should not have to
+  // be: if the camera comes back — the app that grabbed it released it, the
+  // cable went back in, the permission was re-allowed — the sitting simply
+  // continues. The proctors are remounted so they pick up a live stream again.
+  useEffect(() => {
+    if (!deviceGrace) return;
+    let cancelled = false;
+    const probe = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(
+          deviceGrace.device === "camera" ? { video: true } : { audio: true },
+        );
+        stream.getTracks().forEach((t) => t.stop());
+        if (cancelled || submittedRef.current) return;
+        gracedDevicesRef.current.delete(deviceGrace.device);
+        setDeviceGrace(null);
+        setProctorEpoch((n) => n + 1);
+        toast.success(`${deviceGrace.device === "camera" ? "Camera" : "Microphone"} restored — carry on.`);
+      } catch {
+        // Still gone. The countdown in the effect below keeps running.
+      }
+    };
+    probe();
+    const t = setInterval(probe, 1000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [deviceGrace]);
 
   // Runs the grace countdown, then submits. Kept as an effect rather than a
   // timeout inside beginDeviceGrace so the remaining seconds can be shown, and
@@ -299,6 +331,7 @@ export default function ExamRunner() {
     <div className="min-h-screen bg-background select-none" onCopy={(e) => e.preventDefault()}>
       {exam.enable_webcam_proctoring && (
         <WebcamProctor
+          key={`cam-${proctorEpoch}`}
           onCameraLost={handleCameraLost}
           attemptId={attempt.id}
           examId={exam.id}
@@ -308,6 +341,7 @@ export default function ExamRunner() {
       )}
       {exam.enable_audio_proctoring && (
         <AudioProctor
+          key={`mic-${proctorEpoch}`}
           onMicLost={handleMicLost}
           attemptId={attempt.id}
           examId={exam.id}
@@ -333,8 +367,8 @@ export default function ExamRunner() {
         <div className="bg-destructive text-destructive-foreground px-4 py-2 flex items-center gap-2">
           <ShieldAlert className="w-4 h-4 shrink-0" />
           <p className="text-sm">
-            <strong>{deviceGrace.reason}.</strong> This exam requires your {deviceGrace.device}. Restore it and reload
-            this page to carry on — your saved answers are kept. Submitting in {deviceGrace.secondsLeft}s.
+            <strong>{deviceGrace.reason}.</strong> This exam requires your {deviceGrace.device}. Turn it back on and
+            the exam carries on by itself — your answers are saved. Submitting in {deviceGrace.secondsLeft}s.
           </p>
         </div>
       )}
