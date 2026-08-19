@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from '@/integrations/supabase/types';
+import type { Tables, TablesInsert } from '@/integrations/supabase/types';
 
 /** The columns each picker query selects, rather than the whole row. */
 type CourseOption = Pick<Tables<'courses'>, 'id' | 'code' | 'title'>;
@@ -43,7 +43,15 @@ const STATUS_LABELS: Record<string, string> = {
   archived: "Archived",
 };
 
-const DEFAULT: any = {
+/**
+ * The builder edits either a new exam or a loaded row, so the draft is the
+ * insert shape: every column optional except what a new exam must carry, and
+ * `id` present once it has been saved. start_at/end_at hold datetime-local
+ * strings here and are converted on save.
+ */
+type ExamDraft = Partial<Tables<'exams'>> & { id?: string };
+
+const DEFAULT: ExamDraft = {
   title: "",
   description: "",
   instructions: "Read all instructions carefully before starting.",
@@ -105,7 +113,7 @@ export default function ExamBuilder() {
   const isNew = !id || id === "new";
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const [exam, setExam] = useState<any>(DEFAULT);
+  const [exam, setExam] = useState<ExamDraft>(DEFAULT);
   const [courses, setCourses] = useState<CourseOption[]>([]);
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
   const [bank, setBank] = useState<Tables<'question_bank'>[]>([]);
@@ -118,7 +126,7 @@ export default function ExamBuilder() {
   const [otherExams, setOtherExams] = useState<ExamOption[]>([]);
   const [importExamId, setImportExamId] = useState<string>("");
   const [importQids, setImportQids] = useState<string[]>([]);
-  const [importQuestions, setImportQuestions] = useState<any[]>([]);
+  const [importQuestions, setImportQuestions] = useState<Tables<'question_bank'>[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
   const [confirmPublish, setConfirmPublish] = useState(false);
@@ -240,13 +248,16 @@ export default function ExamBuilder() {
 
     setSaving(true);
     try {
+      // validate() above has already refused to get here without a title,
+      // course, cohort and both times, which is the invariant TablesInsert
+      // wants and the draft type cannot express on its own.
       const payload = {
         ...exam,
         start_at: new Date(exam.start_at).toISOString(),
         end_at: new Date(exam.end_at).toISOString(),
         total_points: totalPoints,
         status: newStatus ?? exam.status,
-      };
+      } as TablesInsert<'exams'> & { id?: string };
       delete payload.id;
       delete payload.created_at;
       delete payload.updated_at;
