@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/useAuth";
 import { downloadCSV } from "@/lib/csv-export";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -226,6 +227,7 @@ const AttendanceRecordRow = ({
 };
 
 const AdminAttendance = () => {
+  const { user } = useAuth();
   const [pending, setPending] = useState<PendingRow[]>([]);
   const [rawStudents, setRawStudents] = useState<RawStudent[]>([]);
   const [rawSessions, setRawSessions] = useState<RawSession[]>([]);
@@ -312,10 +314,10 @@ const AdminAttendance = () => {
           enabled: true,
           start_time: current[cohortId]?.start_time || "09:00",
           end_time: current[cohortId]?.end_time || "12:00",
-          late_after: current[cohortId]?.late_after || "09:15",
+          late_after: current[cohortId]?.late_after ?? "",
         };
       } else {
-        current[cohortId] = { ...current[cohortId], enabled: false, start_time: current[cohortId]?.start_time || "09:00", end_time: current[cohortId]?.end_time || "12:00", late_after: current[cohortId]?.late_after || "09:15" };
+        current[cohortId] = { ...current[cohortId], enabled: false, start_time: current[cohortId]?.start_time || "09:00", end_time: current[cohortId]?.end_time || "12:00", late_after: current[cohortId]?.late_after ?? "" };
       }
       await saveClassToday(current);
 
@@ -354,7 +356,7 @@ const AdminAttendance = () => {
   const updateCohortTime = async (cohortId: string, field: "start_time" | "end_time" | "late_after", value: string) => {
     const current = { ...cohortToggles };
     if (!current[cohortId]) {
-      current[cohortId] = { enabled: false, start_time: "09:00", end_time: "12:00", late_after: "09:15" };
+      current[cohortId] = { enabled: false, start_time: "09:00", end_time: "12:00", late_after: "" };
     }
     current[cohortId] = { ...current[cohortId], [field]: value };
     setCohortToggles(current);
@@ -788,6 +790,7 @@ const AdminAttendance = () => {
           status: newStatus,
           check_in_time: checkInTimestamp,
           marked_at: checkInTimestamp,
+          marked_by: user?.id ?? null,
           is_verified: newVerified,
         }, { onConflict: "student_id,schedule_id" });
       if (insertError) throw insertError;
@@ -893,7 +896,9 @@ const AdminAttendance = () => {
             Class Today — Per Cohort
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Enable class and set the check-in window for each cohort. Students arriving after the "Late after" time will be marked as Late.
+            Enable class and set the check-in window for each cohort. Set "Late after" each
+            session, measured in Nigerian time on the server. Leave it blank and nobody is
+            marked late - which is the right choice if you open the register when class starts.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -901,7 +906,7 @@ const AdminAttendance = () => {
             <p className="text-sm text-muted-foreground">No active cohorts found.</p>
           ) : (
             cohorts.map((cohort) => {
-              const toggle = cohortToggles[cohort.id] || { enabled: false, start_time: "09:00", end_time: "12:00", late_after: "09:15" };
+              const toggle = cohortToggles[cohort.id] || { enabled: false, start_time: "09:00", end_time: "12:00", late_after: "" };
               const isToggling = togglingCohort === cohort.id;
               return (
                 <div
@@ -953,6 +958,7 @@ const AdminAttendance = () => {
                       <div>
                         <label className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mb-1">
                           <AlertTriangle className="w-3 h-3 text-amber-500" /> Late After
+                          <span className="text-muted-foreground/70">(blank = nobody late)</span>
                         </label>
                         <Input
                           type="time"

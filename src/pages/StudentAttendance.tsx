@@ -156,21 +156,24 @@ const StudentAttendance = () => {
     setCheckingIn(true);
     try {
       const now = new Date();
-      let status = "Present";
-      if (cohortToggle?.late_after) {
-        const [lateH, lateM] = cohortToggle.late_after.split(":").map(Number);
-        if (now.getHours() * 60 + now.getMinutes() > lateH * 60 + lateM) status = "Late";
-      }
 
+      // Status is decided by a BEFORE INSERT trigger using server time in
+      // Africa/Lagos, not this device's clock. What we send is ignored; we read
+      // back what was actually stored so the toast tells the truth.
       // Insert-only path to avoid RLS update conflict for student self-check-in.
-      const { error } = await supabase.from("attendance").insert({
-        student_id: student.id,
-        schedule_id: todayScheduleId,
-        status,
-        check_in_time: now.toISOString(),
-        marked_at: now.toISOString(),
-        is_verified: false,
-      });
+      const { data: inserted, error } = await supabase
+        .from("attendance")
+        .insert({
+          student_id: student.id,
+          schedule_id: todayScheduleId,
+          status: "Present",
+          check_in_time: now.toISOString(),
+          marked_at: now.toISOString(),
+          is_verified: false,
+        })
+        .select("status")
+        .maybeSingle();
+      const status = inserted?.status ?? "Present";
 
       // If there is a duplicate key violation, treat as already checked in.
       if (error) {
