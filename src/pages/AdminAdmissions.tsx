@@ -426,13 +426,20 @@ const AdminAdmissions = () => {
   };
 
   const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
   };
   const toggleSelectAll = () => {
     const filtered = filteredApplications;
-    selectedIds.size === filtered.length
-      ? setSelectedIds(new Set())
-      : setSelectedIds(new Set(filtered.map((a) => a.id)));
+    setSelectedIds(
+      selectedIds.size === filtered.length
+        ? new Set<string>()
+        : new Set(filtered.map((a) => a.id)),
+    );
   };
 
   const filteredApplications = applications.filter((app) => {

@@ -394,7 +394,7 @@ const parseCSV = (csv: string) => {
   let row: string[] = [];
   let cur = "";
   let inQuotes = false;
-  const text = csv.replace(/^﻿/, "");
+  const text = csv.replace(/^\uFEFF/, "");
 
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];

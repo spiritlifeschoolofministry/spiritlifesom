@@ -98,7 +98,7 @@ const StudentAttendance = () => {
       }
       if (!toggle && classSettingRes.data?.value) {
         const legacyVal = classSettingRes.data.value as { date?: string; enabled?: boolean };
-        if (legacyVal.date === today && legacyVal.enabled === true && !legacyVal.hasOwnProperty("cohorts")) {
+        if (legacyVal.date === today && legacyVal.enabled === true && !Object.prototype.hasOwnProperty.call(legacyVal, "cohorts")) {
           toggle = { enabled: true, start_time: "00:00", end_time: "23:59", late_after: "23:59" };
         }
       }

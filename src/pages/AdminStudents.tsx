@@ -447,10 +447,19 @@ const AdminStudents = () => {
   };
 
   const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
   };
   const toggleSelectAll = () => {
-    selectedIds.size === filteredStudents.length ? setSelectedIds(new Set()) : setSelectedIds(new Set(filteredStudents.map((s) => s.id)));
+    setSelectedIds(
+      selectedIds.size === filteredStudents.length
+        ? new Set<string>()
+        : new Set(filteredStudents.map((s) => s.id)),
+    );
   };
 
   const openEmailForStudent = (student: Student) => { setEmailTargets([student]); setEmailSubject(""); setEmailBody(""); setShowEmailDialog(true); };
@@ -467,7 +476,8 @@ const AdminStudents = () => {
       const recipients = emailTargets.map((s) => ({ email: s.profile.email, name: `${s.profile.first_name} ${s.profile.last_name}`.trim() }));
       const { data, error } = await supabase.functions.invoke("send-student-email", { body: { recipients, subject: emailSubject, body: emailBody } });
       if (error) throw error;
-      data.failCount > 0 ? toast.warning(`${data.successCount} sent, ${data.failCount} failed`) : toast.success(`Email sent to ${data.successCount} student(s)`);
+      if (data.failCount > 0) toast.warning(`${data.successCount} sent, ${data.failCount} failed`);
+      else toast.success(`Email sent to ${data.successCount} student(s)`);
       setShowEmailDialog(false); setEmailTargets([]);
     } catch (err) { console.error(err); toast.error("Failed to send email."); }
     finally { setSendingEmail(false); }
