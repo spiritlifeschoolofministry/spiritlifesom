@@ -379,7 +379,6 @@ const StudentDashboard = () => {
                 <option value="">Select learning mode</option>
                 <option value="Online">Online</option>
                 <option value="Physical">Physical</option>
-                <option value="Hybrid">Hybrid</option>
               </select>
             </div>
             <div className="space-y-2">

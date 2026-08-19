@@ -58,7 +58,8 @@ interface AcademicFormData {
   ministry_description: string;
 }
 
-const LEARNING_MODES = ['Online', 'Physical', 'Hybrid'];
+// Students self-select Online or Physical only; Hybrid is assigned by admin.
+const LEARNING_MODES = ['Online', 'Physical'];
 const LANGUAGES = ['English', 'French', 'Yoruba', 'Igbo', 'Hausa', 'Other'];
 const EDUCATION_LEVELS = ['Primary', 'Secondary', 'Diploma', 'Bachelor\'s Degree', 'Master\'s Degree', 'Doctorate', 'Other'];
 const MARITAL_STATUSES = ['Single', 'Married', 'Divorced', 'Widowed'];
@@ -210,7 +211,12 @@ const AcademicInfoCard = ({
                 <Select value={form.learning_mode} onValueChange={(v) => setForm(f => ({ ...f, learning_mode: v }))}>
                   <SelectTrigger className="mt-1"><SelectValue placeholder="Select mode" /></SelectTrigger>
                   <SelectContent>
-                    {LEARNING_MODES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    {/* An admin-assigned mode such as Hybrid stays listed so it still
+                        displays and is not silently overwritten on save. */}
+                    {(!form.learning_mode || LEARNING_MODES.includes(form.learning_mode)
+                      ? LEARNING_MODES
+                      : [...LEARNING_MODES, form.learning_mode]
+                    ).map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
