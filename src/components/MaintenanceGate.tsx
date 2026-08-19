@@ -24,7 +24,7 @@ export const MaintenanceGate = ({ children }: Props) => {
         .from("system_settings")
         .select("key, value")
         .in("key", ["maintenance_mode", "maintenance_message", "maintenance_return_at"]);
-      const map = Object.fromEntries((data || []).map((r: any) => [r.key, r.value]));
+      const map = Object.fromEntries((data || []).map((r) => [r.key, r.value]));
       const raw = map.maintenance_mode;
       const on = raw === true || raw === "true" || (typeof raw === "string" && raw.toLowerCase() === "true");
       setMaintenance(on);

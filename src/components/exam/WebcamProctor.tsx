@@ -57,7 +57,7 @@ export default function WebcamProctor({ attemptId, examId, studentId, intervalSe
         stream.getVideoTracks().forEach((track) => {
           track.addEventListener("ended", () => lose("Camera was turned off"));
         });
-      } catch (e: any) {
+      } catch (e) {
         lose(e?.message || "Camera blocked");
       }
     })();

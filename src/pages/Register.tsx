@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import { r2Storage } from "@/lib/r2-storage";
 
 import StepIndicator from "@/components/StepIndicator";
@@ -141,7 +142,7 @@ const Register = () => {
     } catch { /* ignore quota */ }
   }, [form]);
 
-  const updateForm = (field: keyof FormData, value: any) => {
+  const updateForm = <K extends keyof FormData>(field: K, value: FormData[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -256,7 +257,7 @@ const Register = () => {
         ? `${form.dobYear}-${form.dobMonth.padStart(2, '0')}-${form.dobDay.padStart(2, '0')}`
         : null;
 
-      const studentUpdate: Record<string, any> = {
+      const studentUpdate: TablesUpdate<'students'> = {
         learning_mode: form.learningMode || null,
         marital_status: form.maritalStatus || null,
         address: form.address || null,
@@ -298,7 +299,7 @@ const Register = () => {
       try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
       await new Promise(resolve => setTimeout(resolve, 1500));
       navigate("/student/dashboard", { replace: true });
-    } catch (error: any) {
+    } catch (error) {
       console.error("[Register] REGISTRATION FAILED:", error.message);
       toast.error(error.message || "Registration failed. Please try again.");
     } finally {

@@ -1,6 +1,42 @@
 import { useEffect, useState, Fragment } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from '@/integrations/supabase/types';
+
+type MonitoredExam = Tables<'exams'> & {
+  courses: { code: string; title: string } | null;
+  cohorts: { name: string } | null;
+};
+/**
+ * A row from exam_answers, or a stand-in built for a question the student
+ * skipped so it can still be marked. The stand-in has no id until saveGrading
+ * inserts it, which is why id is nullable here and not on the row itself.
+ */
+/** One entry in exam_attempts.regrade_history, which is stored as Json. */
+type RegradeEntry = { at?: string; from?: number | null; to?: number | null };
+
+const asRegradeHistory = (value: unknown): RegradeEntry[] =>
+  Array.isArray(value) ? (value as RegradeEntry[]) : [];
+
+type GradableAnswer = {
+  id: string | null;
+  attempt_id: string;
+  question_id: string;
+  answer: Tables<'exam_answers'>['answer'];
+  points_awarded: number | null;
+  is_correct: boolean | null;
+  manual_feedback: string | null;
+};
+
+type MonitoredAttempt = Tables<'exam_attempts'> & {
+  students: {
+    student_code: string | null;
+    profile_id: string | null;
+    profiles: { first_name: string; last_name: string; email: string } | null;
+  } | null;
+  /** Set on the client: whether this attempt belongs to a staff rehearsal. */
+  isRehearsal: boolean;
+};
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,11 +51,11 @@ import { r2Storage } from "@/lib/r2-storage";
 
 export default function ExamMonitor() {
   const { id } = useParams();
-  const [exam, setExam] = useState<any>(null);
-  const [attempts, setAttempts] = useState<any[]>([]);
+  const [exam, setExam] = useState<MonitoredExam | null>(null);
+  const [attempts, setAttempts] = useState<MonitoredAttempt[]>([]);
   const [loading, setLoading] = useState(true);
-  const [grading, setGrading] = useState<any | null>(null);
-  const [gradeData, setGradeData] = useState<{ answers: any[]; questions: any[]; override: string }>({ answers: [], questions: [], override: "" });
+  const [grading, setGrading] = useState<MonitoredAttempt | null>(null);
+  const [gradeData, setGradeData] = useState<{ answers: GradableAnswer[]; questions: Tables<'question_bank'>[]; override: string }>({ answers: [], questions: [], override: "" });
   const [snapshots, setSnapshots] = useState<Record<string, Array<{ id: string; storage_path: string; captured_at: string; storage_provider: string; signedUrl?: string }>>>({});
   const [snapshotViewer, setSnapshotViewer] = useState<{ url: string; meta: string } | null>(null);
   const [loadingSnapsFor, setLoadingSnapsFor] = useState<string | null>(null);
@@ -44,10 +80,10 @@ export default function ExamMonitor() {
         .order("started_at", { ascending: false }),
       supabase.from("students").select("id").eq("is_staff_preview", true),
     ]);
-    const previewIds = new Set((previewRows ?? []).map((r: any) => r.id));
-    const rows = (a ?? []).map((att: any) => ({ ...att, isRehearsal: previewIds.has(att.student_id) }));
-    setHiddenRehearsals(rows.filter((r: any) => r.isRehearsal).length);
-    setAttempts(showRehearsals ? rows : rows.filter((r: any) => !r.isRehearsal));
+    const previewIds = new Set((previewRows ?? []).map((r) => r.id));
+    const rows = (a ?? []).map((att) => ({ ...att, isRehearsal: previewIds.has(att.student_id) }));
+    setHiddenRehearsals(rows.filter((r) => r.isRehearsal).length);
+    setAttempts(showRehearsals ? rows : rows.filter((r) => !r.isRehearsal));
     setLoading(false);
   };
 
@@ -68,7 +104,7 @@ export default function ExamMonitor() {
    * genuine technical failure, say — and the way staff clear their own dry runs.
    * Answers, events and snapshots cascade with the row.
    */
-  const deleteAttempt = async (attempt: any) => {
+  const deleteAttempt = async (attempt) => {
     const who = attempt.isRehearsal
       ? "this rehearsal attempt"
       : `${attempt.students?.profiles?.first_name ?? ""} ${attempt.students?.profiles?.last_name ?? ""}`.trim() || "this student";
@@ -119,25 +155,25 @@ export default function ExamMonitor() {
     URL.revokeObjectURL(url);
   };
 
-  const openGrading = async (attempt: any) => {
+  const openGrading = async (attempt: MonitoredAttempt) => {
     const { data: ans } = await supabase.from("exam_answers").select("*").eq("attempt_id", attempt.id);
 
     // Every question this attempt was served, in the order it was served —
     // not only the ones with a saved answer. A question the student skipped
     // still has to be visible and markable.
     const served: string[] = Array.isArray(attempt.question_order)
-      ? attempt.question_order
-      : (ans ?? []).map((a: any) => a.question_id);
+      ? attempt.question_order.filter((q): q is string => typeof q === "string")
+      : (ans ?? []).map((a) => a.question_id);
     const { data: qs } = served.length
       ? await supabase.from("question_bank").select("*").in("id", served)
       : { data: [] };
-    const byId = new Map((qs ?? []).map((q: any) => [q.id, q]));
+    const byId = new Map((qs ?? []).map((q) => [q.id, q]));
     const questions = served.map((qid) => byId.get(qid)).filter(Boolean);
 
     // Stand-in rows for skipped questions so they can be marked; saveGrading
     // inserts the ones that were never persisted.
-    const answers = questions.map((q: any) =>
-      (ans ?? []).find((a: any) => a.question_id === q.id) ?? {
+    const answers = questions.map((q) =>
+      (ans ?? []).find((a) => a.question_id === q.id) ?? {
         id: null,
         attempt_id: attempt.id,
         question_id: q.id,
@@ -205,7 +241,7 @@ export default function ExamMonitor() {
   const manualRemaining = gradeData.questions.filter((q) => {
     const ans = gradeData.answers.find((a) => a.question_id === q.id);
     if (!ans) return false;
-    const needsMark = !AUTO_GRADED_TYPES.includes(q.question_type) || q.correct_answer == null;
+    const needsMark = !(AUTO_GRADED_TYPES as string[]).includes(q.question_type) || q.correct_answer == null;
     return needsMark && ans.points_awarded == null;
   }).length;
 
@@ -246,7 +282,7 @@ export default function ExamMonitor() {
         [attemptId]: (prev[attemptId] ?? []).filter((s) => s.id !== snap.id),
       }));
       toast.success("Snapshot deleted");
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || "Failed to delete snapshot");
     }
   };
@@ -264,7 +300,7 @@ export default function ExamMonitor() {
       await supabase.from("exam_snapshots").delete().eq("attempt_id", attemptId);
       setSnapshots((prev) => ({ ...prev, [attemptId]: [] }));
       toast.success("All snapshots deleted");
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || "Failed to delete snapshots");
     }
   };
@@ -303,7 +339,7 @@ export default function ExamMonitor() {
         [attemptId]: (prev[attemptId] ?? []).filter((c) => c.id !== clip.id),
       }));
       toast.success("Audio clip deleted");
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || "Failed to delete audio clip");
     }
   };
@@ -319,7 +355,7 @@ export default function ExamMonitor() {
       await supabase.from("exam_audio_clips").delete().eq("attempt_id", attemptId);
       setAudio((prev) => ({ ...prev, [attemptId]: [] }));
       toast.success("All audio clips deleted");
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || "Failed to delete audio clips");
     }
   };
@@ -531,9 +567,9 @@ export default function ExamMonitor() {
             {gradeData.questions.map((q, idx) => {
               const ans = gradeData.answers.find((a) => a.question_id === q.id);
               if (!ans) return null;
-              const needsMark = !AUTO_GRADED_TYPES.includes(q.question_type) || q.correct_answer == null;
+              const needsMark = !(AUTO_GRADED_TYPES as string[]).includes(q.question_type) || q.correct_answer == null;
               const max = Number(q.points) || 0;
-              const setAnswer = (patch: any) => {
+              const setAnswer = (patch) => {
                 const next = [...gradeData.answers];
                 next[next.indexOf(ans)] = { ...ans, ...patch };
                 setGradeData({ ...gradeData, answers: next });
@@ -626,13 +662,13 @@ export default function ExamMonitor() {
               </p>
             </Card>
 
-            {Array.isArray(grading?.regrade_history) && grading.regrade_history.length > 0 && (
+            {asRegradeHistory(grading?.regrade_history).length > 0 && (
               <Card className="p-3">
                 <p className="text-sm font-medium mb-1">Previous marks</p>
                 <ul className="text-xs text-muted-foreground space-y-0.5">
-                  {grading.regrade_history.map((h: any, i: number) => (
+                  {asRegradeHistory(grading.regrade_history).map((h, i) => (
                     <li key={i}>
-                      {new Date(h.at).toLocaleString()} · changed from {h.from ?? 0} to {h.to ?? 0}
+                      {h.at ? new Date(h.at).toLocaleString() : "—"} · changed from {h.from ?? 0} to {h.to ?? 0}
                     </li>
                   ))}
                 </ul>

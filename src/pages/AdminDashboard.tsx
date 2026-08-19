@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,16 @@ interface LearningModeRequest {
   };
 }
 
+interface CertificateNameRequest {
+  id: string;
+  pending_name_change: string | null;
+  profile: {
+    first_name: string;
+    last_name: string;
+    avatar_url: string | null;
+  };
+}
+
 interface DashboardStats {
   totalStudents: number;
   pendingCount: number;
@@ -46,7 +57,7 @@ interface DashboardStats {
   recentStudents: RecentStudent[];
   pendingStudents: PendingStudent[];
   learningModeRequests: LearningModeRequest[];
-  certificateNameRequests: any[];
+  certificateNameRequests: CertificateNameRequest[];
 }
 
 const AdminDashboard = () => {
@@ -100,9 +111,9 @@ const AdminDashboard = () => {
         activeCourses: coursesRes.count || 0,
         activeCohort: cohortRes.data?.name || null,
         recentStudents: recentRes.data || [],
-        pendingStudents: (pendingRes.data as any) || [],
-        learningModeRequests: (learningModeRequestsRes.data as any) || [],
-        certificateNameRequests: (certRequestsRes.data as any) || [],
+        pendingStudents: (pendingRes.data) || [],
+        learningModeRequests: (learningModeRequestsRes.data) || [],
+        certificateNameRequests: (certRequestsRes.data) || [],
       });
     } catch (err) {
       console.error("Dashboard load error:", err);
@@ -166,7 +177,7 @@ const AdminDashboard = () => {
         throw studentError || new Error("Could not load student request");
       }
 
-      const updatePayload: any = { requested_learning_mode: null };
+      const updatePayload: TablesUpdate<'students'> = { requested_learning_mode: null };
       if (action === "approve") {
         updatePayload.learning_mode = studentData.requested_learning_mode || null;
       }

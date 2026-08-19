@@ -22,7 +22,7 @@ export default function MaintenanceModeCard() {
       .from("system_settings")
       .select("key, value")
       .in("key", ["maintenance_mode", "maintenance_message", "maintenance_return_at"]);
-    const map = Object.fromEntries((data || []).map((r: any) => [r.key, r.value]));
+    const map = Object.fromEntries((data || []).map((r) => [r.key, r.value]));
     const raw = map.maintenance_mode;
     setEnabled(raw === true || raw === "true" || (typeof raw === "string" && raw.toLowerCase() === "true"));
     if (map.maintenance_message) {
@@ -39,9 +39,9 @@ export default function MaintenanceModeCard() {
   const save = async (next: boolean, nextMsg?: string, nextReturnAt?: string) => {
     setSaving(true);
     const upserts = [
-      { key: "maintenance_mode", value: next as any, updated_at: new Date().toISOString() },
-      { key: "maintenance_message", value: (nextMsg ?? message) as any, updated_at: new Date().toISOString() },
-      { key: "maintenance_return_at", value: (nextReturnAt ? new Date(nextReturnAt).toISOString() : null) as any, updated_at: new Date().toISOString() },
+      { key: "maintenance_mode", value: next, updated_at: new Date().toISOString() },
+      { key: "maintenance_message", value: (nextMsg ?? message), updated_at: new Date().toISOString() },
+      { key: "maintenance_return_at", value: (nextReturnAt ? new Date(nextReturnAt).toISOString() : null), updated_at: new Date().toISOString() },
     ];
     for (const u of upserts) {
       const { error } = await supabase.from("system_settings").upsert(u, { onConflict: "key" });

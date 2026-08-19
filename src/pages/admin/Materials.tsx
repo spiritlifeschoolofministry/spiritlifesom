@@ -30,7 +30,7 @@ interface UploadForm {
 const AdminMaterials = () => {
   const [cohorts, setCohorts] = useState<Tables<'cohorts'>[]>([]);
   const [courses, setCourses] = useState<Tables<'courses'>[]>([]);
-  const [courseCohorts, setCourseCohorts] = useState<any[]>([]);
+  const [courseCohorts, setCourseCohorts] = useState<Tables<'course_cohorts'>[]>([]);
   const [materials, setMaterials] = useState<Tables<'course_materials'>[]>([]);
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -43,7 +43,7 @@ const AdminMaterials = () => {
 
   // Share to cohort state
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [sharingMaterial, setSharingMaterial] = useState<any | null>(null);
+  const [sharingMaterial, setSharingMaterial] = useState<Tables<'course_materials'> | null>(null);
   const [shareTargetCohort, setShareTargetCohort] = useState('');
   const [isSharing, setIsSharing] = useState(false);
 
@@ -79,7 +79,7 @@ const AdminMaterials = () => {
     }
   };
 
-  const handleDownload = async (m: any) => {
+  const handleDownload = async (m) => {
     try {
       if (m.storage_provider === 'r2') {
         const url = await r2Storage.getDownloadUrl(m.storage_path || m.file_url);

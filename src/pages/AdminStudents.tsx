@@ -172,7 +172,7 @@ const AdminStudents = () => {
         .eq("is_staff_preview", false)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      setStudents((data as any) || []);
+      setStudents(data || []);
     } catch (err) {
       console.error("Load students error:", err);
       toast.error("Failed to load students");
@@ -314,7 +314,7 @@ const AdminStudents = () => {
       }
 
       toast.success(`User role updated to ${newRole}`);
-    } catch (err: any) {
+    } catch (err) {
       console.error("Role change error:", err);
       toast.error(err.message || "Failed to update user role");
     }
@@ -495,7 +495,7 @@ const AdminStudents = () => {
       if (error) throw error;
       if (!data || data.length === 0) { toast.error("No students to export"); return; }
 
-      const rows = (data as any[]).map((s) => ({
+      const rows = data.map((s) => ({
         "First Name": s.profile?.first_name || "",
         "Middle Name": s.profile?.middle_name || "",
         "Last Name": s.profile?.last_name || "",

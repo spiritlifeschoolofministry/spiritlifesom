@@ -94,7 +94,7 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
           
           if (students) {
             const nameMap: Record<string, string> = {};
-            students.forEach((s: any) => {
+            students.forEach((s) => {
               if (s.profiles) {
                 nameMap[s.id] = `${s.profiles.first_name || ''} ${s.profiles.last_name || ''}`.trim();
               }

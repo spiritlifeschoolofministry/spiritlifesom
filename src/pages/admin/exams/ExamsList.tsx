@@ -106,20 +106,20 @@ export default function ExamsList() {
       return;
     }
 
-    const courseById = new Map((courseRes.data ?? []).map((c: any) => [c.id, c]));
-    const cohortById = new Map((cohortRes.data ?? []).map((c: any) => [c.id, c]));
-    const tally = (rows: any[] | null) => {
+    const courseById = new Map((courseRes.data ?? []).map((c) => [c.id, c]));
+    const cohortById = new Map((cohortRes.data ?? []).map((c) => [c.id, c]));
+    const tally = (rows: { exam_id: string }[] | null) => {
       const m = new Map<string, number>();
       for (const r of rows ?? []) m.set(r.exam_id, (m.get(r.exam_id) ?? 0) + 1);
       return m;
     };
     const questionCounts = tally(linkRes.data);
     // Staff rehearsals must not inflate the sat-the-paper count.
-    const previewIds = new Set((previewRes.data ?? []).map((r: any) => r.id));
-    const attemptCounts = tally((attemptRes.data ?? []).filter((r: any) => !previewIds.has(r.student_id)));
+    const previewIds = new Set((previewRes.data ?? []).map((r) => r.id));
+    const attemptCounts = tally((attemptRes.data ?? []).filter((r) => !previewIds.has(r.student_id)));
 
     setExams(
-      (examRes.data ?? []).map((e: any) => {
+      (examRes.data ?? []).map((e) => {
         const course = courseById.get(e.course_id);
         return {
           ...e,
@@ -162,7 +162,7 @@ export default function ExamsList() {
       if (error) throw error;
       setExams((prev) => prev.map((e) => (e.id === exam.id ? { ...e, status } : e)));
       toast.success(successMsg);
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || "Could not update the exam");
     } finally {
       setBusyId(null);
@@ -186,7 +186,7 @@ export default function ExamsList() {
       toast.success("Exam deleted");
       setExamToDelete(null);
       setExams((prev) => prev.filter((e) => e.id !== exam.id));
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || "Failed to delete exam");
     } finally {
       setBusyId(null);

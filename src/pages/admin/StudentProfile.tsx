@@ -112,7 +112,7 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
     cohort_id: student.cohort_id || "",
     student_code: student.student_code || "",
     graduation_date: student.graduation_date || "",
-  } as any);
+  });
 
   useEffect(() => {
     supabase.from("cohorts").select("id, name").order("name").then(({ data }) => {
@@ -138,7 +138,7 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
           cohort_id: form.cohort_id || null,
           student_code: form.student_code || null,
           graduation_date: form.graduation_date || null,
-        } as any)
+        })
         .eq("id", student.id);
       if (updateError) throw updateError;
 
@@ -148,10 +148,10 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
         .eq("id", student.id)
         .single();
       if (fetchError) throw fetchError;
-      if (data) onSaved(data as any);
+      if (data) onSaved(data);
       toast.success("Student academic info updated");
       setEditing(false);
-    } catch (err: any) {
+    } catch (err) {
       console.error('[AdminEdit] Update error:', err);
       toast.error(err?.message || "Failed to update");
     } finally {
@@ -338,12 +338,12 @@ const ProfileCompleteOverrideButton = ({
     try {
       const { error } = await supabase
         .from("students")
-        .update({ profile_complete_override: !overridden } as any)
+        .update({ profile_complete_override: !overridden })
         .eq("id", student.id);
       if (error) throw error;
       onChanged({ ...student, profile_complete_override: !overridden });
       toast.success(overridden ? "Override removed" : "Profile marked complete (override)");
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err?.message || "Failed to toggle override");
     } finally {
       setBusy(false);
@@ -423,7 +423,7 @@ const AdminStudentProfile = () => {
       ]);
 
       if (studentRes.data) {
-        setStudent(studentRes.data as any);
+        setStudent(studentRes.data);
 
         // Courses the offline-record dialog can attach a mark to.
         if (studentRes.data.cohort_id) {
@@ -450,7 +450,7 @@ const AdminStudentProfile = () => {
 
       if (assignmentsRes.data) {
         setAssignments(
-          (assignmentsRes.data as any[]).map(s => ({
+          (assignmentsRes.data).map(s => ({
             id: s.id,
             title: s.assignment?.title || "Unknown",
             category: s.assignment?.category || "Task",
@@ -630,7 +630,7 @@ const AdminStudentProfile = () => {
         <TabsContent value="academic">
           <div className="space-y-4">
             {/* Academic Profile - Editable */}
-            <AdminAcademicEditCard student={student} onSaved={(updated) => setStudent(updated as any)} />
+            <AdminAcademicEditCard student={student} onSaved={(updated) => setStudent(updated)} />
 
             {/* Attendance */}
             <Card className="shadow-[var(--shadow-card)] border-border">

@@ -16,20 +16,23 @@ import {
   CheckCircle2, Clock, User2, Calendar, FileText,
 } from "lucide-react";
 
+/** One graded item on the transcript: an assignment submission or an exam. */
+interface GradeEntry {
+  id: string;
+  title: string;
+  category: string;
+  max_points: number;
+  grade: number | null;
+  reviewed_at: string | null;
+}
+
 interface CourseRecord {
   id: string;
   title: string;
   code: string;
   lecturer: string | null;
   is_completed: boolean | null;
-  assignments: {
-    id: string;
-    title: string;
-    category: string;
-    max_points: number;
-    grade: number | null;
-    reviewed_at: string | null;
-  }[];
+  assignments: GradeEntry[];
   courseAvg: number | null;
 }
 
@@ -93,7 +96,7 @@ const StudentTranscript = () => {
 
       // Build submissions map by course
       const subsByCourse = new Map<string, typeof subsRes.data>();
-      for (const sub of (subsRes.data || []) as any[]) {
+      for (const sub of (subsRes.data || [])) {
         const courseId = sub.assignment?.course_id;
         if (!courseId) continue;
         if (!subsByCourse.has(courseId)) subsByCourse.set(courseId, []);
@@ -101,8 +104,8 @@ const StudentTranscript = () => {
       }
 
       // Released exam results, grouped by the course they belong to.
-      const examsByCourse = new Map<string, any[]>();
-      for (const att of (examsRes.data || []) as any[]) {
+      const examsByCourse = new Map<string, GradeEntry[]>();
+      for (const att of (examsRes.data || [])) {
         if (!att.exam?.results_released) continue;
         const courseId = att.exam.course_id;
         if (!courseId) continue;
@@ -117,10 +120,10 @@ const StudentTranscript = () => {
         });
       }
 
-      const courseRecords: CourseRecord[] = (coursesRes.data || []).map((c: any) => {
-        const subs = (subsByCourse.get(c.id) || []) as any[];
+      const courseRecords: CourseRecord[] = (coursesRes.data || []).map((c) => {
+        const subs = (subsByCourse.get(c.id) || []);
         const assignments = [
-          ...subs.map((s: any) => ({
+          ...subs.map((s) => ({
             id: s.assignment?.id || "",
             title: s.assignment?.title || "",
             category: s.assignment?.category || "Assignment",
@@ -131,9 +134,9 @@ const StudentTranscript = () => {
           ...(examsByCourse.get(c.id) || []),
         ];
 
-        const graded = assignments.filter((a: any) => a.grade != null);
-        const totalPts = graded.reduce((s: number, a: any) => s + a.max_points, 0);
-        const earnedPts = graded.reduce((s: number, a: any) => s + (a.grade || 0), 0);
+        const graded = assignments.filter((a) => a.grade != null);
+        const totalPts = graded.reduce((sum, a) => sum + a.max_points, 0);
+        const earnedPts = graded.reduce((sum, a) => sum + (a.grade || 0), 0);
         const courseAvg = totalPts > 0 ? Math.round((earnedPts / totalPts) * 100) : null;
 
         return { ...c, assignments, courseAvg };
@@ -143,7 +146,7 @@ const StudentTranscript = () => {
 
       // Attendance
       const attData = attRes.data || [];
-      const present = attData.filter((a: any) => a.status === "Present" || a.status === "Late").length;
+      const present = attData.filter((a) => a.status === "Present" || a.status === "Late").length;
       setAttendance({
         total: attData.length,
         present,

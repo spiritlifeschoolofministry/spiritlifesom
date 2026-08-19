@@ -16,7 +16,7 @@ import { calculateTimeRemaining, formatTimeRemaining, type TimeRemaining } from 
 import { r2Storage } from '@/lib/r2-storage';
 
 interface AssignmentWithSubmission extends Tables<'assignments'> {
-  submission?: any | null;
+  submission?: Tables<'assignment_submissions'> | null;
 }
 
 const StudentAssignments = () => {
@@ -67,7 +67,7 @@ const StudentAssignments = () => {
     }
   };
 
-  const handleDownload = async (submission: any) => {
+  const handleDownload = async (submission) => {
     try {
       if (submission.storage_provider === 'r2') {
         const url = await r2Storage.getDownloadUrl(submission.storage_path || submission.file_url);

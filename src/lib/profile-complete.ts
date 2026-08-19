@@ -22,7 +22,7 @@ export function isStudentProfileComplete(
   student: (Tables<"students"> & { profile_complete_override?: boolean | null }) | null,
 ): boolean {
   if (!profile || !student) return false;
-  if ((student as any).profile_complete_override === true) return true;
+  if (student.profile_complete_override === true) return true;
   return missingProfileFields(profile, student).length === 0;
 }
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,8 @@ interface Course {
   start_date: string | null;
   created_at: string | null;
   semester: number | null;
+  /** Embedded by the `cohort:cohorts(name)` select, used to group the list. */
+  cohort: { name: string | null } | null;
 }
 
 interface Cohort {
@@ -46,7 +49,7 @@ const emptyCourse = {
 const AdminCourses = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
-    const [courseCohorts, setCourseCohorts] = useState<any[]>([]);
+    const [courseCohorts, setCourseCohorts] = useState<Tables<'course_cohorts'>[]>([]);
     const [shareModalOpen, setShareModalOpen] = useState(false);
     const [sharingCourseId, setSharingCourseId] = useState<string | null>(null);
     const [shareTargetCohort, setShareTargetCohort] = useState('');
@@ -195,8 +198,8 @@ const AdminCourses = () => {
     return matchesSearch && matchesCohort;
   }).sort((a, b) => {
     if (cohortFilter === "all") {
-      const nameA = (a as any).cohort?.name || "";
-      const nameB = (b as any).cohort?.name || "";
+      const nameA = a.cohort?.name || "";
+      const nameB = b.cohort?.name || "";
       if (nameA !== nameB) return nameA.localeCompare(nameB);
     }
     return (a.semester || 1) - (b.semester || 1) || a.code.localeCompare(b.code);

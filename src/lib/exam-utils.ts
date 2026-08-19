@@ -65,9 +65,12 @@ export const parseMatchingQuestion = (raw: string): ParsedMatching | null => {
  * Answers are kept in the shape the runner produced — an option index, a list
  * of indices, a boolean — which is fine for scoring and unreadable on screen.
  */
+/** The little bit of a question that reading an answer back actually needs. */
+export type AnswerFormattable = { question_type?: string | null; options?: unknown };
+
 export const formatAnswer = (
   value: unknown,
-  question: { question_type?: string | null; options?: unknown },
+  question: AnswerFormattable,
 ): string => {
   if (value === null || value === undefined || value === "") return "";
   const options = Array.isArray(question.options) ? (question.options as unknown[]) : null;
@@ -257,7 +260,17 @@ const resolveOptionIndex = (token: string, options: string[]) => {
  *   short_answer/fill_blank  accepted answers separated by | (commas are kept as-is)
  *   essay/matching         ignored; matching is graded manually
  */
-export const parseQuestionCSV = (csv: string) => {
+/** One question parsed out of an import CSV, in insert-ready form. */
+export type ParsedQuestion = {
+  question_type: QuestionType;
+  question_text: string;
+  options: string[] | null;
+  correct_answer: unknown;
+  points: number;
+  explanation: string | null;
+};
+
+export const parseQuestionCSV = (csv: string): ParsedQuestion[] => {
   const rows = parseCSV(csv);
   if (rows.length < 2) return [];
   const headers = rows[0].map((h) => h.trim().toLowerCase());
@@ -265,7 +278,7 @@ export const parseQuestionCSV = (csv: string) => {
     const i = headers.indexOf(key);
     return i < 0 ? "" : (cells[i] ?? "");
   };
-  const out: Array<Record<string, unknown>> = [];
+  const out: ParsedQuestion[] = [];
 
   for (let i = 1; i < rows.length; i++) {
     const cells = rows[i];

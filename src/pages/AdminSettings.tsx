@@ -114,7 +114,7 @@ const AdminSettings = () => {
       if (error) throw error;
 
       const settingsMap: Record<string, string> = {};
-      data?.forEach((s: any) => {
+      data?.forEach((s) => {
         const val = typeof s.value === 'string' ? s.value : JSON.stringify(s.value);
         settingsMap[s.key] = val;
       });
@@ -144,7 +144,7 @@ const AdminSettings = () => {
         .in('role', ['admin', 'teacher'])
         .order('first_name');
       if (error) throw error;
-      setAdminUsers((data as any) || []);
+      setAdminUsers(data || []);
     } catch (err) {
       console.error('Load admins error:', err);
     }
@@ -158,7 +158,7 @@ const AdminSettings = () => {
         .eq('is_staff_preview', false)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      const studentList = (data as any)?.map((s: any) => ({
+      const studentList = data?.map((s) => ({
         id: s.id,
         profile_id: s.profile_id,
         first_name: s.profiles?.first_name || '',
@@ -588,7 +588,7 @@ const AdminSettings = () => {
           <div className="space-y-4">
             <div className="flex flex-col gap-2">
               <Label>Select Role</Label>
-              <Select value={selectedRole} onValueChange={(v: any) => setSelectedRole(v)}>
+              <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v === "admin" ? "admin" : "teacher")}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>

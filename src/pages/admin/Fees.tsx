@@ -89,22 +89,22 @@ const AdminFees = () => {
               .from('students')
               .select('id, cohort_id, profile:profiles(first_name, last_name, email)')
               .in('id', studentIds)
-          : Promise.resolve({ data: [] as any[] }),
+          : Promise.resolve({ data: [] }),
         feeIds.length
           ? supabase.from('fee_structures').select('id, fee_name').in('id', feeIds)
-          : Promise.resolve({ data: [] as any[] }),
+          : Promise.resolve({ data: [] }),
         studentIds.length
           ? supabase.from('fees').select('*').in('student_id', studentIds)
           : Promise.resolve({ data: [] as StudentFee[] }),
       ]);
 
-      const studMap = new Map((studs || []).map((s: any) => [s.id, s]));
-      const feeMap = new Map((feeRows || []).map((f: any) => [f.id, f.fee_name]));
+      const studMap = new Map((studs || []).map((s) => [s.id, s]));
+      const feeMap = new Map((feeRows || []).map((f) => [f.id, f.fee_name]));
       const assignedMap = new Map((assignedFees || []).map((f: StudentFee) => [f.id, f]));
       setStudentFees(assignedFees || []);
 
       const enriched: PaymentWithStudent[] = payments.map((p) => {
-        const s: any = p.student_id ? studMap.get(p.student_id) : null;
+        const s = p.student_id ? studMap.get(p.student_id) : null;
         const name = s?.profile ? `${s.profile.first_name || ''} ${s.profile.last_name || ''}`.trim() : 'Unknown';
         // The student's own fee record is the real target; the fee_structures
         // link is only a fallback for receipts submitted before that existed.
@@ -350,7 +350,7 @@ const AdminFees = () => {
       const { data: students } = await supabase.from('students').select('id, student_code, profile:profiles(first_name, last_name, email)').in('id', studentIds);
       const map = new Map((students || []).map((s) => [s.id, s]));
       downloadCSV(fees.map((f) => {
-        const s: any = map.get(f.student_id);
+        const s = map.get(f.student_id);
         return {
           Student: s ? `${s.profile?.first_name || ''} ${s.profile?.last_name || ''}`.trim() : 'Unknown',
           Email: s?.profile?.email || '',

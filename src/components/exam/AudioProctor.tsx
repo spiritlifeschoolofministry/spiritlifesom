@@ -88,7 +88,7 @@ export default function AudioProctor({ attemptId, examId, studentId, clipSeconds
         stream.getAudioTracks().forEach((track) => {
           track.addEventListener("ended", () => lose("Microphone was turned off"));
         });
-      } catch (e: any) {
+      } catch (e) {
         lose(e?.message || "Microphone blocked");
       }
     })();
@@ -139,7 +139,7 @@ export default function AudioProctor({ attemptId, examId, studentId, clipSeconds
   // picking sound up, so a muted headset is noticed before the exam is over.
   useEffect(() => {
     if (!active || !streamRef.current) return;
-    const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return;
     const ctx = new Ctx();
     const source = ctx.createMediaStreamSource(streamRef.current);

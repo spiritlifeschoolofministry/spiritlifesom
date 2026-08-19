@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +51,31 @@ interface Application {
   };
 }
 
+/** The profile columns both request queries embed. */
+interface RequesterProfile {
+  first_name: string;
+  last_name: string;
+  middle_name: string | null;
+  email: string;
+  phone: string | null;
+  avatar_url: string | null;
+}
+
+interface LearningModeRequest {
+  id: string;
+  learning_mode: string | null;
+  requested_learning_mode: string | null;
+  created_at: string | null;
+  profile: RequesterProfile | null;
+}
+
+interface CertificateNameRequest {
+  id: string;
+  pending_name_change: string | null;
+  created_at: string | null;
+  profile: RequesterProfile | null;
+}
+
 interface CohortOption {
   id: string;
   name: string;
@@ -64,8 +90,8 @@ const AdminAdmissions = () => {
   const [bulkApproving, setBulkApproving] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
-  const [learningModeRequests, setLearningModeRequests] = useState<any[]>([]);
-  const [certificateRequests, setCertificateRequests] = useState<any[]>([]);
+  const [learningModeRequests, setLearningModeRequests] = useState<LearningModeRequest[]>([]);
+  const [certificateRequests, setCertificateRequests] = useState<CertificateNameRequest[]>([]);
   const [filterMode, setFilterMode] = useState<string>("all");
   const [filterCohort, setFilterCohort] = useState<string>("all");
   const [filterLanguage, setFilterLanguage] = useState<string>("all");
@@ -167,7 +193,7 @@ const AdminAdmissions = () => {
         .limit(500);
       if (error) throw error;
       const map: Record<string, { status: string; sent_at: string | null }> = {};
-      (data || []).forEach((row: any) => {
+      (data || []).forEach((row) => {
         if (row.student_id && !map[row.student_id]) {
           map[row.student_id] = { status: row.status, sent_at: row.created_at };
         }
@@ -219,10 +245,10 @@ const AdminAdmissions = () => {
       ]);
 
       if (appsRes.error) throw appsRes.error;
-      setApplications((appsRes.data as any) || []);
+      setApplications(appsRes.data || []);
       if (cohortsRes.data) setCohorts(cohortsRes.data as CohortOption[]);
-      if (lmRes && (lmRes as any).data) setLearningModeRequests((lmRes as any).data || []);
-      if (certRes && (certRes as any).data) setCertificateRequests((certRes as any).data || []);
+      if (lmRes?.data) setLearningModeRequests(lmRes.data || []);
+      if (certRes?.data) setCertificateRequests(certRes.data || []);
     } catch (err) {
       console.error("Load applications error:", err);
       toast.error("Failed to load applications");
@@ -241,7 +267,7 @@ const AdminAdmissions = () => {
 
       if (studentError || !studentData) throw studentError || new Error("Could not load student request");
 
-      const updatePayload: any = { requested_learning_mode: null };
+      const updatePayload: TablesUpdate<'students'> = { requested_learning_mode: null };
       if (action === "approve") updatePayload.learning_mode = studentData.requested_learning_mode || null;
 
       const { data, error } = await supabase
@@ -283,7 +309,7 @@ const AdminAdmissions = () => {
 
       if (studentError || !studentData) throw studentError || new Error("Could not load certificate request");
 
-      const updatePayload: any = { pending_name_change: null };
+      const updatePayload: TablesUpdate<'students'> = { pending_name_change: null };
       if (action === "approve") updatePayload.name_on_certificate = studentData.pending_name_change || null;
 
       const { data, error } = await supabase

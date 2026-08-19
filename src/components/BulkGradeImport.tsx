@@ -63,7 +63,7 @@ const BulkGradeImport = ({ assignments, onImportComplete }: Props) => {
       .eq("cohort_id", selectedAssignment.cohort_id);
 
     const emailToStudent = new Map<string, string>();
-    (students || []).forEach((s: any) => {
+    (students || []).forEach((s) => {
       if (s.profiles?.email) emailToStudent.set(s.profiles.email.toLowerCase(), s.id);
     });
 

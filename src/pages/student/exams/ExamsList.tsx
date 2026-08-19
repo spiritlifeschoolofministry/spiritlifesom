@@ -1,6 +1,21 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from '@/integrations/supabase/types';
+
+/** An exam_result_answers row, plus the question_bank shape the UI reads. */
+type ResultAnswer = Tables<'exam_result_answers'> & {
+  question_bank: {
+    question_text: string | null;
+    question_type: string | null;
+    options: Tables<'exam_result_answers'>['options'];
+    correct_answer: Tables<'exam_result_answers'>['correct_answer'];
+    explanation: string | null;
+    points: number | null;
+  };
+};
+
+type ExamWithCourse = Tables<'exams'> & { courses: { code: string; title: string } | null };
 import { useAuth } from "@/contexts/useAuth";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,15 +24,15 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import StudentLayout from "@/components/StudentLayout";
 import { format, isAfter, isBefore } from "date-fns";
 import { ChevronDown, CheckCircle2, XCircle, Trophy, Download } from "lucide-react";
-import { formatAnswer, sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType } from "@/lib/exam-utils";
+import { formatAnswer, sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType, type AnswerFormattable } from "@/lib/exam-utils";
 import { downloadCSV } from "@/lib/csv-export";
 
 export default function StudentExamsList() {
   const { student } = useAuth();
-  const [exams, setExams] = useState<any[]>([]);
-  const [attempts, setAttempts] = useState<Record<string, any>>({});
+  const [exams, setExams] = useState<ExamWithCourse[]>([]);
+  const [attempts, setAttempts] = useState<Record<string, Tables<'exam_attempts'>>>({});
   const [loading, setLoading] = useState(true);
-  const [breakdowns, setBreakdowns] = useState<Record<string, any[]>>({});
+  const [breakdowns, setBreakdowns] = useState<Record<string, ResultAnswer[]>>({});
   const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,7 +49,7 @@ export default function StudentExamsList() {
         .from("exam_attempts")
         .select("*")
         .eq("student_id", student.id);
-      const map: Record<string, any> = {};
+      const map: Record<string, Tables<'exam_attempts'>> = {};
       (at ?? []).forEach((a) => { map[a.exam_id] = a; });
       setAttempts(map);
       setLoading(false);
@@ -56,7 +71,7 @@ export default function StudentExamsList() {
       .from("exam_result_answers")
       .select("*")
       .eq("attempt_id", attemptId);
-    return (data ?? []).map((r: any) => ({
+    return (data ?? []).map((r) => ({
       ...r,
       question_bank: {
         question_text: r.question_text,
@@ -69,7 +84,7 @@ export default function StudentExamsList() {
     }));
   };
 
-  const loadBreakdown = async (exam: any) => {
+  const loadBreakdown = async (exam) => {
     if (breakdowns[exam.id]) return;
     const attempt = attempts[exam.id];
     if (!attempt) return;
@@ -77,18 +92,18 @@ export default function StudentExamsList() {
     setBreakdowns((b) => ({ ...b, [exam.id]: rows }));
   };
 
-  const renderAnswer = (val: unknown, q: any) => {
+  const renderAnswer = (val: unknown, q: AnswerFormattable) => {
     if (val === null || val === undefined || val === "") return <span className="italic text-muted-foreground">No answer</span>;
     // Shared with the marking screen so a matching answer reads "A → 2" in both
     // places rather than "[object Object]" here.
     return formatAnswer(val, q);
   };
 
-  const answerToText = (val: unknown, q: any): string => formatAnswer(val, q);
+  const answerToText = (val: unknown, q: AnswerFormattable): string => formatAnswer(val, q);
 
   const stripHtml = (html: string) => (html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
-  const exportBreakdown = async (exam: any) => {
+  const exportBreakdown = async (exam) => {
     let rows = breakdowns[exam.id];
     if (!rows) {
       const attempt = attempts[exam.id];

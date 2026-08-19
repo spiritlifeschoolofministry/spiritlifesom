@@ -1,5 +1,32 @@
 import { useEffect, useState, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables, TablesInsert } from '@/integrations/supabase/types';
+
+/** Only the columns the course picker query selects. */
+type CourseOption = Pick<Tables<'courses'>, 'id' | 'code' | 'title'>;
+
+/**
+ * The editor's working copy of a question. `options` and `correct_answer` are
+ * Json columns on question_bank, but the editor manipulates them unpacked —
+ * options as a list of strings, correct_answer as whatever the question type
+ * calls for — so the draft names those forms and toDraft converts a loaded row
+ * into them. Every other column is optional because a new question starts from
+ * a handful of fields rather than a full row.
+ */
+type QuestionDraft = Partial<Omit<Tables<'question_bank'>, 'options' | 'correct_answer'>> & {
+  options?: string[] | null;
+  correct_answer?: number | number[] | boolean | string[] | Record<string, string> | null;
+};
+
+/** A multi-answer question keeps its answer as a list of option indices. */
+const selectedIndices = (value: QuestionDraft['correct_answer']): number[] =>
+  Array.isArray(value) ? value.filter((n): n is number => typeof n === "number") : [];
+
+const toDraft = (q: Tables<'question_bank'>): QuestionDraft => ({
+  ...q,
+  options: Array.isArray(q.options) ? q.options.map((o) => String(o)) : null,
+  correct_answer: q.correct_answer as QuestionDraft['correct_answer'],
+});
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -18,20 +45,20 @@ import { Plus, Upload, Archive, Edit, Trash2, Search, Loader2 } from "lucide-rea
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export default function QuestionBank() {
-  const [questions, setQuestions] = useState<any[]>([]);
-  const [courses, setCourses] = useState<any[]>([]);
+  const [questions, setQuestions] = useState<Tables<'question_bank'>[]>([]);
+  const [courses, setCourses] = useState<CourseOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterCourse, setFilterCourse] = useState("all");
   const [filterType, setFilterType] = useState<string>("all");
   const [showArchived, setShowArchived] = useState(false);
-  const [editing, setEditing] = useState<any | null>(null);
+  const [editing, setEditing] = useState<QuestionDraft | null>(null);
   const [openEditor, setOpenEditor] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importCourse, setImportCourse] = useState("");
-  const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [importPreview, setImportPreview] = useState<ReturnType<typeof parseQuestionCSV>>([]);
   const [importLoading, setImportLoading] = useState(false);
-  const [questionToDelete, setQuestionToDelete] = useState<any | null>(null);
+  const [questionToDelete, setQuestionToDelete] = useState<Tables<'question_bank'> | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
@@ -74,7 +101,9 @@ export default function QuestionBank() {
   const saveQuestion = async () => {
     if (!editing.course_id) return toast.error("Select a course");
     if (!editing.question_text?.trim()) return toast.error("Question text is required");
-    const payload = { ...editing };
+    // The two guards above are the course_id and question_text that
+    // TablesInsert requires and the draft type leaves optional.
+    const payload = { ...editing } as TablesInsert<'question_bank'> & { id?: string };
     delete payload.id;
     const { error } = editing.id
       ? await supabase.from("question_bank").update(payload).eq("id", editing.id)
@@ -86,13 +115,13 @@ export default function QuestionBank() {
     load();
   };
 
-  const toggleArchive = async (q: any) => {
+  const toggleArchive = async (q) => {
     const { error } = await supabase.from("question_bank").update({ archived: !q.archived }).eq("id", q.id);
     if (error) return toast.error(error.message);
     load();
   };
 
-  const remove = async (q: any) => {
+  const remove = async (q) => {
     try {
       setDeleting(true);
       const { error } = await supabase.from("question_bank").delete().eq("id", q.id);
@@ -100,7 +129,7 @@ export default function QuestionBank() {
       toast.success("Deleted");
       setQuestionToDelete(null);
       load();
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message);
     } finally {
       setDeleting(false);
@@ -121,7 +150,7 @@ export default function QuestionBank() {
         setImportPreview(rows);
         toast.success(`Parsed ${rows.length} question(s) from file`);
       }
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || "Failed to read file");
       setImportPreview([]);
     } finally {
@@ -135,7 +164,7 @@ export default function QuestionBank() {
     if (!importPreview.length) return toast.error("No questions to import");
     try {
       setImportLoading(true);
-      const payload = importPreview.map((r: any) => ({
+      const payload = importPreview.map((r) => ({
         course_id: importCourse,
         question_type: r.question_type,
         question_text: r.question_text,
@@ -144,14 +173,16 @@ export default function QuestionBank() {
         points: r.points,
         explanation: r.explanation,
       }));
-      const { error } = await supabase.from("question_bank").insert(payload as any);
+      const { error } = await supabase
+        .from("question_bank")
+        .insert(payload as TablesInsert<'question_bank'>[]);
       if (error) throw error;
       toast.success(`Imported ${payload.length} question(s)`);
       setImportOpen(false);
       setImportPreview([]);
       setImportCourse("");
       load();
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || "Import failed");
     } finally {
       setImportLoading(false);
@@ -218,7 +249,7 @@ export default function QuestionBank() {
                     dangerouslySetInnerHTML={{ __html: sanitizeHtml(q.question_text) }} />
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <Button variant="ghost" size="icon" onClick={() => { setEditing(q); setOpenEditor(true); }}>
+                  <Button variant="ghost" size="icon" onClick={() => { setEditing(toDraft(q)); setOpenEditor(true); }}>
                     <Edit className="w-4 h-4" />
                   </Button>
                   <Button variant="ghost" size="icon" onClick={() => toggleArchive(q)}>
@@ -253,7 +284,7 @@ export default function QuestionBank() {
                 <div>
                   <Label>Type</Label>
                   <Select value={editing.question_type} onValueChange={(v) => {
-                    const next: any = { ...editing, question_type: v };
+                    const next: QuestionDraft = { ...editing, question_type: v };
                     if (v === "mcq_single") { next.options = ["", ""]; next.correct_answer = 0; }
                     else if (v === "mcq_multi") { next.options = ["", ""]; next.correct_answer = []; }
                     else if (v === "true_false") { next.options = null; next.correct_answer = true; }
@@ -309,15 +340,15 @@ export default function QuestionBank() {
                           onChange={() => setEditing({ ...editing, correct_answer: i })} />
                       ) : (
                         <input type="checkbox"
-                          checked={Array.isArray(editing.correct_answer) && editing.correct_answer.includes(i)}
+                          checked={selectedIndices(editing.correct_answer).includes(i)}
                           onChange={(e) => {
-                            const arr = Array.isArray(editing.correct_answer) ? [...editing.correct_answer] : [];
-                            const next = e.target.checked ? [...arr, i] : arr.filter((n: number) => n !== i);
-                            setEditing({ ...editing, correct_answer: next.sort() });
+                            const arr = selectedIndices(editing.correct_answer);
+                            const next = e.target.checked ? [...arr, i] : arr.filter((n) => n !== i);
+                            setEditing({ ...editing, correct_answer: next.sort((a, b) => a - b) });
                           }} />
                       )}
                       <Button size="sm" variant="ghost" onClick={() => {
-                        const opts = editing.options.filter((_: any, idx: number) => idx !== i);
+                        const opts = editing.options.filter((_, idx: number) => idx !== i);
                         setEditing({ ...editing, options: opts });
                       }}>×</Button>
                     </div>
@@ -473,7 +504,7 @@ export default function QuestionBank() {
                           <tr key={i} className="hover:bg-muted/50">
                             <td className="px-3 py-2 whitespace-nowrap">
                               <Badge variant="secondary" className="text-[10px]">
-                                {QUESTION_TYPE_LABELS[q.question_type as QuestionType] || q.question_type}
+                                {QUESTION_TYPE_LABELS[q.question_type] || q.question_type}
                               </Badge>
                             </td>
                             <td className="px-3 py-2">
