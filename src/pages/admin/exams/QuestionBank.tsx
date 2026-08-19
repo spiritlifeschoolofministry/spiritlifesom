@@ -1,5 +1,9 @@
 import { useEffect, useState, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from '@/integrations/supabase/types';
+
+/** Only the columns the course picker query selects. */
+type CourseOption = Pick<Tables<'courses'>, 'id' | 'code' | 'title'>;
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -18,8 +22,8 @@ import { Plus, Upload, Archive, Edit, Trash2, Search, Loader2 } from "lucide-rea
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export default function QuestionBank() {
-  const [questions, setQuestions] = useState<any[]>([]);
-  const [courses, setCourses] = useState<any[]>([]);
+  const [questions, setQuestions] = useState<Tables<'question_bank'>[]>([]);
+  const [courses, setCourses] = useState<CourseOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterCourse, setFilterCourse] = useState("all");

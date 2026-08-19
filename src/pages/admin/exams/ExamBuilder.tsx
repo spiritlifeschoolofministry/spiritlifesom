@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from '@/integrations/supabase/types';
+
+/** The columns each picker query selects, rather than the whole row. */
+type CourseOption = Pick<Tables<'courses'>, 'id' | 'code' | 'title'>;
+type CohortOption = Pick<Tables<'cohorts'>, 'id' | 'name' | 'is_active'>;
+type ExamOption = Pick<Tables<'exams'>, 'id' | 'title' | 'course_id'> & {
+  courses: { code: string } | null;
+};
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -98,16 +106,16 @@ export default function ExamBuilder() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [exam, setExam] = useState<any>(DEFAULT);
-  const [courses, setCourses] = useState<any[]>([]);
-  const [cohorts, setCohorts] = useState<any[]>([]);
-  const [bank, setBank] = useState<any[]>([]);
+  const [courses, setCourses] = useState<CourseOption[]>([]);
+  const [cohorts, setCohorts] = useState<CohortOption[]>([]);
+  const [bank, setBank] = useState<Tables<'question_bank'>[]>([]);
   const [picked, setPicked] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState(params.get("tab") || "settings");
   const [previewIdx, setPreviewIdx] = useState(0);
   const [importOpen, setImportOpen] = useState(false);
-  const [otherExams, setOtherExams] = useState<any[]>([]);
+  const [otherExams, setOtherExams] = useState<ExamOption[]>([]);
   const [importExamId, setImportExamId] = useState<string>("");
   const [importQids, setImportQids] = useState<string[]>([]);
   const [importQuestions, setImportQuestions] = useState<any[]>([]);

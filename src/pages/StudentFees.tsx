@@ -36,7 +36,7 @@ interface SubmitPaymentFormData {
 const StudentFees = () => {
   const { user, student } = useAuth();
   const [fees, setFees] = useState<Fee[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +49,7 @@ const emptyCourse = {
 const AdminCourses = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
-    const [courseCohorts, setCourseCohorts] = useState<any[]>([]);
+    const [courseCohorts, setCourseCohorts] = useState<Tables<'course_cohorts'>[]>([]);
     const [shareModalOpen, setShareModalOpen] = useState(false);
     const [sharingCourseId, setSharingCourseId] = useState<string | null>(null);
     const [shareTargetCohort, setShareTargetCohort] = useState('');

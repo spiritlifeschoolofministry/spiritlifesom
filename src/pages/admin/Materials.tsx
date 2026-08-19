@@ -30,7 +30,7 @@ interface UploadForm {
 const AdminMaterials = () => {
   const [cohorts, setCohorts] = useState<Tables<'cohorts'>[]>([]);
   const [courses, setCourses] = useState<Tables<'courses'>[]>([]);
-  const [courseCohorts, setCourseCohorts] = useState<any[]>([]);
+  const [courseCohorts, setCourseCohorts] = useState<Tables<'course_cohorts'>[]>([]);
   const [materials, setMaterials] = useState<Tables<'course_materials'>[]>([]);
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
