@@ -51,6 +51,31 @@ interface Application {
   };
 }
 
+/** The profile columns both request queries embed. */
+interface RequesterProfile {
+  first_name: string;
+  last_name: string;
+  middle_name: string | null;
+  email: string;
+  phone: string | null;
+  avatar_url: string | null;
+}
+
+interface LearningModeRequest {
+  id: string;
+  learning_mode: string | null;
+  requested_learning_mode: string | null;
+  created_at: string | null;
+  profile: RequesterProfile | null;
+}
+
+interface CertificateNameRequest {
+  id: string;
+  pending_name_change: string | null;
+  created_at: string | null;
+  profile: RequesterProfile | null;
+}
+
 interface CohortOption {
   id: string;
   name: string;
@@ -65,8 +90,8 @@ const AdminAdmissions = () => {
   const [bulkApproving, setBulkApproving] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
-  const [learningModeRequests, setLearningModeRequests] = useState<any[]>([]);
-  const [certificateRequests, setCertificateRequests] = useState<any[]>([]);
+  const [learningModeRequests, setLearningModeRequests] = useState<LearningModeRequest[]>([]);
+  const [certificateRequests, setCertificateRequests] = useState<CertificateNameRequest[]>([]);
   const [filterMode, setFilterMode] = useState<string>("all");
   const [filterCohort, setFilterCohort] = useState<string>("all");
   const [filterLanguage, setFilterLanguage] = useState<string>("all");

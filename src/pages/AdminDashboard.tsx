@@ -39,6 +39,16 @@ interface LearningModeRequest {
   };
 }
 
+interface CertificateNameRequest {
+  id: string;
+  pending_name_change: string | null;
+  profile: {
+    first_name: string;
+    last_name: string;
+    avatar_url: string | null;
+  };
+}
+
 interface DashboardStats {
   totalStudents: number;
   pendingCount: number;
@@ -47,7 +57,7 @@ interface DashboardStats {
   recentStudents: RecentStudent[];
   pendingStudents: PendingStudent[];
   learningModeRequests: LearningModeRequest[];
-  certificateNameRequests: any[];
+  certificateNameRequests: CertificateNameRequest[];
 }
 
 const AdminDashboard = () => {
