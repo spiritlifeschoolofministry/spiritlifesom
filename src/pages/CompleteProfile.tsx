@@ -32,7 +32,7 @@ const contactSchema = z.object({
 const detailsSchema = z.object({
   gender: z.enum(["Male", "Female"], { errorMap: () => ({ message: "Select your gender" }) }),
   age: z.number({ invalid_type_error: "Enter your age" }).int().min(10, "Age must be 10+").max(100),
-  learningMode: z.enum(["Physical", "Online"], { errorMap: () => ({ message: "Choose a learning mode" }) }),
+  learningMode: z.enum(["Physical", "Online", "Hybrid"], { errorMap: () => ({ message: "Choose a learning mode" }) }),
 });
 
 type StepKey = "name" | "contact" | "details";
@@ -257,6 +257,7 @@ const CompleteProfile = () => {
                     <SelectContent>
                       <SelectItem value="Physical">Physical (in-person)</SelectItem>
                       <SelectItem value="Online">Online</SelectItem>
+                      <SelectItem value="Hybrid">Hybrid (in-person and online)</SelectItem>
                     </SelectContent>
                   </Select>
                   {errors.learningMode && <p className="text-xs text-destructive mt-1">{errors.learningMode}</p>}

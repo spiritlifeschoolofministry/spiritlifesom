@@ -29,8 +29,10 @@ const mapStudentLearningMode = (learningMode?: string | null) => {
   if (!learningMode) return ['All'];
   const normalized = learningMode.toLowerCase();
   if (normalized === 'online') return ['All', 'Online'];
+  // Hybrid students attend both ways, so they get the online and physical
+  // material as well as anything tagged Hybrid.
   // Treat legacy or alternative values 'blended' as 'Hybrid'
-  if (normalized === 'hybrid' || normalized === 'blended') return ['All', 'Hybrid'];
+  if (normalized === 'hybrid' || normalized === 'blended') return ['All', 'Hybrid', 'Online', 'Physical'];
   // Treat 'on-site', 'onsite', and 'offline' as 'Physical'
   if (normalized === 'physical' || normalized === 'on-site' || normalized === 'onsite' || normalized === 'offline') return ['All', 'Physical'];
   return ['All', learningMode];
