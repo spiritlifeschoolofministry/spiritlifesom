@@ -25,11 +25,11 @@ interface ClassmateEnriched {
   last_name: string | null;
   avatar_url: string | null;
   role: string | null;
-  // Enriched fields from students/profiles
-  bio: string | null;
+  // Gated by classmate_directory: null unless the classmate opted in, or it is your own row.
   email: string | null;
-  show_email: boolean;
   phone: string | null;
+  // Enriched fields from students
+  bio: string | null;
   learning_mode: string | null;
   gender: string | null;
 }
@@ -37,6 +37,7 @@ interface ClassmateEnriched {
 interface UpdateProfileFormData {
   bio: string | null;
   show_email: boolean;
+  show_phone: boolean;
 }
 
 const Coursemates = () => {
@@ -51,10 +52,11 @@ const Coursemates = () => {
   const [currentStudentData, setCurrentStudentData] = useState<Tables<'students'> | null>(null);
 
   const { register, handleSubmit, reset, watch } = useForm<UpdateProfileFormData>({
-    defaultValues: { bio: '', show_email: false },
+    defaultValues: { bio: '', show_email: false, show_phone: false },
   });
 
   const showEmail = watch('show_email');
+  const showPhone = watch('show_phone');
 
   useEffect(() => {
     if (!user || !student?.cohort_id) {
@@ -77,36 +79,25 @@ const Coursemates = () => {
 
       if (dirError) throw dirError;
 
-      // Enrich with student data (bio, show_email, learning_mode, gender)
+      // Enrich with student data. Contact details are not fetched here: the view
+      // releases email/phone only for classmates who opted in.
       const profileIds = (dirData || []).map(d => d.profile_id).filter(Boolean) as string[];
 
-      const [studentsRes, profilesRes] = await Promise.all([
-        supabase
-          .from('students')
-          .select('profile_id, bio, show_email, learning_mode, gender')
-          .in('profile_id', profileIds),
-        supabase
-          .from('profiles')
-          .select('id, email, phone')
-          .in('id', profileIds),
-      ]);
+      const studentsRes = await supabase
+        .from('students')
+        .select('profile_id, bio, learning_mode, gender')
+        .in('profile_id', profileIds);
 
       const studentMap = new Map(
         (studentsRes.data || []).map(s => [s.profile_id, s])
       );
-      const profileMap = new Map(
-        (profilesRes.data || []).map(p => [p.id, p])
-      );
+
 
       const enriched: ClassmateEnriched[] = (dirData || []).map(d => {
         const stu = studentMap.get(d.profile_id || '');
-        const prof = profileMap.get(d.profile_id || '');
         return {
           ...d,
           bio: stu?.bio || null,
-          show_email: stu?.show_email || false,
-          email: prof?.email || null,
-          phone: prof?.phone || null,
           learning_mode: stu?.learning_mode || null,
           gender: stu?.gender || null,
         };
@@ -132,7 +123,7 @@ const Coursemates = () => {
 
     if (data) {
       setCurrentStudentData(data);
-      reset({ bio: data.bio || '', show_email: data.show_email || false });
+      reset({ bio: data.bio || '', show_email: data.show_email || false, show_phone: data.show_phone || false });
     }
   };
 
@@ -149,7 +140,7 @@ const Coursemates = () => {
       setIsUpdating(true);
       const { error } = await supabase
         .from('students')
-        .update({ bio: data.bio || null, show_email: data.show_email })
+        .update({ bio: data.bio || null, show_email: data.show_email, show_phone: data.show_phone })
         .eq('id', currentStudentData.id);
 
       if (error) throw error;
@@ -227,6 +218,14 @@ const Coursemates = () => {
                     id="show-email"
                     checked={showEmail}
                     onCheckedChange={checked => reset({ ...watch(), show_email: checked })}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="show-phone">Show phone number to classmates</Label>
+                  <Switch
+                    id="show-phone"
+                    checked={showPhone}
+                    onCheckedChange={checked => reset({ ...watch(), show_phone: checked })}
                   />
                 </div>
                 <Button type="submit" disabled={isUpdating} variant="flame" className="w-full">
@@ -341,7 +340,7 @@ const Coursemates = () => {
                     )}
                   </div>
 
-                  {selectedClassmate.show_email && selectedClassmate.email && (
+                  {selectedClassmate.email && (
                     <a
                       href={`mailto:${selectedClassmate.email}`}
                       className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
@@ -352,7 +351,18 @@ const Coursemates = () => {
                     </a>
                   )}
 
-                  {!selectedClassmate.bio && !selectedClassmate.show_email && !selectedClassmate.learning_mode && (
+                  {selectedClassmate.phone && (
+                    <a
+                      href={`tel:${selectedClassmate.phone}`}
+                      className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <Phone className="w-4 h-4 text-primary shrink-0" />
+                      <span className="text-sm text-foreground truncate">{selectedClassmate.phone}</span>
+                    </a>
+                  )}
+
+                  {!selectedClassmate.bio && !selectedClassmate.email && !selectedClassmate.phone && !selectedClassmate.learning_mode && (
                     <p className="text-sm text-center text-muted-foreground py-4">
                       This classmate hasn't shared additional details yet.
                     </p>

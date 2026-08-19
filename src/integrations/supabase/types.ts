@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       announcements: {
@@ -684,6 +709,13 @@ export type Database = {
             foreignKeyName: "exam_answers_question_id_fkey"
             columns: ["question_id"]
             isOneToOne: false
+            referencedRelation: "exam_question_paper"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
             referencedRelation: "question_bank"
             referencedColumns: ["id"]
           },
@@ -785,78 +817,11 @@ export type Database = {
             referencedRelation: "exams"
             referencedColumns: ["id"]
           },
-        ]
-      }
-      exam_events: {
-        Row: {
-          attempt_id: string
-          event_data: Json | null
-          event_type: string
-          id: string
-          occurred_at: string
-        }
-        Insert: {
-          attempt_id: string
-          event_data?: Json | null
-          event_type: string
-          id?: string
-          occurred_at?: string
-        }
-        Update: {
-          attempt_id?: string
-          event_data?: Json | null
-          event_type?: string
-          id?: string
-          occurred_at?: string
-        }
-        Relationships: [
           {
-            foreignKeyName: "exam_events_attempt_id_fkey"
-            columns: ["attempt_id"]
+            foreignKeyName: "exam_attempts_student_id_fkey"
+            columns: ["student_id"]
             isOneToOne: false
-            referencedRelation: "exam_attempts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      exam_questions: {
-        Row: {
-          created_at: string
-          display_order: number
-          exam_id: string
-          id: string
-          points_override: number | null
-          question_id: string
-        }
-        Insert: {
-          created_at?: string
-          display_order?: number
-          exam_id: string
-          id?: string
-          points_override?: number | null
-          question_id: string
-        }
-        Update: {
-          created_at?: string
-          display_order?: number
-          exam_id?: string
-          id?: string
-          points_override?: number | null
-          question_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "exam_questions_exam_id_fkey"
-            columns: ["exam_id"]
-            isOneToOne: false
-            referencedRelation: "exams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "exam_questions_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "question_bank"
+            referencedRelation: "students"
             referencedColumns: ["id"]
           },
         ]
@@ -928,6 +893,87 @@ export type Database = {
           },
         ]
       }
+      exam_events: {
+        Row: {
+          attempt_id: string
+          event_data: Json | null
+          event_type: string
+          id: string
+          occurred_at: string
+        }
+        Insert: {
+          attempt_id: string
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          occurred_at?: string
+        }
+        Update: {
+          attempt_id?: string
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          occurred_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_events_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "exam_attempts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_questions: {
+        Row: {
+          created_at: string
+          display_order: number
+          exam_id: string
+          id: string
+          points_override: number | null
+          question_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          exam_id: string
+          id?: string
+          points_override?: number | null
+          question_id: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          exam_id?: string
+          id?: string
+          points_override?: number | null
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_questions_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_question_paper"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exam_snapshots: {
         Row: {
           attempt_id: string
@@ -990,6 +1036,7 @@ export type Database = {
         Row: {
           allow_late_entry: boolean
           allow_mobile: boolean
+          audio_clip_seconds: number
           autosave_interval_seconds: number
           block_shortcuts: boolean
           cohort_id: string
@@ -998,7 +1045,6 @@ export type Database = {
           created_by: string | null
           description: string | null
           duration_minutes: number
-          audio_clip_seconds: number
           enable_audio_proctoring: boolean
           enable_webcam_proctoring: boolean
           end_at: string
@@ -1026,6 +1072,7 @@ export type Database = {
         Insert: {
           allow_late_entry?: boolean
           allow_mobile?: boolean
+          audio_clip_seconds?: number
           autosave_interval_seconds?: number
           block_shortcuts?: boolean
           cohort_id: string
@@ -1034,7 +1081,6 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           duration_minutes?: number
-          audio_clip_seconds?: number
           enable_audio_proctoring?: boolean
           enable_webcam_proctoring?: boolean
           end_at: string
@@ -1062,6 +1108,7 @@ export type Database = {
         Update: {
           allow_late_entry?: boolean
           allow_mobile?: boolean
+          audio_clip_seconds?: number
           autosave_interval_seconds?: number
           block_shortcuts?: boolean
           cohort_id?: string
@@ -1070,7 +1117,6 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           duration_minutes?: number
-          audio_clip_seconds?: number
           enable_audio_proctoring?: boolean
           enable_webcam_proctoring?: boolean
           end_at?: string
@@ -1095,7 +1141,22 @@ export type Database = {
           total_points?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "exams_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exams_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       faculty_members: {
         Row: {
@@ -1346,17 +1407,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "payments_student_fee_id_fkey"
-            columns: ["student_fee_id"]
-            isOneToOne: false
-            referencedRelation: "fees"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "payments_fee_id_fkey"
             columns: ["fee_id"]
             isOneToOne: false
             referencedRelation: "fee_structures"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_student_fee_id_fkey"
+            columns: ["student_fee_id"]
+            isOneToOne: false
+            referencedRelation: "fees"
             referencedColumns: ["id"]
           },
           {
@@ -1489,7 +1550,22 @@ export type Database = {
           tags?: string[] | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "question_bank_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_bank_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       schedule: {
         Row: {
@@ -1637,6 +1713,13 @@ export type Database = {
             foreignKeyName: "seo_files_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "seo_files_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1704,6 +1787,7 @@ export type Database = {
           profile_image_url: string | null
           requested_learning_mode: string | null
           show_email: boolean | null
+          show_phone: boolean
           student_code: string | null
           total_fees_due: number | null
         }
@@ -1738,6 +1822,7 @@ export type Database = {
           profile_image_url?: string | null
           requested_learning_mode?: string | null
           show_email?: boolean | null
+          show_phone?: boolean
           student_code?: string | null
           total_fees_due?: number | null
         }
@@ -1772,6 +1857,7 @@ export type Database = {
           profile_image_url?: string | null
           requested_learning_mode?: string | null
           show_email?: boolean | null
+          show_phone?: boolean
           student_code?: string | null
           total_fees_due?: number | null
         }
@@ -1819,6 +1905,52 @@ export type Database = {
       }
     }
     Views: {
+      classmate_directory: {
+        Row: {
+          avatar_url: string | null
+          cohort_id: string | null
+          cohort_name: string | null
+          display_name: string | null
+          email: string | null
+          first_name: string | null
+          last_name: string | null
+          phone: string | null
+          profile_id: string | null
+          role: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exam_question_paper: {
+        Row: {
+          code_language: string | null
+          code_snippet: string | null
+          display_order: number | null
+          exam_id: string | null
+          id: string | null
+          image_url: string | null
+          options: Json | null
+          points: number | null
+          question_text: string | null
+          question_type: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_questions_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exam_result_answers: {
         Row: {
           answer: Json | null
@@ -1836,47 +1968,47 @@ export type Database = {
           question_text: string | null
           question_type: string | null
         }
-        Relationships: []
-      }
-      exam_question_paper: {
-        Row: {
-          code_language: string | null
-          code_snippet: string | null
-          display_order: number | null
-          exam_id: string | null
-          id: string | null
-          image_url: string | null
-          options: Json | null
-          points: number | null
-          question_text: string | null
-          question_type: string | null
-        }
-        Relationships: []
-      }
-      classmate_directory: {
-        Row: {
-          avatar_url: string | null
-          cohort_id: string | null
-          cohort_name: string | null
-          display_name: string | null
-          first_name: string | null
-          last_name: string | null
-          profile_id: string | null
-          role: string | null
-        }
         Relationships: [
           {
-            foreignKeyName: "students_cohort_id_fkey"
-            columns: ["cohort_id"]
+            foreignKeyName: "exam_answers_attempt_id_fkey"
+            columns: ["attempt_id"]
             isOneToOne: false
-            referencedRelation: "cohorts"
+            referencedRelation: "exam_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "exam_question_paper"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "question_bank"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_attempts_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
             referencedColumns: ["id"]
           },
         ]
       }
     }
     Functions: {
-      admin_approve_payment: { Args: { p_payment_id: string }; Returns: undefined }
+      adjust_fee_amount_paid: {
+        Args: { p_delta: number; p_fee_id: string }
+        Returns: undefined
+      }
+      admin_approve_payment: {
+        Args: { p_payment_id: string }
+        Returns: undefined
+      }
       admin_set_payment_fee: {
         Args: { p_payment_id: string; p_student_fee_id: string }
         Returns: undefined
@@ -1905,6 +2037,10 @@ export type Database = {
           p_old?: Json
           p_summary: string
         }
+        Returns: undefined
+      }
+      ensure_staff_preview_student: {
+        Args: { p_profile_id: string }
         Returns: undefined
       }
       get_my_role: { Args: never; Returns: string }
@@ -2046,6 +2182,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },
