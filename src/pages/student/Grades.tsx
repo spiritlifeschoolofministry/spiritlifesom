@@ -77,8 +77,8 @@ const StudentGrades = () => {
         // one only belongs on this page when this student actually has a mark
         // on it — otherwise every student would see everyone else's onsite work
         // listed as ungraded.
-        .filter((a: any) => !a.is_manual_record || subMap.has(a.id))
-        .map((a: any) => {
+        .filter((a) => !a.is_manual_record || subMap.has(a.id))
+        .map((a) => {
         const sub = subMap.get(a.id);
         return {
           id: a.id,
@@ -101,8 +101,8 @@ const StudentGrades = () => {
         .in("status", ["submitted", "graded"]);
 
       const examItems: GradedItem[] = (examAttempts ?? [])
-        .filter((a: any) => a.exams?.results_released)
-        .map((a: any) => ({
+        .filter((a) => a.exams?.results_released)
+        .map((a) => ({
           id: a.id,
           title: a.exams.title,
           category: "Exam",

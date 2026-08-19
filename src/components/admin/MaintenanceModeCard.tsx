@@ -22,7 +22,7 @@ export default function MaintenanceModeCard() {
       .from("system_settings")
       .select("key, value")
       .in("key", ["maintenance_mode", "maintenance_message", "maintenance_return_at"]);
-    const map = Object.fromEntries((data || []).map((r: any) => [r.key, r.value]));
+    const map = Object.fromEntries((data || []).map((r) => [r.key, r.value]));
     const raw = map.maintenance_mode;
     setEnabled(raw === true || raw === "true" || (typeof raw === "string" && raw.toLowerCase() === "true"));
     if (map.maintenance_message) {

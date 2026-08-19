@@ -44,10 +44,10 @@ export default function ExamMonitor() {
         .order("started_at", { ascending: false }),
       supabase.from("students").select("id").eq("is_staff_preview", true),
     ]);
-    const previewIds = new Set((previewRows ?? []).map((r: any) => r.id));
-    const rows = (a ?? []).map((att: any) => ({ ...att, isRehearsal: previewIds.has(att.student_id) }));
-    setHiddenRehearsals(rows.filter((r: any) => r.isRehearsal).length);
-    setAttempts(showRehearsals ? rows : rows.filter((r: any) => !r.isRehearsal));
+    const previewIds = new Set((previewRows ?? []).map((r) => r.id));
+    const rows = (a ?? []).map((att) => ({ ...att, isRehearsal: previewIds.has(att.student_id) }));
+    setHiddenRehearsals(rows.filter((r) => r.isRehearsal).length);
+    setAttempts(showRehearsals ? rows : rows.filter((r) => !r.isRehearsal));
     setLoading(false);
   };
 
@@ -68,7 +68,7 @@ export default function ExamMonitor() {
    * genuine technical failure, say — and the way staff clear their own dry runs.
    * Answers, events and snapshots cascade with the row.
    */
-  const deleteAttempt = async (attempt: any) => {
+  const deleteAttempt = async (attempt) => {
     const who = attempt.isRehearsal
       ? "this rehearsal attempt"
       : `${attempt.students?.profiles?.first_name ?? ""} ${attempt.students?.profiles?.last_name ?? ""}`.trim() || "this student";
@@ -119,7 +119,7 @@ export default function ExamMonitor() {
     URL.revokeObjectURL(url);
   };
 
-  const openGrading = async (attempt: any) => {
+  const openGrading = async (attempt) => {
     const { data: ans } = await supabase.from("exam_answers").select("*").eq("attempt_id", attempt.id);
 
     // Every question this attempt was served, in the order it was served —
@@ -127,17 +127,17 @@ export default function ExamMonitor() {
     // still has to be visible and markable.
     const served: string[] = Array.isArray(attempt.question_order)
       ? attempt.question_order
-      : (ans ?? []).map((a: any) => a.question_id);
+      : (ans ?? []).map((a) => a.question_id);
     const { data: qs } = served.length
       ? await supabase.from("question_bank").select("*").in("id", served)
       : { data: [] };
-    const byId = new Map((qs ?? []).map((q: any) => [q.id, q]));
+    const byId = new Map((qs ?? []).map((q) => [q.id, q]));
     const questions = served.map((qid) => byId.get(qid)).filter(Boolean);
 
     // Stand-in rows for skipped questions so they can be marked; saveGrading
     // inserts the ones that were never persisted.
-    const answers = questions.map((q: any) =>
-      (ans ?? []).find((a: any) => a.question_id === q.id) ?? {
+    const answers = questions.map((q) =>
+      (ans ?? []).find((a) => a.question_id === q.id) ?? {
         id: null,
         attempt_id: attempt.id,
         question_id: q.id,
@@ -533,7 +533,7 @@ export default function ExamMonitor() {
               if (!ans) return null;
               const needsMark = !AUTO_GRADED_TYPES.includes(q.question_type) || q.correct_answer == null;
               const max = Number(q.points) || 0;
-              const setAnswer = (patch: any) => {
+              const setAnswer = (patch) => {
                 const next = [...gradeData.answers];
                 next[next.indexOf(ans)] = { ...ans, ...patch };
                 setGradeData({ ...gradeData, answers: next });
@@ -630,7 +630,7 @@ export default function ExamMonitor() {
               <Card className="p-3">
                 <p className="text-sm font-medium mb-1">Previous marks</p>
                 <ul className="text-xs text-muted-foreground space-y-0.5">
-                  {grading.regrade_history.map((h: any, i: number) => (
+                  {grading.regrade_history.map((h, i: number) => (
                     <li key={i}>
                       {new Date(h.at).toLocaleString()} · changed from {h.from ?? 0} to {h.to ?? 0}
                     </li>

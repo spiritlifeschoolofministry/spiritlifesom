@@ -106,8 +106,8 @@ export default function ExamsList() {
       return;
     }
 
-    const courseById = new Map((courseRes.data ?? []).map((c: any) => [c.id, c]));
-    const cohortById = new Map((cohortRes.data ?? []).map((c: any) => [c.id, c]));
+    const courseById = new Map((courseRes.data ?? []).map((c) => [c.id, c]));
+    const cohortById = new Map((cohortRes.data ?? []).map((c) => [c.id, c]));
     const tally = (rows: any[] | null) => {
       const m = new Map<string, number>();
       for (const r of rows ?? []) m.set(r.exam_id, (m.get(r.exam_id) ?? 0) + 1);
@@ -115,11 +115,11 @@ export default function ExamsList() {
     };
     const questionCounts = tally(linkRes.data);
     // Staff rehearsals must not inflate the sat-the-paper count.
-    const previewIds = new Set((previewRes.data ?? []).map((r: any) => r.id));
-    const attemptCounts = tally((attemptRes.data ?? []).filter((r: any) => !previewIds.has(r.student_id)));
+    const previewIds = new Set((previewRes.data ?? []).map((r) => r.id));
+    const attemptCounts = tally((attemptRes.data ?? []).filter((r) => !previewIds.has(r.student_id)));
 
     setExams(
-      (examRes.data ?? []).map((e: any) => {
+      (examRes.data ?? []).map((e) => {
         const course = courseById.get(e.course_id);
         return {
           ...e,

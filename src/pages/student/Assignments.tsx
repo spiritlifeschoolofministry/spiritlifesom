@@ -67,7 +67,7 @@ const StudentAssignments = () => {
     }
   };
 
-  const handleDownload = async (submission: any) => {
+  const handleDownload = async (submission) => {
     try {
       if (submission.storage_provider === 'r2') {
         const url = await r2Storage.getDownloadUrl(submission.storage_path || submission.file_url);

@@ -120,7 +120,7 @@ export default function StorageBrowserCard() {
       toast.error("Failed to load buckets");
       return;
     }
-    const list = (data || []).map((b: any) => ({ name: b.name, public: !!b.public }));
+    const list = (data || []).map((b) => ({ name: b.name, public: !!b.public }));
     setBuckets(list);
     if (!bucket && list[0]) setBucket(list[0].name);
     loadGrandTotal(list);

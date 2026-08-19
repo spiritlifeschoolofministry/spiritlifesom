@@ -167,7 +167,7 @@ const AdminAdmissions = () => {
         .limit(500);
       if (error) throw error;
       const map: Record<string, { status: string; sent_at: string | null }> = {};
-      (data || []).forEach((row: any) => {
+      (data || []).forEach((row) => {
         if (row.student_id && !map[row.student_id]) {
           map[row.student_id] = { status: row.status, sent_at: row.created_at };
         }

@@ -125,7 +125,7 @@ export default function ExamBuilder() {
 
   /** Patch the exam and mark the form dirty, clearing any error on the touched fields. */
   const update = (patch: Record<string, unknown>) => {
-    setExam((prev: any) => {
+    setExam((prev) => {
       const next = { ...prev, ...patch };
       // Picking a start time with no sensible close time yet is the common case, so
       // derive one from the duration rather than making the admin compute it.
@@ -269,7 +269,7 @@ export default function ExamBuilder() {
         if (linkError) throw linkError;
       }
 
-      setExam((prev: any) => ({ ...prev, id: examId, status: payload.status }));
+      setExam((prev) => ({ ...prev, id: examId, status: payload.status }));
       setDirty(false);
       toast.success(
         newStatus === "published"
@@ -484,11 +484,11 @@ export default function ExamBuilder() {
                           .select("question_id, display_order, question_bank(*)")
                           .eq("exam_id", v)
                           .order("display_order");
-                        setImportQuestions((eq ?? []).map((r: any) => r.question_bank).filter(Boolean));
+                        setImportQuestions((eq ?? []).map((r) => r.question_bank).filter(Boolean));
                       }}>
                         <SelectTrigger><SelectValue placeholder="Pick an exam to import from" /></SelectTrigger>
                         <SelectContent>
-                          {otherExams.map((e: any) => (
+                          {otherExams.map((e) => (
                             <SelectItem key={e.id} value={e.id}>{e.courses?.code ? `${e.courses.code} — ` : ""}{e.title}</SelectItem>
                           ))}
                         </SelectContent>
@@ -503,7 +503,7 @@ export default function ExamBuilder() {
                           )}>{importQids.length === importQuestions.length ? "Clear all" : "Select all"}</Button>
                         </div>
                         <div className="space-y-2 max-h-[40vh] overflow-y-auto">
-                          {importQuestions.map((q: any) => {
+                          {importQuestions.map((q) => {
                             const already = picked.includes(q.id);
                             const checked = importQids.includes(q.id) || already;
                             return (

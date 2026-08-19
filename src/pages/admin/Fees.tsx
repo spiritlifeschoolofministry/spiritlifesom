@@ -98,8 +98,8 @@ const AdminFees = () => {
           : Promise.resolve({ data: [] as StudentFee[] }),
       ]);
 
-      const studMap = new Map((studs || []).map((s: any) => [s.id, s]));
-      const feeMap = new Map((feeRows || []).map((f: any) => [f.id, f.fee_name]));
+      const studMap = new Map((studs || []).map((s) => [s.id, s]));
+      const feeMap = new Map((feeRows || []).map((f) => [f.id, f.fee_name]));
       const assignedMap = new Map((assignedFees || []).map((f: StudentFee) => [f.id, f]));
       setStudentFees(assignedFees || []);
 

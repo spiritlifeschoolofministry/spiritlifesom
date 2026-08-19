@@ -25,7 +25,7 @@ export const useSiteContent = (page: string) => {
         .eq("page", page);
       
       const map: SiteContent = {};
-      (data || []).forEach((r: any) => { map[r.section_key] = r.content; });
+      (data || []).forEach((r) => { map[r.section_key] = r.content; });
       cache[page] = map;
       setContent(map);
       setLoading(false);

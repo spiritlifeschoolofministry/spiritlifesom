@@ -56,7 +56,7 @@ export default function StudentExamsList() {
       .from("exam_result_answers")
       .select("*")
       .eq("attempt_id", attemptId);
-    return (data ?? []).map((r: any) => ({
+    return (data ?? []).map((r) => ({
       ...r,
       question_bank: {
         question_text: r.question_text,
@@ -69,7 +69,7 @@ export default function StudentExamsList() {
     }));
   };
 
-  const loadBreakdown = async (exam: any) => {
+  const loadBreakdown = async (exam) => {
     if (breakdowns[exam.id]) return;
     const attempt = attempts[exam.id];
     if (!attempt) return;
@@ -88,7 +88,7 @@ export default function StudentExamsList() {
 
   const stripHtml = (html: string) => (html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
-  const exportBreakdown = async (exam: any) => {
+  const exportBreakdown = async (exam) => {
     let rows = breakdowns[exam.id];
     if (!rows) {
       const attempt = attempts[exam.id];

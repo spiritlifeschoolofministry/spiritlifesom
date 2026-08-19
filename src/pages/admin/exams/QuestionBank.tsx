@@ -90,13 +90,13 @@ export default function QuestionBank() {
     load();
   };
 
-  const toggleArchive = async (q: any) => {
+  const toggleArchive = async (q) => {
     const { error } = await supabase.from("question_bank").update({ archived: !q.archived }).eq("id", q.id);
     if (error) return toast.error(error.message);
     load();
   };
 
-  const remove = async (q: any) => {
+  const remove = async (q) => {
     try {
       setDeleting(true);
       const { error } = await supabase.from("question_bank").delete().eq("id", q.id);
@@ -139,7 +139,7 @@ export default function QuestionBank() {
     if (!importPreview.length) return toast.error("No questions to import");
     try {
       setImportLoading(true);
-      const payload = importPreview.map((r: any) => ({
+      const payload = importPreview.map((r) => ({
         course_id: importCourse,
         question_type: r.question_type,
         question_text: r.question_text,
@@ -321,7 +321,7 @@ export default function QuestionBank() {
                           }} />
                       )}
                       <Button size="sm" variant="ghost" onClick={() => {
-                        const opts = editing.options.filter((_: any, idx: number) => idx !== i);
+                        const opts = editing.options.filter((_, idx: number) => idx !== i);
                         setEditing({ ...editing, options: opts });
                       }}>×</Button>
                     </div>

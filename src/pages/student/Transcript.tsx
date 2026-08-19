@@ -117,10 +117,10 @@ const StudentTranscript = () => {
         });
       }
 
-      const courseRecords: CourseRecord[] = (coursesRes.data || []).map((c: any) => {
+      const courseRecords: CourseRecord[] = (coursesRes.data || []).map((c) => {
         const subs = (subsByCourse.get(c.id) || []);
         const assignments = [
-          ...subs.map((s: any) => ({
+          ...subs.map((s) => ({
             id: s.assignment?.id || "",
             title: s.assignment?.title || "",
             category: s.assignment?.category || "Assignment",
@@ -131,7 +131,7 @@ const StudentTranscript = () => {
           ...(examsByCourse.get(c.id) || []),
         ];
 
-        const graded = assignments.filter((a: any) => a.grade != null);
+        const graded = assignments.filter((a) => a.grade != null);
         const totalPts = graded.reduce((s: number, a: any) => s + a.max_points, 0);
         const earnedPts = graded.reduce((s: number, a: any) => s + (a.grade || 0), 0);
         const courseAvg = totalPts > 0 ? Math.round((earnedPts / totalPts) * 100) : null;
@@ -143,7 +143,7 @@ const StudentTranscript = () => {
 
       // Attendance
       const attData = attRes.data || [];
-      const present = attData.filter((a: any) => a.status === "Present" || a.status === "Late").length;
+      const present = attData.filter((a) => a.status === "Present" || a.status === "Late").length;
       setAttendance({
         total: attData.length,
         present,

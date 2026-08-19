@@ -79,7 +79,7 @@ const AdminMaterials = () => {
     }
   };
 
-  const handleDownload = async (m: any) => {
+  const handleDownload = async (m) => {
     try {
       if (m.storage_provider === 'r2') {
         const url = await r2Storage.getDownloadUrl(m.storage_path || m.file_url);

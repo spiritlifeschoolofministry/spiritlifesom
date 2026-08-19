@@ -273,7 +273,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
     // in". Offline records only ever hold marks for the students who did the
     // work onsite, so counting them against the whole cohort would drag the
     // rate down for work that was never set to anyone.
-    const onlineIds = new Set(assignments.filter((a: any) => !a.is_manual_record).map((a) => a.id));
+    const onlineIds = new Set(assignments.filter((a) => !a.is_manual_record).map((a) => a.id));
     const onlineSubmissions = (submissions || []).filter((s) => onlineIds.has(s.assignment_id));
     const totalSubmissions = onlineSubmissions.length;
     let studQuery = supabase.from("students").select("id", { count: "exact", head: true }).eq("is_staff_preview", false).eq("admission_status", "ADMITTED");
@@ -296,7 +296,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
     const courseMap: Record<string, { name: string; count: number; paid: number; free: number }> = {};
     const typeMap: Record<string, number> = {};
 
-    data.forEach((m: any) => {
+    data.forEach((m) => {
       const courseName = m.courses?.title || "Unknown";
       const courseId = m.course_id;
       if (!courseMap[courseId]) courseMap[courseId] = { name: courseName, count: 0, paid: 0, free: 0 };
