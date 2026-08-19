@@ -13,9 +13,10 @@ import { Loader2, Upload, Pin, PinOff, Trash2, ExternalLink, Share2, Search } fr
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { r2Storage } from '@/lib/r2-storage';
+import { LearningModeSelect, LearningModeTags } from '@/components/admin/LearningModeSelect';
+import { toModeArray } from '@/lib/learning-modes';
 
 const MATERIAL_TYPES = ['Notes', 'Slides', 'Handout', 'Worksheet', 'Reference', 'Video', 'Other'] as const;
-const LEARNING_MODES = ['All', 'Online', 'Physical', 'Hybrid'] as const;
 
 interface UploadForm {
   title: string;
@@ -23,7 +24,7 @@ interface UploadForm {
   cohort_id: string;
   course_id: string;
   material_type: string;
-  learning_mode: string;
+  learning_modes: string[];
 }
 
 const AdminMaterials = () => {
@@ -47,13 +48,13 @@ const AdminMaterials = () => {
   const [isSharing, setIsSharing] = useState(false);
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<UploadForm>({
-    defaultValues: { title: '', description: '', cohort_id: '', course_id: '', material_type: '', learning_mode: 'All' },
+    defaultValues: { title: '', description: '', cohort_id: '', course_id: '', material_type: '', learning_modes: ['All'] },
   });
 
   const selectedCohort = watch('cohort_id');
   const selectedCourse = watch('course_id');
   const selectedMaterialType = watch('material_type');
-  const selectedLearningMode = watch('learning_mode');
+  const selectedLearningModes = watch('learning_modes');
 
   useEffect(() => { fetchData(); }, []);
 
@@ -118,7 +119,7 @@ const AdminMaterials = () => {
         storage_path: filePath,
         storage_provider: storageProvider,
         material_type: data.material_type || null,
-        learning_mode: data.learning_mode || 'All',
+        learning_modes: toModeArray(data.learning_modes),
         is_paid: false,
         uploaded_by: null,
       });
@@ -212,7 +213,7 @@ const AdminMaterials = () => {
         file_url: sharingMaterial.file_url,
         file_type: sharingMaterial.file_type,
         material_type: sharingMaterial.material_type,
-        learning_mode: sharingMaterial.learning_mode || 'All',
+        learning_modes: toModeArray(sharingMaterial.learning_modes),
         is_paid: sharingMaterial.is_paid,
         is_pinned: false,
         uploaded_by: sharingMaterial.uploaded_by,
@@ -291,14 +292,11 @@ const AdminMaterials = () => {
                 </Select>
               </div>
               <div>
-                <Label>Learning Mode</Label>
-                <Select value={selectedLearningMode} onValueChange={(val) => setValue('learning_mode', val)}>
-                  <SelectTrigger><SelectValue placeholder="Select learning mode" /></SelectTrigger>
-                  <SelectContent>
-                    {LEARNING_MODES.map((mode) => (<SelectItem key={mode} value={mode}>{mode === 'All' ? 'All Students' : `${mode} Only`}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[10px] text-muted-foreground mt-1">Only students in the selected learning mode will see this material, except 'All' which applies to everyone in the cohort.</p>
+                <Label>Learning Modes</Label>
+                <LearningModeSelect
+                  value={selectedLearningModes}
+                  onChange={(modes) => setValue('learning_modes', modes)}
+                />
               </div>
               <div>
                 <Label>Material Type</Label>
@@ -416,9 +414,7 @@ const AdminMaterials = () => {
                       <TableCell className="font-medium">{m.title}</TableCell>
                       <TableCell>{cohorts.find(c => c.id === m.cohort_id)?.name || '—'}</TableCell>
                       <TableCell>
-                        <span className="text-xs text-muted-foreground uppercase">
-                          {m.learning_mode || 'All'}
-                        </span>
+                        <LearningModeTags modes={m.learning_modes} />
                       </TableCell>
                       <TableCell>{m.created_at ? new Date(m.created_at).toLocaleDateString() : '—'}</TableCell>
                       <TableCell>

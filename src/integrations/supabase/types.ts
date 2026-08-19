@@ -469,7 +469,7 @@ export type Database = {
           id: string
           is_paid: boolean | null
           is_pinned: boolean | null
-          learning_mode: string | null
+          learning_modes: string[]
           material_type: string | null
           storage_path: string | null
           storage_provider: string | null
@@ -486,7 +486,7 @@ export type Database = {
           id?: string
           is_paid?: boolean | null
           is_pinned?: boolean | null
-          learning_mode?: string | null
+          learning_modes?: string[]
           material_type?: string | null
           storage_path?: string | null
           storage_provider?: string | null
@@ -503,7 +503,7 @@ export type Database = {
           id?: string
           is_paid?: boolean | null
           is_pinned?: boolean | null
-          learning_mode?: string | null
+          learning_modes?: string[]
           material_type?: string | null
           storage_path?: string | null
           storage_provider?: string | null
@@ -1201,7 +1201,7 @@ export type Database = {
           created_at: string | null
           fee_name: string
           id: string
-          learning_mode: string | null
+          learning_modes: string[]
         }
         Insert: {
           amount?: number
@@ -1209,7 +1209,7 @@ export type Database = {
           created_at?: string | null
           fee_name: string
           id?: string
-          learning_mode?: string | null
+          learning_modes?: string[]
         }
         Update: {
           amount?: number
@@ -1217,7 +1217,7 @@ export type Database = {
           created_at?: string | null
           fee_name?: string
           id?: string
-          learning_mode?: string | null
+          learning_modes?: string[]
         }
         Relationships: [
           {

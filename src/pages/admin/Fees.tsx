@@ -15,12 +15,14 @@ import { resolveReceiptUrl } from '@/lib/receipt-url';
 import { downloadCSV } from '@/lib/csv-export';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import type { Tables } from '@/integrations/supabase/types';
+import { LearningModeSelect, LearningModeTags } from '@/components/admin/LearningModeSelect';
+import { toModeArray } from '@/lib/learning-modes';
 
 interface AddFeeFormData {
   cohort_id: string;
   fee_name: string;
   amount: string;
-  learning_mode: string;
+  learning_modes: string[];
 }
 
 type PaymentWithStudent = Tables<'payments'> & {
@@ -64,10 +66,10 @@ const AdminFees = () => {
   const [reassignFeeId, setReassignFeeId] = useState('');
 
   const { register, handleSubmit, reset, setValue, watch } = useForm<AddFeeFormData>({
-    defaultValues: { cohort_id: '', fee_name: '', amount: '', learning_mode: 'All' },
+    defaultValues: { cohort_id: '', fee_name: '', amount: '', learning_modes: ['All'] },
   });
   const selectedCohort = watch('cohort_id');
-  const selectedMode = watch('learning_mode');
+  const selectedModes = watch('learning_modes');
 
   const fetchPaymentsWithStudents = async () => {
     try {
@@ -185,7 +187,7 @@ const AdminFees = () => {
         cohort_id: data.cohort_id,
         fee_name: data.fee_name,
         amount: parseFloat(data.amount),
-        learning_mode: data.learning_mode,
+        learning_modes: toModeArray(data.learning_modes),
       });
       if (error) { toast.error('Failed to add fee'); return; }
       toast.success('Fee added');
@@ -440,16 +442,11 @@ const AdminFees = () => {
                 </Select>
               </div>
               <div>
-                <Label>Learning Mode</Label>
-                <Select value={selectedMode} onValueChange={(v) => setValue('learning_mode', v)}>
-                  <SelectTrigger><SelectValue placeholder="Select mode" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="All">All Students</SelectItem>
-                    <SelectItem value="Online">Online Only</SelectItem>
-                    <SelectItem value="Physical">Physical Only</SelectItem>
-                    <SelectItem value="Hybrid">Hybrid Students</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Learning Modes</Label>
+                <LearningModeSelect
+                  value={selectedModes}
+                  onChange={(modes) => setValue('learning_modes', modes)}
+                />
               </div>
               <div>
                 <Label>Fee Name</Label>
@@ -494,7 +491,7 @@ const AdminFees = () => {
                         <TableRow key={f.id}>
                           <TableCell className="font-medium">{f.fee_name}</TableCell>
                           <TableCell>{cohorts.find((c) => c.id === f.cohort_id)?.name || '—'}</TableCell>
-                          <TableCell><Badge variant="outline">{f.learning_mode || 'All'}</Badge></TableCell>
+                          <TableCell><LearningModeTags modes={f.learning_modes} /></TableCell>
                           <TableCell className="text-right">₦{Number(f.amount).toLocaleString()}</TableCell>
                           <TableCell className="text-right">
                             <Button size="sm" variant="ghost" onClick={() => setDeleteFeeId(f.id)} disabled={isProcessing}>

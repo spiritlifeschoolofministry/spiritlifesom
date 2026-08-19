@@ -18,7 +18,7 @@ interface Material {
   file_url: string | null;
   created_at: string | null;
   material_type: string | null;
-  learning_mode: string | null;
+  learning_modes: string[] | null;
   is_pinned: boolean | null;
   file_type: string | null;
   storage_path: string | null;
@@ -56,9 +56,9 @@ const StudentMaterials = () => {
       const learningModes = mapStudentLearningMode(student.learning_mode);
       const { data, error } = await supabase
         .from("course_materials")
-        .select("id, title, description, file_url, created_at, material_type, learning_mode, is_pinned, file_type, cohort_id, storage_path, storage_provider")
+        .select("id, title, description, file_url, created_at, material_type, learning_modes, is_pinned, file_type, cohort_id, storage_path, storage_provider")
         .eq("cohort_id", student.cohort_id)
-        .in("learning_mode", learningModes)
+        .overlaps("learning_modes", learningModes)
         .order("is_pinned", { ascending: false, nullsFirst: false })
         .order("created_at", { ascending: false });
 
