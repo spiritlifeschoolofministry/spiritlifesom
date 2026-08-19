@@ -187,7 +187,7 @@ export default function ExamLobby() {
             <li>Once you start, the exam <strong>cannot be paused</strong>. You must finish in {exam.duration_minutes} minutes.</li>
             <li>Questions are shown <strong>one at a time</strong>{exam.randomize_questions ? " in random order" : ""}.</li>
             <li>You have <strong>only one attempt</strong>.</li>
-            {exam.enforce_fullscreen && <li>The exam will run in <strong>fullscreen</strong>. Exiting fullscreen is recorded.</li>}
+            {exam.enforce_fullscreen && <li>The exam will run in <strong>fullscreen</strong>. Leaving fullscreen hides your questions until you return, the clock keeps running, and after {exam.max_fullscreen_exits} exits your exam is submitted automatically.</li>}
             {exam.block_shortcuts && <li>Copy, paste, right-click, and developer tools are <strong>disabled</strong>.</li>}
             {exam.enable_webcam_proctoring && <li>Your <strong>webcam is required</strong> and takes snapshots every {exam.snapshot_interval_seconds ?? 30}s for your lecturer to review.</li>}
             {exam.enable_audio_proctoring && <li>Your <strong>microphone is required</strong> and is recorded in {exam.audio_clip_seconds ?? 60}s clips throughout the exam for your lecturer to review.</li>}

@@ -60,12 +60,18 @@ Deno.serve(async (req) => {
     // Check if student already has an active/submitted attempt
     const { data: existingAttempts } = await supabase
       .from("exam_attempts")
-      .select("id, status, device_fingerprint")
+      .select("id, status, submitted_at, device_fingerprint, tab_switch_count, fullscreen_exits")
       .eq("exam_id", exam_id)
       .eq("student_id", student.id);
 
-    const activeAttempt = existingAttempts?.find((a: any) => a.status !== "submitted");
-    const submittedAttempt = existingAttempts?.find((a: any) => a.status === "submitted");
+    // submitted_at is the authority on whether a sitting is over, not the status
+    // string. Matching status === "submitted" missed every attempt that had gone
+    // straight to "graded" — which is most of them, since a paper with nothing
+    // for a lecturer to mark is graded on submission — so a finished exam came
+    // back as "active" and was handed to the student to resume and re-answer.
+    const finished = (a: any) => !!a.submitted_at || a.status !== "in_progress";
+    const activeAttempt = existingAttempts?.find((a: any) => !finished(a));
+    const submittedAttempt = existingAttempts?.find((a: any) => finished(a));
 
     // Resume, rather than refuse.
     //
@@ -80,6 +86,47 @@ Deno.serve(async (req) => {
     // The session id has to move to this tab or exam-autosave, which rejects a
     // mismatched session, would refuse every save from the resumed sitting.
     if (activeAttempt) {
+      // An attempt that already broke the rules is not resumable.
+      //
+      // The runner submits when a student passes the tab-switch or fullscreen
+      // limit, but that call can fail — a dropped connection, a closed laptop,
+      // or the rejected write this endpoint used to see — and the attempt then
+      // stayed in_progress. Coming back here handed the paper straight back to
+      // the student who had just been cut off. The counters are written by
+      // exam-autosave before the submission is attempted, so they are the
+      // authoritative record: if they show a breach, finish the attempt here
+      // (through exam-submit, so it is graded and filed like any other) and
+      // refuse entry either way.
+      const tabLimit = Number(exam.max_tab_switches);
+      const fsLimit = Number(exam.max_fullscreen_exits);
+      const breach =
+        tabLimit > 0 && (activeAttempt.tab_switch_count ?? 0) >= tabLimit
+          ? { reason: "tab_switch_exceeded", message: "Your attempt was ended for exceeding the tab switch limit." }
+          : exam.enforce_fullscreen && fsLimit > 0 && (activeAttempt.fullscreen_exits ?? 0) >= fsLimit
+          ? { reason: "fullscreen_exceeded", message: "Your attempt was ended for leaving fullscreen too many times." }
+          : null;
+
+      if (breach) {
+        try {
+          const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/exam-submit`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: authHeader,
+              apikey: Deno.env.get("SUPABASE_ANON_KEY")!,
+            },
+            body: JSON.stringify({ attempt_id: activeAttempt.id, reason: breach.reason }),
+          });
+          if (!res.ok) console.error("Breach submit failed:", activeAttempt.id, res.status, await res.text());
+        } catch (err) {
+          console.error("Breach submit threw:", err);
+        }
+        return new Response(
+          JSON.stringify({ error: `${breach.message} Ask your lecturer to reset your attempt if you believe this is wrong.` }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
       // One device per sitting. A fresh tab or a browser restart on the same
       // machine still resumes, because the fingerprint is unchanged; a second
       // device cannot pick the paper up mid-flight.

@@ -29,6 +29,14 @@ export default function ExamRunner() {
   const [tabSwitches, setTabSwitches] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
+  // Set while the student is outside fullscreen on an exam that requires it:
+  // the paper is covered until they come back.
+  const [fullscreenBlocked, setFullscreenBlocked] = useState(false);
+  const [fullscreenExits, setFullscreenExits] = useState(0);
+  // Filled in when a submission could not be recorded. The sitting stays locked
+  // rather than dropping the student back on the exam list, which is what let a
+  // failed auto-submit be shrugged off and the paper resumed.
+  const [submitFailed, setSubmitFailed] = useState<string | null>(null);
   const [deviceGrace, setDeviceGrace] = useState<{ device: string; reason: string; secondsLeft: number } | null>(null);
   // Bumped when a device comes back, to remount the proctors onto a fresh stream.
   const [proctorEpoch, setProctorEpoch] = useState(0);
@@ -37,6 +45,10 @@ export default function ExamRunner() {
   const answersRef = useRef<Record<string, unknown>>({});
   const dirtyRef = useRef<Set<string>>(new Set());
   const submittedRef = useRef(false);
+  // Counters read by the event handlers. State alone went stale inside the
+  // listeners, which is how the third tab switch could be counted as the first.
+  const tabSwitchesRef = useRef(0);
+  const fullscreenExitsRef = useRef(0);
   // One grace window per device: a revoked camera fires several signals, and
   // each must not restart the countdown.
   const gracedDevicesRef = useRef<Set<string>>(new Set());
@@ -81,7 +93,13 @@ export default function ExamRunner() {
       (saved ?? []).forEach((a) => { map[a.question_id] = a.answer; });
       answersRef.current = map;
       setAnswers(map);
-      setTabSwitches(att.tab_switch_count ?? 0);
+      tabSwitchesRef.current = att.tab_switch_count ?? 0;
+      fullscreenExitsRef.current = att.fullscreen_exits ?? 0;
+      setTabSwitches(tabSwitchesRef.current);
+      setFullscreenExits(fullscreenExitsRef.current);
+      // The lobby asks for fullscreen on the click that starts the exam, but the
+      // browser can refuse it. Gate the paper rather than opening it anyway.
+      if (e.enforce_fullscreen && !document.fullscreenElement) setFullscreenBlocked(true);
     })();
   }, [id, navigate]);
 
@@ -139,6 +157,13 @@ export default function ExamRunner() {
       dirtyRef.current = remaining;
       setDirty(remaining);
     }
+    // The server counts the breaches, so it decides when a sitting is over: its
+    // counters survive a reload, and the client's do not.
+    if (data?.limit_exceeded?.reason) {
+      toast.error(`${data.limit_exceeded.message} — submitting your exam`);
+      await submitExam(data.limit_exceeded.reason);
+    }
+    return data;
     // eslint-disable-next-line
   }, [attempt, navigate]);
 
@@ -154,13 +179,14 @@ export default function ExamRunner() {
 
     const onVisibility = () => {
       if (document.hidden) {
-        const next = tabSwitches + 1;
+        if (submittedRef.current) return;
+        const next = tabSwitchesRef.current + 1;
+        tabSwitchesRef.current = next;
         setTabSwitches(next);
+        // The submission itself is driven by the server's reply to this call —
+        // it holds the authoritative count. Warn locally in the meantime.
         autosave({ type: "tab_switch", data: { count: next } });
-        if (next >= exam.max_tab_switches) {
-          toast.error("Tab switch limit exceeded — submitting");
-          submitExam("tab_switch_exceeded");
-        } else {
+        if (next < exam.max_tab_switches) {
           setWarning(`Warning: ${next}/${exam.max_tab_switches} tab switches used. Exam will auto-submit at the limit.`);
         }
       }
@@ -183,9 +209,23 @@ export default function ExamRunner() {
       // before the page changes — so the student was told off for exiting
       // fullscreen as their paper went in. Only flag it while the exam is live.
       if (submittedRef.current) return;
-      if (exam.enforce_fullscreen && !document.fullscreenElement) {
-        autosave({ type: "fullscreen_exit" });
-        setWarning("You exited fullscreen. Please return to fullscreen to continue.");
+      if (!exam.enforce_fullscreen) return;
+
+      if (!document.fullscreenElement) {
+        // Leaving fullscreen now has a consequence. It used to be recorded and
+        // warned about and nothing else, so a student could drop out of
+        // fullscreen on the first question and sit the rest of the paper with
+        // the rest of their desktop in view. The questions are covered until
+        // they come back, the exit is counted, and the count is what the server
+        // measures against the limit.
+        const next = fullscreenExitsRef.current + 1;
+        fullscreenExitsRef.current = next;
+        setFullscreenExits(next);
+        setFullscreenBlocked(true);
+        autosave({ type: "fullscreen_exit", data: { count: next } });
+        toast.error(`You left fullscreen (${next}/${exam.max_fullscreen_exits}). Return to fullscreen to carry on.`);
+      } else {
+        setFullscreenBlocked(false);
       }
     };
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -211,8 +251,7 @@ export default function ExamRunner() {
       document.removeEventListener("fullscreenchange", onFsChange);
       window.removeEventListener("beforeunload", onBeforeUnload);
     };
-    // eslint-disable-next-line
-  }, [exam, tabSwitches, autosave]);
+  }, [exam, autosave]);
 
   const updateAnswer = (qid: string, val: unknown) => {
     answersRef.current = { ...answersRef.current, [qid]: val };
@@ -262,13 +301,34 @@ export default function ExamRunner() {
     // flush returned immediately and every answer since the last autosave —
     // in practice all of them — was lost.
     await autosave(undefined, { force: true });
-    const { data, error } = await supabase.functions.invoke("exam-submit", {
-      body: { attempt_id: attempt.id, reason },
-    });
-    if (error || data?.error) toast.error(data?.error || error?.message);
-    else toast.success("Exam submitted");
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    navigate("/student/exams");
+
+    // Retried, because this is the call that ends the sitting. A single failed
+    // attempt used to be reported in a toast and then the student was sent back
+    // to the exam list, where the paper — still open in the database — offered
+    // itself for resuming: an auto-submission for cheating became a warning the
+    // student could click past.
+    let lastError: string | null = null;
+    for (let attemptNo = 0; attemptNo < 3; attemptNo++) {
+      if (attemptNo > 0) await new Promise((r) => setTimeout(r, 1000 * attemptNo));
+      const { data, error } = await supabase.functions.invoke("exam-submit", {
+        body: { attempt_id: attempt.id, reason },
+      });
+      // An attempt already closed server-side is a success from here.
+      if (data?.success || /already submitted/i.test(String(data?.error ?? ""))) {
+        toast.success("Exam submitted");
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        navigate("/student/exams");
+        return;
+      }
+      lastError = data?.error || error?.message || "Submission failed";
+      console.error("exam-submit failed:", lastError);
+    }
+
+    // Still not recorded. Stay on this screen: the paper is closed to the
+    // student either way, and the next exam-start will finish the attempt off.
+    setSubmitting(false);
+    setSubmitFailed(lastError);
+    toast.error("Your exam could not be submitted. Do not close this page.");
   };
 
   // Keep trying the lost device for as long as the countdown runs.
@@ -322,6 +382,24 @@ export default function ExamRunner() {
     return <div className="min-h-screen flex items-center justify-center bg-background"><p>Loading exam…</p></div>;
   }
 
+  // A submission that could not be recorded ends the sitting here rather than
+  // sending the student back to a list where the paper is still resumable.
+  if (submitFailed) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <Card className="max-w-md p-6 text-center space-y-3">
+          <AlertTriangle className="w-8 h-8 text-destructive mx-auto" />
+          <h1 className="text-lg font-bold">Your exam is closed</h1>
+          <p className="text-sm text-muted-foreground">
+            Your answers were saved, but this device could not record the submission ({submitFailed}). Your attempt is
+            finished — show this screen to your invigilator or contact your lecturer. Do not start the exam again.
+          </p>
+          <Button variant="outline" onClick={() => navigate("/student/exams")}>Back to my exams</Button>
+        </Card>
+      </div>
+    );
+  }
+
   const current = questions[idx];
   const optOrder = (attempt.option_orders as Record<string, number[]>)?.[current.id] ?? null;
   const answeredCount = questions.filter((q) => isAnswered(q, answers[q.id])).length;
@@ -355,7 +433,10 @@ export default function ExamRunner() {
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground truncate">{exam.title}</p>
-            <p className="text-[10px] text-muted-foreground">Q {idx + 1}/{questions.length} · Tab switches: {tabSwitches}/{exam.max_tab_switches}</p>
+            <p className="text-[10px] text-muted-foreground">
+              Q {idx + 1}/{questions.length} · Tab switches: {tabSwitches}/{exam.max_tab_switches}
+              {exam.enforce_fullscreen && ` · Fullscreen exits: ${fullscreenExits}/${exam.max_fullscreen_exits}`}
+            </p>
           </div>
           <div className={`text-2xl sm:text-3xl font-mono font-bold tabular-nums ${urgent ? "text-destructive animate-pulse" : "text-primary"}`}>
             {formatDuration(secondsLeft)}
@@ -363,6 +444,28 @@ export default function ExamRunner() {
         </div>
         <Progress value={progress} className="h-1 rounded-none" />
       </header>
+
+      {fullscreenBlocked && exam.enforce_fullscreen && (
+        <div className="fixed inset-0 z-50 bg-background/98 backdrop-blur-sm flex items-center justify-center p-6">
+          <Card className="max-w-md p-6 text-center space-y-3">
+            <ShieldAlert className="w-8 h-8 text-destructive mx-auto" />
+            <h1 className="text-lg font-bold">Return to fullscreen</h1>
+            <p className="text-sm text-muted-foreground">
+              This exam must be sat in fullscreen. Your questions are hidden until you go back, and{" "}
+              <strong>the clock is still running</strong>. Leaving fullscreen {exam.max_fullscreen_exits} time
+              {exam.max_fullscreen_exits === 1 ? "" : "s"} submits your exam automatically — you have used{" "}
+              {fullscreenExits}.
+            </p>
+            <Button
+              onClick={() => document.documentElement.requestFullscreen().catch(() => {
+                toast.error("Your browser refused fullscreen. Allow it and try again.");
+              })}
+            >
+              Re-enter fullscreen
+            </Button>
+          </Card>
+        </div>
+      )}
 
       {deviceGrace && (
         <div className="bg-destructive text-destructive-foreground px-4 py-2 flex items-center gap-2">

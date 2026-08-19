@@ -6,16 +6,21 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Must match what the runner actually sends. "tab_switch_exceeded" used to be
-// missing, so an exam auto-submitted for tab switching was filed as a manual
+// Must match what the runner actually sends AND the submission_reason CHECK
+// constraint on exam_attempts. "tab_switch_exceeded" used to be missing here,
+// so an exam auto-submitted for tab switching was filed as a manual
 // submission — the record showed a student choosing to finish when they had
-// been cut off.
+// been cut off. It was then added here but not to the constraint, which was
+// worse: Postgres rejected the whole update, this function answered 500, and
+// the attempt stayed in_progress for the student to resume. Keep the two lists
+// in step.
 const VALID_REASONS = [
   "manual",
   "timeout",
   "tab_switches",
   "tab_switch_exceeded",
   "fullscreen_exit",
+  "fullscreen_exceeded",
   "camera_blocked",
   "microphone_blocked",
   "admin",
@@ -39,20 +44,40 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Invalid token" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // Service role, because the answer key lives in question_bank, which is
+    // staff-only under RLS — a student's own token cannot read it, and it must
+    // stay that way.
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY")!;
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
+
+    // Two callers, one closing routine.
+    //
+    // A student submits their own paper. exam-close-attempts finishes off
+    // sittings nobody came back to, and it presents the service key rather than
+    // a student's token — the marking, the score and the closing write have to
+    // be identical whichever route ends the exam, so both come through here
+    // instead of a second copy of this logic living elsewhere.
+    const isTrustedCaller = authHeader.replace(/^Bearer\s+/i, "").trim() === serviceKey;
+
+    let authedUserId: string | null = null;
+    if (!isTrustedCaller) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return new Response(JSON.stringify({ error: "Invalid token" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      authedUserId = user.id;
     }
 
-    const { attempt_id, reason } = await req.json();
+    const { attempt_id, reason, submitted_at } = await req.json();
     if (!attempt_id) {
       return new Response(JSON.stringify({ error: "Missing attempt_id" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const validReason = VALID_REASONS.includes(reason) ? reason : "manual";
 
-    // Get the attempt
-    const { data: attempt, error: attemptError } = await supabase
+    // Read through the service role so the trusted path does not depend on the
+    // caller having row access of their own.
+    const { data: attempt, error: attemptError } = await admin
       .from("exam_attempts")
       .select("id, student_id, submitted_at, exam_id, question_order")
       .eq("id", attempt_id)
@@ -62,15 +87,17 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Attempt not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Get student to verify ownership
-    const { data: student } = await supabase
-      .from("students")
-      .select("id, profile_id")
-      .eq("profile_id", user.id)
-      .single();
+    if (authedUserId) {
+      // Get student to verify ownership
+      const { data: student } = await supabase
+        .from("students")
+        .select("id, profile_id")
+        .eq("profile_id", authedUserId)
+        .single();
 
-    if (!student || student.id !== attempt.student_id) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (!student || student.id !== attempt.student_id) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
     }
 
     // Check if already submitted
@@ -81,11 +108,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    const now = new Date();
+    // A swept attempt ended when its student's browser last spoke, not when the
+    // sweep happened to run. Only a trusted caller may say so.
+    const closedAt = isTrustedCaller && typeof submitted_at === "string" && !isNaN(Date.parse(submitted_at))
+      ? new Date(submitted_at).toISOString()
+      : new Date().toISOString();
     const isAutoSubmit = validReason !== "manual";
 
     // Get all answers for this attempt
-    const { data: answers } = await supabase
+    const { data: answers } = await admin
       .from("exam_answers")
       .select("id, question_id, answer, points_awarded")
       .eq("attempt_id", attempt_id);
@@ -93,14 +124,6 @@ Deno.serve(async (req) => {
     // Mark every objective question now, so a lecturer only opens the paper for
     // the ones that need judgement.
     //
-    // Service role, because the answer key lives in question_bank, which is
-    // staff-only under RLS — the student's own token cannot read it, and it must
-    // stay that way. Ownership of this attempt was verified above.
-    const admin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY")!,
-    );
-
     // Walk the questions this attempt was served, not the rows the student
     // saved. A question left blank has no exam_answers row, so scoring off the
     // saved rows skipped it entirely — an unanswered essay then looked like
@@ -179,27 +202,37 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Mark as submitted
-    const { error: updateError } = await supabase
+    // Mark as submitted.
+    //
+    // Closing the attempt is the part that must not fail: while submitted_at is
+    // null the paper is resumable, so a failed write here hands a student who
+    // was cut off for cheating their exam straight back. Written with the
+    // service role for that reason, and the real error is reported rather than a
+    // generic one — a rejected write here was invisible for a long time.
+    const status = awaitingManual ? "submitted" : "graded";
+    const { error: updateError } = await admin
       .from("exam_attempts")
       .update({
-        submitted_at: now.toISOString(),
+        submitted_at: closedAt,
         submission_reason: validReason,
         auto_submitted: isAutoSubmit,
         // Nothing left for a person to mark means this is finished, not pending.
-        status: awaitingManual ? "submitted" : "graded",
-        graded_at: awaitingManual ? null : now.toISOString(),
+        status,
+        graded_at: awaitingManual ? null : closedAt,
         score: totalScore,
       })
       .eq("id", attempt_id);
 
     if (updateError) {
       console.error("Submit error:", updateError);
-      return new Response(JSON.stringify({ error: "Failed to submit exam" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(
+        JSON.stringify({ error: `Failed to submit exam: ${updateError.message}` }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     return new Response(
-      JSON.stringify({ success: true, submitted_at: now.toISOString() }),
+      JSON.stringify({ success: true, submitted_at: closedAt, status, score: totalScore }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {

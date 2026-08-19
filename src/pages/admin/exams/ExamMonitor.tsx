@@ -1,4 +1,4 @@
-import { useEffect, useState, Fragment, useCallback } from "react";
+import { useEffect, useState, Fragment, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from '@/integrations/supabase/types';
@@ -44,7 +44,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Download, AlertTriangle, CheckCircle2, Send, Camera, Mic, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, Download, AlertTriangle, CheckCircle2, Send, Camera, Mic, Trash2, Loader2, LockKeyhole } from "lucide-react";
 import { toast } from "sonner";
 import { AUTO_GRADED_TYPES, formatAnswer, sanitizeHtml } from "@/lib/exam-utils";
 import { r2Storage } from "@/lib/r2-storage";
@@ -61,6 +61,7 @@ export default function ExamMonitor() {
   const [loadingSnapsFor, setLoadingSnapsFor] = useState<string | null>(null);
   const [audio, setAudio] = useState<Record<string, Array<{ id: string; storage_path: string; recorded_at: string; storage_provider: string | null; mime_type: string | null; duration_seconds: number | null; bytes: number | null; signedUrl?: string | null }>>>({});
   const [loadingAudioFor, setLoadingAudioFor] = useState<string | null>(null);
+  const [closingAttempt, setClosingAttempt] = useState<string | null>(null);
   const [showRehearsals, setShowRehearsals] = useState(false);
   const [hiddenRehearsals, setHiddenRehearsals] = useState(0);
 
@@ -86,6 +87,33 @@ export default function ExamMonitor() {
     setAttempts(showRehearsals ? rows : rows.filter((r) => !r.isRehearsal));
     setLoading(false);
   }, [id, showRehearsals]);
+
+  // Finish off any sitting that ended without being closed, before the table is
+  // drawn. An attempt whose clock ran out — or whose student was already over a
+  // proctoring limit — is only "in progress" because the student's browser never
+  // managed to submit it. Left alone it shows here as a live sitting for ever,
+  // with no score, and is skipped when results are released. Sweeping on the way
+  // in means a lecturer opening this page sees finished papers, and never has to
+  // know the submission failed. Attempts still inside their time are untouched,
+  // so a student whose browser crashed can still resume.
+  const sweptRef = useRef(false);
+  useEffect(() => {
+    if (sweptRef.current || !id) return;
+    sweptRef.current = true;
+    (async () => {
+      const { data, error } = await supabase.functions.invoke("exam-close-attempts", { body: { exam_id: id } });
+      if (error || data?.error) {
+        // Not worth interrupting a lecturer over: the table still loads, and the
+        // sweep runs again next time this page is opened.
+        console.error("Close abandoned attempts failed:", data?.error ?? error?.message);
+        return;
+      }
+      if (data?.closed > 0) {
+        toast.info(`Closed ${data.closed} unfinished attempt${data.closed === 1 ? "" : "s"} whose time had run out`);
+        load();
+      }
+    })();
+  }, [id, load]);
 
   useEffect(() => {
     load();
@@ -117,6 +145,35 @@ export default function ExamMonitor() {
       return;
     }
     toast.success("Attempt deleted");
+    load();
+  };
+
+  /**
+   * Close one unfinished attempt by hand.
+   *
+   * The sweep above only touches attempts that are past saving. This is for the
+   * ones a person has to judge: a student who walked out, a laptop that died and
+   * never came back. Their answers are marked and the paper is filed exactly as
+   * if they had pressed Submit, so the score is theirs and nothing is discarded —
+   * which is what makes this different from deleting the attempt.
+   */
+  const closeAttempt = async (attempt: MonitoredAttempt) => {
+    const who = `${attempt.students?.profiles?.first_name ?? ""} ${attempt.students?.profiles?.last_name ?? ""}`.trim() || "this student";
+    if (!confirm(
+      `Close the attempt for ${who}? Their answers are marked and the paper is submitted as it stands. They will not be able to carry on.`,
+    )) return;
+    setClosingAttempt(attempt.id);
+    const { data, error } = await supabase.functions.invoke("exam-close-attempts", { body: { attempt_id: attempt.id } });
+    setClosingAttempt(null);
+    if (error || data?.error) {
+      toast.error(data?.error || error?.message || "Could not close the attempt");
+      return;
+    }
+    if (!data?.closed) {
+      toast.error(data?.failed?.[0]?.error || "That attempt could not be closed");
+      return;
+    }
+    toast.success("Attempt closed and marked");
     load();
   };
 
@@ -445,6 +502,14 @@ export default function ExamMonitor() {
                     {a.status !== "in_progress" && (
                       <Button size="sm" variant="outline" onClick={() => openGrading(a)}>
                         {a.status === "graded" ? "Regrade" : "Grade"}
+                      </Button>
+                    )}
+                    {a.status === "in_progress" && (
+                      <Button size="sm" variant="outline" onClick={() => closeAttempt(a)} disabled={closingAttempt === a.id}>
+                        {closingAttempt === a.id
+                          ? <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          : <LockKeyhole className="w-3 h-3 mr-1" />}
+                        Close
                       </Button>
                     )}
                     <Button size="sm" variant="outline" onClick={() => loadSnapshots(a.id)} disabled={loadingSnapsFor === a.id}>

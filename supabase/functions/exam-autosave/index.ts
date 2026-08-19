@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
       // next value. They were missing from this list, so both came back
       // undefined: the exit counter reset to 1 every time, and each new
       // suspicious event overwrote the whole log instead of appending to it.
-      .select("id, student_id, submitted_at, server_deadline_at, active_session_id, tab_switch_count, status, fullscreen_exits, suspicious_events")
+      .select("id, exam_id, student_id, submitted_at, server_deadline_at, active_session_id, tab_switch_count, status, fullscreen_exits, suspicious_events")
       .eq("id", attempt_id)
       .single();
 
@@ -112,19 +112,30 @@ Deno.serve(async (req) => {
     }
 
     // Log event if provided
+    let limitExceeded: { reason: string; message: string } | null = null;
+
     if (event && event.type) {
       const eventData = {
         type: event.type,
         ...event.data,
       };
 
-      let updates: any = { last_heartbeat_at: new Date().toISOString() };
+      const updates: Record<string, unknown> = { last_heartbeat_at: new Date().toISOString() };
 
-      if (event.type === "tab_switch" && event.data?.count !== undefined) {
-        updates.tab_switch_count = event.data.count;
+      // Counted here, from the stored value, rather than taking the client's
+      // number. A tab that reloads starts its own tally from whatever it last
+      // read, so trusting event.data.count let a student rewind the counter by
+      // reopening the paper.
+      let tabSwitches = attempt.tab_switch_count || 0;
+      let fullscreenExits = attempt.fullscreen_exits || 0;
+
+      if (event.type === "tab_switch") {
+        tabSwitches += 1;
+        updates.tab_switch_count = tabSwitches;
       }
       if (event.type === "fullscreen_exit") {
-        updates.fullscreen_exits = (attempt.fullscreen_exits || 0) + 1;
+        fullscreenExits += 1;
+        updates.fullscreen_exits = fullscreenExits;
       }
 
       const suspiciousEvents = attempt.suspicious_events || [];
@@ -133,7 +144,11 @@ Deno.serve(async (req) => {
       }
       updates.suspicious_events = suspiciousEvents;
 
-      await supabase.from("exam_attempts").update(updates).eq("id", attempt_id);
+      const { error: eventUpdateError } = await supabase
+        .from("exam_attempts")
+        .update(updates)
+        .eq("id", attempt_id);
+      if (eventUpdateError) console.error("Event update error:", eventUpdateError, { attempt_id, type: event.type });
 
       // Log to exam_events table
       await supabase.from("exam_events").insert({
@@ -141,6 +156,26 @@ Deno.serve(async (req) => {
         event_type: event.type,
         event_data: eventData,
       });
+
+      // Tell the runner when a limit has gone, so the decision to end the
+      // sitting is made against the stored counters rather than a tab's own
+      // idea of how many times it has been left.
+      if (["tab_switch", "fullscreen_exit"].includes(event.type)) {
+        const { data: exam } = await supabase
+          .from("exams")
+          .select("max_tab_switches, max_fullscreen_exits, enforce_fullscreen")
+          .eq("id", attempt.exam_id)
+          .maybeSingle();
+
+        const tabLimit = Number(exam?.max_tab_switches ?? 0);
+        const fsLimit = Number(exam?.max_fullscreen_exits ?? 0);
+
+        if (tabLimit > 0 && tabSwitches >= tabLimit) {
+          limitExceeded = { reason: "tab_switch_exceeded", message: "Tab switch limit exceeded" };
+        } else if (exam?.enforce_fullscreen && fsLimit > 0 && fullscreenExits >= fsLimit) {
+          limitExceeded = { reason: "fullscreen_exceeded", message: "Fullscreen exit limit exceeded" };
+        }
+      }
     } else {
       // Just update heartbeat
       await supabase
@@ -150,7 +185,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ success: true, limit_exceeded: limitExceeded }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {

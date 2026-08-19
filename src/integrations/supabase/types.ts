@@ -1088,6 +1088,7 @@ export type Database = {
           instructions: string
           late_entry_cutoff_minutes: number | null
           locked_at: string | null
+          max_fullscreen_exits: number
           max_tab_switches: number
           passing_score: number
           questions_per_attempt: number | null
@@ -1124,6 +1125,7 @@ export type Database = {
           instructions?: string
           late_entry_cutoff_minutes?: number | null
           locked_at?: string | null
+          max_fullscreen_exits?: number
           max_tab_switches?: number
           passing_score?: number
           questions_per_attempt?: number | null
@@ -1160,6 +1162,7 @@ export type Database = {
           instructions?: string
           late_entry_cutoff_minutes?: number | null
           locked_at?: string | null
+          max_fullscreen_exits?: number
           max_tab_switches?: number
           passing_score?: number
           questions_per_attempt?: number | null

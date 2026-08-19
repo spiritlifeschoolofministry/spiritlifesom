@@ -68,6 +68,7 @@ const DEFAULT: ExamDraft = {
   block_shortcuts: true,
   allow_mobile: true,
   max_tab_switches: 3,
+  max_fullscreen_exits: 3,
   autosave_interval_seconds: 15,
   allow_late_entry: false,
   late_entry_cutoff_minutes: 15,
@@ -603,6 +604,9 @@ export default function ExamBuilder() {
               </div>
             ))}
             <div><Label>Max tab switches before auto-submit</Label><Input type="number" min={0} value={exam.max_tab_switches} onChange={(e) => update({ max_tab_switches: Number(e.target.value) })} /></div>
+            {exam.enforce_fullscreen && (
+              <div><Label>Fullscreen exits before auto-submit</Label><Input type="number" min={1} value={exam.max_fullscreen_exits ?? 3} onChange={(e) => update({ max_fullscreen_exits: Number(e.target.value) })} /></div>
+            )}
             <div><Label>Autosave interval (seconds)</Label><Input type="number" min={5} value={exam.autosave_interval_seconds} onChange={(e) => update({ autosave_interval_seconds: Number(e.target.value) })} /></div>
             {exam.enable_webcam_proctoring && (
               <div><Label>Snapshot interval (seconds, min 10)</Label><Input type="number" min={10} value={exam.snapshot_interval_seconds ?? 30} onChange={(e) => update({ snapshot_interval_seconds: Number(e.target.value) })} /></div>
