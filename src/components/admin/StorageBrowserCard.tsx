@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -69,7 +69,7 @@ export default function StorageBrowserCard() {
   const currentBucket = useMemo(() => buckets.find((b) => b.name === bucket), [buckets, bucket]);
 
   // Recursively walk every folder in a bucket and tally file count + size
-  const walkBucket = async (bucketName: string): Promise<{ files: number; bytes: number }> => {
+  const walkBucket = useCallback(async (bucketName: string): Promise<{ files: number; bytes: number }> => {
     let files = 0;
     let bytes = 0;
     const queue: string[] = [""];
@@ -94,9 +94,9 @@ export default function StorageBrowserCard() {
       }
     }
     return { files, bytes };
-  };
+  }, []);
 
-  const loadGrandTotal = async (bucketList: { name: string; public: boolean }[]) => {
+  const loadGrandTotal = useCallback(async (bucketList: { name: string; public: boolean }[]) => {
     if (bucketList.length === 0) return;
     setTotalsLoading(true);
     const perBucket: Record<string, { files: number; bytes: number }> = {};
@@ -112,9 +112,9 @@ export default function StorageBrowserCard() {
     );
     setGrandTotal({ files, bytes, perBucket });
     setTotalsLoading(false);
-  };
+  }, [walkBucket]);
 
-  const loadBuckets = async () => {
+  const loadBuckets = useCallback(async () => {
     const { data, error } = await supabase.storage.listBuckets();
     if (error) {
       toast.error("Failed to load buckets");
@@ -122,11 +122,11 @@ export default function StorageBrowserCard() {
     }
     const list = (data || []).map((b) => ({ name: b.name, public: !!b.public }));
     setBuckets(list);
-    if (!bucket && list[0]) setBucket(list[0].name);
+    setBucket((prev) => prev || list[0]?.name || "");
     loadGrandTotal(list);
-  };
+  }, [loadGrandTotal]);
 
-  const loadItems = async () => {
+  const loadItems = useCallback(async () => {
     if (!bucket) return;
     setLoading(true);
     setSelected(new Set());
@@ -142,10 +142,10 @@ export default function StorageBrowserCard() {
       setItems(data || []);
     }
     setLoading(false);
-  };
+  }, [bucket, prefix]);
 
-  useEffect(() => { loadBuckets(); }, []);
-  useEffect(() => { loadItems(); /* eslint-disable-next-line */ }, [bucket, prefix]);
+  useEffect(() => { loadBuckets(); }, [loadBuckets]);
+  useEffect(() => { loadItems(); }, [loadItems]);
 
   const isFolder = (it: StorageItem) => it.id === null || it.metadata == null;
   const fullPath = (name: string) => (prefix ? `${prefix}/${name}` : name);

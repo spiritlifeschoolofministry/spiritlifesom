@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
@@ -58,16 +58,8 @@ const Coursemates = () => {
   const showEmail = watch('show_email');
   const showPhone = watch('show_phone');
 
-  useEffect(() => {
-    if (!user || !student?.cohort_id) {
-      setLoading(false);
-      return;
-    }
-    fetchClassmates();
-    fetchStudentData();
-  }, [user, student?.cohort_id]);
 
-  const fetchClassmates = async () => {
+  const fetchClassmates = useCallback(async () => {
     try {
       setLoading(true);
       // Get directory entries
@@ -111,9 +103,9 @@ const Coursemates = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [student]);
 
-  const fetchStudentData = async () => {
+  const fetchStudentData = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
       .from('students')
@@ -125,7 +117,16 @@ const Coursemates = () => {
       setCurrentStudentData(data);
       reset({ bio: data.bio || '', show_email: data.show_email || false, show_phone: data.show_phone || false });
     }
-  };
+  }, [user, reset]);
+
+  useEffect(() => {
+    if (!user || !student?.cohort_id) {
+      setLoading(false);
+      return;
+    }
+    fetchClassmates();
+    fetchStudentData();
+  }, [user, student?.cohort_id, fetchClassmates, fetchStudentData]);
 
   useEffect(() => {
     const filtered = classmates.filter(c =>

@@ -1,4 +1,4 @@
-import { useEffect, useState, Fragment } from "react";
+import { useEffect, useState, Fragment, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from '@/integrations/supabase/types';
@@ -64,7 +64,7 @@ export default function ExamMonitor() {
   const [showRehearsals, setShowRehearsals] = useState(false);
   const [hiddenRehearsals, setHiddenRehearsals] = useState(0);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const { data: e } = await supabase.from("exams").select("*, courses(code,title), cohorts(name)").eq("id", id).maybeSingle();
     setExam(e);
@@ -85,7 +85,7 @@ export default function ExamMonitor() {
     setHiddenRehearsals(rows.filter((r) => r.isRehearsal).length);
     setAttempts(showRehearsals ? rows : rows.filter((r) => !r.isRehearsal));
     setLoading(false);
-  };
+  }, [id, showRehearsals]);
 
   useEffect(() => {
     load();
@@ -94,7 +94,7 @@ export default function ExamMonitor() {
       .on("postgres_changes", { event: "*", schema: "public", table: "exam_attempts", filter: `exam_id=eq.${id}` }, load)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [id, showRehearsals]);
+  }, [id, load]);
 
   /**
    * Delete an attempt outright.

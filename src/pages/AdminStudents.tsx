@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -119,7 +119,6 @@ const STATUS_CONFIG: Record<string, { color: string; icon: typeof Users; dotColo
 const AdminStudents = () => {
   const navigate = useNavigate();
   const [students, setStudents] = useState<Student[]>([]);
-  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -157,7 +156,6 @@ const AdminStudents = () => {
   const lastSendAtRef = useState<{ t: number }>({ t: 0 })[0];
 
   useEffect(() => { loadStudents(); loadCohorts(); loadEmailStatuses(); }, []);
-  useEffect(() => { filterStudents(); }, [students, searchQuery, statusFilter, cohortFilter, languageFilter]);
 
   const loadCohorts = async () => {
     const { data } = await supabase.from("cohorts").select("id, name").order("name");
@@ -181,7 +179,7 @@ const AdminStudents = () => {
     }
   };
 
-  const filterStudents = () => {
+  const filteredStudents = useMemo(() => {
     let filtered = [...students];
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -204,8 +202,8 @@ const AdminStudents = () => {
         return lang === languageFilter.toLowerCase();
       });
     }
-    setFilteredStudents(filtered);
-  };
+    return filtered;
+  }, [students, searchQuery, statusFilter, cohortFilter, languageFilter]);
 
   const loadEmailStatuses = async () => {
     try {

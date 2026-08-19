@@ -89,39 +89,11 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
     });
   }, []);
 
-  const loadAnalytics = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await Promise.all([
-        loadEnrollment(),
-        loadRevenue(),
-        loadAttendance(),
-        loadAssignments(),
-        loadMaterials(),
-        loadCoursePerformance(),
-      ]);
-    } catch (err) {
-      console.error("Analytics load failed", err);
-      setError(err.message || "Failed to load analytics data. Please try again.");
-    } finally {
-      setLoading(false);
-      setLastRefreshed(new Date());
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!autoRefresh) return;
-    const interval = setInterval(() => {
-      loadAnalytics();
-    }, 60000); // 60 seconds
-    return () => clearInterval(interval);
-  }, [loadAnalytics]);
-
-  useEffect(() => { loadAnalytics(); }, [cohortFilter]);
 
 
-  const loadEnrollment = async () => {
+
+
+  const loadEnrollment = useCallback(async () => {
     let query = supabase.from("students").select("id, created_at, admission_status, cohort_id, gender, learning_mode").eq("is_staff_preview", false);
     if (cohortFilter !== "all") query = query.eq("cohort_id", cohortFilter);
     const { data } = await query;
@@ -170,9 +142,9 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
     setLearningModeData(Object.entries(modeMap).map(([name, value]) => ({ name, value })));
 
     setSummaryCards((prev) => ({ ...prev, totalStudents: data.length, graduateCount: graduated }));
-  };
+  }, [cohortFilter]);
 
-  const loadRevenue = async () => {
+  const loadRevenue = useCallback(async () => {
     let query = supabase.from("fees").select("amount_paid, amount_due, fee_type, cohort_id, payment_status");
     if (cohortFilter !== "all") query = query.eq("cohort_id", cohortFilter);
     const { data } = await query;
@@ -200,9 +172,9 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
       totalRevenue: totalCollected,
       outstandingFees: Math.max(0, totalDue - totalCollected),
     }));
-  };
+  }, [cohortFilter]);
 
-  const loadAttendance = async () => {
+  const loadAttendance = useCallback(async () => {
     let query = supabase.from("attendance").select("status, schedule_id, student_id");
     
     if (cohortFilter !== "all") {
@@ -239,9 +211,9 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
       percentage: Math.round((count / total) * 100),
     })));
     setSummaryCards((prev) => ({ ...prev, avgAttendance: avgRate }));
-  };
+  }, [cohortFilter]);
 
-  const loadAssignments = async () => {
+  const loadAssignments = useCallback(async () => {
     let assignQuery = supabase.from("assignments").select("id, title, cohort_id, course_id, max_points, category, is_manual_record");
     if (cohortFilter !== "all") assignQuery = assignQuery.eq("cohort_id", cohortFilter);
     const { data: assignments } = await assignQuery;
@@ -285,9 +257,9 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
 
     setAssignmentData(result);
     setSummaryCards((prev) => ({ ...prev, avgCompletion: Math.min(completionRate, 100) }));
-  };
+  }, [cohortFilter]);
 
-  const loadMaterials = async () => {
+  const loadMaterials = useCallback(async () => {
     let query = supabase.from("course_materials").select("id, course_id, material_type, file_type, is_paid, cohort_id, created_at, courses!course_materials_course_id_fkey(title)");
     if (cohortFilter !== "all") query = query.eq("cohort_id", cohortFilter);
     const { data } = await query;
@@ -312,9 +284,9 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
     setMaterialsData(Object.values(courseMap).sort((a, b) => b.count - a.count));
     setMaterialsByType(Object.entries(typeMap).map(([name, value]) => ({ name, value })));
     setSummaryCards((prev) => ({ ...prev, totalMaterials: data.length }));
-  };
+  }, [cohortFilter]);
 
-  const loadCoursePerformance = async () => {
+  const loadCoursePerformance = useCallback(async () => {
     let courseQuery = supabase.from("courses").select("id, title, code, cohort_id, is_completed");
     if (cohortFilter !== "all") courseQuery = courseQuery.eq("cohort_id", cohortFilter);
     const { data: courses } = await courseQuery;
@@ -356,7 +328,37 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
     });
 
     setCoursePerformance(result);
-  };
+  }, [cohortFilter]);
+
+  const loadAnalytics = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await Promise.all([
+        loadEnrollment(),
+        loadRevenue(),
+        loadAttendance(),
+        loadAssignments(),
+        loadMaterials(),
+        loadCoursePerformance(),
+      ]);
+    } catch (err) {
+      console.error("Analytics load failed", err);
+      setError(err.message || "Failed to load analytics data. Please try again.");
+    } finally {
+      setLoading(false);
+      setLastRefreshed(new Date());
+    }
+  }, [loadEnrollment, loadRevenue, loadAttendance, loadAssignments, loadMaterials, loadCoursePerformance]);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const interval = setInterval(() => {
+      loadAnalytics();
+    }, 60000); // 60 seconds
+    return () => clearInterval(interval);
+  }, [autoRefresh, loadAnalytics]);
+  useEffect(() => { loadAnalytics(); }, [loadAnalytics]);
 
   if (loading) {
     return (
