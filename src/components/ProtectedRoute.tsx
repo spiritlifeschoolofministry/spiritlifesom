@@ -10,14 +10,17 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
-  const { user, profile, student, role, isLoading, isAuthReady, authError, signOut } = useAuth();
+  const { user, profile, student, role, isLoading, isAuthReady, isProfileResolved, authError, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   // A signed-in user whose profile hasn't resolved yet is still "loading", even
   // if isLoading has already flipped (e.g. a getSession error resolved while the
   // auth listener was mid-fetch). Deciding anything here would bounce them.
-  const authPending = isLoading || (!!user && !isAuthReady);
+  // Cached auth data counts as resolved, so a refresh paints the portal straight
+  // away instead of parking everyone on a spinner.
+  const authPending =
+    isLoading || (!!user && (!isAuthReady || (!isProfileResolved && !authError)));
 
   // Hold on a loading screen while auth data (user/profile/student) is being
   // resolved — this covers initial load, page refresh, AND the brief window
@@ -68,9 +71,11 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
   const normalizedRole = (role ?? "").toLowerCase();
 
   // Force students to finish their profile before entering any portal route.
-  // Admins/teachers are exempt. By this point auth data is fully loaded, so a
-  // null profile/student genuinely means an incomplete profile — not "still loading".
-  if (normalizedRole === "student" || normalizedRole === "") {
+  // Admins/teachers are exempt. Gated on isProfileResolved: only a completed
+  // read (including one that legitimately found no rows) may send anyone here,
+  // so a slow or failed fetch can never flash /complete-profile at a student
+  // who has already filled it in.
+  if (isProfileResolved && (normalizedRole === "student" || normalizedRole === "")) {
     if (!isStudentProfileComplete(profile, student) && location.pathname !== "/complete-profile") {
       return <Navigate to="/complete-profile" replace />;
     }

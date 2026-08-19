@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
@@ -24,6 +24,7 @@ import { Progress } from "@/components/ui/progress";
 import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Loader2, AlertCircle, TrendingUp, ChevronRight, Sparkles, GraduationCap, Award, FileText, Zap } from "lucide-react";
 import { toast } from "sonner";
 import Reveal from "@/components/Reveal";
+import { isStudentProfileComplete } from "@/lib/profile-complete";
 
 interface FeeBreakdown {
   paid: number;
@@ -69,10 +70,24 @@ const EMPTY_DATA: DashboardData = {
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
-  const { role, student, user, profile } = useAuth();
+  const { student, user, profile, isProfileResolved, refreshProfile } = useAuth();
+
+  // Identity comes from the auth context, which is the one place that reads and
+  // caches these rows. The dashboard used to re-query profiles/students itself,
+  // so two copies of "is this profile complete?" raced on every load — that
+  // second copy is what popped the completion dialog over a finished profile.
+  const fullName = useMemo(
+    () =>
+      [profile?.first_name, profile?.middle_name, profile?.last_name].filter(Boolean).join(" ") ||
+      (user?.user_metadata?.full_name as string | undefined) ||
+      "Student",
+    [profile?.first_name, profile?.middle_name, profile?.last_name, user],
+  );
+  const studentId = student?.id ?? null;
+  const cohortId = student?.cohort_id ?? null;
+  const admissionStatus = student?.admission_status ?? null;
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showProfileCompletion, setShowProfileCompletion] = useState(false);
   const [savingProfileCompletion, setSavingProfileCompletion] = useState(false);
   const [profileCompletionForm, setProfileCompletionForm] = useState({
     gender: "",
@@ -85,6 +100,39 @@ const StudentDashboard = () => {
   const [allCohortOptions, setAllCohortOptions] = useState<CohortOption[]>([]);
   const [isReturningStudent, setIsReturningStudent] = useState(false);
   const [loadingAllCohorts, setLoadingAllCohorts] = useState(false);
+
+  // Keep the form in step with the stored row. Keyed on the values rather than
+  // the row object: the auth context hands out a fresh object after every
+  // background revalidation, which would otherwise wipe what the user is typing.
+  useEffect(() => {
+    if (!student) return;
+    setProfileCompletionForm({
+      gender: student.gender || "",
+      age: student.age ? String(student.age) : "",
+      cohort_id: student.cohort_id || "",
+      learning_mode: student.learning_mode || "",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [student?.gender, student?.age, student?.cohort_id, student?.learning_mode]);
+
+  /**
+   * What this dialog still exists for: a cohort. /complete-profile already
+   * collects name, phone, gender, age and learning mode before the route guard
+   * lets anyone in here — but it can't ask for a cohort, so a student whose
+   * signup never got one lands here without one. The remaining fields stay in
+   * the form as a safety net for rows that predate that flow.
+   *
+   * Gated on isProfileResolved so it can only ever open on real, settled data —
+   * never on the blank moment before the profile read comes back.
+   */
+  const completionOverridden =
+    (student as { profile_complete_override?: boolean | null } | null)?.profile_complete_override === true;
+  const needsCompletion =
+    isProfileResolved &&
+    !!student &&
+    !completionOverridden &&
+    (!student.cohort_id || !isStudentProfileComplete(profile, student));
+  const showProfileCompletion = needsCompletion;
 
   const normalizeStatus = (s: string | null | undefined) => (s ?? "").toUpperCase();
 
@@ -107,42 +155,22 @@ const StudentDashboard = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // Reuse the already-resolved auth user; a getUser() round trip here just
-      // delayed every dashboard load behind an extra network call.
-      const authUser = user ?? (await supabase.auth.getUser()).data.user;
-      if (!authUser) {
+      if (!user) {
         setData(EMPTY_DATA);
         return;
       }
 
-      const [profileRes, studentRes, announcementsRes, cohortsRes] = await Promise.all([
-        supabase.from("profiles").select("first_name, middle_name, last_name").eq("id", authUser.id).maybeSingle(),
-        supabase.from("students").select("id, profile_id, cohort_id, admission_status, is_approved, gender, age, learning_mode").eq("profile_id", authUser.id).maybeSingle(),
+      const [announcementsRes, cohortsRes] = await Promise.all([
         supabase.from("announcements").select("title, body, published_at").eq("is_published", true).order("published_at", { ascending: false }).limit(3),
         supabase.from("cohorts").select("id, name").eq("is_active", true).order("created_at", { ascending: false }),
       ]);
 
-      const firstName = profileRes.data ? [profileRes.data.first_name, profileRes.data.middle_name, profileRes.data.last_name].filter(Boolean).join(' ') : authUser.user_metadata?.full_name || "Student";
-      const studentRecord = studentRes.data;
-      const studentId = studentRecord?.id || null;
-      const cohortId = studentRecord?.cohort_id || null;
-      const admissionStatus = studentRecord?.admission_status || null;
+      const firstName = fullName;
       const statusUpper = normalizeStatus(admissionStatus);
       const isAdmitted = statusUpper === "ADMITTED" || statusUpper === "APPROVED";
 
       if (cohortsRes.data) {
         setCohortOptions(cohortsRes.data as CohortOption[]);
-      }
-
-      if (studentRecord) {
-        const hasIncompleteProfile = !studentRecord.gender || !studentRecord.age || !studentRecord.cohort_id || !studentRecord.learning_mode;
-        setShowProfileCompletion(hasIncompleteProfile);
-        setProfileCompletionForm({
-          gender: studentRecord.gender || "",
-          age: studentRecord.age?.toString() || "",
-          cohort_id: studentRecord.cohort_id || "",
-          learning_mode: studentRecord.learning_mode || "",
-        });
       }
 
       let attendanceRate: number | null = null;
@@ -208,7 +236,6 @@ const StudentDashboard = () => {
       }
 
       try {
-        const cohortId = studentRecord?.cohort_id;
         const orQuery = cohortId
           ? `target_cohort_id.is.null,target_cohort_id.eq.${cohortId}`
           : `target_cohort_id.is.null`;
@@ -242,13 +269,15 @@ const StudentDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+    // Primitive deps only: the auth context hands out fresh row objects after
+    // every background revalidation, and depending on those objects would
+    // re-run the whole dashboard (and flash its skeletons) each time.
+  }, [user, fullName, studentId, cohortId, admissionStatus]);
 
   useEffect(() => { load(); }, [load]);
 
   const saveProfileCompletion = async () => {
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    if (!authUser) {
+    if (!user) {
       toast.error("Your session expired. Please log in again.");
       return;
     }
@@ -271,7 +300,7 @@ const StudentDashboard = () => {
       const { error } = await supabase
         .from("students")
         .update(updatePayload)
-        .eq("profile_id", authUser.id)
+        .eq("profile_id", user.id)
         .select();
 
       if (error) {
@@ -279,7 +308,9 @@ const StudentDashboard = () => {
       }
 
       toast.success("Profile details saved.");
-      setShowProfileCompletion(false);
+      // The auth context owns the copy of the student row this dialog is driven
+      // by, so re-reading it is what actually closes the dialog.
+      await refreshProfile();
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save profile details.");
@@ -288,7 +319,7 @@ const StudentDashboard = () => {
     }
   };
 
-  const statusUpper = normalizeStatus(data?.admissionStatus);
+  const statusUpper = normalizeStatus(admissionStatus);
   const isPending = statusUpper === "PENDING";
   const isAdmitted = statusUpper === "ADMITTED" || statusUpper === "APPROVED";
 
@@ -310,11 +341,10 @@ const StudentDashboard = () => {
   };
 
   return (
-    <StudentLayout admissionStatus={data?.admissionStatus}>
-      {/* Profile Completion Dialog */}
-      {/* Only once the dashboard's own data has resolved — otherwise a re-read
-          (e.g. after a token refresh) pops this over a half-loaded page. */}
-      <Dialog open={showProfileCompletion && !loading} onOpenChange={() => undefined}>
+    <StudentLayout admissionStatus={admissionStatus}>
+      {/* Profile Completion Dialog — driven by the auth context's settled
+          student row, so it can't appear while anything is still resolving. */}
+      <Dialog open={showProfileCompletion} onOpenChange={() => undefined}>
         <DialogContent onEscapeKeyDown={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Complete your profile</DialogTitle>
@@ -412,24 +442,20 @@ const StudentDashboard = () => {
             <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
             <div className="relative z-10">
-              {loading ? (
-                <Skeleton className="h-8 w-64 bg-white/20" />
-              ) : (
-                <>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Sparkles className="h-4 w-4 opacity-80" />
-                    <span className="text-sm opacity-80">{getGreeting()}</span>
-                  </div>
-                  <h1 className="text-2xl sm:text-3xl font-bold">{data?.firstName ?? "Student"} 👋</h1>
-                  {data?.admissionStatus && (
-                    <div className="mt-3 inline-flex items-center gap-2">
-                      <GraduationCap className="h-4 w-4" />
-                      <Badge variant="secondary" className="bg-white/20 text-primary-foreground border-0 hover:bg-white/30">
-                        {data.admissionStatus}
-                      </Badge>
-                    </div>
-                  )}
-                </>
+              {/* Name and status come from the auth context, which already has
+                  them — no reason to hold the greeting behind the stats fetch. */}
+              <div className="flex items-center gap-2 mb-1">
+                <Sparkles className="h-4 w-4 opacity-80" />
+                <span className="text-sm opacity-80">{getGreeting()}</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold">{fullName} 👋</h1>
+              {admissionStatus && (
+                <div className="mt-3 inline-flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4" />
+                  <Badge variant="secondary" className="bg-white/20 text-primary-foreground border-0 hover:bg-white/30">
+                    {admissionStatus}
+                  </Badge>
+                </div>
               )}
             </div>
           </div>

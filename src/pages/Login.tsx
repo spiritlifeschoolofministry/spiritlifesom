@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -10,14 +10,18 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Eye, EyeOff, Info, Loader2, Mail, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import SEO from "@/components/SEO";
+import { useAuth } from "@/contexts/useAuth";
+import { isStudentProfileComplete } from "@/lib/profile-complete";
 import GoogleAuthButton from "@/components/GoogleAuthButton";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { user, role, profile, student, isProfileResolved, isAuthReady, authError } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
 
   // Magic link / OTP state
@@ -26,22 +30,34 @@ const Login = () => {
   const [otpStep, setOtpStep] = useState<"request" | "verify">("request");
   const [otpLoading, setOtpLoading] = useState(false);
 
-  const routeByRole = async (userId: string, fallbackRole?: string) => {
-    let profile = null;
-    let retries = 0;
-    while (retries < 3 && !profile) {
-      const { data } = await supabase.from("profiles").select("role").eq("id", userId).maybeSingle();
-      if (data) { profile = data; break; }
-      retries++;
-      if (retries < 3) await new Promise((r) => setTimeout(r, 1000));
+  /**
+   * Where this account belongs, decided from the auth context rather than from
+   * a second role query of our own. Sending every student to the dashboard and
+   * letting the route guard bounce the incomplete ones is what produced the
+   * dashboard-then-/complete-profile jump right after signing in.
+   */
+  const destination = useMemo(() => {
+    const r = (role || "").toLowerCase();
+    if (r === "admin" || r === "teacher") return "/admin/dashboard";
+    return isStudentProfileComplete(profile, student) ? "/student/dashboard" : "/complete-profile";
+  }, [role, profile, student]);
+
+  // Redirect once — and only once — the context has a settled answer for this
+  // user. `redirecting` keeps the form disabled in the meantime instead of
+  // flicking back to an empty sign-in box.
+  useEffect(() => {
+    if (!user) return;
+    if (!redirecting && !isProfileResolved) return;
+    if (isProfileResolved) {
+      navigate(destination, { replace: true });
+      return;
     }
-    const role = profile?.role || fallbackRole || "student";
-    if (role === "admin" || role === "teacher") {
-      navigate("/admin/dashboard", { replace: true });
-    } else {
-      navigate("/student/dashboard");
+    // The profile read failed or timed out; the portal's own error screen is a
+    // better place to land than a login form that looks like it did nothing.
+    if (redirecting && isAuthReady && authError) {
+      navigate("/student/dashboard", { replace: true });
     }
-  };
+  }, [user, redirecting, isProfileResolved, isAuthReady, authError, destination, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,17 +68,17 @@ const Login = () => {
     setLoading(true);
     setStatusMsg("Checking credentials...");
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      setStatusMsg("Loading profile...");
       toast.success("Welcome back!");
-      setStatusMsg("");
-      await routeByRole(data.user.id, data.user.user_metadata?.role);
+      // Stay in the loading state until the auth context resolves and the
+      // effect above routes us — the session is only half-ready right now.
+      setStatusMsg("Loading your portal...");
+      setRedirecting(true);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Unknown error occurred";
       toast.error(msg || "Invalid login credentials");
       setStatusMsg("");
-    } finally {
       setLoading(false);
     }
   };
@@ -103,11 +119,10 @@ const Login = () => {
       if (error) throw error;
       if (!data.user) throw new Error("Invalid code");
       toast.success("Signed in!");
-      await routeByRole(data.user.id, data.user.user_metadata?.role);
+      setRedirecting(true);
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "Invalid or expired code";
       toast.error(msg);
-    } finally {
       setOtpLoading(false);
     }
   };

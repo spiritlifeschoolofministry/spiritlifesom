@@ -39,7 +39,7 @@ type StepKey = "name" | "contact" | "details";
 
 const CompleteProfile = () => {
   const navigate = useNavigate();
-  const { user, profile, student, role, isLoading, refreshProfile } = useAuth();
+  const { user, profile, student, role, isLoading, isProfileResolved, refreshProfile } = useAuth();
 
   const submittingRef = useRef(false);
   const [saving, setSaving] = useState(false);
@@ -68,15 +68,17 @@ const CompleteProfile = () => {
     }
   }, [profile, student]);
 
-  // Skip if already done
+  // Skip if already done. Waits for a settled profile read — acting while the
+  // rows are still in flight is how this page used to appear for a moment to
+  // people who had already filled it in.
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || !isProfileResolved) return;
     if (!user) { navigate("/login", { replace: true }); return; }
     if (isStudentProfileComplete(profile, student)) {
       const r = (role || "").toLowerCase();
       navigate(r === "admin" || r === "teacher" ? "/admin/dashboard" : "/student/dashboard", { replace: true });
     }
-  }, [isLoading, user, profile, student, role, navigate]);
+  }, [isLoading, isProfileResolved, user, profile, student, role, navigate]);
 
   // Build only the steps that have at least one missing field
   const missing = useMemo<MissingProfileField[]>(
@@ -173,7 +175,9 @@ const CompleteProfile = () => {
     }
   };
 
-  if (isLoading) {
+  // Same reason: never paint the form (or its "N fields left" count) until we
+  // know what is actually missing.
+  if (isLoading || (user && !isProfileResolved) || (isProfileResolved && isStudentProfileComplete(profile, student))) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
