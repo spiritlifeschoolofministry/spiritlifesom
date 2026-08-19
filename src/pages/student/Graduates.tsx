@@ -37,29 +37,26 @@ const Graduates = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const [studentsRes, cohortsRes] = await Promise.all([
+        // Read through graduate_directory: students_select limits a student to
+        // their own row, so querying students directly returned no graduates.
+        const [gradsRes, cohortsRes] = await Promise.all([
           supabase
-            .from('students')
-            .select(`
-              id, cohort_id,
-              profiles!students_profile_id_fkey ( first_name, last_name, avatar_url ),
-              cohorts!students_cohort_id_fkey ( name )
-            `)
-            .eq('is_staff_preview', false)
-            .eq('admission_status', 'Graduate'),
+            .from('graduate_directory')
+            .select('id, first_name, last_name, avatar_url, cohort_id, cohort_name')
+            .order('last_name', { ascending: true }),
           supabase.from('cohorts').select('id, name').order('name'),
         ]);
 
-        if (studentsRes.error) throw studentsRes.error;
+        if (gradsRes.error) throw gradsRes.error;
 
-        const list: Graduate[] = (studentsRes.data as any)?.map((s: any) => ({
-          id: s.id,
-          first_name: s.profiles?.first_name || '',
-          last_name: s.profiles?.last_name || '',
-          avatar_url: s.profiles?.avatar_url || null,
-          cohort_name: s.cohorts?.name || 'Unknown',
-          cohort_id: s.cohort_id,
-        })) || [];
+        const list: Graduate[] = (gradsRes.data || []).map((g) => ({
+          id: g.id ?? '',
+          first_name: g.first_name || '',
+          last_name: g.last_name || '',
+          avatar_url: g.avatar_url || null,
+          cohort_name: g.cohort_name || 'Unknown',
+          cohort_id: g.cohort_id,
+        }));
 
         setGraduates(list);
         if (cohortsRes.data) setCohorts(cohortsRes.data);
