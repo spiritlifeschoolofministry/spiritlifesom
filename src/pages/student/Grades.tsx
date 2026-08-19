@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import StudentLayout from "@/components/StudentLayout";
@@ -49,12 +49,7 @@ const StudentGrades = () => {
   const [items, setItems] = useState<GradedItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!student?.id || !student?.cohort_id) return;
-    loadGrades();
-  }, [student?.id, student?.cohort_id]);
-
-  const loadGrades = async () => {
+  const loadGrades = useCallback(async () => {
     if (!student?.id || !student?.cohort_id) return;
     try {
       setLoading(true);
@@ -119,7 +114,12 @@ const StudentGrades = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [student?.id, student?.cohort_id]);
+
+  useEffect(() => {
+    loadGrades();
+  }, [loadGrades]);
+
 
   const categories = Object.entries(
     items.reduce<Record<string, GradedItem[]>>((acc, item) => {

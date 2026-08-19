@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import StudentLayout from '@/components/StudentLayout';
@@ -29,22 +29,7 @@ const StudentAssignments = () => {
   const [timers, setTimers] = useState<Record<string, TimeRemaining>>({});
   const [, setUpdateTrigger] = useState(0);
 
-  useEffect(() => {
-    if (!student?.cohort_id) return;
-    loadAssignments();
-  }, [student?.cohort_id]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const newTimers: Record<string, TimeRemaining> = {};
-      assignments.forEach((a) => { newTimers[a.id] = calculateTimeRemaining(a.due_date); });
-      setTimers(newTimers);
-      setUpdateTrigger((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [assignments]);
-
-  const loadAssignments = async () => {
+  const loadAssignments = useCallback(async () => {
     if (!student?.cohort_id || !student?.id) return;
     try {
       setLoading(true);
@@ -65,7 +50,22 @@ const StudentAssignments = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [student?.id, student?.cohort_id]);
+
+  useEffect(() => {
+    loadAssignments();
+  }, [loadAssignments]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const newTimers: Record<string, TimeRemaining> = {};
+      assignments.forEach((a) => { newTimers[a.id] = calculateTimeRemaining(a.due_date); });
+      setTimers(newTimers);
+      setUpdateTrigger((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [assignments]);
+
 
   const handleDownload = async (submission) => {
     try {

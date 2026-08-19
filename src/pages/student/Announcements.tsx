@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import StudentLayout from '@/components/StudentLayout';
@@ -47,12 +47,7 @@ const StudentAnnouncements = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!student) return;
-    loadAnnouncements();
-  }, [student?.cohort_id]);
-
-  const loadAnnouncements = async () => {
+  const loadAnnouncements = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -75,7 +70,12 @@ const StudentAnnouncements = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [student]);
+
+  useEffect(() => {
+    loadAnnouncements();
+  }, [loadAnnouncements]);
+
 
   if (loading) {
     return (

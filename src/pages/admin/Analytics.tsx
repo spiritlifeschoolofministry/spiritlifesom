@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -89,17 +89,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
     });
   }, []);
 
-  useEffect(() => {
-    if (!autoRefresh) return;
-    const interval = setInterval(() => {
-      loadAnalytics();
-    }, 60000); // 60 seconds
-    return () => clearInterval(interval);
-  }, [autoRefresh, cohortFilter]);
-
-  useEffect(() => { loadAnalytics(); }, [cohortFilter]);
-
-  const loadAnalytics = async () => {
+  const loadAnalytics = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -118,7 +108,18 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
       setLoading(false);
       setLastRefreshed(new Date());
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const interval = setInterval(() => {
+      loadAnalytics();
+    }, 60000); // 60 seconds
+    return () => clearInterval(interval);
+  }, [loadAnalytics]);
+
+  useEffect(() => { loadAnalytics(); }, [cohortFilter]);
+
 
   const loadEnrollment = async () => {
     let query = supabase.from("students").select("id, created_at, admission_status, cohort_id, gender, learning_mode").eq("is_staff_preview", false);

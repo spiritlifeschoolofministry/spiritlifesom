@@ -23,4 +23,14 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  {
+    // The shadcn components are generated, and each deliberately exports its
+    // cva variants next to the component. That costs a full reload instead of
+    // a hot one in dev and nothing else, so the rule is off here rather than
+    // every file being split away from upstream.
+    files: ["src/components/ui/**/*.{ts,tsx}"],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
 );

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import StudentLayout from "@/components/StudentLayout";
@@ -53,12 +53,7 @@ const StudentTranscript = () => {
   const [loading, setLoading] = useState(true);
   const printRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!student?.id || !student?.cohort_id) return;
-    loadTranscript();
-  }, [student?.id, student?.cohort_id]);
-
-  const loadTranscript = async () => {
+  const loadTranscript = useCallback(async () => {
     if (!student?.id || !student?.cohort_id) return;
     try {
       setLoading(true);
@@ -157,7 +152,12 @@ const StudentTranscript = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [student?.id, student?.cohort_id]);
+
+  useEffect(() => {
+    loadTranscript();
+  }, [loadTranscript]);
+
 
   // Overall GPA calculation
   const gradedCourses = courses.filter(c => c.courseAvg != null);

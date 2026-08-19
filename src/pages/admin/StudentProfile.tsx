@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -391,12 +391,7 @@ const AdminStudentProfile = () => {
   const [courses, setCourses] = useState<Array<{ id: string; title: string; cohort_id: string | null }>>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!studentId) return;
-    loadStudentData();
-  }, [studentId]);
-
-  const loadStudentData = async () => {
+  const loadStudentData = useCallback(async () => {
     try {
       const [studentRes, attendanceRes, feesRes, assignmentsRes] = await Promise.all([
         supabase
@@ -466,7 +461,13 @@ const AdminStudentProfile = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [studentId]);
+
+  useEffect(() => {
+    if (!studentId) return;
+    loadStudentData();
+  }, [loadStudentData, studentId]);
+
 
   if (loading) {
     return (

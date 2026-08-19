@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -98,15 +98,16 @@ const AdminSettings = () => {
   ];
   const pickChallengeWord = () => BIBLE_WORDS[Math.floor(Math.random() * BIBLE_WORDS.length)];
 
-  useEffect(() => {
-    loadAll();
-  }, []);
-
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     setLoading(true);
     await Promise.all([loadSettings(), loadAdminUsers(), loadStudents(), loadCohorts()]);
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
+
 
   const loadSettings = async () => {
     try {

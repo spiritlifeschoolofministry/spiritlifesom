@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import { Loader2, Wrench } from "lucide-react";
@@ -13,10 +13,13 @@ export const MaintenanceGate = ({ children }: Props) => {
   const [maintenance, setMaintenance] = useState(false);
   const [message, setMessage] = useState("We'll be back shortly. Thank you for your patience.");
   const [returnAt, setReturnAt] = useState<string | null>(null);
-  const [now, setNow] = useState(() => Date.now());
+  // Ticks once a second; its only job is to re-render the countdown below.
+  const [, setNow] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
 
-  const countdown = useMemo(() => calculateTimeRemaining(returnAt), [returnAt, now]);
+  // calculateTimeRemaining reads the clock itself, so there is nothing to
+  // memoise against: it has to recompute on every tick regardless.
+  const countdown = calculateTimeRemaining(returnAt);
 
   const fetchFlag = async () => {
     try {

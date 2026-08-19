@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
 import StudentLayout from '@/components/StudentLayout';
@@ -36,11 +36,7 @@ const StudentCalendar = () => {
   const [selectedEvent, setSelectedEvent] = useState<SchoolEvent | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
-  useEffect(() => {
-    if (student) loadEvents();
-  }, [student?.cohort_id]);
-
-  const loadEvents = async () => {
+  const loadEvents = useCallback(async () => {
     try {
       setLoading(true);
       const cohortId = student?.cohort_id;
@@ -60,7 +56,12 @@ const StudentCalendar = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [student?.cohort_id]);
+
+  useEffect(() => {
+    if (student) loadEvents();
+  }, [loadEvents, student]);
+
 
   const getDaysInMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
   const getFirstDayOfMonth = (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
