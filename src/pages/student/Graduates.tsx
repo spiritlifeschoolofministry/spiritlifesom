@@ -52,7 +52,7 @@ const Graduates = () => {
 
         if (studentsRes.error) throw studentsRes.error;
 
-        const list: Graduate[] = (studentsRes.data)?.map((s: any) => ({
+        const list: Graduate[] = studentsRes.data?.map((s: any) => ({
           id: s.id,
           first_name: s.profiles?.first_name || '',
           last_name: s.profiles?.last_name || '',

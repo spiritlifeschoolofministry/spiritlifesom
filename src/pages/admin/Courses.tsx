@@ -25,6 +25,8 @@ interface Course {
   start_date: string | null;
   created_at: string | null;
   semester: number | null;
+  /** Embedded by the `cohort:cohorts(name)` select, used to group the list. */
+  cohort: { name: string | null } | null;
 }
 
 interface Cohort {
@@ -195,8 +197,8 @@ const AdminCourses = () => {
     return matchesSearch && matchesCohort;
   }).sort((a, b) => {
     if (cohortFilter === "all") {
-      const nameA = (a as any).cohort?.name || "";
-      const nameB = (b as any).cohort?.name || "";
+      const nameA = a.cohort?.name || "";
+      const nameB = b.cohort?.name || "";
       if (nameA !== nameB) return nameA.localeCompare(nameB);
     }
     return (a.semester || 1) - (b.semester || 1) || a.code.localeCompare(b.code);
