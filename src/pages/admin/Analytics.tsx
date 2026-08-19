@@ -40,6 +40,19 @@ const EmptyState = ({ message = "No data available for this selection" }: { mess
   </div>
 );
 
+// The chart series this page derives from the raw rows. Each one matches the
+// keys the corresponding Recharts block reads.
+interface EnrollmentPoint { month: string; total: number; admitted: number; pending: number; rejected: number; }
+interface NameValuePoint { name: string; value: number; }
+interface RevenuePoint { type: string; collected: number; outstanding: number; }
+interface AttendancePoint { status: string; count: number; percentage: number; }
+interface AssignmentPoint { title: string; submissions: number; avgGrade: number; maxPoints: number; category: string; }
+interface MaterialsPoint { name: string; count: number; paid: number; free: number; }
+interface CoursePerformancePoint {
+  code: string; title: string; assignments: number; submissions: number;
+  avgGrade: number; completed: boolean | null;
+}
+
 const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,16 +61,16 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
-  const [enrollmentData, setEnrollmentData] = useState<any[]>([]);
-  const [enrollmentPie, setEnrollmentPie] = useState<{ name: string; value: number }[]>([]);
-  const [revenueData, setRevenueData] = useState<any[]>([]);
-  const [attendanceData, setAttendanceData] = useState<any[]>([]);
-  const [assignmentData, setAssignmentData] = useState<any[]>([]);
-  const [materialsData, setMaterialsData] = useState<any[]>([]);
-  const [materialsByType, setMaterialsByType] = useState<any[]>([]);
-  const [coursePerformance, setCoursePerformance] = useState<any[]>([]);
-  const [genderData, setGenderData] = useState<any[]>([]);
-  const [learningModeData, setLearningModeData] = useState<any[]>([]);
+  const [enrollmentData, setEnrollmentData] = useState<EnrollmentPoint[]>([]);
+  const [enrollmentPie, setEnrollmentPie] = useState<NameValuePoint[]>([]);
+  const [revenueData, setRevenueData] = useState<RevenuePoint[]>([]);
+  const [attendanceData, setAttendanceData] = useState<AttendancePoint[]>([]);
+  const [assignmentData, setAssignmentData] = useState<AssignmentPoint[]>([]);
+  const [materialsData, setMaterialsData] = useState<MaterialsPoint[]>([]);
+  const [materialsByType, setMaterialsByType] = useState<NameValuePoint[]>([]);
+  const [coursePerformance, setCoursePerformance] = useState<CoursePerformancePoint[]>([]);
+  const [genderData, setGenderData] = useState<NameValuePoint[]>([]);
+  const [learningModeData, setLearningModeData] = useState<NameValuePoint[]>([]);
   const [feeCollectionRate, setFeeCollectionRate] = useState(0);
   const [summaryCards, setSummaryCards] = useState({
     totalStudents: 0,
