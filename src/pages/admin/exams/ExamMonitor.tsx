@@ -44,9 +44,9 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Download, AlertTriangle, CheckCircle2, Send, Camera, Mic, Trash2, Loader2, LockKeyhole } from "lucide-react";
+import { ArrowLeft, Download, AlertTriangle, CheckCircle2, Send, Camera, Mic, Trash2, Loader2, LockKeyhole, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
-import { AUTO_GRADED_TYPES, formatAnswer, sanitizeHtml } from "@/lib/exam-utils";
+import { AUTO_GRADED_TYPES, formatAnswer, isBreachReason, sanitizeHtml, submissionReasonLabel } from "@/lib/exam-utils";
 import { r2Storage } from "@/lib/r2-storage";
 import { edgeErrorMessage } from "@/lib/edge-error";
 
@@ -188,7 +188,7 @@ export default function ExamMonitor() {
 
   const exportCSV = () => {
     const rows = [
-      ["Student Code", "Name", "Email", "Status", "Score", "Override", "Tab Switches", "Started", "Submitted", "Auto-submitted", "Reason"],
+      ["Student Code", "Name", "Email", "Status", "Score", "Override", "Tab Switches", "Fullscreen Exits", "Started", "Submitted", "Auto-submitted", "Reason", "Rule Breach"],
       ...attempts.map((a) => [
         a.students?.student_code ?? "",
         `${a.students?.profiles?.first_name ?? ""} ${a.students?.profiles?.last_name ?? ""}`.trim(),
@@ -197,10 +197,12 @@ export default function ExamMonitor() {
         a.score ?? "",
         a.manual_score_override ?? "",
         a.tab_switch_count,
+        a.fullscreen_exits ?? 0,
         a.started_at,
         a.submitted_at ?? "",
         a.auto_submitted ? "yes" : "no",
-        a.submission_reason ?? "",
+        submissionReasonLabel(a.submission_reason),
+        isBreachReason(a.submission_reason) ? "yes" : "no",
       ]),
     ];
     const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -424,6 +426,7 @@ export default function ExamMonitor() {
   const inProgress = attempts.filter((a) => a.status === "in_progress").length;
   const submitted = attempts.filter((a) => a.status === "submitted").length;
   const graded = attempts.filter((a) => a.status === "graded").length;
+  const flagged = attempts.filter((a) => isBreachReason(a.submission_reason));
 
   return (
     <div className="space-y-4">
@@ -450,6 +453,33 @@ export default function ExamMonitor() {
         <Card className="p-3"><p className="text-xs text-muted-foreground">Total attempts</p><p className="text-2xl font-bold">{attempts.length}</p></Card>
       </div>
 
+      {/* An attempt ended for breaking a rule is the one thing on this page a
+          lecturer has to act on, and it was the one thing the page never said.
+          Name it before the table, so it is not something they have to notice. */}
+      {flagged.length > 0 && (
+        <Card className="p-3 border-destructive/50 bg-destructive/5">
+          <p className="text-sm font-medium flex items-center gap-2 text-destructive">
+            <ShieldAlert className="w-4 h-4" />
+            {flagged.length} attempt{flagged.length === 1 ? " was" : "s were"} stopped for breaking an exam rule
+          </p>
+          <ul className="mt-1 text-xs text-muted-foreground space-y-0.5">
+            {flagged.map((a) => (
+              <li key={a.id}>
+                <span className="font-medium text-foreground">
+                  {a.students?.profiles?.first_name} {a.students?.profiles?.last_name}
+                </span>
+                {" — "}{submissionReasonLabel(a.submission_reason)}
+                {a.submitted_at && ` at ${new Date(a.submitted_at).toLocaleString()}`}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-muted-foreground">
+            The paper was marked as it stood. Review the snapshots and audio before deciding what the breach was worth —
+            a dropped connection and a deliberate exit look the same to the counter.
+          </p>
+        </Card>
+      )}
+
       {(hiddenRehearsals > 0 || showRehearsals) && (
         <p className="text-xs text-muted-foreground">
           {hiddenRehearsals} staff rehearsal{hiddenRehearsals === 1 ? "" : "s"}{" "}
@@ -467,7 +497,7 @@ export default function ExamMonitor() {
               <th className="py-2 pr-3">Student</th>
               <th className="py-2 pr-3">Status</th>
               <th className="py-2 pr-3">Score</th>
-              <th className="py-2 pr-3">Tab switches</th>
+              <th className="py-2 pr-3">Proctoring</th>
               <th className="py-2 pr-3">Submitted</th>
               <th className="py-2 pr-3"></th>
             </tr>
@@ -489,13 +519,34 @@ export default function ExamMonitor() {
                     a.status === "graded" ? "bg-emerald-500/10 text-emerald-600" :
                     "bg-blue-500/10 text-blue-600"
                   }>{a.status}</Badge>
-                  {a.auto_submitted && <Badge variant="destructive" className="ml-1 text-[10px]">auto</Badge>}
+                  {/* "auto" alone said a paper closed itself but not why, and a
+                      clock running out and a student caught leaving the exam are
+                      not the same news. */}
+                  {a.submission_reason && a.submission_reason !== "manual" && (
+                    <Badge
+                      variant={isBreachReason(a.submission_reason) ? "destructive" : "outline"}
+                      className="ml-1 text-[10px]"
+                    >
+                      {isBreachReason(a.submission_reason) && <ShieldAlert className="inline w-3 h-3 mr-1" />}
+                      {submissionReasonLabel(a.submission_reason)}
+                    </Badge>
+                  )}
                 </td>
                 <td className="py-2 pr-3 font-mono">{a.manual_score_override ?? a.score ?? "—"}</td>
-                <td className="py-2 pr-3">
-                  <span className={a.tab_switch_count >= exam.max_tab_switches ? "text-destructive font-bold" : ""}>
-                    {a.tab_switch_count} {a.tab_switch_count >= exam.max_tab_switches && <AlertTriangle className="inline w-3 h-3" />}
-                  </span>
+                {/* Fullscreen exits were counted, enforced, and never shown — so
+                    an attempt stopped for leaving fullscreen looked, on this
+                    page, like one stopped for nothing at all. */}
+                <td className="py-2 pr-3 text-xs whitespace-nowrap">
+                  <p className={a.tab_switch_count >= exam.max_tab_switches ? "text-destructive font-bold" : ""}>
+                    {a.tab_switch_count}/{exam.max_tab_switches} tab
+                    {a.tab_switch_count >= exam.max_tab_switches && <AlertTriangle className="inline w-3 h-3 ml-1" />}
+                  </p>
+                  {exam.enforce_fullscreen && (
+                    <p className={(a.fullscreen_exits ?? 0) >= exam.max_fullscreen_exits ? "text-destructive font-bold" : "text-muted-foreground"}>
+                      {a.fullscreen_exits ?? 0}/{exam.max_fullscreen_exits} fullscreen
+                      {(a.fullscreen_exits ?? 0) >= exam.max_fullscreen_exits && <AlertTriangle className="inline w-3 h-3 ml-1" />}
+                    </p>
+                  )}
                 </td>
                 <td className="py-2 pr-3 text-xs">{a.submitted_at ? new Date(a.submitted_at).toLocaleString() : "—"}</td>
                 <td className="py-2 pr-3">

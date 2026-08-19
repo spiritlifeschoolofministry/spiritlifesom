@@ -473,3 +473,45 @@ export const entryClosesAt = (exam: ExamWindow): number => {
   if (!cutoff) return endMs;
   return Math.min(startMs + cutoff * 60 * 1000, endMs);
 };
+
+/**
+ * Why a sitting ended, in words a lecturer can act on.
+ *
+ * submission_reason was written for every attempt and shown to nobody: the
+ * monitor printed a bare red "auto" badge, which says an attempt closed itself
+ * but not whether that was a clock running out or a student caught leaving the
+ * paper. Those need opposite responses, and the second is an accusation — it
+ * should never be something staff have to infer from a counter.
+ */
+export const SUBMISSION_REASON_LABELS: Record<string, string> = {
+  manual: "Submitted by student",
+  timeout: "Time ran out",
+  tab_switches: "Too many tab switches",
+  tab_switch_exceeded: "Too many tab switches",
+  fullscreen_exit: "Left fullscreen",
+  fullscreen_exceeded: "Left fullscreen too many times",
+  camera_blocked: "Webcam turned off or blocked",
+  microphone_blocked: "Microphone turned off or blocked",
+  admin: "Closed by staff",
+  disconnect: "Disconnected",
+};
+
+/**
+ * The reasons that mean the student broke a proctoring rule, as opposed to
+ * simply running out of time or being closed by staff. These are the ones worth
+ * flagging: something the student did ended the paper early.
+ */
+const BREACH_REASONS = new Set([
+  "tab_switches",
+  "tab_switch_exceeded",
+  "fullscreen_exit",
+  "fullscreen_exceeded",
+  "camera_blocked",
+  "microphone_blocked",
+]);
+
+export const isBreachReason = (reason?: string | null): boolean =>
+  !!reason && BREACH_REASONS.has(reason);
+
+export const submissionReasonLabel = (reason?: string | null): string =>
+  (reason && SUBMISSION_REASON_LABELS[reason]) || reason || "—";
