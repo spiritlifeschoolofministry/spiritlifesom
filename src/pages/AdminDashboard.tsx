@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -166,7 +167,7 @@ const AdminDashboard = () => {
         throw studentError || new Error("Could not load student request");
       }
 
-      const updatePayload: any = { requested_learning_mode: null };
+      const updatePayload: TablesUpdate<'students'> = { requested_learning_mode: null };
       if (action === "approve") {
         updatePayload.learning_mode = studentData.requested_learning_mode || null;
       }

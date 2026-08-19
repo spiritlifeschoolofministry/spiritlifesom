@@ -32,7 +32,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { Tables } from '@/integrations/supabase/types';
+import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
 
 interface PersonalFormData {
   first_name: string;
@@ -100,7 +100,7 @@ const AcademicInfoCard = ({
 
     try {
       setIsSaving(true);
-      const updateData: any = {
+      const updateData: TablesUpdate<'students'> = {
         preferred_language: form.preferred_language || null,
         educational_background: form.educational_background || null,
         marital_status: form.marital_status || null,

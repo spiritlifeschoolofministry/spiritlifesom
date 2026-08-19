@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import { r2Storage } from "@/lib/r2-storage";
 
 import StepIndicator from "@/components/StepIndicator";
@@ -256,7 +257,7 @@ const Register = () => {
         ? `${form.dobYear}-${form.dobMonth.padStart(2, '0')}-${form.dobDay.padStart(2, '0')}`
         : null;
 
-      const studentUpdate: Record<string, any> = {
+      const studentUpdate: TablesUpdate<'students'> = {
         learning_mode: form.learningMode || null,
         marital_status: form.maritalStatus || null,
         address: form.address || null,

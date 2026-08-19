@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -155,7 +156,7 @@ const CertificateManager = () => {
     if (!student) return;
 
     try {
-      const updates: any = { pending_name_change: null };
+      const updates: TablesUpdate<'students'> = { pending_name_change: null };
       if (action === 'approve') {
         updates.name_on_certificate = student.pending_name_change;
       }

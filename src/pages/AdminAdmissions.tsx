@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -241,7 +242,7 @@ const AdminAdmissions = () => {
 
       if (studentError || !studentData) throw studentError || new Error("Could not load student request");
 
-      const updatePayload: any = { requested_learning_mode: null };
+      const updatePayload: TablesUpdate<'students'> = { requested_learning_mode: null };
       if (action === "approve") updatePayload.learning_mode = studentData.requested_learning_mode || null;
 
       const { data, error } = await supabase
@@ -283,7 +284,7 @@ const AdminAdmissions = () => {
 
       if (studentError || !studentData) throw studentError || new Error("Could not load certificate request");
 
-      const updatePayload: any = { pending_name_change: null };
+      const updatePayload: TablesUpdate<'students'> = { pending_name_change: null };
       if (action === "approve") updatePayload.name_on_certificate = studentData.pending_name_change || null;
 
       const { data, error } = await supabase
