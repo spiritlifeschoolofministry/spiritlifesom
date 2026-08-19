@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from '@/integrations/supabase/types';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,9 +19,9 @@ const GRACE_SECONDS = 10;
 export default function ExamRunner() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [exam, setExam] = useState<any>(null);
-  const [attempt, setAttempt] = useState<any>(null);
-  const [questions, setQuestions] = useState<any[]>([]);
+  const [exam, setExam] = useState<Tables<'exams'> | null>(null);
+  const [attempt, setAttempt] = useState<Tables<'exam_attempts'> | null>(null);
+  const [questions, setQuestions] = useState<Tables<'exam_question_paper'>[]>([]);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [dirty, setDirty] = useState<Set<string>>(new Set());
   const [idx, setIdx] = useState(0);

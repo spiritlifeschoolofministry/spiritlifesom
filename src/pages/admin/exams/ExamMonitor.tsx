@@ -1,6 +1,21 @@
 import { useEffect, useState, Fragment } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from '@/integrations/supabase/types';
+
+type MonitoredExam = Tables<'exams'> & {
+  courses: { code: string; title: string } | null;
+  cohorts: { name: string } | null;
+};
+type MonitoredAttempt = Tables<'exam_attempts'> & {
+  students: {
+    student_code: string | null;
+    profile_id: string | null;
+    profiles: { first_name: string; last_name: string; email: string } | null;
+  } | null;
+  /** Set on the client: whether this attempt belongs to a staff rehearsal. */
+  isRehearsal: boolean;
+};
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,8 +30,8 @@ import { r2Storage } from "@/lib/r2-storage";
 
 export default function ExamMonitor() {
   const { id } = useParams();
-  const [exam, setExam] = useState<any>(null);
-  const [attempts, setAttempts] = useState<any[]>([]);
+  const [exam, setExam] = useState<MonitoredExam | null>(null);
+  const [attempts, setAttempts] = useState<MonitoredAttempt[]>([]);
   const [loading, setLoading] = useState(true);
   const [grading, setGrading] = useState<any | null>(null);
   const [gradeData, setGradeData] = useState<{ answers: any[]; questions: any[]; override: string }>({ answers: [], questions: [], override: "" });

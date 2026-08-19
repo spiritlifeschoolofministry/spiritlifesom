@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from '@/integrations/supabase/types';
+
+type ExamWithCourse = Tables<'exams'> & { courses: { code: string; title: string } | null };
 import { useAuth } from "@/contexts/useAuth";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +17,7 @@ import { downloadCSV } from "@/lib/csv-export";
 
 export default function StudentExamsList() {
   const { student } = useAuth();
-  const [exams, setExams] = useState<any[]>([]);
+  const [exams, setExams] = useState<ExamWithCourse[]>([]);
   const [attempts, setAttempts] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [breakdowns, setBreakdowns] = useState<Record<string, any[]>>({});

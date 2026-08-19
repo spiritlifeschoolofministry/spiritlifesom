@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from '@/integrations/supabase/types';
+
+type ExamWithCourse = Tables<'exams'> & { courses: { code: string; title: string } | null };
 import { useAuth } from "@/contexts/useAuth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +20,7 @@ export default function ExamLobby() {
   const { id } = useParams();
   const { student } = useAuth();
   const nav = useNavigate();
-  const [exam, setExam] = useState<any>(null);
+  const [exam, setExam] = useState<ExamWithCourse | null>(null);
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
