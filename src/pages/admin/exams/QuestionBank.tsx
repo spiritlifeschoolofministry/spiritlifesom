@@ -29,13 +29,15 @@ export default function QuestionBank() {
   const [filterCourse, setFilterCourse] = useState("all");
   const [filterType, setFilterType] = useState<string>("all");
   const [showArchived, setShowArchived] = useState(false);
+  // A draft, not a row: it starts life as a partial new question, and `options`
+  // is Json in the database but an array in this editor. Needs its own shape.
   const [editing, setEditing] = useState<any | null>(null);
   const [openEditor, setOpenEditor] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importCourse, setImportCourse] = useState("");
   const [importPreview, setImportPreview] = useState<any[]>([]);
   const [importLoading, setImportLoading] = useState(false);
-  const [questionToDelete, setQuestionToDelete] = useState<any | null>(null);
+  const [questionToDelete, setQuestionToDelete] = useState<Tables<'question_bank'> | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const load = async () => {

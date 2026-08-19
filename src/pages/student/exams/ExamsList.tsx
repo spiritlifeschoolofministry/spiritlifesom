@@ -18,7 +18,7 @@ import { downloadCSV } from "@/lib/csv-export";
 export default function StudentExamsList() {
   const { student } = useAuth();
   const [exams, setExams] = useState<ExamWithCourse[]>([]);
-  const [attempts, setAttempts] = useState<Record<string, any>>({});
+  const [attempts, setAttempts] = useState<Record<string, Tables<'exam_attempts'>>>({});
   const [loading, setLoading] = useState(true);
   const [breakdowns, setBreakdowns] = useState<Record<string, any[]>>({});
   const [openId, setOpenId] = useState<string | null>(null);

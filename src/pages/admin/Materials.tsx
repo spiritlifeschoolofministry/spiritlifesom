@@ -43,7 +43,7 @@ const AdminMaterials = () => {
 
   // Share to cohort state
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [sharingMaterial, setSharingMaterial] = useState<any | null>(null);
+  const [sharingMaterial, setSharingMaterial] = useState<Tables<'course_materials'> | null>(null);
   const [shareTargetCohort, setShareTargetCohort] = useState('');
   const [isSharing, setIsSharing] = useState(false);
 
