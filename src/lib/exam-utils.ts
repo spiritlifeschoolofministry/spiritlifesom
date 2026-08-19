@@ -432,3 +432,44 @@ const parseCSV = (csv: string) => {
   }
   return rows.filter((r) => r.some((c) => c.trim()));
 };
+
+/**
+ * When entry to an exam closes.
+ *
+ * Two rules were tangled together here, and both were wrong at the edges.
+ * "Allow late entry" off refused entry from the instant after start_at, so an
+ * exam saved with the builder's default could not be started at all — the
+ * student who clicked Start a second after it opened was already late. And the
+ * cutoff was enforced only on the server, so the lobby offered an enabled Start
+ * button, sent the student to the runner, and let the runner bounce them back
+ * to the list with no usable explanation.
+ *
+ * One rule now, expressed once: entry closes a number of minutes after the exam
+ * opens, and never later than the exam itself closes. Late entry off means a
+ * short grace rather than none, which is what "students must be here at the
+ * start" can actually mean when the clock is a wall clock.
+ *
+ * exam-start applies the same rule and is the authority; this copy is what lets
+ * the lobby say so before the student commits to a sitting. Keep the two in
+ * step — supabase/functions/exam-start/index.ts.
+ */
+export const NO_LATE_ENTRY_GRACE_MINUTES = 5;
+
+export type ExamWindow = {
+  start_at: string;
+  end_at: string;
+  allow_late_entry?: boolean | null;
+  late_entry_cutoff_minutes?: number | null;
+};
+
+export const entryClosesAt = (exam: ExamWindow): number => {
+  const startMs = new Date(exam.start_at).getTime();
+  const endMs = new Date(exam.end_at).getTime();
+  // A cutoff of zero or nothing, with late entry allowed, means no cutoff of
+  // its own: the exam's own closing time is the only limit.
+  const cutoff = exam.allow_late_entry
+    ? Number(exam.late_entry_cutoff_minutes) || 0
+    : NO_LATE_ENTRY_GRACE_MINUTES;
+  if (!cutoff) return endMs;
+  return Math.min(startMs + cutoff * 60 * 1000, endMs);
+};

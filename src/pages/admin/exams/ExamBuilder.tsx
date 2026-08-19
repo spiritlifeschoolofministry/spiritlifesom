@@ -21,7 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { QuestionRenderer } from "@/components/exam/QuestionRenderer";
-import { sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType } from "@/lib/exam-utils";
+import { sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType, NO_LATE_ENTRY_GRACE_MINUTES } from "@/lib/exam-utils";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -456,11 +456,15 @@ export default function ExamBuilder() {
             )}
 
             <div className="flex items-center justify-between p-3 rounded-md border border-border">
-              <div><Label>Allow late entry</Label><p className="text-xs text-muted-foreground">Students may join after start time</p></div>
+              <div><Label>Allow late entry</Label><p className="text-xs text-muted-foreground">Off, students must start within {NO_LATE_ENTRY_GRACE_MINUTES} minutes of the opening time</p></div>
               <Switch checked={exam.allow_late_entry} onCheckedChange={(v) => update({ allow_late_entry: v })} />
             </div>
             {exam.allow_late_entry && (
-              <div><Label>Late entry cutoff (minutes after start)</Label><Input type="number" min={1} value={exam.late_entry_cutoff_minutes ?? 15} onChange={(e) => update({ late_entry_cutoff_minutes: Number(e.target.value) })} /></div>
+              <div>
+                <Label>Late entry cutoff (minutes after start)</Label>
+                <Input type="number" min={0} value={exam.late_entry_cutoff_minutes ?? 15} onChange={(e) => update({ late_entry_cutoff_minutes: Number(e.target.value) })} />
+                <p className="text-xs text-muted-foreground mt-1">0 lets students start any time before the exam closes.</p>
+              </div>
             )}
           </Card>
         </TabsContent>

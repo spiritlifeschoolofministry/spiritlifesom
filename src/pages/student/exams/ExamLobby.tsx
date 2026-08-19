@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import StudentLayout from "@/components/StudentLayout";
 import { AlertTriangle, Camera, CameraOff, Clock, ShieldAlert, Monitor, Smartphone, Mic, MicOff } from "lucide-react";
-import { formatDuration } from "@/lib/exam-utils";
+import { entryClosesAt, formatDuration } from "@/lib/exam-utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -124,13 +124,18 @@ export default function ExamLobby() {
   const beforeStart = now < startMs;
   const afterEnd = now > endMs;
   const secondsToStart = Math.max(0, Math.floor((startMs - now) / 1000));
+  // Entry can shut well before the exam does. Reading the same rule the server
+  // enforces is what stops this page offering a Start button that only
+  // dead-ends in the runner with a 403.
+  const entryClosesMs = entryClosesAt(exam);
+  const entryClosed = !beforeStart && now > entryClosesMs;
 
   const cameraRequired = !!exam.enable_webcam_proctoring;
   const cameraReady = !cameraRequired || camera === "granted";
   const micRequired = !!exam.enable_audio_proctoring;
   const micReady = !micRequired || mic === "granted";
   const canStart =
-    !beforeStart && !afterEnd && agreed && (!isMobile || exam.allow_mobile) && cameraReady && micReady;
+    !beforeStart && !afterEnd && !entryClosed && agreed && (!isMobile || exam.allow_mobile) && cameraReady && micReady;
 
   const startExam = async () => {
     if (!canStart) return;
@@ -172,6 +177,15 @@ export default function ExamLobby() {
             <p className="text-xs text-muted-foreground">
               Opens {format(new Date(exam.start_at), "PPpp")} · Closes {format(new Date(exam.end_at), "PPpp")}
             </p>
+            {/* Entry usually shuts before the exam does, and a student who does
+                not know that only finds out by being turned away. */}
+            {entryClosesMs < endMs && (
+              <p className={`text-xs mt-1 ${entryClosed ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                {entryClosed
+                  ? `Entry closed ${format(new Date(entryClosesMs), "PPpp")} — ask your lecturer if you need to be let in.`
+                  : `You must start by ${format(new Date(entryClosesMs), "PPpp")}.`}
+              </p>
+            )}
             {beforeStart && (
               <p className="mt-2 text-2xl font-mono font-bold text-primary">{formatDuration(secondsToStart)}</p>
             )}
@@ -299,6 +313,8 @@ export default function ExamLobby() {
                 ? `Starts in ${formatDuration(secondsToStart)}`
                 : afterEnd
                   ? "Window closed"
+                : entryClosed
+                  ? "Entry closed"
                   : !cameraReady
                     ? "Camera required"
                     : !micReady

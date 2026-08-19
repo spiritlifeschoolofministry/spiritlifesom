@@ -175,6 +175,27 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Clear the rehearsal out of the way before starting another.
+    //
+    // exam_attempts is UNIQUE(exam_id, student_id), so exempting staff previews
+    // from the check above was not enough on its own: the insert below hit the
+    // constraint and the rehearsal came back as a bare 500. Answers and
+    // snapshots cascade off the row, which is what a dry run wants — the
+    // previous rehearsal is discarded, not kept alongside.
+    if (submittedAttempt) {
+      const { error: clearError } = await supabase
+        .from("exam_attempts")
+        .delete()
+        .eq("id", submittedAttempt.id);
+      if (clearError) {
+        console.error("Clear preview attempt error:", clearError);
+        return new Response(
+          JSON.stringify({ error: "Could not clear your previous preview attempt" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
     // Questions hang off an exam through exam_questions — question_bank has no
     // exam_id of its own. Querying it by exam_id failed at the schema level, and
     // because the error was dropped it surfaced as "Exam has no questions",
@@ -250,13 +271,26 @@ Deno.serve(async (req) => {
     if (nowMs > endMs) {
       return new Response(JSON.stringify({ error: "This exam has closed" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    if (exam.allow_late_entry === false && nowMs > startMs) {
-      return new Response(JSON.stringify({ error: "Late entry is not allowed for this exam" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-    const cutoff = Number(exam.late_entry_cutoff_minutes) || 0;
-    if (exam.allow_late_entry && cutoff > 0 && nowMs > startMs + cutoff * 60 * 1000) {
+    // Late entry off used to refuse from the instant after start_at, which made
+    // an exam saved with the builder's default impossible to start: a student
+    // clicking Start a second after it opened was already late. Off now means a
+    // short grace instead of none. Kept in step with entryClosesAt() in
+    // src/lib/exam-utils.ts, which is what lets the lobby say when entry shuts
+    // rather than offering a Start button that dead-ends here.
+    const NO_LATE_ENTRY_GRACE_MINUTES = 5;
+    const cutoff = exam.allow_late_entry
+      ? Number(exam.late_entry_cutoff_minutes) || 0
+      : NO_LATE_ENTRY_GRACE_MINUTES;
+    const entryClosesMs = cutoff ? Math.min(startMs + cutoff * 60 * 1000, endMs) : endMs;
+
+    if (nowMs > entryClosesMs) {
+      const minutes = Math.round((entryClosesMs - startMs) / 60000);
       return new Response(
-        JSON.stringify({ error: `Entry closed ${cutoff} minutes after the exam opened` }),
+        JSON.stringify({
+          error: exam.allow_late_entry
+            ? `Entry closed ${minutes} minutes after the exam opened. Ask your lecturer if you need to be let in.`
+            : `This exam does not allow late entry. Entry closed ${minutes} minutes after it opened. Ask your lecturer if you need to be let in.`,
+        }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -289,7 +323,12 @@ Deno.serve(async (req) => {
 
     if (createError || !attempt) {
       console.error("Create attempt error:", createError);
-      return new Response(JSON.stringify({ error: "Failed to create exam attempt" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      // The database's own words, not just "failed": a rejected insert is
+      // otherwise a dead end for whoever has to work out why.
+      return new Response(
+        JSON.stringify({ error: `Failed to create exam attempt${createError?.message ? `: ${createError.message}` : ""}` }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     return new Response(

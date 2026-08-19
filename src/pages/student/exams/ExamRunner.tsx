@@ -10,6 +10,7 @@ import { QuestionRenderer } from "@/components/exam/QuestionRenderer";
 import WebcamProctor from "@/components/exam/WebcamProctor";
 import AudioProctor from "@/components/exam/AudioProctor";
 import { formatDuration, generateFingerprint, generateSessionId, isAnswered } from "@/lib/exam-utils";
+import { edgeErrorMessage } from "@/lib/edge-error";
 import { AlertTriangle, ChevronLeft, ChevronRight, Send, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
@@ -69,7 +70,7 @@ export default function ExamRunner() {
         },
       });
       if (error || data?.error) {
-        toast.error(data?.error || error?.message || "Could not start exam");
+        toast.error(await edgeErrorMessage(error, data, "Could not start exam"));
         navigate("/student/exams");
         return;
       }
@@ -313,14 +314,15 @@ export default function ExamRunner() {
       const { data, error } = await supabase.functions.invoke("exam-submit", {
         body: { attempt_id: attempt.id, reason },
       });
+      const failure = data?.success ? null : await edgeErrorMessage(error, data, "Submission failed");
       // An attempt already closed server-side is a success from here.
-      if (data?.success || /already submitted/i.test(String(data?.error ?? ""))) {
+      if (!failure || /already submitted/i.test(failure)) {
         toast.success("Exam submitted");
         if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
         navigate("/student/exams");
         return;
       }
-      lastError = data?.error || error?.message || "Submission failed";
+      lastError = failure;
       console.error("exam-submit failed:", lastError);
     }
 

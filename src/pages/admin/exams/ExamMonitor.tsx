@@ -48,6 +48,7 @@ import { ArrowLeft, Download, AlertTriangle, CheckCircle2, Send, Camera, Mic, Tr
 import { toast } from "sonner";
 import { AUTO_GRADED_TYPES, formatAnswer, sanitizeHtml } from "@/lib/exam-utils";
 import { r2Storage } from "@/lib/r2-storage";
+import { edgeErrorMessage } from "@/lib/edge-error";
 
 export default function ExamMonitor() {
   const { id } = useParams();
@@ -105,7 +106,7 @@ export default function ExamMonitor() {
       if (error || data?.error) {
         // Not worth interrupting a lecturer over: the table still loads, and the
         // sweep runs again next time this page is opened.
-        console.error("Close abandoned attempts failed:", data?.error ?? error?.message);
+        console.error("Close abandoned attempts failed:", await edgeErrorMessage(error, data, "unknown error"));
         return;
       }
       if (data?.closed > 0) {
@@ -166,7 +167,7 @@ export default function ExamMonitor() {
     const { data, error } = await supabase.functions.invoke("exam-close-attempts", { body: { attempt_id: attempt.id } });
     setClosingAttempt(null);
     if (error || data?.error) {
-      toast.error(data?.error || error?.message || "Could not close the attempt");
+      toast.error(await edgeErrorMessage(error, data, "Could not close the attempt"));
       return;
     }
     if (!data?.closed) {
@@ -180,7 +181,7 @@ export default function ExamMonitor() {
   const releaseResults = async () => {
     if (!confirm("Release results to all students? Scores appear on their exams page and in their Grades.")) return;
     const { data, error } = await supabase.functions.invoke("exam-release-results", { body: { exam_id: id } });
-    if (error || data?.error) return toast.error(error?.message || data?.error);
+    if (error || data?.error) return toast.error(await edgeErrorMessage(error, data, "Could not release results"));
     toast.success(`Released to ${data.released} students`);
     load();
   };
