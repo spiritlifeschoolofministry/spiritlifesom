@@ -142,7 +142,7 @@ const Register = () => {
     } catch { /* ignore quota */ }
   }, [form]);
 
-  const updateForm = (field: keyof FormData, value: any) => {
+  const updateForm = <K extends keyof FormData>(field: K, value: FormData[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 

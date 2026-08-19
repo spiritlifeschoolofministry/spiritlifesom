@@ -3,13 +3,13 @@ import { toast } from "sonner";
 /**
  * Convert an array of objects to CSV and trigger download.
  */
-export function downloadCSV(data: Record<string, any>[], filename: string) {
+export function downloadCSV<T extends object>(data: T[], filename: string) {
   if (!data.length) {
     toast.error("No data to export");
     return;
   }
 
-  const headers = Object.keys(data[0]);
+  const headers = Object.keys(data[0]) as (keyof T & string)[];
   const csvRows = [
     headers.join(","),
     ...data.map((row) =>

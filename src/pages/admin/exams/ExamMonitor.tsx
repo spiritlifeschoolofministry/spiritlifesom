@@ -7,6 +7,27 @@ type MonitoredExam = Tables<'exams'> & {
   courses: { code: string; title: string } | null;
   cohorts: { name: string } | null;
 };
+/**
+ * A row from exam_answers, or a stand-in built for a question the student
+ * skipped so it can still be marked. The stand-in has no id until saveGrading
+ * inserts it, which is why id is nullable here and not on the row itself.
+ */
+/** One entry in exam_attempts.regrade_history, which is stored as Json. */
+type RegradeEntry = { at?: string; from?: number | null; to?: number | null };
+
+const asRegradeHistory = (value: unknown): RegradeEntry[] =>
+  Array.isArray(value) ? (value as RegradeEntry[]) : [];
+
+type GradableAnswer = {
+  id: string | null;
+  attempt_id: string;
+  question_id: string;
+  answer: Tables<'exam_answers'>['answer'];
+  points_awarded: number | null;
+  is_correct: boolean | null;
+  manual_feedback: string | null;
+};
+
 type MonitoredAttempt = Tables<'exam_attempts'> & {
   students: {
     student_code: string | null;
@@ -33,8 +54,8 @@ export default function ExamMonitor() {
   const [exam, setExam] = useState<MonitoredExam | null>(null);
   const [attempts, setAttempts] = useState<MonitoredAttempt[]>([]);
   const [loading, setLoading] = useState(true);
-  const [grading, setGrading] = useState<any | null>(null);
-  const [gradeData, setGradeData] = useState<{ answers: any[]; questions: any[]; override: string }>({ answers: [], questions: [], override: "" });
+  const [grading, setGrading] = useState<MonitoredAttempt | null>(null);
+  const [gradeData, setGradeData] = useState<{ answers: GradableAnswer[]; questions: Tables<'question_bank'>[]; override: string }>({ answers: [], questions: [], override: "" });
   const [snapshots, setSnapshots] = useState<Record<string, Array<{ id: string; storage_path: string; captured_at: string; storage_provider: string; signedUrl?: string }>>>({});
   const [snapshotViewer, setSnapshotViewer] = useState<{ url: string; meta: string } | null>(null);
   const [loadingSnapsFor, setLoadingSnapsFor] = useState<string | null>(null);
@@ -134,14 +155,14 @@ export default function ExamMonitor() {
     URL.revokeObjectURL(url);
   };
 
-  const openGrading = async (attempt) => {
+  const openGrading = async (attempt: MonitoredAttempt) => {
     const { data: ans } = await supabase.from("exam_answers").select("*").eq("attempt_id", attempt.id);
 
     // Every question this attempt was served, in the order it was served —
     // not only the ones with a saved answer. A question the student skipped
     // still has to be visible and markable.
     const served: string[] = Array.isArray(attempt.question_order)
-      ? attempt.question_order
+      ? attempt.question_order.filter((q): q is string => typeof q === "string")
       : (ans ?? []).map((a) => a.question_id);
     const { data: qs } = served.length
       ? await supabase.from("question_bank").select("*").in("id", served)
@@ -220,7 +241,7 @@ export default function ExamMonitor() {
   const manualRemaining = gradeData.questions.filter((q) => {
     const ans = gradeData.answers.find((a) => a.question_id === q.id);
     if (!ans) return false;
-    const needsMark = !AUTO_GRADED_TYPES.includes(q.question_type) || q.correct_answer == null;
+    const needsMark = !(AUTO_GRADED_TYPES as string[]).includes(q.question_type) || q.correct_answer == null;
     return needsMark && ans.points_awarded == null;
   }).length;
 
@@ -546,7 +567,7 @@ export default function ExamMonitor() {
             {gradeData.questions.map((q, idx) => {
               const ans = gradeData.answers.find((a) => a.question_id === q.id);
               if (!ans) return null;
-              const needsMark = !AUTO_GRADED_TYPES.includes(q.question_type) || q.correct_answer == null;
+              const needsMark = !(AUTO_GRADED_TYPES as string[]).includes(q.question_type) || q.correct_answer == null;
               const max = Number(q.points) || 0;
               const setAnswer = (patch) => {
                 const next = [...gradeData.answers];
@@ -641,13 +662,13 @@ export default function ExamMonitor() {
               </p>
             </Card>
 
-            {Array.isArray(grading?.regrade_history) && grading.regrade_history.length > 0 && (
+            {asRegradeHistory(grading?.regrade_history).length > 0 && (
               <Card className="p-3">
                 <p className="text-sm font-medium mb-1">Previous marks</p>
                 <ul className="text-xs text-muted-foreground space-y-0.5">
-                  {grading.regrade_history.map((h, i: number) => (
+                  {asRegradeHistory(grading.regrade_history).map((h, i) => (
                     <li key={i}>
-                      {new Date(h.at).toLocaleString()} · changed from {h.from ?? 0} to {h.to ?? 0}
+                      {h.at ? new Date(h.at).toLocaleString() : "—"} · changed from {h.from ?? 0} to {h.to ?? 0}
                     </li>
                   ))}
                 </ul>

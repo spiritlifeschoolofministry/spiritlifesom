@@ -108,7 +108,7 @@ export default function ExamsList() {
 
     const courseById = new Map((courseRes.data ?? []).map((c) => [c.id, c]));
     const cohortById = new Map((cohortRes.data ?? []).map((c) => [c.id, c]));
-    const tally = (rows: any[] | null) => {
+    const tally = (rows: { exam_id: string }[] | null) => {
       const m = new Map<string, number>();
       for (const r of rows ?? []) m.set(r.exam_id, (m.get(r.exam_id) ?? 0) + 1);
       return m;
