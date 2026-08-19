@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
+import type { TablesUpdate } from "@/integrations/supabase/types";
 import StudentLayout from "@/components/StudentLayout";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import {
@@ -189,7 +190,12 @@ const StudentDashboard = () => {
           ]);
           completedCourses = completedData?.length ?? 0;
           cohortCoursesCount = cohortCourses?.length ?? 0;
-        } catch (e) {}
+        } catch (e) {
+          // One section failing shouldn't take the dashboard down, but it must
+          // not pass for real data either — an empty card and a blocked query
+          // look identical on screen.
+          console.warn("[Dashboard] Course counts unavailable:", e);
+        }
       }
 
       if (!cohortId) {
@@ -203,7 +209,9 @@ const StudentDashboard = () => {
               const present = attendance.filter((a) => a.status === "Present" || a.status === "Late").length;
               attendanceRate = Math.round((present / attendance.length) * 100);
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn("[Dashboard] Attendance unavailable:", e);
+        }
 
         if (isAdmitted && cohortId) {
           try {
@@ -216,7 +224,9 @@ const StudentDashboard = () => {
             const submittedIds = new Set((submissionRes.data ?? []).map((s) => s.assignment_id));
             totalAssignments = allIds.size;
             pendingAssignments = [...allIds].filter((id) => !submittedIds.has(id)).length;
-          } catch (e) {}
+          } catch (e) {
+            console.warn("[Dashboard] Assignments unavailable:", e);
+          }
         }
 
         try {
@@ -232,7 +242,9 @@ const StudentDashboard = () => {
             else status = "Partial";
             fees = { paid, unpaid, partial, total, status };
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn("[Dashboard] Fees unavailable:", e);
+        }
       }
 
       try {
@@ -249,7 +261,9 @@ const StudentDashboard = () => {
         if (eventsData) {
           upcomingEvents = eventsData;
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn("[Dashboard] Upcoming events unavailable:", e);
+      }
 
       setData({
         firstName,
@@ -290,7 +304,7 @@ const StudentDashboard = () => {
 
     setSavingProfileCompletion(true);
     try {
-      const updatePayload: Record<string, any> = {
+      const updatePayload: TablesUpdate<"students"> = {
         gender: profileCompletionForm.gender,
         age: parsedAge,
         cohort_id: profileCompletionForm.cohort_id,
