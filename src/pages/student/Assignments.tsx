@@ -16,7 +16,7 @@ import { calculateTimeRemaining, formatTimeRemaining, type TimeRemaining } from 
 import { r2Storage } from '@/lib/r2-storage';
 
 interface AssignmentWithSubmission extends Tables<'assignments'> {
-  submission?: any | null;
+  submission?: Tables<'assignment_submissions'> | null;
 }
 
 const StudentAssignments = () => {

@@ -37,8 +37,11 @@ interface AssignmentFormData {
   max_points: number;
 }
 
+/** The profile columns the submission list looks up per student. */
+type SubmitterProfile = Pick<Tables<'profiles'>, 'first_name' | 'last_name' | 'email'>;
+
 interface AssignmentWithSubmissions extends Tables<'assignments'> {
-  submissions?: Array<Tables<'assignment_submissions'> & { student_profile?: any }>;
+  submissions?: Array<Tables<'assignment_submissions'> & { student_profile?: SubmitterProfile | null }>;
 }
 
 const AdminAssignments = () => {
@@ -138,7 +141,7 @@ const AdminAssignments = () => {
             .select('profile_id')
             .eq('id', sub.student_id)
             .single();
-          let profile: any = null;
+          let profile: SubmitterProfile | null = null;
           if (studentData?.profile_id) {
             const { data: profileData } = await supabase
               .from('profiles')

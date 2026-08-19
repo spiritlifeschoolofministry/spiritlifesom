@@ -6,8 +6,20 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { parseMatchingQuestion, sanitizeHtml } from "@/lib/exam-utils";
 
+/**
+ * Only the fields this renderer reads. Kept structural so both the paper view
+ * and the builder's preview draft satisfy it without sharing a row type.
+ */
+export interface RenderableQuestion {
+  question_text?: string | null;
+  question_type?: string | null;
+  options?: unknown;
+  image_url?: string | null;
+  code_snippet?: string | null;
+}
+
 interface Props {
-  question: any;
+  question: RenderableQuestion;
   optionOrder?: number[] | null;
   answer: unknown;
   onChange: (a: unknown) => void;

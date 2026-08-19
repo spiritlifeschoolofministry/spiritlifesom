@@ -65,9 +65,12 @@ export const parseMatchingQuestion = (raw: string): ParsedMatching | null => {
  * Answers are kept in the shape the runner produced — an option index, a list
  * of indices, a boolean — which is fine for scoring and unreadable on screen.
  */
+/** The little bit of a question that reading an answer back actually needs. */
+export type AnswerFormattable = { question_type?: string | null; options?: unknown };
+
 export const formatAnswer = (
   value: unknown,
-  question: { question_type?: string | null; options?: unknown },
+  question: AnswerFormattable,
 ): string => {
   if (value === null || value === undefined || value === "") return "";
   const options = Array.isArray(question.options) ? (question.options as unknown[]) : null;
