@@ -575,7 +575,7 @@ const AdminAttendance = () => {
         .order("marked_at", { ascending: false });
       if (error) throw error;
       if (!data || data.length === 0) { toast.error("No attendance records"); return; }
-      const rows = (data as any[]).map((a) => ({
+      const rows = (data).map((a) => ({
         "Student Name": [a.students?.profiles?.first_name, a.students?.profiles?.middle_name, a.students?.profiles?.last_name].filter(Boolean).join(" "),
         "Cohort": a.students?.cohorts?.name || "",
         "Status": a.status || "",

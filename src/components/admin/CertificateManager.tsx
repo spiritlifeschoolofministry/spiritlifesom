@@ -95,7 +95,7 @@ const CertificateManager = () => {
         .not('pending_name_change', 'is', null);
 
       if (error) throw error;
-      setPendingChanges((studentData as any) || []);
+      setPendingChanges((studentData) || []);
       
     } catch (err) {
       console.error('Error loading certificate data:', err);

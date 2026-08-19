@@ -219,10 +219,10 @@ const AdminAdmissions = () => {
       ]);
 
       if (appsRes.error) throw appsRes.error;
-      setApplications((appsRes.data as any) || []);
+      setApplications((appsRes.data) || []);
       if (cohortsRes.data) setCohorts(cohortsRes.data as CohortOption[]);
-      if (lmRes && (lmRes as any).data) setLearningModeRequests((lmRes as any).data || []);
-      if (certRes && (certRes as any).data) setCertificateRequests((certRes as any).data || []);
+      if (lmRes && (lmRes).data) setLearningModeRequests((lmRes).data || []);
+      if (certRes && (certRes).data) setCertificateRequests((certRes).data || []);
     } catch (err) {
       console.error("Load applications error:", err);
       toast.error("Failed to load applications");

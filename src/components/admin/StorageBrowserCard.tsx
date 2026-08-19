@@ -139,7 +139,7 @@ export default function StorageBrowserCard() {
       toast.error(error.message || "Failed to list files");
       setItems([]);
     } else {
-      setItems((data as any) || []);
+      setItems((data) || []);
     }
     setLoading(false);
   };

@@ -89,10 +89,10 @@ const AdminFees = () => {
               .from('students')
               .select('id, cohort_id, profile:profiles(first_name, last_name, email)')
               .in('id', studentIds)
-          : Promise.resolve({ data: [] as any[] }),
+          : Promise.resolve({ data: [] }),
         feeIds.length
           ? supabase.from('fee_structures').select('id, fee_name').in('id', feeIds)
-          : Promise.resolve({ data: [] as any[] }),
+          : Promise.resolve({ data: [] }),
         studentIds.length
           ? supabase.from('fees').select('*').in('student_id', studentIds)
           : Promise.resolve({ data: [] as StudentFee[] }),

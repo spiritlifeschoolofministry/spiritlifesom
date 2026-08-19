@@ -88,7 +88,7 @@ export default function AudioProctor({ attemptId, examId, studentId, clipSeconds
         stream.getAudioTracks().forEach((track) => {
           track.addEventListener("ended", () => lose("Microphone was turned off"));
         });
-      } catch (e: any) {
+      } catch (e) {
         lose(e?.message || "Microphone blocked");
       }
     })();

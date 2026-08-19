@@ -352,7 +352,7 @@ const AdminAssignments = () => {
       {(() => {
         const filteredAssignments = assignments
           .filter(a => (cohortFilter === 'all' || a.cohort_id === cohortFilter))
-          .filter(a => (a.title.toLowerCase().includes(searchQuery.toLowerCase()) || (a as any).category?.toLowerCase().includes(searchQuery.toLowerCase())))
+          .filter(a => (a.title.toLowerCase().includes(searchQuery.toLowerCase()) || (a).category?.toLowerCase().includes(searchQuery.toLowerCase())))
           .sort((a, b) => {
             if (cohortFilter === 'all') {
               const nameA = cohorts.find(c => c.id === a.cohort_id)?.name || '';
@@ -410,11 +410,11 @@ const AdminAssignments = () => {
                       <TableRow key={assignment.id}>
                         <TableCell className="font-medium text-sm">
                           {assignment.title}
-                          {(assignment as any).is_manual_record && (
+                          {(assignment).is_manual_record && (
                             <Badge variant="outline" className="ml-2 text-[10px] align-middle">Offline</Badge>
                           )}
                         </TableCell>
-                        <TableCell><Badge variant="secondary" className="text-xs">{(assignment as any).category || 'Assignment'}</Badge></TableCell>
+                        <TableCell><Badge variant="secondary" className="text-xs">{(assignment).category || 'Assignment'}</Badge></TableCell>
                         <TableCell className="font-medium text-sm">{assignment.max_points ?? 100} pts</TableCell>
                         <TableCell className="text-sm">{cohorts.find(c => c.id === assignment.cohort_id)?.name || assignment.cohort_id}</TableCell>
                         <TableCell className="text-sm">{dueDate ? dueDate.toLocaleDateString() : 'No due date'}</TableCell>

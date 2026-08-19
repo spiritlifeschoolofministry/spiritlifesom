@@ -298,7 +298,7 @@ const Register = () => {
       try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
       await new Promise(resolve => setTimeout(resolve, 1500));
       navigate("/student/dashboard", { replace: true });
-    } catch (error: any) {
+    } catch (error) {
       console.error("[Register] REGISTRATION FAILED:", error.message);
       toast.error(error.message || "Registration failed. Please try again.");
     } finally {

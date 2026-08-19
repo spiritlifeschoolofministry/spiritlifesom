@@ -269,7 +269,7 @@ export default function ExamBuilder() {
           : `Saved as ${payload.status === "draft" ? "draft" : payload.status}`,
       );
       if (isNew) navigate(`/admin/exams/${examId}/edit`, { replace: true });
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || "Could not save the exam");
     } finally {
       setSaving(false);

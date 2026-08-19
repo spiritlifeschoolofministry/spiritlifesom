@@ -100,9 +100,9 @@ const AdminDashboard = () => {
         activeCourses: coursesRes.count || 0,
         activeCohort: cohortRes.data?.name || null,
         recentStudents: recentRes.data || [],
-        pendingStudents: (pendingRes.data as any) || [],
-        learningModeRequests: (learningModeRequestsRes.data as any) || [],
-        certificateNameRequests: (certRequestsRes.data as any) || [],
+        pendingStudents: (pendingRes.data) || [],
+        learningModeRequests: (learningModeRequestsRes.data) || [],
+        certificateNameRequests: (certRequestsRes.data) || [],
       });
     } catch (err) {
       console.error("Dashboard load error:", err);

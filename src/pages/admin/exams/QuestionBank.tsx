@@ -100,7 +100,7 @@ export default function QuestionBank() {
       toast.success("Deleted");
       setQuestionToDelete(null);
       load();
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message);
     } finally {
       setDeleting(false);
@@ -121,7 +121,7 @@ export default function QuestionBank() {
         setImportPreview(rows);
         toast.success(`Parsed ${rows.length} question(s) from file`);
       }
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || "Failed to read file");
       setImportPreview([]);
     } finally {
@@ -144,14 +144,14 @@ export default function QuestionBank() {
         points: r.points,
         explanation: r.explanation,
       }));
-      const { error } = await supabase.from("question_bank").insert(payload as any);
+      const { error } = await supabase.from("question_bank").insert(payload);
       if (error) throw error;
       toast.success(`Imported ${payload.length} question(s)`);
       setImportOpen(false);
       setImportPreview([]);
       setImportCourse("");
       load();
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || "Import failed");
     } finally {
       setImportLoading(false);

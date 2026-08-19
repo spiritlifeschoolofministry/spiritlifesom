@@ -98,7 +98,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
         loadMaterials(),
         loadCoursePerformance(),
       ]);
-    } catch (err: any) {
+    } catch (err) {
       console.error("Analytics load failed", err);
       setError(err.message || "Failed to load analytics data. Please try again.");
     } finally {

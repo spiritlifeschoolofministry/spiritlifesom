@@ -55,7 +55,7 @@ export default function AdminApprove() {
         }
 
         setSuccess(true)
-      } catch (err: any) {
+      } catch (err) {
         setError(err.message || "An error occurred during approval")
       } finally {
         setLoading(false)

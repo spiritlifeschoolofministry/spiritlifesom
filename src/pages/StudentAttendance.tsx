@@ -177,8 +177,8 @@ const StudentAttendance = () => {
 
       // If there is a duplicate key violation, treat as already checked in.
       if (error) {
-        const detail = (error as any)?.details || "";
-        const msg = (error as any)?.message || "";
+        const detail = (error)?.details || "";
+        const msg = (error)?.message || "";
         if (msg.includes("duplicate key") || detail.includes("duplicate key") || error.code === "23505") {
           setCheckedInToday(true);
           setPendingToday(true);

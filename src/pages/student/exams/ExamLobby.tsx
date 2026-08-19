@@ -55,7 +55,7 @@ export default function ExamLobby() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       stream.getTracks().forEach((t) => t.stop());
       setCamera("granted");
-    } catch (e: any) {
+    } catch (e) {
       setCamera("denied");
       setCameraError(
         e?.name === "NotFoundError"
@@ -84,7 +84,7 @@ export default function ExamLobby() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       stream.getTracks().forEach((t) => t.stop());
       setMic("granted");
-    } catch (e: any) {
+    } catch (e) {
       setMic("denied");
       setMicError(
         e?.name === "NotFoundError"

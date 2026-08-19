@@ -246,7 +246,7 @@ export default function ExamMonitor() {
         [attemptId]: (prev[attemptId] ?? []).filter((s) => s.id !== snap.id),
       }));
       toast.success("Snapshot deleted");
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || "Failed to delete snapshot");
     }
   };
@@ -264,7 +264,7 @@ export default function ExamMonitor() {
       await supabase.from("exam_snapshots").delete().eq("attempt_id", attemptId);
       setSnapshots((prev) => ({ ...prev, [attemptId]: [] }));
       toast.success("All snapshots deleted");
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || "Failed to delete snapshots");
     }
   };
@@ -303,7 +303,7 @@ export default function ExamMonitor() {
         [attemptId]: (prev[attemptId] ?? []).filter((c) => c.id !== clip.id),
       }));
       toast.success("Audio clip deleted");
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || "Failed to delete audio clip");
     }
   };
@@ -319,7 +319,7 @@ export default function ExamMonitor() {
       await supabase.from("exam_audio_clips").delete().eq("attempt_id", attemptId);
       setAudio((prev) => ({ ...prev, [attemptId]: [] }));
       toast.success("All audio clips deleted");
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || "Failed to delete audio clips");
     }
   };

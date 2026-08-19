@@ -39,9 +39,9 @@ export default function MaintenanceModeCard() {
   const save = async (next: boolean, nextMsg?: string, nextReturnAt?: string) => {
     setSaving(true);
     const upserts = [
-      { key: "maintenance_mode", value: next as any, updated_at: new Date().toISOString() },
-      { key: "maintenance_message", value: (nextMsg ?? message) as any, updated_at: new Date().toISOString() },
-      { key: "maintenance_return_at", value: (nextReturnAt ? new Date(nextReturnAt).toISOString() : null) as any, updated_at: new Date().toISOString() },
+      { key: "maintenance_mode", value: next, updated_at: new Date().toISOString() },
+      { key: "maintenance_message", value: (nextMsg ?? message), updated_at: new Date().toISOString() },
+      { key: "maintenance_return_at", value: (nextReturnAt ? new Date(nextReturnAt).toISOString() : null), updated_at: new Date().toISOString() },
     ];
     for (const u of upserts) {
       const { error } = await supabase.from("system_settings").upsert(u, { onConflict: "key" });

@@ -162,7 +162,7 @@ export default function ExamsList() {
       if (error) throw error;
       setExams((prev) => prev.map((e) => (e.id === exam.id ? { ...e, status } : e)));
       toast.success(successMsg);
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || "Could not update the exam");
     } finally {
       setBusyId(null);
@@ -186,7 +186,7 @@ export default function ExamsList() {
       toast.success("Exam deleted");
       setExamToDelete(null);
       setExams((prev) => prev.filter((e) => e.id !== exam.id));
-    } catch (err: any) {
+    } catch (err) {
       toast.error(err.message || "Failed to delete exam");
     } finally {
       setBusyId(null);

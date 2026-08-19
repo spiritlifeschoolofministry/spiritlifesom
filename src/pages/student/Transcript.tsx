@@ -93,7 +93,7 @@ const StudentTranscript = () => {
 
       // Build submissions map by course
       const subsByCourse = new Map<string, typeof subsRes.data>();
-      for (const sub of (subsRes.data || []) as any[]) {
+      for (const sub of (subsRes.data || [])) {
         const courseId = sub.assignment?.course_id;
         if (!courseId) continue;
         if (!subsByCourse.has(courseId)) subsByCourse.set(courseId, []);
@@ -102,7 +102,7 @@ const StudentTranscript = () => {
 
       // Released exam results, grouped by the course they belong to.
       const examsByCourse = new Map<string, any[]>();
-      for (const att of (examsRes.data || []) as any[]) {
+      for (const att of (examsRes.data || [])) {
         if (!att.exam?.results_released) continue;
         const courseId = att.exam.course_id;
         if (!courseId) continue;
@@ -118,7 +118,7 @@ const StudentTranscript = () => {
       }
 
       const courseRecords: CourseRecord[] = (coursesRes.data || []).map((c: any) => {
-        const subs = (subsByCourse.get(c.id) || []) as any[];
+        const subs = (subsByCourse.get(c.id) || []);
         const assignments = [
           ...subs.map((s: any) => ({
             id: s.assignment?.id || "",

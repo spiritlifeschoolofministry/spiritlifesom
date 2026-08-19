@@ -32,7 +32,7 @@ const ContactPage = () => {
       setName("");
       setEmail("");
       setMessage("");
-    } catch (err: any) {
+    } catch (err) {
       console.error("Contact form error:", err);
       toast.error(err.message || "Failed to send message. Please try again.");
     } finally {
