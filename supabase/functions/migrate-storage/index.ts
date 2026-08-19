@@ -159,11 +159,21 @@ function keyFromR2Url(url: string): string | null {
   }
 }
 
+/** One stored file, in whichever of the two stores holds it. */
+interface StoredObject {
+  store: "r2" | "supabase";
+  bucket: string;
+  key: string;
+  size: number;
+  lastModified: string;
+}
+
 /** Every object in the bucket, straight from ListObjectsV2. */
 async function listR2Objects(
   r2: ReturnType<typeof r2Client>,
-): Promise<{ objects: Array<{ key: string; size: number; lastModified: string }>; truncated: boolean }> {
-  const objects: Array<{ key: string; size: number; lastModified: string }> = [];
+): Promise<{ objects: StoredObject[]; truncated: boolean }> {
+  const bucketName = Deno.env.get("R2_BUCKET_NAME") ?? "r2";
+  const objects: StoredObject[] = [];
   let token: string | undefined;
   let pages = 0;
 
@@ -180,6 +190,8 @@ async function listR2Objects(
     for (const m of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
       const chunk = m[1];
       objects.push({
+        store: "r2",
+        bucket: bucketName,
         key: chunk.match(/<Key>([\s\S]*?)<\/Key>/)?.[1] ?? "",
         size: Number(chunk.match(/<Size>(\d+)<\/Size>/)?.[1] ?? 0),
         lastModified: chunk.match(/<LastModified>([\s\S]*?)<\/LastModified>/)?.[1] ?? "",
@@ -195,47 +207,151 @@ async function listR2Objects(
   return { objects, truncated: !!token };
 }
 
-/**
- * Every R2 key the database still points at. Anything outside this set is an
- * orphan — a file left behind by a deleted record or a replaced upload.
- */
-async function referencedKeys(admin: any): Promise<Set<string>> {
-  const keys = new Set<string>();
+interface RefSets {
+  /** Object keys still pointed at in R2. */
+  r2: Set<string>;
+  /** Still-referenced Supabase objects, as `bucket/key`. */
+  supabase: Set<string>;
+}
 
-  const add = (key: string | null | undefined) => {
+/** Bucket and key out of a Supabase storage URL, whichever bucket it names. */
+function refFromSupabaseUrl(url: string): { bucket: string; key: string } | null {
+  const m = url.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/([^?"'\s]+)/);
+  if (!m) return null;
+  let key = m[2];
+  try {
+    key = decodeURIComponent(key);
+  } catch { /* keep the raw form */ }
+  return { bucket: m[1], key };
+}
+
+/**
+ * Everything the database still points at, per store. An object outside these
+ * sets is an orphan — left behind by a deleted record or a replaced upload.
+ *
+ * Both stores are collected from the same row: during a migration a file
+ * legitimately exists in both places, and neither copy should read as unused.
+ */
+async function referencedKeys(admin: any): Promise<RefSets> {
+  const r2 = new Set<string>();
+  const sb = new Set<string>();
+
+  const addR2 = (key: string | null | undefined) => {
     if (!key) return;
-    keys.add(key);
+    r2.add(key);
     // Avatars were re-prefixed on migration; accept a row that still names the
     // pre-migration key so the prefixed object is not read as an orphan.
-    if (!key.startsWith("avatars/")) keys.add(`avatars/${key}`);
+    if (!key.startsWith("avatars/")) r2.add(`avatars/${key}`);
   };
 
-  for (const { table } of TRACKED) {
+  const addSb = (bucket: string | null | undefined, key: string | null | undefined) => {
+    if (!bucket || !key) return;
+    sb.add(`${bucket}/${key}`);
+    // The mirror of the above: an R2 key carries the prefix, its Supabase
+    // original does not.
+    if (key.startsWith("avatars/")) sb.add(`${bucket}/${key.slice("avatars/".length)}`);
+  };
+
+  for (const { table, bucket } of TRACKED) {
     const { data } = await admin.from(table).select("storage_path").not("storage_path", "is", null);
-    for (const row of data ?? []) add(row.storage_path as string);
+    for (const row of data ?? []) {
+      const key = row.storage_path as string;
+      addR2(key);
+      addSb(bucket, key);
+    }
   }
 
   for (const { table, column, bucket } of URL_REF_COLUMNS) {
     const { data } = await admin.from(table).select(column).not(column, "is", null);
     for (const row of (data ?? []) as any[]) {
       const value = row[column] as string;
-      add(keyFromR2Url(value) ?? keyFromSupabaseUrl(value, bucket));
+
+      const r2Key = keyFromR2Url(value);
+      if (r2Key) {
+        addR2(r2Key);
+        addSb(bucket, r2Key);
+      }
+
+      const sbRef = refFromSupabaseUrl(value);
+      if (sbRef) {
+        addSb(sbRef.bucket, sbRef.key);
+        addR2(sbRef.key);
+      }
     }
   }
 
-  // Settings blobs: scoop up any R2 link mentioned anywhere in the text.
+  // Settings blobs: scoop up any storage link mentioned anywhere in the text.
   const escapedBase = R2_PUBLIC_BASE.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const linkPattern = new RegExp(`${escapedBase}/[^\\s"'<>)]+`, "g");
+  const r2Pattern = new RegExp(`${escapedBase}/[^\\s"'<>)]+`, "g");
+  const sbPattern = /https?:\/\/[^\s"'<>)]*\/storage\/v1\/object\/[^\s"'<>)]+/g;
+
   for (const { table, column } of TEXT_REF_SOURCES) {
     const { data } = await admin.from(table).select(column);
     for (const row of (data ?? []) as any[]) {
       const value = row[column];
       const text = typeof value === "string" ? value : JSON.stringify(value ?? "");
-      for (const match of text.matchAll(linkPattern)) add(keyFromR2Url(match[0]));
+      for (const match of text.matchAll(r2Pattern)) addR2(keyFromR2Url(match[0]));
+      for (const match of text.matchAll(sbPattern)) {
+        const ref = refFromSupabaseUrl(match[0]);
+        if (ref) addSb(ref.bucket, ref.key);
+      }
     }
   }
 
-  return keys;
+  return { r2, supabase: sb };
+}
+
+/** Every object in every Supabase bucket, walked folder by folder. */
+async function listSupabaseObjects(
+  admin: any,
+): Promise<{ objects: StoredObject[]; truncated: boolean }> {
+  const objects: StoredObject[] = [];
+  let truncated = false;
+
+  const { data: buckets } = await admin.storage.listBuckets();
+
+  for (const bucket of buckets ?? []) {
+    const queue: string[] = [""];
+    let folders = 0;
+
+    while (queue.length && folders < 2000) {
+      const prefix = queue.shift()!;
+      folders++;
+      let offset = 0;
+
+      while (true) {
+        const { data, error } = await admin.storage.from(bucket.name).list(prefix, {
+          limit: 1000,
+          offset,
+          sortBy: { column: "name", order: "asc" },
+        });
+        if (error || !data?.length) break;
+
+        for (const entry of data) {
+          const key = prefix ? `${prefix}/${entry.name}` : entry.name;
+          // A folder comes back with no id and no metadata.
+          if (entry.id === null || entry.metadata == null) {
+            queue.push(key);
+          } else {
+            objects.push({
+              store: "supabase",
+              bucket: bucket.name,
+              key,
+              size: Number(entry.metadata.size ?? 0),
+              lastModified: entry.updated_at ?? entry.created_at ?? "",
+            });
+          }
+        }
+
+        if (data.length < 1000) break;
+        offset += 1000;
+      }
+    }
+
+    if (folders >= 2000) truncated = true;
+  }
+
+  return { objects, truncated };
 }
 
 Deno.serve(async (req) => {
@@ -311,79 +427,144 @@ Deno.serve(async (req) => {
     }
 
     // ---------------- AUDIT ----------------
-    // Walks the R2 bucket and marks each object as still referenced by the
+    // Walks both stores and marks each object as still referenced by the
     // database or orphaned. Read-only — nothing is deleted here.
     if (action === "audit") {
-      const r2 = r2Client();
-      const [{ objects, truncated }, referenced] = await Promise.all([
-        listR2Objects(r2),
-        referencedKeys(admin),
-      ]);
+      const refs = await referencedKeys(admin);
+
+      let r2Error: string | null = null;
+      let r2Files: StoredObject[] = [];
+      let truncated = false;
+
+      try {
+        const listed = await listR2Objects(r2Client());
+        r2Files = listed.objects;
+        truncated = truncated || listed.truncated;
+      } catch (e) {
+        r2Error = e instanceof Error ? e.message : String(e);
+      }
+
+      const sbListed = await listSupabaseObjects(admin);
+      truncated = truncated || sbListed.truncated;
 
       const now = Date.now();
-      let usedCount = 0, usedBytes = 0, unusedCount = 0, unusedBytes = 0, recentCount = 0;
+      const blank = () => ({
+        objects: 0,
+        bytes: 0,
+        usedCount: 0,
+        usedBytes: 0,
+        unusedCount: 0,
+        unusedBytes: 0,
+        recentCount: 0,
+      });
+      const stores = { r2: blank(), supabase: blank() };
 
-      const files = objects.map((o) => {
-        const used = referenced.has(o.key);
+      const files = [...r2Files, ...sbListed.objects].map((o) => {
+        const used = o.store === "r2"
+          ? refs.r2.has(o.key)
+          : refs.supabase.has(`${o.bucket}/${o.key}`);
+
         const age = o.lastModified ? now - Date.parse(o.lastModified) : Number.POSITIVE_INFINITY;
         const recent = Number.isFinite(age) && age < ORPHAN_GRACE_MS;
-        if (used) { usedCount++; usedBytes += o.size; }
-        else if (recent) { recentCount++; }
-        else { unusedCount++; unusedBytes += o.size; }
+
+        const tally = stores[o.store];
+        tally.objects++;
+        tally.bytes += o.size;
+        if (used) { tally.usedCount++; tally.usedBytes += o.size; }
+        else if (recent) { tally.recentCount++; }
+        else { tally.unusedCount++; tally.unusedBytes += o.size; }
+
         return { ...o, used, recent };
       });
 
+      // Largest first, so a truncated list still shows what is worth reclaiming.
       files.sort((a, b) => b.size - a.size);
 
       return json({
-        objects: objects.length,
-        bytes: objects.reduce((sum, o) => sum + o.size, 0),
-        usedCount,
-        usedBytes,
-        unusedCount,
-        unusedBytes,
-        recentCount,
+        stores,
+        r2Error,
         truncated,
         graceMinutes: Math.round(ORPHAN_GRACE_MS / 60000),
+        totalObjects: files.length,
         // Capped so a huge bucket cannot blow the response size.
-        files: files.slice(0, 1000),
-        fileLimit: 1000,
+        files: files.slice(0, 2000),
+        fileLimit: 2000,
       });
     }
 
     // ---------------- DELETE UNUSED ----------------
-    // Deletes R2 objects the caller picked, but re-derives the reference set
-    // first: anything the database still points at is refused, never deleted.
+    // Deletes the objects the caller picked, from either store, but re-derives
+    // the reference set first: anything the database still points at is
+    // refused, never deleted.
     if (action === "delete-unused") {
-      const keys: string[] = Array.isArray(body.keys) ? body.keys.filter((k: unknown) => typeof k === "string") : [];
-      if (!keys.length) return json({ error: "No files selected" }, 400);
-      if (keys.length > 200) return json({ error: "Delete at most 200 files at a time" }, 400);
+      const requested: Array<{ store?: string; bucket?: string; key?: string }> =
+        Array.isArray(body.files)
+          ? body.files
+          // Older callers sent bare R2 keys.
+          : Array.isArray(body.keys)
+          ? body.keys.map((k: string) => ({ store: "r2", key: k }))
+          : [];
 
-      const r2 = r2Client();
-      const referenced = await referencedKeys(admin);
+      const targets = requested.filter(
+        (f) => typeof f?.key === "string" && f.key && (f.store === "r2" || f.store === "supabase"),
+      ) as Array<{ store: "r2" | "supabase"; bucket?: string; key: string }>;
+
+      if (!targets.length) return json({ error: "No files selected" }, 400);
+      if (targets.length > 200) return json({ error: "Delete at most 200 files at a time" }, 400);
+
+      const refs = await referencedKeys(admin);
+      const needsR2 = targets.some((t) => t.store === "r2");
+      const r2 = needsR2 ? r2Client() : null;
 
       const deleted: string[] = [];
       const kept: Array<{ key: string; reason: string }> = [];
 
-      for (const key of keys) {
-        if (referenced.has(key)) {
-          kept.push({ key, reason: "still referenced by a record" });
+      for (const target of targets) {
+        const label = target.store === "r2" ? target.key : `${target.bucket}/${target.key}`;
+
+        if (target.store === "supabase" && !target.bucket) {
+          kept.push({ key: label, reason: "no bucket given" });
           continue;
         }
 
-        const head = await r2.client.fetch(`${r2.bucketUrl}/${encodeKey(key)}`, { method: "HEAD" });
-        const modified = head.headers.get("last-modified");
-        if (head.ok && modified && Date.now() - Date.parse(modified) < ORPHAN_GRACE_MS) {
-          kept.push({ key, reason: "uploaded too recently" });
+        const referenced = target.store === "r2" ? refs.r2.has(target.key) : refs.supabase.has(label);
+        if (referenced) {
+          kept.push({ key: label, reason: "still referenced by a record" });
           continue;
         }
 
-        const res = await r2.client.fetch(`${r2.bucketUrl}/${encodeKey(key)}`, { method: "DELETE" });
-        if (!res.ok && res.status !== 404) {
-          kept.push({ key, reason: `R2 refused the delete (${res.status})` });
+        if (target.store === "r2") {
+          const head = await r2!.client.fetch(`${r2!.bucketUrl}/${encodeKey(target.key)}`, { method: "HEAD" });
+          const modified = head.headers.get("last-modified");
+          if (head.ok && modified && Date.now() - Date.parse(modified) < ORPHAN_GRACE_MS) {
+            kept.push({ key: label, reason: "uploaded too recently" });
+            continue;
+          }
+
+          const res = await r2!.client.fetch(`${r2!.bucketUrl}/${encodeKey(target.key)}`, { method: "DELETE" });
+          if (!res.ok && res.status !== 404) {
+            kept.push({ key: label, reason: `R2 refused the delete (${res.status})` });
+            continue;
+          }
+          deleted.push(label);
           continue;
         }
-        deleted.push(key);
+
+        // Supabase: re-read the object's own listing row for its timestamp.
+        const at = target.key.lastIndexOf("/");
+        const folder = at === -1 ? "" : target.key.slice(0, at);
+        const name = at === -1 ? target.key : target.key.slice(at + 1);
+        const { data: found } = await admin.storage.from(target.bucket!).list(folder, { limit: 100, search: name });
+        const entry = (found ?? []).find((e: any) => e.name === name);
+        const stamp = entry?.updated_at ?? entry?.created_at;
+        if (stamp && Date.now() - Date.parse(stamp) < ORPHAN_GRACE_MS) {
+          kept.push({ key: label, reason: "uploaded too recently" });
+          continue;
+        }
+
+        const { error: rmErr } = await admin.storage.from(target.bucket!).remove([target.key]);
+        if (rmErr) kept.push({ key: label, reason: rmErr.message });
+        else deleted.push(label);
       }
 
       return json({ deleted: deleted.length, kept: kept.length, keptDetail: kept.slice(0, 20) });

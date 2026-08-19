@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Loader2,
   AlertTriangle,
@@ -67,7 +68,11 @@ interface UsageResult {
   buckets: Array<{ name: string; bytes: number; files: number }>;
 }
 
+type StoreId = 'r2' | 'supabase';
+
 interface AuditFile {
+  store: StoreId;
+  bucket: string;
   key: string;
   size: number;
   lastModified: string;
@@ -75,7 +80,7 @@ interface AuditFile {
   recent: boolean;
 }
 
-interface AuditResult {
+interface StoreStats {
   objects: number;
   bytes: number;
   usedCount: number;
@@ -83,10 +88,38 @@ interface AuditResult {
   unusedCount: number;
   unusedBytes: number;
   recentCount: number;
+}
+
+interface AuditResult {
+  stores: Record<StoreId, StoreStats>;
+  r2Error: string | null;
   truncated: boolean;
   graceMinutes: number;
+  totalObjects: number;
   files: AuditFile[];
   fileLimit: number;
+}
+
+const EMPTY_STATS: StoreStats = {
+  objects: 0,
+  bytes: 0,
+  usedCount: 0,
+  usedBytes: 0,
+  unusedCount: 0,
+  unusedBytes: 0,
+  recentCount: 0,
+};
+
+const STORE_LABELS: Record<StoreId, string> = {
+  r2: 'Cloudflare R2',
+  supabase: 'Supabase',
+};
+
+type SortKey = 'name' | 'size' | 'date' | 'store';
+
+/** Identity of one file across both stores, for selection and deletion. */
+function fileId(f: AuditFile): string {
+  return `${f.store}:${f.bucket}:${f.key}`;
 }
 
 /** Fraction of a quota consumed, clamped so the bar never overshoots. */
@@ -111,8 +144,11 @@ export default function StorageManagement() {
   const [audit, setAudit] = useState<AuditResult | null>(null);
   const [auditing, setAuditing] = useState(false);
   const [fileSearch, setFileSearch] = useState('');
-  const [unusedOnly, setUnusedOnly] = useState(false);
-  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [storeFilter, setStoreFilter] = useState<'all' | StoreId>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'used' | 'unused'>('all');
+  const [sortKey, setSortKey] = useState<SortKey>('size');
+  const [sortAsc, setSortAsc] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmDeleteFiles, setConfirmDeleteFiles] = useState(false);
   const [deletingFiles, setDeletingFiles] = useState(false);
 
@@ -128,7 +164,7 @@ export default function StorageManagement() {
     }
   }, []);
 
-  /** Walks R2 and marks every object as still referenced or orphaned. */
+  /** Walks both stores and marks every object as still referenced or orphaned. */
   const runAudit = useCallback(async (quiet = false) => {
     setAuditing(true);
     try {
@@ -137,12 +173,15 @@ export default function StorageManagement() {
       if (data?.error) throw new Error(data.error);
       const result = data as AuditResult;
       setAudit(result);
-      setSelectedKeys(new Set());
+      setSelectedIds(new Set());
+      if (result.r2Error) toast.warning(`R2 could not be listed: ${result.r2Error}`);
       if (!quiet) {
+        const unused = result.files.filter((f) => !f.used && !f.recent);
+        const unusedBytes = unused.reduce((sum, f) => sum + f.size, 0);
         toast.success(
-          result.unusedCount > 0
-            ? `${result.unusedCount} unused file(s) found — ${formatBytes(result.unusedBytes)} reclaimable`
-            : 'Every file in R2 is still in use',
+          unused.length > 0
+            ? `${unused.length} unused file(s) found — ${formatBytes(unusedBytes)} reclaimable`
+            : 'Every stored file is still in use',
         );
       }
     } catch (err) {
@@ -184,15 +223,18 @@ export default function StorageManagement() {
   };
 
   const deleteSelectedFiles = async () => {
-    const keys = Array.from(selectedKeys);
+    const targets = (audit?.files ?? [])
+      .filter((f) => selectedIds.has(fileId(f)))
+      .map((f) => ({ store: f.store, bucket: f.bucket, key: f.key }));
+
     setDeletingFiles(true);
     try {
       // The function caps a batch at 200, so a big selection goes in chunks.
       let deleted = 0;
       let kept = 0;
-      for (let i = 0; i < keys.length; i += 200) {
+      for (let i = 0; i < targets.length; i += 200) {
         const { data, error } = await supabase.functions.invoke('migrate-storage', {
-          body: { action: 'delete-unused', keys: keys.slice(i, i + 200) },
+          body: { action: 'delete-unused', files: targets.slice(i, i + 200) },
         });
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
@@ -330,32 +372,80 @@ export default function StorageManagement() {
 
   const supabaseUsed = usage?.total_bytes ?? 0;
   const supabaseLimit = usage?.limit_bytes ?? 0;
-  const r2Used = inventory?.bytes ?? audit?.bytes ?? 0;
+  const r2Stats = audit?.stores?.r2 ?? EMPTY_STATS;
+  const sbStats = audit?.stores?.supabase ?? EMPTY_STATS;
+  const r2Used = inventory?.bytes ?? r2Stats.bytes;
 
   const files = audit?.files ?? [];
-  const visibleFiles = files.filter((f) => {
-    if (unusedOnly && (f.used || f.recent)) return false;
-    return f.key.toLowerCase().includes(fileSearch.trim().toLowerCase());
-  });
+  const needle = fileSearch.trim().toLowerCase();
+
+  const visibleFiles = files
+    .filter((f) => {
+      if (storeFilter !== 'all' && f.store !== storeFilter) return false;
+      if (statusFilter === 'used' && !f.used) return false;
+      if (statusFilter === 'unused' && (f.used || f.recent)) return false;
+      if (!needle) return true;
+      return f.key.toLowerCase().includes(needle) || f.bucket.toLowerCase().includes(needle);
+    })
+    .sort((a, b) => {
+      const direction = sortAsc ? 1 : -1;
+      switch (sortKey) {
+        case 'name':
+          return a.key.localeCompare(b.key) * direction;
+        case 'date':
+          return (Date.parse(a.lastModified || '') || 0) > (Date.parse(b.lastModified || '') || 0)
+            ? direction
+            : -direction;
+        case 'store':
+          return (a.store + a.bucket).localeCompare(b.store + b.bucket) * direction;
+        default:
+          return (a.size - b.size) * direction;
+      }
+    });
+
   const deletableVisible = visibleFiles.filter((f) => !f.used && !f.recent);
   const allDeletableSelected =
-    deletableVisible.length > 0 && deletableVisible.every((f) => selectedKeys.has(f.key));
-  const selectedBytes = files
-    .filter((f) => selectedKeys.has(f.key))
-    .reduce((sum, f) => sum + f.size, 0);
+    deletableVisible.length > 0 && deletableVisible.every((f) => selectedIds.has(fileId(f)));
+  const selectedFiles = files.filter((f) => selectedIds.has(fileId(f)));
+  const selectedBytes = selectedFiles.reduce((sum, f) => sum + f.size, 0);
+  const visibleBytes = visibleFiles.reduce((sum, f) => sum + f.size, 0);
 
-  const toggleFile = (key: string) => {
-    setSelectedKeys((prev) => {
+  const toggleFile = (id: string) => {
+    setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
 
   const toggleAllDeletable = () => {
-    if (allDeletableSelected) setSelectedKeys(new Set());
-    else setSelectedKeys(new Set(deletableVisible.map((f) => f.key)));
+    if (allDeletableSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(deletableVisible.map(fileId)));
+  };
+
+  /** Clicking a header sorts by it, or flips the direction if already sorted. */
+  const sortBy = (key: SortKey) => {
+    if (sortKey === key) setSortAsc((prev) => !prev);
+    else {
+      setSortKey(key);
+      setSortAsc(key === 'name' || key === 'store');
+    }
+  };
+
+  const sortArrow = (key: SortKey) => (sortKey === key ? (sortAsc ? ' ↑' : ' ↓') : '');
+
+  /** Opens a file in a new tab, signing the URL when the bucket is private. */
+  const openFile = async (f: AuditFile) => {
+    const encoded = f.key.split('/').map(encodeURIComponent).join('/');
+    if (f.store === 'r2') {
+      window.open(`${scan?.publicBase || R2_PUBLIC_BASE}/${encoded}`, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    const { data } = await supabase.storage.from(f.bucket).createSignedUrl(f.key, 300);
+    const url = data?.signedUrl ?? supabase.storage.from(f.bucket).getPublicUrl(f.key).data?.publicUrl;
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+    else toast.error('Could not open that file');
   };
 
   return (
@@ -417,6 +507,11 @@ export default function StorageManagement() {
               {usage ? `${usage.total_files.toLocaleString()} file(s) stored · ` : ''}
               {scan?.totalPending ?? 0} still to migrate
             </p>
+            {sbStats.unusedCount > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-500">
+                {sbStats.unusedCount} unused file(s) holding {formatBytes(sbStats.unusedBytes)}
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -446,9 +541,9 @@ export default function StorageManagement() {
               {inventory ? `${inventory.objects.toLocaleString()} object(s) · ` : ''}
               {scan?.totalMigrated ?? 0} record(s) served from R2
             </p>
-            {audit && audit.unusedCount > 0 && (
+            {r2Stats.unusedCount > 0 && (
               <p className="text-xs text-amber-600 dark:text-amber-500">
-                {audit.unusedCount} unused file(s) holding {formatBytes(audit.unusedBytes)}
+                {r2Stats.unusedCount} unused file(s) holding {formatBytes(r2Stats.unusedBytes)}
               </p>
             )}
             <p className="text-xs text-muted-foreground truncate">{scan?.publicBase || R2_PUBLIC_BASE}</p>
@@ -530,10 +625,10 @@ export default function StorageManagement() {
             <CardHeader>
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <CardTitle className="text-base">Files in R2</CardTitle>
+                  <CardTitle className="text-base">Files in storage</CardTitle>
                   <CardDescription>
-                    Every object is checked against the database. Anything no record points at is marked unused and
-                    can be deleted to reclaim space.
+                    Every object in both stores, checked against the database. Anything no record points at is
+                    marked unused and can be deleted here to reclaim space.
                   </CardDescription>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => runAudit()} disabled={auditing}>
@@ -549,48 +644,75 @@ export default function StorageManagement() {
             <CardContent className="space-y-3">
               {!audit ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">
-                  {auditing ? 'Scanning the bucket…' : 'Run a scan to list every stored file and find unused ones.'}
+                  {auditing
+                    ? 'Scanning both stores…'
+                    : 'Run a scan to list every stored file and find the unused ones.'}
                 </p>
               ) : (
                 <>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-lg border p-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Total</p>
-                      <p className="text-lg font-bold">{formatBytes(audit.bytes)}</p>
-                      <p className="text-xs text-muted-foreground">{audit.objects.toLocaleString()} file(s)</p>
-                    </div>
-                    <div className="rounded-lg border p-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">In use</p>
-                      <p className="text-lg font-bold">{formatBytes(audit.usedBytes)}</p>
-                      <p className="text-xs text-muted-foreground">{audit.usedCount.toLocaleString()} file(s)</p>
-                    </div>
-                    <div className="rounded-lg border p-3">
-                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Unused</p>
-                      <p className="text-lg font-bold">{formatBytes(audit.unusedBytes)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {audit.unusedCount.toLocaleString()} file(s) reclaimable
-                      </p>
-                    </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {(['r2', 'supabase'] as StoreId[]).map((store) => {
+                      const stats = store === 'r2' ? r2Stats : sbStats;
+                      return (
+                        <div key={store} className="rounded-lg border p-3 space-y-1">
+                          <div className="flex items-center gap-2">
+                            {store === 'r2' ? (
+                              <HardDrive className="w-4 h-4 text-muted-foreground" />
+                            ) : (
+                              <Database className="w-4 h-4 text-muted-foreground" />
+                            )}
+                            <p className="font-medium text-sm">{STORE_LABELS[store]}</p>
+                            <Badge variant="secondary" className="ml-auto text-[10px]">
+                              {stats.objects.toLocaleString()} file(s)
+                            </Badge>
+                          </div>
+                          <p className="text-lg font-bold">{formatBytes(stats.bytes)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatBytes(stats.usedBytes)} in use ·{' '}
+                            <span className={stats.unusedCount > 0 ? 'text-amber-600 dark:text-amber-500' : ''}>
+                              {formatBytes(stats.unusedBytes)} unused ({stats.unusedCount})
+                            </span>
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
+
+                  {audit.r2Error && (
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>R2 could not be listed</AlertTitle>
+                      <AlertDescription>{audit.r2Error}</AlertDescription>
+                    </Alert>
+                  )}
 
                   <div className="flex flex-wrap items-center gap-2">
                     <Input
-                      placeholder="Filter by name…"
+                      placeholder="Filter by name or bucket…"
                       value={fileSearch}
                       onChange={(e) => setFileSearch(e.target.value)}
                       className="sm:max-w-xs"
                     />
-                    <label className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
-                      <Checkbox checked={unusedOnly} onCheckedChange={(v) => setUnusedOnly(v === true)} />
-                      Unused only
-                    </label>
-                    {deletableVisible.length > 0 && (
-                      <label className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
-                        <Checkbox checked={allDeletableSelected} onCheckedChange={toggleAllDeletable} />
-                        Select all unused shown
-                      </label>
-                    )}
-                    {selectedKeys.size > 0 && (
+                    <Select value={storeFilter} onValueChange={(v) => setStoreFilter(v as 'all' | StoreId)}>
+                      <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Both stores</SelectItem>
+                        <SelectItem value="r2">Cloudflare R2</SelectItem>
+                        <SelectItem value="supabase">Supabase</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={statusFilter}
+                      onValueChange={(v) => setStatusFilter(v as 'all' | 'used' | 'unused')}
+                    >
+                      <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Any status</SelectItem>
+                        <SelectItem value="used">In use</SelectItem>
+                        <SelectItem value="unused">Unused</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {selectedIds.size > 0 && (
                       <Button
                         size="sm"
                         variant="destructive"
@@ -598,68 +720,135 @@ export default function StorageManagement() {
                         onClick={() => setConfirmDeleteFiles(true)}
                       >
                         <Trash2 className="w-4 h-4 mr-1.5" />
-                        Delete {selectedKeys.size} ({formatBytes(selectedBytes)})
+                        Delete {selectedIds.size} ({formatBytes(selectedBytes)})
                       </Button>
                     )}
                   </div>
 
-                  {audit.recentCount > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      {audit.recentCount} unreferenced file(s) uploaded in the last {audit.graceMinutes} minutes are
-                      held back — a record may still be saving.
-                    </p>
-                  )}
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                    <span>
+                      {visibleFiles.length.toLocaleString()} of {files.length.toLocaleString()} file(s) shown ·{' '}
+                      {formatBytes(visibleBytes)}
+                    </span>
+                    {r2Stats.recentCount + sbStats.recentCount > 0 && (
+                      <span>
+                        {r2Stats.recentCount + sbStats.recentCount} unreferenced file(s) newer than{' '}
+                        {audit.graceMinutes} minutes are held
+                        back — a record may still be saving.
+                      </span>
+                    )}
+                  </div>
 
                   {visibleFiles.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-6 text-center">No files match.</p>
+                    <p className="text-sm text-muted-foreground py-6 text-center">No files match these filters.</p>
                   ) : (
-                    <div className="border rounded-lg divide-y max-h-[480px] overflow-y-auto">
-                      {visibleFiles.map((f) => {
-                        const deletable = !f.used && !f.recent;
-                        return (
-                          <div key={f.key} className="flex items-center gap-3 p-2.5 text-sm hover:bg-muted/50">
-                            {deletable ? (
+                    <div className="border rounded-lg max-h-[520px] overflow-auto">
+                      <Table>
+                        <TableHeader className="sticky top-0 bg-background z-10">
+                          <TableRow>
+                            <TableHead className="w-8">
                               <Checkbox
-                                checked={selectedKeys.has(f.key)}
-                                onCheckedChange={() => toggleFile(f.key)}
-                                className="shrink-0"
+                                checked={allDeletableSelected}
+                                onCheckedChange={toggleAllDeletable}
+                                disabled={deletableVisible.length === 0}
+                                aria-label="Select every unused file shown"
                               />
-                            ) : (
-                              <span className="w-4 shrink-0" />
-                            )}
-                            <a
-                              href={`${scan?.publicBase || R2_PUBLIC_BASE}/${f.key.split('/').map(encodeURIComponent).join('/')}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex-1 truncate font-mono text-xs hover:underline"
-                              title={f.key}
+                            </TableHead>
+                            <TableHead className="cursor-pointer select-none" onClick={() => sortBy('name')}>
+                              File{sortArrow('name')}
+                            </TableHead>
+                            <TableHead className="cursor-pointer select-none" onClick={() => sortBy('store')}>
+                              Where{sortArrow('store')}
+                            </TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead
+                              className="text-right cursor-pointer select-none"
+                              onClick={() => sortBy('size')}
                             >
-                              {f.key}
-                            </a>
-                            {f.used ? (
-                              <Badge variant="secondary" className="text-[10px] shrink-0">In use</Badge>
-                            ) : f.recent ? (
-                              <Badge variant="outline" className="text-[10px] shrink-0">Just uploaded</Badge>
-                            ) : (
-                              <Badge variant="destructive" className="text-[10px] shrink-0">Unused</Badge>
-                            )}
-                            <span className="text-xs text-muted-foreground shrink-0 tabular-nums w-20 text-right">
-                              {formatBytes(f.size)}
-                            </span>
-                            <span className="text-xs text-muted-foreground shrink-0 hidden sm:inline w-24 text-right">
-                              {formatDate(f.lastModified)}
-                            </span>
-                          </div>
-                        );
-                      })}
+                              Size{sortArrow('size')}
+                            </TableHead>
+                            <TableHead
+                              className="text-right cursor-pointer select-none hidden sm:table-cell"
+                              onClick={() => sortBy('date')}
+                            >
+                              Modified{sortArrow('date')}
+                            </TableHead>
+                            <TableHead className="w-8" />
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {visibleFiles.map((f) => {
+                            const id = fileId(f);
+                            const deletable = !f.used && !f.recent;
+                            return (
+                              <TableRow key={id}>
+                                <TableCell>
+                                  {deletable && (
+                                    <Checkbox
+                                      checked={selectedIds.has(id)}
+                                      onCheckedChange={() => toggleFile(id)}
+                                      aria-label={`Select ${f.key}`}
+                                    />
+                                  )}
+                                </TableCell>
+                                <TableCell className="max-w-[280px]">
+                                  <button
+                                    type="button"
+                                    onClick={() => openFile(f)}
+                                    className="truncate block w-full text-left font-mono text-xs hover:underline"
+                                    title={f.key}
+                                  >
+                                    {f.key}
+                                  </button>
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                  {STORE_LABELS[f.store]}
+                                  <span className="block text-[10px] truncate max-w-[140px]">{f.bucket}</span>
+                                </TableCell>
+                                <TableCell>
+                                  {f.used ? (
+                                    <Badge variant="secondary" className="text-[10px]">In use</Badge>
+                                  ) : f.recent ? (
+                                    <Badge variant="outline" className="text-[10px]">Just uploaded</Badge>
+                                  ) : (
+                                    <Badge variant="destructive" className="text-[10px]">Unused</Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums whitespace-nowrap">
+                                  {formatBytes(f.size)}
+                                </TableCell>
+                                <TableCell className="text-right text-xs text-muted-foreground whitespace-nowrap hidden sm:table-cell">
+                                  {formatDate(f.lastModified)}
+                                </TableCell>
+                                <TableCell>
+                                  {deletable && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                      title="Delete this file"
+                                      onClick={() => {
+                                        setSelectedIds(new Set([id]));
+                                        setConfirmDeleteFiles(true);
+                                      }}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
                     </div>
                   )}
 
                   <p className="text-[11px] text-muted-foreground italic">
-                    {audit.objects > audit.fileLimit
-                      ? `Showing the ${audit.fileLimit} largest of ${audit.objects} files. `
+                    {audit.totalObjects > audit.fileLimit
+                      ? `Showing the ${audit.fileLimit} largest of ${audit.totalObjects} files. `
                       : ''}
-                    Counted live from R2 — the Cloudflare dashboard&apos;s totals lag by hours.
+                    Counted live from each store — the Cloudflare dashboard&apos;s totals lag by hours.
                   </p>
                 </>
               )}
@@ -781,18 +970,19 @@ export default function StorageManagement() {
       <ConfirmDialog
         open={confirmDeleteFiles}
         onOpenChange={setConfirmDeleteFiles}
-        title={`Delete ${selectedKeys.size} unused file(s)?`}
+        title={`Delete ${selectedIds.size} unused file(s)?`}
         description={
           <>
             <p>
-              This permanently removes {formatBytes(selectedBytes)} from Cloudflare R2. Each file is re-checked
-              server-side first — anything a record still points at is kept.
+              This permanently removes {formatBytes(selectedBytes)} from{' '}
+              {Array.from(new Set(selectedFiles.map((f) => STORE_LABELS[f.store]))).join(' and ') || 'storage'}.
+              Each file is re-checked server-side first — anything a record still points at is kept.
             </p>
             <ul className="rounded border bg-muted/40 p-2 font-mono text-xs space-y-0.5 max-h-32 overflow-y-auto">
-              {Array.from(selectedKeys).slice(0, 20).map((k) => (
-                <li key={k} className="truncate">{k}</li>
+              {selectedFiles.slice(0, 20).map((f) => (
+                <li key={fileId(f)} className="truncate">{f.bucket}/{f.key}</li>
               ))}
-              {selectedKeys.size > 20 && <li>…and {selectedKeys.size - 20} more</li>}
+              {selectedFiles.length > 20 && <li>…and {selectedFiles.length - 20} more</li>}
             </ul>
           </>
         }
