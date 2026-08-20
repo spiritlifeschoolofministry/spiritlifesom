@@ -20,6 +20,29 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 // Dynamically import heavy browser-only libs when needed
 
+// Palette and type stack of the official printed certificate.
+const NAVY = "#17325c";
+const RED = "#c1272d";
+const CREAM = "#fdf9ec";
+const SERIF = "'Playfair Display', Georgia, 'Times New Roman', serif";
+const SCRIPT = "'Yellowtail', 'Brush Script MT', cursive";
+const BODY = "'Nunito', 'Segoe UI', system-ui, sans-serif";
+
+const FONT_LINK_ID = "certificate-fonts";
+const FONT_HREF =
+  "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700;1,900&family=Yellowtail&family=Nunito:wght@300;400;600&display=swap";
+
+// The certificate is the only page that needs these faces, so fetch them here
+// rather than blocking every first paint from index.html.
+const loadCertificateFonts = () => {
+  if (document.getElementById(FONT_LINK_ID)) return;
+  const link = document.createElement("link");
+  link.id = FONT_LINK_ID;
+  link.rel = "stylesheet";
+  link.href = FONT_HREF;
+  document.head.appendChild(link);
+};
+
 const StudentCertificate = () => {
   const { student, profile } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -66,6 +89,7 @@ const StudentCertificate = () => {
       });
     }
     
+    loadCertificateFonts();
     loadCertConfig();
     setLoading(false);
   }, [student]);
@@ -116,6 +140,10 @@ const StudentCertificate = () => {
         import('jspdf')
       ]);
 
+      // html2canvas snapshots whatever is painted, so a half-loaded webfont
+      // would bake the fallback face into the PDF.
+      await document.fonts?.ready;
+
       const canvas = await html2canvas(element as HTMLElement, {
         scale: 3,
         useCORS: true,
@@ -139,9 +167,7 @@ const StudentCertificate = () => {
       console.error("PDF generation failed:", err);
       toast.error("Failed to generate PDF");
     } finally {
-      setIsDownloading(true);
-      // Wait a bit before resetting state
-      setTimeout(() => setIsDownloading(false), 1000);
+      setIsDownloading(false);
     }
   };
 
@@ -284,168 +310,298 @@ const StudentCertificate = () => {
           </div>
         </div>
 
-        {/* Certificate built with code to match official design */}
+        {/* Certificate built with code to match the official printed design */}
         <div className="print:m-0 certificate-container">
           <div
             className="relative overflow-hidden max-w-4xl mx-auto shadow-2xl print:shadow-none print:max-w-none certificate-content"
-            style={{ aspectRatio: "1.414 / 1", borderRadius: "12px" }}
+            style={{ aspectRatio: "1.414 / 1", borderRadius: "12px", background: CREAM }}
           >
-            {/* Background */}
-            <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, #faf6ed 0%, #f5f0e0 30%, #eee8d5 60%, #f8f4e8 100%)" }} />
+            {/* Ivory paper ground with a faint warm sheen */}
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(120% 90% at 15% 10%, #fffdf6 0%, #fdf9ec 45%, #f7f1de 100%)",
+              }}
+            />
 
-            {/* Gold wave decorations - top */}
-            <svg className="absolute top-0 left-0 w-full" viewBox="0 0 1000 120" preserveAspectRatio="none" style={{ height: "15%" }}>
-              <path d="M0,40 Q150,10 300,50 T600,30 T900,60 L1000,40 L1000,0 L0,0 Z" fill="rgba(201,168,76,0.12)" />
-              <path d="M0,60 Q200,30 400,70 T800,40 L1000,60 L1000,0 L0,0 Z" fill="rgba(201,168,76,0.08)" />
+            {/* Cream ribbon sweeping out of the top-left corner */}
+            <svg
+              className="absolute top-0 left-0"
+              style={{ width: "42%", height: "22%" }}
+              viewBox="0 0 700 260"
+              preserveAspectRatio="none"
+            >
+              <path
+                d="M0,0 H660 C440,26 210,74 70,158 C38,180 14,212 0,236 Z"
+                fill="#f3ead4"
+                opacity="0.75"
+              />
+              <path
+                d="M0,0 H430 C300,22 160,58 66,124 C36,146 14,176 0,198 Z"
+                fill="#ece0c0"
+                opacity="0.6"
+              />
+              {Array.from({ length: 6 }).map((_, i) => (
+                <path
+                  key={i}
+                  d={`M0,${34 + i * 30} C170,${16 + i * 26} 400,${-4 + i * 22} 660,${-44 + i * 20}`}
+                  fill="none"
+                  stroke="#e0d2ab"
+                  strokeWidth="3"
+                  opacity={0.55 - i * 0.06}
+                />
+              ))}
             </svg>
 
-            {/* Gold wave decorations - bottom */}
-            <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1000 120" preserveAspectRatio="none" style={{ height: "12%", transform: "scaleY(-1)" }}>
-              <path d="M0,40 Q150,10 300,50 T600,30 T900,60 L1000,40 L1000,0 L0,0 Z" fill="rgba(201,168,76,0.10)" />
+            {/* Matching whisper of ribbon in the bottom-right corner */}
+            <svg
+              className="absolute bottom-0 right-0"
+              style={{ width: "34%", height: "16%" }}
+              viewBox="0 0 560 200"
+              preserveAspectRatio="none"
+            >
+              {Array.from({ length: 4 }).map((_, i) => (
+                <path
+                  key={i}
+                  d={`M560,${170 - i * 26} C380,${190 - i * 22} 170,${196 - i * 18} 0,${210 - i * 16}`}
+                  fill="none"
+                  stroke="#e6dabb"
+                  strokeWidth="3"
+                  opacity={0.4 - i * 0.07}
+                />
+              ))}
             </svg>
 
-            {/* Purple/pink corner accent - bottom left */}
-            <div className="absolute bottom-0 left-0" style={{ width: "12%", height: "35%" }}>
-              <svg viewBox="0 0 120 350" className="w-full h-full">
-                <defs>
-                  <linearGradient id="purpleGrad" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#2d1b69" />
-                    <stop offset="50%" stopColor="#6b3fa0" />
-                    <stop offset="100%" stopColor="#e84393" />
-                  </linearGradient>
-                </defs>
-                <path d="M0,350 L0,80 Q10,120 40,160 Q80,220 60,280 Q40,320 0,350 Z" fill="url(#purpleGrad)" opacity="0.9" />
-                <path d="M0,350 L0,150 Q30,180 50,220 Q70,270 40,310 Q20,340 0,350 Z" fill="#e84393" opacity="0.5" />
+            {/* Layered purple-to-magenta ribbon fan, bottom-left corner */}
+            <div className="absolute bottom-0 left-0" style={{ width: "23%", height: "24%" }}>
+              <svg viewBox="0 0 460 340" className="w-full h-full" preserveAspectRatio="none">
+                <path d="M0,26 C150,110 285,225 360,340 L0,340 Z" fill="#3a1878" />
+                <path d="M0,96 C140,168 250,258 306,340 L0,340 Z" fill="#7b28c4" />
+                <path d="M0,158 C118,214 205,272 252,340 L0,340 Z" fill="#c4359f" />
+                <path d="M0,214 C92,252 152,296 190,340 L0,340 Z" fill="#f4499f" />
+                <path d="M0,272 C58,296 104,318 128,340 L0,340 Z" fill="#ff77bd" opacity="0.85" />
               </svg>
             </div>
 
-            {/* Gold medal/seal - top right */}
-            <div className="absolute" style={{ top: "4%", right: "5%", width: "16%", aspectRatio: "1" }}>
-              <svg viewBox="0 0 200 200" className="w-full h-full">
-                {/* Red rosette */}
-                {Array.from({ length: 16 }).map((_, i) => (
-                  <circle key={i} cx={100 + 20 * Math.cos((i * Math.PI * 2) / 16)} cy={100 + 20 * Math.sin((i * Math.PI * 2) / 16)} r="30" fill="#c0392b" opacity="0.9" />
-                ))}
-                {/* Gold outer ring */}
-                <circle cx="100" cy="100" r="70" fill="url(#goldGrad)" />
-                {/* Gold inner ring */}
-                <circle cx="100" cy="100" r="55" fill="url(#goldGrad2)" />
-                {/* Red ribbon tails */}
-                <path d="M85,165 L75,230 L100,210 L95,170 Z" fill="#c0392b" />
-                <path d="M115,165 L125,230 L100,210 L105,170 Z" fill="#c0392b" />
+            {/* Gold medal with red rosette and ribbon tails, top-right */}
+            <div className="absolute" style={{ top: "1.5%", right: "3.5%", width: "23%" }}>
+              <svg viewBox="0 0 240 300" className="w-full">
                 <defs>
-                  <radialGradient id="goldGrad" cx="40%" cy="35%">
-                    <stop offset="0%" stopColor="#f0d78c" />
-                    <stop offset="50%" stopColor="#c9a84c" />
-                    <stop offset="100%" stopColor="#a08030" />
+                  <radialGradient id="certGoldOuter" cx="38%" cy="30%" r="75%">
+                    <stop offset="0%" stopColor="#f7e6a8" />
+                    <stop offset="45%" stopColor="#d7b558" />
+                    <stop offset="100%" stopColor="#9d7c26" />
                   </radialGradient>
-                  <radialGradient id="goldGrad2" cx="45%" cy="40%">
-                    <stop offset="0%" stopColor="#f5e6b0" />
-                    <stop offset="40%" stopColor="#d4b85c" />
-                    <stop offset="100%" stopColor="#b8942e" />
+                  <radialGradient id="certGoldInner" cx="42%" cy="34%" r="72%">
+                    <stop offset="0%" stopColor="#fbf1c8" />
+                    <stop offset="40%" stopColor="#dcbe66" />
+                    <stop offset="100%" stopColor="#b28f34" />
                   </radialGradient>
                 </defs>
+
+                {/* Ribbon tails hanging below the medal */}
+                <path d="M92,152 L58,296 L104,258 L112,164 Z" fill="#c62828" />
+                <path d="M148,152 L182,296 L136,258 L128,164 Z" fill="#c62828" />
+                <path d="M148,152 L164,220 L136,206 Z" fill="#a81f1f" opacity="0.5" />
+
+                {/* Scalloped red rosette */}
+                {Array.from({ length: 22 }).map((_, i) => {
+                  const a = (i * Math.PI * 2) / 22;
+                  return (
+                    <circle
+                      key={i}
+                      cx={120 + 78 * Math.cos(a)}
+                      cy={120 + 78 * Math.sin(a)}
+                      r="24"
+                      fill={i % 2 ? "#c0261f" : "#d63028"}
+                    />
+                  );
+                })}
+                <circle cx="120" cy="120" r="82" fill="#cf2a22" />
+
+                {/* Gold discs */}
+                <circle cx="120" cy="120" r="70" fill="url(#certGoldOuter)" />
+                <circle cx="120" cy="120" r="62" fill="#b8912f" />
+                <circle cx="120" cy="120" r="58" fill="url(#certGoldInner)" />
+
+                {/* Brushed-metal spokes across the inner disc */}
+                {Array.from({ length: 36 }).map((_, i) => {
+                  const a1 = (i * Math.PI * 2) / 36;
+                  const a2 = ((i + 0.5) * Math.PI * 2) / 36;
+                  return (
+                    <path
+                      key={i}
+                      d={`M120,120 L${120 + 58 * Math.cos(a1)},${120 + 58 * Math.sin(a1)} L${120 + 58 * Math.cos(a2)},${120 + 58 * Math.sin(a2)} Z`}
+                      fill={i % 2 ? "#c9a54a" : "#e6cd82"}
+                      opacity="0.35"
+                    />
+                  );
+                })}
+                <circle cx="120" cy="120" r="58" fill="url(#certGoldInner)" opacity="0.45" />
+                <ellipse cx="98" cy="96" rx="26" ry="18" fill="#fdf4d2" opacity="0.35" />
               </svg>
             </div>
 
-            {/* Content */}
-            <div className="absolute inset-0 flex flex-col items-center" style={{ padding: "5% 8%" }}>
-              {/* Header: Logo + School Name */}
-              <div className="flex items-center gap-3 sm:gap-4 mb-2" style={{ marginTop: "2%" }}>
+            {/* Header: logo + school name */}
+            <div className="absolute flex items-center gap-2 sm:gap-4" style={{ left: "19%", top: "4.5%" }}>
+              <div
+                className="rounded-full bg-white shrink-0 flex items-center justify-center w-12 h-12 sm:w-[4.6rem] sm:h-[4.6rem] lg:w-[7.1rem] lg:h-[7.1rem]"
+                style={{ boxShadow: "0 1px 5px rgba(0,0,0,0.08)" }}
+              >
                 <img
                   src="/certificate-logo.png"
                   alt="Spirit Life School of Ministry"
-                  className="w-16 h-16 sm:w-20 sm:h-20 lg:w-28 lg:h-28 object-contain"
-                  style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.12))" }}
+                  className="w-[94%] h-[94%] object-contain rounded-full"
                 />
-                <h2
-                  className="text-xl sm:text-3xl lg:text-4xl font-black uppercase tracking-wide"
-                  style={{ color: "#5B2D8E", fontFamily: "'Georgia', serif", letterSpacing: "2px" }}
-                >
-                  The Spirit Life<br />School of Ministry
-                </h2>
               </div>
+              <h2
+                className="font-black uppercase text-xl sm:text-4xl lg:text-5xl"
+                style={{ color: NAVY, fontFamily: SERIF, lineHeight: 0.92, letterSpacing: "0.01em" }}
+              >
+                School of<br />Ministry
+              </h2>
+            </div>
 
-              {/* Certificate of Completion */}
-              <h3
-                className="text-lg sm:text-2xl lg:text-3xl italic mt-2 sm:mt-4"
-                style={{ color: "#c0392b", fontFamily: "'Georgia', serif" }}
+            {/* Certificate of Completion */}
+            <div className="absolute inset-x-0 text-center" style={{ top: "34%" }}>
+              <span
+                className="text-lg sm:text-3xl lg:text-[2.6rem]"
+                style={{ color: RED, fontFamily: SCRIPT, lineHeight: 1.2 }}
               >
                 Certificate of Completion
-              </h3>
+              </span>
+            </div>
 
-              {/* Certify text */}
-              <p className="text-xs sm:text-sm mt-2 sm:mt-3" style={{ color: "#444", fontFamily: "serif" }}>
-                This is to proudly certify that
-              </p>
+            {/* Certify text */}
+            <p
+              className="absolute inset-x-0 text-center text-[0.55rem] sm:text-sm lg:text-base"
+              style={{ top: "42.5%", color: "#4a4a4a", fontFamily: SERIF }}
+            >
+              This is to proudly certify that
+            </p>
 
-              {/* Student Name */}
-              <div className="mt-4 sm:mt-6 flex items-end gap-3 sm:gap-6 w-full justify-center">
-                <h1
-                  className="text-xl sm:text-3xl lg:text-4xl font-bold italic"
-                  style={{
-                    fontFamily: "'Georgia', 'Brush Script MT', cursive",
-                  color: "#1a1a2e",
-                }}
+            {/* Student name + matriculation code */}
+            <div
+              className="absolute inset-x-0 flex items-baseline justify-center gap-2 sm:gap-4 lg:gap-6 px-[8%]"
+              style={{ top: "52.5%" }}
+            >
+              <h1
+                className="font-bold italic text-xl sm:text-3xl lg:text-[2.75rem]"
+                style={{ fontFamily: SERIF, color: NAVY, lineHeight: 1.1 }}
               >
                 {customName || fullName}
               </h1>
-              {(student?.student_code || student?.graduation_date || cohortData?.graduation_date) && (
-                <div className="flex flex-col items-end">
-                  {student?.student_code && (
-                    <span
-                      className="text-xs sm:text-sm font-bold italic whitespace-nowrap"
-                      style={{ color: "#1a1a2e", fontFamily: "serif" }}
-                    >
-                      {student.student_code}
-                    </span>
-                  )}
-                </div>
+              {student?.student_code && (
+                <span
+                  className="font-bold italic whitespace-nowrap text-[0.6rem] sm:text-base lg:text-xl"
+                  style={{ color: "#5f6470", fontFamily: SERIF }}
+                >
+                  {student.student_code}
+                </span>
               )}
             </div>
 
-              {/* Line under name */}
-              <div className="w-3/4 sm:w-2/3 mt-1 flex items-center gap-2">
-                <div className="flex-1 h-[2px]" style={{ background: "linear-gradient(90deg, transparent, #1a1a2e, transparent)" }} />
+            {/* Diamond-tipped rule under the name */}
+            <div
+              className="absolute flex items-center"
+              style={{ top: "62%", left: "20.5%", right: "20.5%" }}
+            >
+              <span className="shrink-0 rotate-45 w-1.5 h-1.5 sm:w-2 sm:h-2" style={{ background: NAVY }} />
+              <span className="flex-1" style={{ height: "1.5px", background: NAVY }} />
+              <span className="shrink-0 rotate-45 w-1.5 h-1.5 sm:w-2 sm:h-2" style={{ background: NAVY }} />
+            </div>
+
+            {/* Completion text */}
+            <p
+              className="absolute inset-x-0 text-center text-[0.55rem] sm:text-sm lg:text-lg"
+              style={{
+                top: "64.5%",
+                color: "#4a4a4a",
+                fontFamily: BODY,
+                lineHeight: 1.55,
+                paddingLeft: "12%",
+                paddingRight: "12%",
+              }}
+            >
+              {cohortData?.certificate_text_main ||
+                "has successfully completed a year of intensive training and teaching in the School of Ministry"}
+              {cohortData?.certificate_text_sub && (
+                <>
+                  <br />
+                  {cohortData.certificate_text_sub}
+                </>
+              )}
+            </p>
+
+            {/* Date */}
+            <p
+              className="absolute inset-x-0 text-center font-bold text-[0.6rem] sm:text-base lg:text-xl"
+              style={{ top: "75%", color: NAVY, fontFamily: SERIF }}
+            >
+              DATE:{" "}
+              {student?.graduation_date
+                ? new Date(student.graduation_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+                : cohortData?.graduation_date
+                  ? new Date(cohortData.graduation_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+                  : globalDate}
+            </p>
+
+            {/* Rolled diploma scroll between the signatures */}
+            <div className="absolute" style={{ top: "86.5%", left: "45%", width: "10%" }}>
+              <svg viewBox="0 0 200 110" className="w-full">
+                <defs>
+                  <linearGradient id="certScroll" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f7dd9b" />
+                    <stop offset="55%" stopColor="#e6c063" />
+                    <stop offset="100%" stopColor="#c79f3f" />
+                  </linearGradient>
+                </defs>
+                <rect x="26" y="34" width="148" height="44" rx="6" fill="url(#certScroll)" />
+                <path d="M40,44 H160 M40,56 H160 M40,68 H140" stroke="#c9a24a" strokeWidth="2" opacity="0.45" />
+                <ellipse cx="28" cy="56" rx="15" ry="26" fill="#e8c470" stroke="#b8912f" strokeWidth="2" />
+                <ellipse cx="28" cy="56" rx="6" ry="11" fill="#c79f3f" />
+                <ellipse cx="172" cy="56" rx="15" ry="26" fill="#e8c470" stroke="#b8912f" strokeWidth="2" />
+                <ellipse cx="172" cy="56" rx="6" ry="11" fill="#c79f3f" />
+                <rect x="86" y="30" width="13" height="52" fill="#ef5b93" />
+                <path d="M92,40 C72,20 60,34 78,44 Z" fill="#f4749f" />
+                <path d="M94,40 C114,20 126,34 108,44 Z" fill="#f4749f" />
+                <circle cx="93" cy="43" r="6" fill="#ef5b93" />
+              </svg>
+            </div>
+
+            {/* Signatories */}
+            <div
+              className="absolute flex justify-between items-start"
+              style={{ top: "88.5%", left: "9%", right: "9%" }}
+            >
+              <div className="text-center">
+                <p
+                  className="font-bold uppercase text-[0.55rem] sm:text-sm lg:text-lg"
+                  style={{ color: NAVY, fontFamily: SERIF }}
+                >
+                  Pastor Folakemi Obadare
+                </p>
+                <p
+                  className="uppercase text-[0.5rem] sm:text-xs lg:text-base"
+                  style={{ color: "#5f6672", fontFamily: SERIF, letterSpacing: "0.04em" }}
+                >
+                  Residence Pastor
+                </p>
               </div>
-
-              {/* Completion text */}
-              <p className="text-xs sm:text-sm text-center mt-3 sm:mt-4 leading-relaxed px-4" style={{ color: "#444", fontFamily: "serif", maxWidth: "85%" }}>
-                {cohortData?.certificate_text_main || 'has successfully completed a year of intensive training and teaching in the School of Ministry'}
-                {cohortData?.certificate_text_sub && <><br />{cohortData.certificate_text_sub}</>}
-              </p>
-
-              {/* Date */}
-              <p className="text-xs sm:text-sm font-bold mt-3 sm:mt-5" style={{ color: "#1a1a2e", fontFamily: "serif" }}>
-                DATE: {student?.graduation_date 
-                  ? new Date(student.graduation_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) 
-                  : cohortData?.graduation_date 
-                    ? new Date(cohortData.graduation_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-                    : globalDate}
-              </p>
-
-              {/* Signatories */}
-              <div className="flex justify-between w-full mt-auto pb-4 sm:pb-6 px-4 sm:px-12" style={{ marginTop: "auto" }}>
-                <div className="text-center">
-                  <p className="text-xs sm:text-sm font-bold uppercase" style={{ color: "#1a1a2e", fontFamily: "serif" }}>
-                    Pastor Folakemi Obadare
-                  </p>
-                  <p className="text-[10px] sm:text-xs uppercase tracking-wider" style={{ color: "#666", fontFamily: "serif" }}>
-                    Residence Pastor
-                  </p>
-                </div>
-                {/* Scroll icon placeholder */}
-                <div className="flex items-center">
-                  <span className="text-2xl sm:text-3xl">📜</span>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs sm:text-sm font-bold uppercase" style={{ color: "#1a1a2e", fontFamily: "serif" }}>
-                    Prophet Cherub Obadare
-                  </p>
-                  <p className="text-[10px] sm:text-xs uppercase tracking-wider" style={{ color: "#666", fontFamily: "serif" }}>
-                    Founder/Proprietor
-                  </p>
-                </div>
+              <div className="text-center">
+                <p
+                  className="font-bold uppercase text-[0.55rem] sm:text-sm lg:text-lg"
+                  style={{ color: NAVY, fontFamily: SERIF }}
+                >
+                  Prophet Cherub Obadare
+                </p>
+                <p
+                  className="uppercase text-[0.5rem] sm:text-xs lg:text-base"
+                  style={{ color: "#5f6672", fontFamily: SERIF, letterSpacing: "0.04em" }}
+                >
+                  Founder/Proprietor
+                </p>
               </div>
             </div>
           </div>
