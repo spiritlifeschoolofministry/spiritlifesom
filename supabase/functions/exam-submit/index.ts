@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { gradeAnswer } from "../_shared/autograde.ts";
+import { gradeAnswer, type Question } from "../_shared/autograde.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -140,8 +140,21 @@ Deno.serve(async (req) => {
           .in("id", servedIds)
       : { data: [] };
 
-    const questionById = new Map((questions ?? []).map((q) => [q.id, q]));
-    const answerByQuestion = new Map((answers ?? []).map((a) => [a.question_id, a]));
+    // Shapes of the two selects above; the edge client carries no generated
+    // Database types, so these arrive untyped.
+    type AnswerRow = {
+      id: string;
+      question_id: string;
+      answer: unknown;
+      points_awarded: number | null;
+    };
+
+    const questionById = new Map<string, Question>(
+      (questions ?? []).map((q: Question) => [q.id, q]),
+    );
+    const answerByQuestion = new Map<string, AnswerRow>(
+      (answers ?? []).map((a: AnswerRow) => [a.question_id, a]),
+    );
 
     let totalScore = 0;
     let awaitingManual = false;
