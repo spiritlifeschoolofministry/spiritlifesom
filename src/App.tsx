@@ -20,6 +20,7 @@ import { InstallPWA } from "./components/InstallPWA";
 // Public + portal pages — lazy, declared in one place so nav links can prefetch them
 import {
   AdminLayout,
+  StudentLayout,
   About,
   Courses,
   Faculty,
@@ -127,23 +128,29 @@ const App = () => {
           {/* Profile completion (required after Google/OAuth signup) */}
           <Route path="/complete-profile" element={<ProtectedRoute><CompleteProfile /></ProtectedRoute>} />
 
-          {/* Student portal */}
-          <Route path="/student/dashboard" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
-          <Route path="/student/profile" element={<ProtectedRoute><StudentProfile /></ProtectedRoute>} />
-          <Route path="/student/courses" element={<ProtectedRoute><StudentCourses /></ProtectedRoute>} />
-          <Route path="/student/attendance" element={<ProtectedRoute><StudentAttendance /></ProtectedRoute>} />
-          <Route path="/student/assignments" element={<ProtectedRoute><StudentAssignments /></ProtectedRoute>} />
-          <Route path="/student/grades" element={<ProtectedRoute><StudentGrades /></ProtectedRoute>} />
-          <Route path="/student/materials" element={<ProtectedRoute><StudentMaterials /></ProtectedRoute>} />
-          <Route path="/student/coursemates" element={<ProtectedRoute><Coursemates /></ProtectedRoute>} />
-          <Route path="/student/fees" element={<ProtectedRoute><StudentFees /></ProtectedRoute>} />
-          <Route path="/student/announcements" element={<ProtectedRoute><StudentAnnouncements /></ProtectedRoute>} />
-          <Route path="/student/calendar" element={<ProtectedRoute><StudentCalendar /></ProtectedRoute>} />
-          <Route path="/student/graduates" element={<ProtectedRoute><Graduates /></ProtectedRoute>} />
-          <Route path="/student/transcript" element={<ProtectedRoute><StudentTranscript /></ProtectedRoute>} />
-          <Route path="/student/certificate" element={<ProtectedRoute><StudentCertificate /></ProtectedRoute>} />
-          <Route path="/student/exams" element={<ProtectedRoute><StudentExamsList /></ProtectedRoute>} />
-          <Route path="/student/exams/:id/lobby" element={<ProtectedRoute><StudentExamLobby /></ProtectedRoute>} />
+          {/* Student portal — the shell is a layout route, so navigating between
+              pages swaps only the content area and leaves the sidebar mounted. */}
+          <Route element={<ProtectedRoute><StudentLayout /></ProtectedRoute>}>
+            <Route path="/student/dashboard" element={<StudentDashboard />} />
+            <Route path="/student/profile" element={<StudentProfile />} />
+            <Route path="/student/courses" element={<StudentCourses />} />
+            <Route path="/student/attendance" element={<StudentAttendance />} />
+            <Route path="/student/assignments" element={<StudentAssignments />} />
+            <Route path="/student/grades" element={<StudentGrades />} />
+            <Route path="/student/materials" element={<StudentMaterials />} />
+            <Route path="/student/coursemates" element={<Coursemates />} />
+            <Route path="/student/fees" element={<StudentFees />} />
+            <Route path="/student/announcements" element={<StudentAnnouncements />} />
+            <Route path="/student/calendar" element={<StudentCalendar />} />
+            <Route path="/student/graduates" element={<Graduates />} />
+            <Route path="/student/transcript" element={<StudentTranscript />} />
+            <Route path="/student/certificate" element={<StudentCertificate />} />
+            <Route path="/student/exams" element={<StudentExamsList />} />
+            <Route path="/student/exams/:id/lobby" element={<StudentExamLobby />} />
+          </Route>
+
+          {/* The exam runner is deliberately outside the shell — it takes over
+              the screen while an attempt is in progress. */}
           <Route path="/student/exams/:id/take" element={<ProtectedRoute><StudentExamRunner /></ProtectedRoute>} />
 
           {/* Admin portal */}

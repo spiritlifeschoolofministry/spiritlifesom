@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
-import StudentLayout from '@/components/StudentLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -162,16 +161,16 @@ const Coursemates = () => {
 
   if (loading) {
     return (
-      <StudentLayout>
+      <>
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      </StudentLayout>
+      </>
     );
   }
 
   return (
-    <StudentLayout>
+    <>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">
@@ -374,7 +373,7 @@ const Coursemates = () => {
           </DialogContent>
         </Dialog>
       </div>
-    </StudentLayout>
+    </>
   );
 };
 

@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import StudentLayout from "@/components/StudentLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -175,18 +174,18 @@ const StudentTranscript = () => {
 
   if (loading) {
     return (
-      <StudentLayout>
+      <>
         <div className="space-y-6">
           <Skeleton className="h-10 w-64" />
           <Skeleton className="h-48 rounded-xl" />
           <Skeleton className="h-64 rounded-xl" />
         </div>
-      </StudentLayout>
+      </>
     );
   }
 
   return (
-    <StudentLayout>
+    <>
       <div className="space-y-6 pb-20 md:pb-0" ref={printRef}>
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -357,7 +356,7 @@ const StudentTranscript = () => {
           <p>Generated on {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
         </div>
       </div>
-    </StudentLayout>
+    </>
   );
 };
 

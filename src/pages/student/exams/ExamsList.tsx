@@ -21,7 +21,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import StudentLayout from "@/components/StudentLayout";
 import { format, isAfter, isBefore } from "date-fns";
 import { ChevronDown, CheckCircle2, XCircle, Trophy, Download } from "lucide-react";
 import { formatAnswer, sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType, type AnswerFormattable } from "@/lib/exam-utils";
@@ -130,7 +129,7 @@ export default function StudentExamsList() {
   };
 
   return (
-    <StudentLayout>
+    <>
       <div className="space-y-4">
         <div>
           <h1 className="text-2xl font-bold">My Exams</h1>
@@ -272,6 +271,6 @@ export default function StudentExamsList() {
           </div>
         )}
       </div>
-    </StudentLayout>
+    </>
   );
 }

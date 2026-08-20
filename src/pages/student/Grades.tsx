@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import StudentLayout from "@/components/StudentLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -152,7 +151,7 @@ const StudentGrades = () => {
 
   if (loading) {
     return (
-      <StudentLayout>
+      <>
         <div className="space-y-6">
           <Skeleton className="h-10 w-64" />
           <div className="grid grid-cols-2 gap-4">
@@ -160,12 +159,12 @@ const StudentGrades = () => {
           </div>
           <Skeleton className="h-64 rounded-xl" />
         </div>
-      </StudentLayout>
+      </>
     );
   }
 
   return (
-    <StudentLayout>
+    <>
       <div className="space-y-6 pb-20 md:pb-0">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Grades</h1>
@@ -312,7 +311,7 @@ const StudentGrades = () => {
           </CardContent>
         </Card>
       </div>
-    </StudentLayout>
+    </>
   );
 };
 

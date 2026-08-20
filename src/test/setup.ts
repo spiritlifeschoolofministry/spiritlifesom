@@ -13,3 +13,18 @@ Object.defineProperty(window, "matchMedia", {
     dispatchEvent: () => {},
   }),
 });
+
+// cmdk observes its list container; jsdom has no ResizeObserver.
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+Object.defineProperty(window, "ResizeObserver", {
+  writable: true,
+  value: ResizeObserverStub,
+});
+
+// jsdom does not implement scrollIntoView, which cmdk calls to keep the
+// highlighted item in view.
+Element.prototype.scrollIntoView = Element.prototype.scrollIntoView ?? (() => {});

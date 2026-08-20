@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import StudentLayout from "@/components/StudentLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -166,18 +165,18 @@ const StudentCertificate = () => {
 
   if (loading) {
     return (
-      <StudentLayout>
+      <>
         <div className="space-y-6">
           <Skeleton className="h-10 w-64" />
           <Skeleton className="h-[500px] rounded-xl" />
         </div>
-      </StudentLayout>
+      </>
     );
   }
 
   if (!isGraduate) {
     return (
-      <StudentLayout>
+      <>
         <div className="space-y-6 pb-20 md:pb-0">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
             <Award className="w-7 h-7" /> Certificate
@@ -192,12 +191,12 @@ const StudentCertificate = () => {
             </CardContent>
           </Card>
         </div>
-      </StudentLayout>
+      </>
     );
   }
 
   return (
-    <StudentLayout>
+    <>
       <div className="space-y-6 pb-20 md:pb-0">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 print:hidden">
           <div className="space-y-4 w-full sm:w-auto">
@@ -456,7 +455,7 @@ const StudentCertificate = () => {
           Use "Print / Save PDF" to download a high-quality copy of your certificate.
         </p>
       </div>
-    </StudentLayout>
+    </>
   );
 };
 

@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import StudentLayout from '@/components/StudentLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -79,17 +78,17 @@ const StudentAnnouncements = () => {
 
   if (loading) {
     return (
-      <StudentLayout>
+      <>
         <div className="flex items-center justify-center min-h-[300px]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      </StudentLayout>
+      </>
     );
   }
 
   if (error) {
     return (
-      <StudentLayout>
+      <>
         <div className="space-y-6 pb-20 md:pb-0">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
@@ -107,7 +106,7 @@ const StudentAnnouncements = () => {
             </CardContent>
           </Card>
         </div>
-      </StudentLayout>
+      </>
     );
   }
 
@@ -115,7 +114,7 @@ const StudentAnnouncements = () => {
   const regularAnnouncements = announcements.filter(a => a.category !== 'URGENT');
 
   return (
-    <StudentLayout>
+    <>
       <div className="space-y-6 pb-20 md:pb-0">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -213,7 +212,7 @@ const StudentAnnouncements = () => {
           </div>
         )}
       </div>
-    </StudentLayout>
+    </>
   );
 };
 

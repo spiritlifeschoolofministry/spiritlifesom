@@ -23,6 +23,7 @@ import {
   ArrowLeft, Mail, Phone, MapPin, Calendar, BookOpen,
   GraduationCap, CreditCard, ClipboardCheck, User2, Pencil, Save, Loader2, X, Plus
 } from "lucide-react";
+import PortalBreadcrumbs from "@/components/portal/PortalBreadcrumbs";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import ManualRecordDialog from "@/components/admin/ManualRecordDialog";
 
@@ -517,10 +518,12 @@ const AdminStudentProfile = () => {
 
   return (
     <div className="space-y-6">
-      {/* Back button */}
-      <Button variant="ghost" size="sm" onClick={() => navigate("/admin/students")} className="gap-2">
-        <ArrowLeft className="w-4 h-4" /> Back to Students
-      </Button>
+      <div className="space-y-3">
+        <PortalBreadcrumbs crumbs={[{ label: "Students", to: "/admin/students" }]} current={fullName} />
+        <Button variant="ghost" size="sm" onClick={() => navigate("/admin/students")} className="gap-2 -ml-2">
+          <ArrowLeft className="w-4 h-4" /> Back to Students
+        </Button>
+      </div>
 
       {/* Profile header */}
       <Card className="shadow-[var(--shadow-card)] border-border overflow-hidden">

@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import type { TablesUpdate } from "@/integrations/supabase/types";
-import StudentLayout from "@/components/StudentLayout";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -355,7 +354,7 @@ const StudentDashboard = () => {
   };
 
   return (
-    <StudentLayout admissionStatus={admissionStatus}>
+    <>
       {/* Profile Completion Dialog — driven by the auth context's settled
           student row, so it can't appear while anything is still resolving. */}
       <Dialog open={showProfileCompletion} onOpenChange={() => undefined}>
@@ -745,7 +744,7 @@ const StudentDashboard = () => {
           </Reveal>
         </div>
       </div>
-    </StudentLayout>
+    </>
   );
 };
 

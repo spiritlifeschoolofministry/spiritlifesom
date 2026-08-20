@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import StudentLayout from "@/components/StudentLayout";
 import { AlertTriangle, Camera, CameraOff, Clock, ShieldAlert, Monitor, Smartphone, Mic, MicOff } from "lucide-react";
 import { entryClosesAt, formatDuration } from "@/lib/exam-utils";
 import { format } from "date-fns";
@@ -116,8 +115,8 @@ export default function ExamLobby() {
     requestMic();
   }, [exam?.enable_audio_proctoring, exam?.enable_webcam_proctoring, camera, mic, requestMic]);
 
-  if (loading) return <StudentLayout><p className="p-6">Loading…</p></StudentLayout>;
-  if (!exam) return <StudentLayout><p className="p-6">Exam not found</p></StudentLayout>;
+  if (loading) return <p className="p-6">Loading…</p>;
+  if (!exam) return <p className="p-6">Exam not found</p>;
 
   const startMs = new Date(exam.start_at).getTime();
   const endMs = new Date(exam.end_at).getTime();
@@ -146,7 +145,7 @@ export default function ExamLobby() {
   };
 
   return (
-    <StudentLayout>
+    <>
       <div className="max-w-3xl mx-auto space-y-4">
         <Card className="p-6">
           <Badge variant="outline" className="mb-2">{exam.courses?.code} · {exam.courses?.title}</Badge>
@@ -324,6 +323,6 @@ export default function ExamLobby() {
           </div>
         </Card>
       </div>
-    </StudentLayout>
+    </>
   );
 }

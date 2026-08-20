@@ -1,5 +1,5 @@
 import { useEffect, useState, Fragment, useCallback, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -44,7 +44,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Download, AlertTriangle, CheckCircle2, Send, Camera, Mic, Trash2, Loader2, LockKeyhole, ShieldAlert } from "lucide-react";
+import { Download, AlertTriangle, CheckCircle2, Send, Camera, Mic, Trash2, Loader2, LockKeyhole, ShieldAlert } from "lucide-react";
+import PageHeader from "@/components/portal/PageHeader";
 import { toast } from "sonner";
 import { AUTO_GRADED_TYPES, formatAnswer, isBreachReason, sanitizeHtml, submissionReasonLabel } from "@/lib/exam-utils";
 import { r2Storage } from "@/lib/r2-storage";
@@ -430,21 +431,21 @@ export default function ExamMonitor() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" asChild><Link to="/admin/exams"><ArrowLeft className="w-4 h-4" /></Link></Button>
-          <div>
-            <h1 className="text-xl font-bold">{exam.title}</h1>
-            <p className="text-xs text-muted-foreground">{exam.courses?.code} · {exam.cohorts?.name}</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={exportCSV}><Download className="w-4 h-4 mr-1.5" /> CSV</Button>
-          {!exam.results_released && (
-            <Button onClick={releaseResults}><Send className="w-4 h-4 mr-1.5" /> Release Results</Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title={exam.title}
+        description={`${exam.courses?.code} · ${exam.cohorts?.name}`}
+        breadcrumbs={[{ label: "Exams", to: "/admin/exams" }, { label: "Monitor" }]}
+        backTo="/admin/exams"
+        backLabel="Back to exams"
+        actions={
+          <>
+            <Button variant="outline" onClick={exportCSV}><Download className="w-4 h-4 mr-1.5" /> CSV</Button>
+            {!exam.results_released && (
+              <Button onClick={releaseResults}><Send className="w-4 h-4 mr-1.5" /> Release Results</Button>
+            )}
+          </>
+        }
+      />
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card className="p-3"><p className="text-xs text-muted-foreground">In progress</p><p className="text-2xl font-bold text-amber-600">{inProgress}</p></Card>

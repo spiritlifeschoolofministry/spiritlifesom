@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
-import StudentLayout from '@/components/StudentLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -189,16 +188,16 @@ const StudentFees = () => {
 
   if (loading) {
     return (
-      <StudentLayout>
+      <>
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      </StudentLayout>
+      </>
     );
   }
 
   return (
-    <StudentLayout>
+    <>
       <div className="space-y-6 pb-20 md:pb-0">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
@@ -528,7 +527,7 @@ const StudentFees = () => {
           </CardContent>
         </Card>
       </div>
-    </StudentLayout>
+    </>
   );
 };
 

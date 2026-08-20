@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
-import StudentLayout from "@/components/StudentLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -100,7 +99,7 @@ const StudentMaterials = () => {
 
   if (loading) {
     return (
-      <StudentLayout>
+      <>
         <div className="space-y-6">
           <Skeleton className="h-10 w-64" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -108,13 +107,13 @@ const StudentMaterials = () => {
             <Skeleton className="h-40 rounded-xl" />
           </div>
         </div>
-      </StudentLayout>
+      </>
     );
   }
 
   if (!materials.length) {
     return (
-      <StudentLayout>
+      <>
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center py-12">
           <div className="bg-muted rounded-full p-4 mb-4">
             <FileText className="w-8 h-8 text-primary" />
@@ -124,12 +123,12 @@ const StudentMaterials = () => {
             Your course materials will appear here once your instructors upload them.
           </p>
         </div>
-      </StudentLayout>
+      </>
     );
   }
 
   return (
-    <StudentLayout>
+    <>
       <div className="space-y-6 pb-20 md:pb-0">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -248,7 +247,7 @@ const StudentMaterials = () => {
           </div>
         )}
       </div>
-    </StudentLayout>
+    </>
   );
 };
 

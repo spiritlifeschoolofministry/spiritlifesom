@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
-import StudentLayout from "@/components/StudentLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -62,7 +61,7 @@ const StudentCourses = () => {
 
   if (loading) {
     return (
-      <StudentLayout>
+      <>
         <div className="space-y-6">
           <Skeleton className="h-10 w-64" />
           <Skeleton className="h-24 rounded-xl" />
@@ -72,13 +71,13 @@ const StudentCourses = () => {
             ))}
           </div>
         </div>
-      </StudentLayout>
+      </>
     );
   }
 
   if (!courses.length) {
     return (
-      <StudentLayout>
+      <>
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center py-12">
           <div className="bg-muted rounded-full p-4 mb-4">
             <BookOpen className="w-8 h-8 text-primary" />
@@ -89,12 +88,12 @@ const StudentCourses = () => {
           </p>
           {error && <p className="text-xs text-destructive max-w-md">{error}</p>}
         </div>
-      </StudentLayout>
+      </>
     );
   }
 
   return (
-    <StudentLayout>
+    <>
       <div className="space-y-6 pb-20 md:pb-0">
         {/* Header */}
         <div>
@@ -178,7 +177,7 @@ const StudentCourses = () => {
           );
         })}
       </div>
-    </StudentLayout>
+    </>
   );
 };
 

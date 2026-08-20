@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
-import StudentLayout from "@/components/StudentLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -236,7 +235,7 @@ const StudentAttendance = () => {
 
   if (loading) {
     return (
-      <StudentLayout>
+      <>
         <div className="space-y-6">
           <Skeleton className="h-10 w-64" />
           <Skeleton className="h-28 rounded-xl" />
@@ -245,7 +244,7 @@ const StudentAttendance = () => {
           </div>
           <Skeleton className="h-64 rounded-xl" />
         </div>
-      </StudentLayout>
+      </>
     );
   }
 
@@ -253,7 +252,7 @@ const StudentAttendance = () => {
   const canCheckIn = !checkedInToday && !checkingIn && todayScheduleId !== null && classEnabled && !outsideWindow;
 
   return (
-    <StudentLayout>
+    <>
       <div className="space-y-6 pb-20 md:pb-0">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Attendance</h1>
@@ -428,7 +427,7 @@ const StudentAttendance = () => {
           </CardContent>
         </Card>
       </div>
-    </StudentLayout>
+    </>
   );
 };
 

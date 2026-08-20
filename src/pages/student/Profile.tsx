@@ -3,7 +3,6 @@ import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
 import { r2Storage } from '@/lib/r2-storage';
 import { useAuth } from '@/contexts/useAuth';
-import StudentLayout from '@/components/StudentLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -564,7 +563,7 @@ const StudentProfile = () => {
   const initials = profile ? `${(profile.first_name || 'S')[0]}${(profile.last_name || 'U')[0]}` : 'SU';
 
   return (
-    <StudentLayout>
+    <>
       <div className="space-y-6 pb-20 md:pb-0">
         {/* Profile Header */}
         <div className="flex flex-col gap-4 sm:gap-6">
@@ -759,7 +758,7 @@ const StudentProfile = () => {
           </>
         )}
       </div>
-    </StudentLayout>
+    </>
   );
 };
 

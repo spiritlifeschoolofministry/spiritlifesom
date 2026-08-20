@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/useAuth';
-import StudentLayout from '@/components/StudentLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -79,10 +78,10 @@ const StudentCalendar = () => {
   const upcomingEvents = events.filter((e) => new Date(e.start_date) >= new Date()).slice(0, 5);
   const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate) : [];
 
-  if (loading) return <StudentLayout><div className="flex items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></StudentLayout>;
+  if (loading) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
-    <StudentLayout>
+    <>
       <div className="space-y-5 pb-6">
         {/* Header */}
         <div>
@@ -319,7 +318,7 @@ const StudentCalendar = () => {
           </DialogContent>
         </Dialog>
       </div>
-    </StudentLayout>
+    </>
   );
 };
 

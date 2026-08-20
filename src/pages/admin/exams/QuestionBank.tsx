@@ -42,6 +42,7 @@ const RichTextEditor = lazy(() =>
 import { QUESTION_TYPE_LABELS, QuestionType, parseMatchingQuestion, parseQuestionCSV, sanitizeHtml } from "@/lib/exam-utils";
 import { toast } from "sonner";
 import { Plus, Upload, Archive, Edit, Trash2, Search, Loader2 } from "lucide-react";
+import PageHeader from "@/components/portal/PageHeader";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export default function QuestionBank() {
@@ -191,20 +192,23 @@ export default function QuestionBank() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Question Bank</h1>
-          <p className="text-sm text-muted-foreground">Reusable questions for online exams</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setImportOpen(true)}>
-            <Upload className="w-4 h-4 mr-1.5" /> Import CSV
-          </Button>
-          <Button onClick={newQuestion}>
-            <Plus className="w-4 h-4 mr-1.5" /> New Question
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Question Bank"
+        description="Reusable questions for online exams"
+        breadcrumbs={[{ label: "Exams", to: "/admin/exams" }]}
+        backTo="/admin/exams"
+        backLabel="Back to exams"
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="w-4 h-4 mr-1.5" /> Import CSV
+            </Button>
+            <Button onClick={newQuestion}>
+              <Plus className="w-4 h-4 mr-1.5" /> New Question
+            </Button>
+          </>
+        }
+      />
 
       <Card className="p-3 flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px]">

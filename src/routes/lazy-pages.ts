@@ -40,9 +40,11 @@ export const ResetPassword = lazyPage(() => import("@/pages/ResetPassword"));
 export const CompleteProfile = lazyPage(() => import("@/pages/CompleteProfile"));
 export const NotFound = lazyPage(() => import("@/pages/NotFound"));
 
-// The admin chrome (sheet, avatar, notifications bell) is admin-only, so keep
-// it off the public critical path even though it is a route element.
+// Portal chrome (sheet, avatar, notifications bell) is only ever seen after
+// login, so keep it off the public critical path even though both are route
+// elements.
 export const AdminLayout = lazyPage(() => import("@/components/AdminLayout"));
+export const StudentLayout = lazyPage(() => import("@/components/StudentLayout"));
 
 // Student portal
 export const StudentDashboard = lazyPage(() => import("@/pages/StudentDashboard"));

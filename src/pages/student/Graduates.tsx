@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import StudentLayout from '@/components/StudentLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -74,7 +73,7 @@ const Graduates = () => {
     : graduates.filter(g => g.cohort_id === cohortFilter);
 
   return (
-    <StudentLayout>
+    <>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
@@ -131,7 +130,7 @@ const Graduates = () => {
           </div>
         )}
       </div>
-    </StudentLayout>
+    </>
   );
 };
 

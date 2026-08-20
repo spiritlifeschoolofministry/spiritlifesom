@@ -25,7 +25,8 @@ import { sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType, NO_LATE_ENTRY_GRACE_M
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { AlertCircle, ArrowLeft, Download, Loader2, Lock, Save, Send } from "lucide-react";
+import { AlertCircle, Download, Loader2, Lock, Save, Send } from "lucide-react";
+import PageHeader from "@/components/portal/PageHeader";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -306,41 +307,43 @@ export default function ExamBuilder() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <Button variant="ghost" size="icon" onClick={leaveBuilder}><ArrowLeft className="w-4 h-4" /></Button>
-          <div className="min-w-0">
-            <h1 className="text-xl font-bold truncate">{isNew ? "New Exam" : exam.title || "Edit Exam"}</h1>
-            <div className="flex flex-wrap items-center gap-1.5 mt-1">
-              <Badge variant="outline" className={STATUS_STYLES[exam.status] || ""}>
-                {STATUS_LABELS[exam.status] ?? exam.status}
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                {picked.length} question{picked.length === 1 ? "" : "s"} · {totalPoints} pts
-              </span>
-              {dirty && <span className="text-xs text-amber-600">Unsaved changes</span>}
-              {exam.locked_at && (
-                <Badge variant="destructive"><Lock className="w-3 h-3 mr-1" /> Locked — attempts started</Badge>
-              )}
-            </div>
+      <PageHeader
+        title={isNew ? "New Exam" : exam.title || "Edit Exam"}
+        breadcrumbs={[{ label: "Exams", to: "/admin/exams" }, { label: isNew ? "New" : "Edit" }]}
+        onBack={leaveBuilder}
+        backLabel="Back to exams"
+        description={
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="outline" className={STATUS_STYLES[exam.status] || ""}>
+              {STATUS_LABELS[exam.status] ?? exam.status}
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              {picked.length} question{picked.length === 1 ? "" : "s"} · {totalPoints} pts
+            </span>
+            {dirty && <span className="text-xs text-amber-600">Unsaved changes</span>}
+            {exam.locked_at && (
+              <Badge variant="destructive"><Lock className="w-3 h-3 mr-1" /> Locked — attempts started</Badge>
+            )}
           </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => save()} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
-            Save draft
-          </Button>
-          {exam.status !== "published" && (
-            <Button
-              onClick={() => setConfirmPublish(true)}
-              disabled={saving || picked.length === 0}
-              title={picked.length === 0 ? "Add at least one question before publishing" : undefined}
-            >
-              <Send className="w-4 h-4 mr-1.5" /> Publish
+        }
+        actions={
+          <>
+            <Button variant="outline" onClick={() => save()} disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
+              Save draft
             </Button>
-          )}
-        </div>
-      </div>
+            {exam.status !== "published" && (
+              <Button
+                onClick={() => setConfirmPublish(true)}
+                disabled={saving || picked.length === 0}
+                title={picked.length === 0 ? "Add at least one question before publishing" : undefined}
+              >
+                <Send className="w-4 h-4 mr-1.5" /> Publish
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {picked.length === 0 && (
         <Card className="p-3 flex items-start gap-2 border-amber-500/30 bg-amber-500/5">
