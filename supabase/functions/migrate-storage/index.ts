@@ -11,6 +11,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
  * timeout; the caller keeps invoking until `remaining` reaches zero.
  */
 
+/** The service-role client this function builds; the edge client is untyped. */
+type Admin = ReturnType<typeof createClient>;
+
+/** A row from a select whose column names are chosen at runtime. */
+type DynamicRow = { id: string; storage_path?: string | null; [column: string]: unknown };
+
+/** A row from a runtime-column select that carries no id. */
+type ColumnRow = Record<string, unknown>;
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -131,7 +140,7 @@ async function existsInR2(r2: ReturnType<typeof r2Client>, key: string): Promise
 }
 
 async function copyToR2(
-  admin: any,
+  admin: Admin,
   r2: ReturnType<typeof r2Client>,
   bucket: string,
   key: string,
@@ -232,7 +241,7 @@ function refFromSupabaseUrl(url: string): { bucket: string; key: string } | null
  * Both stores are collected from the same row: during a migration a file
  * legitimately exists in both places, and neither copy should read as unused.
  */
-async function referencedKeys(admin: any): Promise<RefSets> {
+async function referencedKeys(admin: Admin): Promise<RefSets> {
   const r2 = new Set<string>();
   const sb = new Set<string>();
 
@@ -263,7 +272,7 @@ async function referencedKeys(admin: any): Promise<RefSets> {
 
   for (const { table, column, bucket } of URL_REF_COLUMNS) {
     const { data } = await admin.from(table).select(column).not(column, "is", null);
-    for (const row of (data ?? []) as any[]) {
+    for (const row of (data ?? []) as ColumnRow[]) {
       const value = row[column] as string;
 
       const r2Key = keyFromR2Url(value);
@@ -287,7 +296,7 @@ async function referencedKeys(admin: any): Promise<RefSets> {
 
   for (const { table, column } of TEXT_REF_SOURCES) {
     const { data } = await admin.from(table).select(column);
-    for (const row of (data ?? []) as any[]) {
+    for (const row of (data ?? []) as ColumnRow[]) {
       const value = row[column];
       const text = typeof value === "string" ? value : JSON.stringify(value ?? "");
       for (const match of text.matchAll(r2Pattern)) addR2(keyFromR2Url(match[0]));
@@ -303,7 +312,7 @@ async function referencedKeys(admin: any): Promise<RefSets> {
 
 /** Every object in every Supabase bucket, walked folder by folder. */
 async function listSupabaseObjects(
-  admin: any,
+  admin: Admin,
 ): Promise<{ objects: StoredObject[]; truncated: boolean }> {
   const objects: StoredObject[] = [];
   let truncated = false;
@@ -394,14 +403,15 @@ Deno.serve(async (req) => {
           .select("storage_provider")
           .not("storage_path", "is", null);
         if (error) continue;
-        pending[table] = (data ?? []).filter((r: any) => r.storage_provider !== "r2").length;
-        migrated[table] = (data ?? []).filter((r: any) => r.storage_provider === "r2").length;
+        type ProviderRow = { storage_provider: string | null };
+        pending[table] = (data ?? []).filter((r: ProviderRow) => r.storage_provider !== "r2").length;
+        migrated[table] = (data ?? []).filter((r: ProviderRow) => r.storage_provider === "r2").length;
       }
 
       for (const { table, column } of URL_COLUMNS) {
         const { data, error } = await admin.from(table).select(column).not(column, "is", null);
         if (error) continue;
-        const urls = (data ?? []).map((r: any) => r[column] as string);
+        const urls = (data ?? []).map((r: ColumnRow) => r[column] as string);
         pending[`${table}.${column}`] = urls.filter((u) => u.includes("/storage/v1/object/")).length;
         migrated[`${table}.${column}`] = urls.filter((u) => u.startsWith(R2_PUBLIC_BASE)).length;
       }
@@ -415,7 +425,7 @@ Deno.serve(async (req) => {
           .eq("storage_provider", "r2")
           .not("storage_path", "is", null);
         if (error) continue;
-        relinkPending += (data ?? []).filter((r: any) => {
+        relinkPending += (data ?? []).filter((r: ColumnRow) => {
           const v = r[column] as string | null;
           return !!v && !v.startsWith(R2_PUBLIC_BASE);
         }).length;
@@ -555,7 +565,7 @@ Deno.serve(async (req) => {
         const folder = at === -1 ? "" : target.key.slice(0, at);
         const name = at === -1 ? target.key : target.key.slice(at + 1);
         const { data: found } = await admin.storage.from(target.bucket!).list(folder, { limit: 100, search: name });
-        const entry = (found ?? []).find((e: any) => e.name === name);
+        const entry = (found ?? []).find((e: { name: string }) => e.name === name);
         const stamp = entry?.updated_at ?? entry?.created_at;
         if (stamp && Date.now() - Date.parse(stamp) < ORPHAN_GRACE_MS) {
           kept.push({ key: label, reason: "uploaded too recently" });
@@ -618,7 +628,7 @@ Deno.serve(async (req) => {
           .limit(batchSize - processed);
         if (error || !data?.length) continue;
 
-        for (const row of data as any[]) {
+        for (const row of data as DynamicRow[]) {
           processed++;
           const url = row[column] as string;
           const key = keyFromSupabaseUrl(url, bucket);
@@ -670,7 +680,7 @@ Deno.serve(async (req) => {
           .not("storage_path", "is", null);
         if (error || !data?.length) continue;
 
-        for (const row of data as any[]) {
+        for (const row of data as DynamicRow[]) {
           const key = row.storage_path as string;
           const current = row[column] as string | null;
           const target = `${R2_PUBLIC_BASE}/${encodeKey(key)}`;
@@ -702,7 +712,7 @@ Deno.serve(async (req) => {
           .select(column)
           .eq("storage_provider", "r2")
           .not("storage_path", "is", null);
-        const stale = (data ?? []).filter((r: any) => {
+        const stale = (data ?? []).filter((r: ColumnRow) => {
           const v = r[column] as string | null;
           return !!v && !v.startsWith(R2_PUBLIC_BASE);
         }).length;

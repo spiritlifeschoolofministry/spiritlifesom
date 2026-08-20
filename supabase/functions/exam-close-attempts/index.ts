@@ -114,21 +114,28 @@ Deno.serve(async (req) => {
     }
 
     // The limits live on the exam, so fetch each exam once.
+    // Shape of the select below; the edge client is untyped.
+    type ExamLimits = {
+      id: string;
+      max_tab_switches: number | null;
+      max_fullscreen_exits: number | null;
+      enforce_fullscreen: boolean | null;
+    };
     const examIds = [...new Set(attempts.map((a) => a.exam_id))];
     const { data: exams } = await admin
       .from("exams")
       .select("id, max_tab_switches, max_fullscreen_exits, enforce_fullscreen")
       .in("id", examIds);
-    // deno-lint-ignore no-explicit-any
-    const examById = new Map((exams ?? []).map((e: any) => [e.id, e]));
+    const examById = new Map<string, ExamLimits>(
+      (exams ?? []).map((e: ExamLimits) => [e.id, e]),
+    );
 
     const now = Date.now();
     const closed: { attempt_id: string; reason: string; score: number; status: string }[] = [];
     const failed: { attempt_id: string; error: string }[] = [];
 
     for (const a of attempts) {
-      // deno-lint-ignore no-explicit-any
-      const exam = examById.get(a.exam_id) as any;
+      const exam = examById.get(a.exam_id);
       const expired = new Date(a.server_deadline_at).getTime() <= now;
       const tabLimit = Number(exam?.max_tab_switches ?? 0);
       const fsLimit = Number(exam?.max_fullscreen_exits ?? 0);

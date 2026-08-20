@@ -12,6 +12,12 @@ const json = (body: unknown, status = 200) =>
 
 const encodeKey = (p: string) => p.split("/").map(encodeURIComponent).join("/");
 
+/** The service-role client this function builds. */
+type Admin = ReturnType<typeof createClient>;
+
+/** A row of whichever media table is being purged. */
+type MediaRow = { id: string; storage_path: string | null; storage_provider: string | null };
+
 function r2Client() {
   const accountId = Deno.env.get("R2_ACCOUNT_ID");
   const accessKeyId = Deno.env.get("R2_ACCESS_KEY_ID");
@@ -57,8 +63,7 @@ type Media = typeof MEDIA[number];
  * Only files past the retention cutoff are considered, so an upload racing an
  * in-flight insert is never mistaken for an orphan.
  */
-// deno-lint-ignore no-explicit-any
-async function sweepOrphans(supabase: any, cutoff: string, media: Media): Promise<number> {
+async function sweepOrphans(supabase: Admin, cutoff: string, media: Media): Promise<number> {
   const r2 = r2Client();
   if (!r2) return 0;
 
@@ -70,7 +75,9 @@ async function sweepOrphans(supabase: any, cutoff: string, media: Media): Promis
     console.error("Orphan sweep: could not read known paths, skipping:", error);
     return 0;
   }
-  const referenced = new Set((known ?? []).map((s: any) => s.storage_path));
+  const referenced = new Set(
+    (known ?? []).map((s: Pick<MediaRow, "storage_path">) => s.storage_path),
+  );
 
   let removed = 0;
   let token: string | undefined;
@@ -114,8 +121,7 @@ async function sweepOrphans(supabase: any, cutoff: string, media: Media): Promis
 }
 
 /** Purge one media kind: files first, then the rows whose files really went. */
-// deno-lint-ignore no-explicit-any
-async function purgeMedia(supabase: any, cutoff: string, media: Media) {
+async function purgeMedia(supabase: Admin, cutoff: string, media: Media) {
   const { data: fetched, error: fetchErr } = await supabase
     .from(media.table)
     .select("id, storage_path, storage_provider")
@@ -139,12 +145,12 @@ async function purgeMedia(supabase: any, cutoff: string, media: Media) {
   // from Supabase Storage left every R2 object behind — the database row went,
   // so the file could no longer even be found, let alone removed.
   const r2Paths = old
-    .filter((s: any) => s.storage_provider === "r2")
-    .map((s: any) => s.storage_path)
+    .filter((s: MediaRow) => s.storage_provider === "r2")
+    .map((s: MediaRow) => s.storage_path)
     .filter(Boolean);
   const supabasePaths = old
-    .filter((s: any) => s.storage_provider !== "r2")
-    .map((s: any) => s.storage_path)
+    .filter((s: MediaRow) => s.storage_provider !== "r2")
+    .map((s: MediaRow) => s.storage_path)
     .filter(Boolean);
 
   let storageDeleted = 0;
@@ -177,10 +183,10 @@ async function purgeMedia(supabase: any, cutoff: string, media: Media) {
   if (r2Failures.length) {
     console.error("R2 delete failures:", r2Failures);
     const failed = new Set(r2Failures);
-    old = old.filter((s: any) => !failed.has(s.storage_path));
+    old = old.filter((s: MediaRow) => !failed.has(s.storage_path));
   }
 
-  const ids = old.map((s: any) => s.id);
+  const ids = old.map((s: MediaRow) => s.id);
   if (ids.length > 0) {
     const { error: dbErr } = await supabase.from(media.table).delete().in("id", ids);
     if (dbErr) throw dbErr;
@@ -230,7 +236,7 @@ Deno.serve(async (req) => {
       cutoff,
       retention_days: RETENTION_DAYS,
     });
-  } catch (e: any) {
-    return json({ error: String(e?.message || e) }, 500);
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : String(e) }, 500);
   }
 });

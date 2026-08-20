@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
       percent_used: limitBytes > 0 ? (totalBytes / limitBytes) * 100 : 0,
       buckets: perBucket.sort((a, b) => b.bytes - a.bytes),
     });
-  } catch (e: any) {
-    return json({ error: String(e?.message || e) }, 500);
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : String(e) }, 500);
   }
 });

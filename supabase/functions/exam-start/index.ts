@@ -57,6 +57,16 @@ Deno.serve(async (req) => {
     const exam = examRes.data;
     const student = studentRes.data;
 
+    // Shape of the select below; the edge client is untyped.
+    type ExistingAttempt = {
+      id: string;
+      status: string | null;
+      submitted_at: string | null;
+      device_fingerprint: string | null;
+      tab_switch_count: number | null;
+      fullscreen_exits: number | null;
+    };
+
     // Check if student already has an active/submitted attempt
     const { data: existingAttempts } = await supabase
       .from("exam_attempts")
@@ -69,9 +79,9 @@ Deno.serve(async (req) => {
     // straight to "graded" — which is most of them, since a paper with nothing
     // for a lecturer to mark is graded on submission — so a finished exam came
     // back as "active" and was handed to the student to resume and re-answer.
-    const finished = (a: any) => !!a.submitted_at || a.status !== "in_progress";
-    const activeAttempt = existingAttempts?.find((a: any) => !finished(a));
-    const submittedAttempt = existingAttempts?.find((a: any) => finished(a));
+    const finished = (a: ExistingAttempt) => !!a.submitted_at || a.status !== "in_progress";
+    const activeAttempt = existingAttempts?.find((a: ExistingAttempt) => !finished(a));
+    const submittedAttempt = existingAttempts?.find((a: ExistingAttempt) => finished(a));
 
     // Resume, rather than refuse.
     //
@@ -232,7 +242,12 @@ Deno.serve(async (req) => {
     // Honour the builder's toggles rather than always shuffling. linkedIds is
     // already in display_order, so the un-randomised path is the order the
     // teacher set.
-    const byId = new Map(questions.map((q) => [q.id, q]));
+    // Shape of the select above. Without it `byId.get()` yields unknown and
+    // reading `.options` off it does not type-check.
+    type BankQuestion = { id: string; options: unknown };
+    const byId = new Map<string, BankQuestion>(
+      questions.map((q: BankQuestion) => [q.id, q]),
+    );
     let questionIds = linkedIds.filter((qid) => byId.has(qid));
     if (exam.randomize_questions) {
       questionIds = shuffle(questionIds);
@@ -248,8 +263,9 @@ Deno.serve(async (req) => {
     if (exam.randomize_options) {
       for (const qid of questionIds) {
         const q = byId.get(qid);
-        if (Array.isArray(q?.options) && q.options.length > 0) {
-          const indices = Array.from({ length: q.options.length }, (_, i) => i);
+        const options = q?.options;
+        if (Array.isArray(options) && options.length > 0) {
+          const indices = Array.from({ length: options.length }, (_, i) => i);
           optionOrders[qid] = shuffle(indices);
         }
       }
