@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Facebook, Youtube, Instagram, Twitter, Music2 } from "lucide-react";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import { preloadPath } from "@/routes/lazy-pages";
 
 const navLinks = [
   { label: "Home", to: "/" },
@@ -11,6 +12,13 @@ const navLinks = [
   { label: "Faculty", to: "/faculty" },
   { label: "Contact", to: "/contact" },
 ];
+
+/** Warm a lazy page's chunk on hover / focus / touch, before the click lands. */
+const prefetch = (path: string) => ({
+  onMouseEnter: () => preloadPath(path),
+  onFocus: () => preloadPath(path),
+  onTouchStart: () => preloadPath(path),
+});
 
 const PublicLayout = () => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -48,6 +56,7 @@ const PublicLayout = () => {
               <Link
                 key={l.label}
                 to={l.to}
+                {...prefetch(l.to)}
                 className={`text-sm font-medium transition-colors ${
                   location.pathname === l.to
                     ? "text-primary-foreground"
@@ -61,10 +70,10 @@ const PublicLayout = () => {
 
           <div className="hidden md:flex items-center gap-3">
             <Button asChild variant="ghost" size="sm" className="bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
-              <Link to="/login">Login</Link>
+              <Link to="/login" {...prefetch("/login")}>Login</Link>
             </Button>
             <Button asChild size="sm" className="gradient-flame border-0 text-primary-foreground hover:opacity-90">
-              <Link to="/register">Register Now</Link>
+              <Link to="/register" {...prefetch("/register")}>Register Now</Link>
             </Button>
           </div>
 
@@ -81,6 +90,7 @@ const PublicLayout = () => {
               <Link
                 key={l.label}
                 to={l.to}
+                {...prefetch(l.to)}
                 className="block w-full text-left text-primary-foreground/90 hover:text-primary-foreground py-2 text-sm"
               >
                 {l.label}
@@ -88,10 +98,10 @@ const PublicLayout = () => {
             ))}
             <div className="flex gap-2 pt-2">
               <Button asChild variant="outline" size="sm" className="flex-1 bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
-                <Link to="/login">Login</Link>
+                <Link to="/login" {...prefetch("/login")}>Login</Link>
               </Button>
               <Button asChild size="sm" className="flex-1 gradient-flame border-0 text-primary-foreground">
-                <Link to="/register">Register</Link>
+                <Link to="/register" {...prefetch("/register")}>Register</Link>
               </Button>
             </div>
           </div>

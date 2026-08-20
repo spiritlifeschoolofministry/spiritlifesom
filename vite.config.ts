@@ -20,9 +20,34 @@ export default defineConfig(({ mode }) => ({
       registerType: 'autoUpdate',
       workbox: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // Precaching every built chunk made a first visit download the whole
+        // app up front (~3.4 MB: admin, exams, charts, PDF export) while the
+        // landing page was still painting. Precache just the shell and let
+        // chunks enter the cache as they are actually requested — pages stay
+        // available offline once visited.
+        globPatterns: ["**/*.{css,html}"],
         // Serve robots.txt, sitemap.xml, llms.txt and security.txt as themselves
         // instead of falling back to the SPA shell.
         navigateFallbackDenylist: [/^\/\.well-known\//, /\.(?:txt|xml)$/],
+        runtimeCaching: [
+          {
+            // Build output is content-hashed, so a hit can never be stale.
+            urlPattern: /\/assets\/[^/]+$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "app-assets",
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+          {
+            urlPattern: /\.(?:webp|png|jpe?g|svg|gif|avif|ico)$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "images",
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+        ],
       },
       manifest: {
         name: 'Spirit Life School of Ministry',
@@ -58,22 +83,18 @@ export default defineConfig(({ mode }) => ({
         manualChunks: {
           "vendor-react": ["react", "react-dom", "react-router-dom"],
           "vendor-supabase": ["@supabase/supabase-js"],
-          "vendor-charts": ["recharts"],
-          "vendor-tiptap": [
-            "@tiptap/react",
-            "@tiptap/starter-kit",
-            "@tiptap/extension-image",
-            "@tiptap/extension-link",
-          ],
+          // recharts and tiptap are only reached through lazily-loaded pages
+          // (admin Analytics, the exam RichTextEditor). Naming them here made
+          // Rollup treat them as static deps of the entry, so index.html
+          // modulepreloaded ~220 KB gzipped of chart + editor code on every
+          // visit. Left unlisted, they land in the lazy chunks that use them.
           "vendor-query": ["@tanstack/react-query"],
+          // Only the primitives mounted at startup (TooltipProvider, Toaster)
+          // belong in an eagerly-loaded chunk. Listing dialog/select/tabs here
+          // too dragged them onto the landing page's critical path.
           "vendor-radix": [
-            "@radix-ui/react-dialog",
-            "@radix-ui/react-dropdown-menu",
-            "@radix-ui/react-select",
-            "@radix-ui/react-popover",
             "@radix-ui/react-tooltip",
             "@radix-ui/react-toast",
-            "@radix-ui/react-tabs",
           ],
           "vendor-icons": ["lucide-react"],
         },

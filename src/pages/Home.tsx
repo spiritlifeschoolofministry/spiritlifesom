@@ -7,9 +7,30 @@ import Reveal from "@/components/Reveal";
 import { useSiteContent } from "@/hooks/use-site-content";
 import SEO from "@/components/SEO";
 
+// Hero slides, as base names. Each ships a 1439px and an 800px WebP variant so
+// a phone downloads ~55 KB for the largest-contentful paint instead of ~215 KB.
+const heroImages = ["som3", "som4", "som5", "som7", "som8", "som1", "som2"];
+
+// React 18 only forwards this attribute to the DOM when it is spelled in
+// lowercase, while the JSX types only accept the camelCase spelling — hence the
+// cast. It tells the browser to fetch the first slide ahead of everything else.
+const fetchPriorityAttr = (value: "high" | "low") =>
+  ({ fetchpriority: value }) as unknown as { fetchPriority: "high" | "low" };
+
+const heroSrc = (name: string) => `/images/${name}.webp`;
+const heroSrcSet = (name: string) =>
+  `/images/${name}-800.webp 800w, /images/${name}.webp 1439w`;
+
 const Home = () => {
   const [acceptingApplications, setAcceptingApplications] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
+  // Mounting all seven slides at once pulled ~1.2 MB down before first paint
+  // when only one is ever visible. Mount the current slide, then let each
+  // upcoming one join the set so its fade-in still has the image ready.
+  const [mountedSlides, setMountedSlides] = useState<number[]>([0]);
+  // Gate the preloading of later slides on the first one finishing, so nothing
+  // competes with the largest-contentful paint for bandwidth.
+  const [heroReady, setHeroReady] = useState(false);
   const { get } = useSiteContent("home");
 
   useEffect(() => {
@@ -35,10 +56,16 @@ const Home = () => {
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % 7);
+      setCurrentSlide((prev) => (prev + 1) % heroImages.length);
     }, 8000);
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!heroReady) return;
+    const next = (currentSlide + 1) % heroImages.length;
+    setMountedSlides((prev) => (prev.includes(next) ? prev : [...prev, next]));
+  }, [currentSlide, heroReady]);
 
   const RegisterButtons = () => (
     <>
@@ -54,16 +81,6 @@ const Home = () => {
       )}
     </>
   );
-
-  const heroImages = [
-    "/images/som3.jpeg",
-    "/images/som4.jpeg",
-    "/images/som5.jpeg",
-    "/images/som7.jpeg",
-    "/images/som8.jpeg",
-    "/images/som1.jpeg",
-    "/images/som2.jpeg",
-  ];
 
   const steps = [
     { step: "1", title: get("step1_title", "Apply"), desc: get("step1_desc", "Fill in the registration form online") },
@@ -91,14 +108,25 @@ const Home = () => {
       />
     {/* ========== HERO ========== */}
     <section className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center text-center text-primary-foreground overflow-hidden">
-      {heroImages.map((src, index) => (
-        <img
-          key={src}
-          src={src}
-          alt=""
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-in-out ${index === currentSlide ? "opacity-100 animate-ken-burns" : "opacity-0"}`}
-        />
-      ))}
+      {heroImages.map((name, index) =>
+        mountedSlides.includes(index) ? (
+          <img
+            key={name}
+            src={heroSrc(name)}
+            srcSet={heroSrcSet(name)}
+            sizes="100vw"
+            alt=""
+            width={1439}
+            height={957}
+            {...fetchPriorityAttr(index === 0 ? "high" : "low")}
+            decoding={index === 0 ? undefined : "async"}
+            onLoad={index === 0 ? () => setHeroReady(true) : undefined}
+            // Don't strand the carousel on a slide that failed to load.
+            onError={index === 0 ? () => setHeroReady(true) : undefined}
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-in-out ${index === currentSlide ? "opacity-100 animate-ken-burns" : "opacity-0"}`}
+          />
+        ) : null,
+      )}
       <div className="absolute inset-0 bg-primary/70" />
       <Reveal className="relative z-10 max-w-3xl px-6 space-y-6">
         <div className="flex items-center justify-center gap-2 pt-4">

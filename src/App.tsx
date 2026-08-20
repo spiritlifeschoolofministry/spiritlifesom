@@ -7,29 +7,29 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import PublicLayout from "./components/PublicLayout";
-import AdminLayout from "./components/AdminLayout";
 import { SessionManagerProvider } from "./components/SessionManagerProvider";
 import { MaintenanceGate } from "./components/MaintenanceGate";
 import ScrollToTop from "./components/ScrollToTop";
 import DomainRedirect from "./components/DomainRedirect";
 import { App as CapApp } from "@capacitor/app";
 
-// Public pages — eager (small, needed for SEO/first paint)
+// Home is the landing page, so it stays eager — everything else is lazy.
 import Home from "./pages/Home";
-import About from "./pages/About";
-import Courses from "./pages/Courses";
-import Faculty from "./pages/Faculty";
-import Contact from "./pages/Contact";
-import Register from "./pages/Register";
-import Login from "./pages/Login";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import NotFound from "./pages/NotFound";
-import CompleteProfile from "./pages/CompleteProfile";
 import { InstallPWA } from "./components/InstallPWA";
 
-// Portal pages — lazy, declared in one place so nav links can prefetch them
+// Public + portal pages — lazy, declared in one place so nav links can prefetch them
 import {
+  AdminLayout,
+  About,
+  Courses,
+  Faculty,
+  Contact,
+  Register,
+  Login,
+  ForgotPassword,
+  ResetPassword,
+  CompleteProfile,
+  NotFound,
   StudentDashboard,
   StudentCourses,
   StudentAttendance,

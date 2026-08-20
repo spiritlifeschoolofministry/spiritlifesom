@@ -26,6 +26,24 @@ export const lazyPage = (loader: Loader): LazyPage => {
   return Component;
 };
 
+// Public site — Home stays eagerly imported in App.tsx since it is the landing
+// page; the rest split out so a first visit doesn't parse every marketing and
+// auth page before it can paint.
+export const About = lazyPage(() => import("@/pages/About"));
+export const Courses = lazyPage(() => import("@/pages/Courses"));
+export const Faculty = lazyPage(() => import("@/pages/Faculty"));
+export const Contact = lazyPage(() => import("@/pages/Contact"));
+export const Register = lazyPage(() => import("@/pages/Register"));
+export const Login = lazyPage(() => import("@/pages/Login"));
+export const ForgotPassword = lazyPage(() => import("@/pages/ForgotPassword"));
+export const ResetPassword = lazyPage(() => import("@/pages/ResetPassword"));
+export const CompleteProfile = lazyPage(() => import("@/pages/CompleteProfile"));
+export const NotFound = lazyPage(() => import("@/pages/NotFound"));
+
+// The admin chrome (sheet, avatar, notifications bell) is admin-only, so keep
+// it off the public critical path even though it is a route element.
+export const AdminLayout = lazyPage(() => import("@/components/AdminLayout"));
+
 // Student portal
 export const StudentDashboard = lazyPage(() => import("@/pages/StudentDashboard"));
 export const StudentCourses = lazyPage(() => import("@/pages/StudentCourses"));
@@ -74,6 +92,12 @@ export const AdminComingSoon = lazyPage(() => import("@/pages/AdminComingSoon"))
 
 /** Nav path → the page that renders it, for hover / idle prefetching. */
 const PAGE_BY_PATH: Record<string, LazyPage> = {
+  "/about": About,
+  "/courses": Courses,
+  "/faculty": Faculty,
+  "/contact": Contact,
+  "/login": Login,
+  "/register": Register,
   "/student/dashboard": StudentDashboard,
   "/student/courses": StudentCourses,
   "/student/attendance": StudentAttendance,

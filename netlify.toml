@@ -50,3 +50,18 @@ SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_PROJECT_ID,VITE_SUPABASE_PUBLISHABLE_KEY
   for = "/sitemap.xml"
   [headers.values]
     Content-Type = "application/xml; charset=utf-8"
+
+# Build output is content-hashed, so a given URL's bytes never change and it can
+# be cached indefinitely. Without this the CDN default (max-age=0,
+# must-revalidate) makes a repeat visitor revalidate every chunk.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Image filenames are not hashed, so cache for a week rather than forever —
+# long enough to help repeat visits, short enough that replacements land.
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"

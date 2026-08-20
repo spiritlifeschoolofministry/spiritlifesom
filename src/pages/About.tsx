@@ -12,11 +12,11 @@ const whyCards = [
 ];
 
 const galleryImages = [
-  "/images/som3.jpeg",
-  "/images/som4.jpeg",
-  "/images/som5.jpeg",
-  "/images/som7.jpeg",
-  "/images/som8.jpeg",
+  "/images/som3-800.webp",
+  "/images/som4-800.webp",
+  "/images/som5-800.webp",
+  "/images/som7-800.webp",
+  "/images/som8-800.webp",
 ];
 
 const About = () => {
@@ -38,7 +38,7 @@ const About = () => {
       />
       {/* Hero banner */}
       <section className="relative py-20 sm:py-28 text-center text-primary-foreground">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/images/som2.jpeg)" }} />
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url(/images/som2-800.webp)" }} />
         <div className="absolute inset-0 bg-primary/80" />
         <div className="relative z-10 max-w-3xl mx-auto px-4 space-y-3">
           <Reveal>
@@ -64,7 +64,7 @@ const About = () => {
             </blockquote>
           </div>
           <div className="rounded-xl overflow-hidden shadow-lg">
-            <img src="/images/som2.jpeg" alt="Spirit Life SOM Class" className="w-full h-auto object-cover" loading="lazy" />
+            <img src="/images/som2.webp" alt="Spirit Life SOM Class" className="w-full h-auto object-cover" loading="lazy" />
           </div>
         </div>
       </Reveal>

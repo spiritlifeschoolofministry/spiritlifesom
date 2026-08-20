@@ -4,6 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <link rel="manifest" href="/manifest.json">
+
+    <!-- The first hero slide is the largest-contentful paint on the landing
+         page, so start fetching it before the JS bundle is even parsed.
+         Keep this in sync with heroImages[0] in src/pages/Home.tsx. -->
+    <link rel="preload" as="image" href="/images/som3.webp"
+          imagesrcset="/images/som3-800.webp 800w, /images/som3.webp 1439w"
+          imagesizes="100vw" fetchpriority="high">
+    <!-- Home queries system_settings on mount; warm the TLS handshake early. -->
+    <link rel="preconnect" href="https://siirpzuflcimkhnzvass.supabase.co" crossorigin>
+    <link rel="preconnect" href="https://www.googletagmanager.com">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#5B21B6">
     <title>Spirit Life School of Ministry | SLSOM Official Website</title>
