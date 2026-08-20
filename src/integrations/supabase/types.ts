@@ -1413,6 +1413,7 @@ export type Database = {
           id: string
           idempotency_key: string | null
           payment_date: string | null
+          payment_type: string | null
           payment_proof_url: string | null
           status: string | null
           storage_path: string | null
@@ -1428,6 +1429,7 @@ export type Database = {
           id?: string
           idempotency_key?: string | null
           payment_date?: string | null
+          payment_type?: string | null
           payment_proof_url?: string | null
           status?: string | null
           storage_path?: string | null
@@ -1443,6 +1445,7 @@ export type Database = {
           id?: string
           idempotency_key?: string | null
           payment_date?: string | null
+          payment_type?: string | null
           payment_proof_url?: string | null
           status?: string | null
           storage_path?: string | null

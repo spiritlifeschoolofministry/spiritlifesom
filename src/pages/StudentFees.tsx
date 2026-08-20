@@ -28,6 +28,7 @@ const MAX_RECEIPT_BYTES = 10 * 1024 * 1024;
 
 interface SubmitPaymentFormData {
   fee_id: string;
+  payment_type: 'FULL' | 'PART' | '';
   amount: string;
   notes: string;
   receipt: FileList;
@@ -43,9 +44,10 @@ const StudentFees = () => {
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
 
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<SubmitPaymentFormData>({
-    defaultValues: { fee_id: '', amount: '', notes: '' },
+    defaultValues: { fee_id: '', payment_type: '', amount: '', notes: '' },
   });
   const selectedFeeId = watch('fee_id');
+  const selectedPaymentType = watch('payment_type');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -95,6 +97,8 @@ const StudentFees = () => {
     }
   };
 
+  const balanceOf = (fee: Fee) => (fee.amount_due || 0) - (fee.amount_paid || 0);
+
   const onSubmit = async (data: SubmitPaymentFormData) => {
     if (!user || !student?.id || !receiptFile) {
       toast.error('Please complete all fields and select a receipt file');
@@ -104,6 +108,13 @@ const StudentFees = () => {
     const selectedFee = unpaidFees.find((f) => f.id === data.fee_id);
     if (!selectedFee) {
       toast.error('Select the fee this receipt is for');
+      return;
+    }
+    // "Full payment" is a claim staff will check against the receipt, so it has
+    // to at least cover what is outstanding — otherwise it is an instalment.
+    const amount = parseFloat(data.amount);
+    if (data.payment_type === 'FULL' && amount < balanceOf(selectedFee)) {
+      toast.error(`A full payment must cover the \u20a6${balanceOf(selectedFee).toLocaleString()} balance. Choose "Part payment" instead.`);
       return;
     }
     try {
@@ -129,7 +140,8 @@ const StudentFees = () => {
 
       const { error: paymentError } = await supabase.from('payments').insert({
         student_id: student.id,
-        amount_paid: parseFloat(data.amount),
+        amount_paid: amount,
+        payment_type: data.payment_type || null,
         student_fee_id: selectedFee.id,
         fee_id: feeStructureId,
         payment_proof_url: fileUrl, 
@@ -159,6 +171,12 @@ const StudentFees = () => {
     if (s === 'VERIFIED' || s === 'APPROVED') return <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-300"><CheckCircle className="w-3 h-3 mr-1" /> Verified</Badge>;
     if (s === 'REJECTED') return <Badge variant="destructive"><AlertCircle className="w-3 h-3 mr-1" /> Rejected</Badge>;
     return <Badge variant="outline">{status}</Badge>;
+  };
+
+  const getPaymentTypeBadge = (type: string | null) => {
+    if (type === 'FULL') return <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-300">Full</Badge>;
+    if (type === 'PART') return <Badge variant="outline" className="bg-sky-50 text-sky-800 border-sky-300">Part</Badge>;
+    return null;
   };
 
   const getFeeStatusBadge = (fee: Fee) => {
@@ -205,9 +223,8 @@ const StudentFees = () => {
                   <Select value={selectedFeeId} onValueChange={(value) => {
                     setValue('fee_id', value, { shouldValidate: true });
                     const fee = unpaidFees.find(f => f.id === value);
-                    if (fee) {
-                      const balance = (fee.amount_due || 0) - (fee.amount_paid || 0);
-                      setValue('amount', balance.toString());
+                    if (fee && selectedPaymentType !== 'PART') {
+                      setValue('amount', balanceOf(fee).toString());
                     }
                   }}>
                     <SelectTrigger disabled={unpaidFees.length === 0}>
@@ -229,6 +246,39 @@ const StudentFees = () => {
                         : 'All your assigned fees are settled — there is nothing to pay right now.'}
                     </p>
                   )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Is this the full payment or a part payment?</Label>
+                  <input type="hidden" {...register('payment_type', { required: 'Tell us whether this is a full or part payment' })} />
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { value: 'FULL' as const, title: 'Full payment', hint: 'Settles this fee' },
+                      { value: 'PART' as const, title: 'Part payment', hint: 'An instalment' },
+                    ]).map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={selectedPaymentType === option.value}
+                        onClick={() => {
+                          setValue('payment_type', option.value, { shouldValidate: true });
+                          const fee = unpaidFees.find((f) => f.id === selectedFeeId);
+                          // Full prefills the outstanding balance; part clears it
+                          // so the student types what they actually transferred.
+                          if (option.value === 'FULL' && fee) setValue('amount', balanceOf(fee).toString());
+                          if (option.value === 'PART') setValue('amount', '');
+                        }}
+                        className={`rounded-lg border-2 p-3 text-left transition-colors ${
+                          selectedPaymentType === option.value
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:bg-muted/50'
+                        }`}
+                      >
+                        <p className="text-sm font-medium">{option.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{option.hint}</p>
+                      </button>
+                    ))}
+                  </div>
+                  {errors.payment_type && <p className="text-sm text-destructive">{errors.payment_type.message}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label>Amount (₦)</Label>
@@ -430,6 +480,7 @@ const StudentFees = () => {
                       <TableRow>
                         <TableHead>Fee</TableHead>
                         <TableHead>Amount</TableHead>
+                        <TableHead>Type</TableHead>
                         <TableHead>Date</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Receipt</TableHead>
@@ -440,6 +491,7 @@ const StudentFees = () => {
                         <TableRow key={payment.id}>
                           <TableCell className="text-sm">{feeNameFor(payment)}</TableCell>
                           <TableCell className="font-medium">₦{(payment.amount_paid || 0).toLocaleString()}</TableCell>
+                          <TableCell>{getPaymentTypeBadge(payment.payment_type) || <span className="text-muted-foreground text-xs">—</span>}</TableCell>
                           <TableCell className="text-muted-foreground">{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : '—'}</TableCell>
                           <TableCell>{getPaymentStatusBadge(payment.status)}</TableCell>
                           <TableCell className="text-right">
@@ -460,7 +512,10 @@ const StudentFees = () => {
                   {payments.map((payment) => (
                     <div key={payment.id} className="rounded-lg border border-border p-3 flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-semibold">₦{(payment.amount_paid || 0).toLocaleString()}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold">₦{(payment.amount_paid || 0).toLocaleString()}</p>
+                          {getPaymentTypeBadge(payment.payment_type)}
+                        </div>
                         <p className="text-xs text-muted-foreground">{feeNameFor(payment)}</p>
                         <p className="text-xs text-muted-foreground">{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : '—'}</p>
                       </div>

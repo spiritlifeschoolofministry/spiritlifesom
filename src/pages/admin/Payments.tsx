@@ -241,6 +241,7 @@ const AdminPayments = () => {
                   <TableRow>
                     <TableHead>Student</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Action</TableHead>
                   </TableRow>
@@ -255,6 +256,15 @@ const AdminPayments = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">₦{Number(payment.amount_paid).toLocaleString()}</TableCell>
+                      <TableCell>
+                        {payment.payment_type === 'FULL' ? (
+                          <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-300">Full</Badge>
+                        ) : payment.payment_type === 'PART' ? (
+                          <Badge variant="outline" className="bg-sky-50 text-sky-800 border-sky-300">Part</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Not stated</span>
+                        )}
+                      </TableCell>
                       <TableCell>{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : ''}</TableCell>
                       <TableCell>
                         <Dialog open={isReviewModalOpen && selectedPayment?.id === payment.id} onOpenChange={setIsReviewModalOpen}>
@@ -282,6 +292,16 @@ const AdminPayments = () => {
                                   <div>
                                     <Label className="text-xs text-muted-foreground">Status</Label>
                                     <Badge>{selectedPayment.status}</Badge>
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs text-muted-foreground">Student says this is</Label>
+                                    <p className="font-medium">
+                                      {selectedPayment.payment_type === 'FULL'
+                                        ? 'Full payment — settles this fee'
+                                        : selectedPayment.payment_type === 'PART'
+                                          ? 'Part payment — an instalment'
+                                          : 'Not stated'}
+                                    </p>
                                   </div>
                                 </div>
 
