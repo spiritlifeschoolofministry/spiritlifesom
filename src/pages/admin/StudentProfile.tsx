@@ -21,7 +21,7 @@ import {
 import { toast } from "sonner";
 import {
   ArrowLeft, Mail, Phone, MapPin, Calendar, BookOpen,
-  GraduationCap, CreditCard, ClipboardCheck, User2, Pencil, Save, Loader2, X, Plus
+  GraduationCap, CreditCard, ClipboardCheck, User2, Pencil, Save, Loader2, X, Plus, Trash2
 } from "lucide-react";
 import PortalBreadcrumbs from "@/components/portal/PortalBreadcrumbs";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -390,6 +390,10 @@ const AdminStudentProfile = () => {
   const [student, setStudent] = useState<StudentDetail | null>(null);
   const [attendance, setAttendance] = useState<AttendanceTally>(EMPTY_TALLY);
   const [fees, setFees] = useState<FeeRecord[]>([]);
+  const [feeToDelete, setFeeToDelete] = useState<FeeRecord | null>(null);
+  // null while the linked-payment count for feeToDelete is still being fetched.
+  const [linkedPayments, setLinkedPayments] = useState<number | null>(null);
+  const [deletingFee, setDeletingFee] = useState(false);
   const [assignments, setAssignments] = useState<AssignmentRecord[]>([]);
   const [examRecords, setExamRecords] = useState<AssignmentRecord[]>([]);
   const [courses, setCourses] = useState<Array<{ id: string; title: string; cohort_id: string | null }>>([]);
@@ -493,6 +497,39 @@ const AdminStudentProfile = () => {
     if (!studentId) return;
     loadStudentData();
   }, [loadStudentData, studentId]);
+
+  /**
+   * Deleting a fee cascades to the payments recorded against it
+   * (payments.fee_id is ON DELETE CASCADE), so the confirmation has to say how
+   * many receipts go with it rather than presenting this as a tidy-up.
+   */
+  const askDeleteFee = async (fee: FeeRecord) => {
+    setFeeToDelete(fee);
+    setLinkedPayments(null);
+    const { count, error } = await supabase
+      .from("payments")
+      .select("id", { count: "exact", head: true })
+      .or(`fee_id.eq.${fee.id},student_fee_id.eq.${fee.id}`);
+    if (error) {
+      console.error("Could not count payments for fee:", error);
+      return;
+    }
+    setLinkedPayments(count ?? 0);
+  };
+
+  const deleteFee = async () => {
+    if (!feeToDelete) return;
+    setDeletingFee(true);
+    const { error } = await supabase.from("fees").delete().eq("id", feeToDelete.id);
+    setDeletingFee(false);
+    if (error) {
+      toast.error("Could not delete the fee: " + error.message);
+      return;
+    }
+    setFees(prev => prev.filter(f => f.id !== feeToDelete.id));
+    setFeeToDelete(null);
+    toast.success("Fee record deleted");
+  };
 
 
   if (loading) {
@@ -768,9 +805,20 @@ const AdminStudentProfile = () => {
                           ₦{(f.amount_paid || 0).toLocaleString()} of ₦{(f.amount_due || 0).toLocaleString()}
                         </p>
                       </div>
-                      <Badge variant={f.payment_status === "Paid" ? "default" : f.payment_status === "Partial" ? "secondary" : "destructive"}>
-                        {f.payment_status || "Unpaid"}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={f.payment_status === "Paid" ? "default" : f.payment_status === "Partial" ? "secondary" : "destructive"}>
+                          {f.payment_status || "Unpaid"}
+                        </Badge>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-destructive"
+                          title="Delete this fee record"
+                          onClick={() => askDeleteFee(f)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -779,6 +827,36 @@ const AdminStudentProfile = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ConfirmDialog
+        open={!!feeToDelete}
+        onOpenChange={(o) => { if (!deletingFee && !o) setFeeToDelete(null); }}
+        loading={deletingFee}
+        variant="destructive"
+        title="Delete fee record?"
+        confirmLabel="Delete fee"
+        description={
+          <>
+            <p>
+              <strong>{feeToDelete?.fee_type}</strong> — ₦{(feeToDelete?.amount_paid || 0).toLocaleString()} paid
+              of ₦{(feeToDelete?.amount_due || 0).toLocaleString()} — will be removed from {fullName}'s record.
+            </p>
+            {linkedPayments === null ? (
+              <p className="flex items-center gap-1.5">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking for linked payments…
+              </p>
+            ) : linkedPayments > 0 ? (
+              <p className="text-destructive font-medium">
+                {linkedPayments} payment record{linkedPayments === 1 ? "" : "s"} logged against this fee will be
+                deleted with it, receipts included. This cannot be undone.
+              </p>
+            ) : (
+              <p>No payments are logged against it. This cannot be undone.</p>
+            )}
+          </>
+        }
+        onConfirm={deleteFee}
+      />
     </div>
   );
 };

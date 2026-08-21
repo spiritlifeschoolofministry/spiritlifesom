@@ -12,6 +12,7 @@ import {
 import { format, isAfter, isBefore } from "date-fns";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { effectiveExamStatus } from "@/lib/exam-utils";
 
 type Exam = {
   id: string;
@@ -58,23 +59,6 @@ const STATUS_LABELS: Record<string, string> = {
   ended: "Ended",
   closed: "Closed",
   archived: "Archived",
-};
-
-/**
- * What the exam is doing right now, as opposed to the lifecycle stage stored on
- * the row.
- *
- * `status` only ever moves when an admin moves it — nothing flips a published
- * exam to in_progress when its window opens. The student list works off the
- * clock instead, so the same exam read "Scheduled" here and "Live" there. This
- * derives the same answer the student side reaches, so both agree.
- */
-const effectiveStatus = (exam: Pick<Exam, "status" | "start_at" | "end_at">) => {
-  if (exam.status !== "published") return exam.status;
-  const now = new Date();
-  if (isBefore(now, new Date(exam.start_at))) return "published";
-  if (isAfter(now, new Date(exam.end_at))) return "ended";
-  return "in_progress";
 };
 
 export default function ExamsList() {
@@ -141,7 +125,7 @@ export default function ExamsList() {
   const counts = useMemo(() => {
     const m: Record<string, number> = { all: exams.length };
     for (const e of exams) {
-      const s = effectiveStatus(e);
+      const s = effectiveExamStatus(e);
       m[s] = (m[s] ?? 0) + 1;
     }
     return m;
@@ -150,7 +134,7 @@ export default function ExamsList() {
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return exams.filter((e) => {
-      if (filter !== "all" && effectiveStatus(e) !== filter) return false;
+      if (filter !== "all" && effectiveExamStatus(e) !== filter) return false;
       if (!q) return true;
       return `${e.title} ${e.assessment_type} ${e.courseLabel} ${e.cohortLabel}`.toLowerCase().includes(q);
     });
@@ -292,7 +276,7 @@ export default function ExamsList() {
           {visible.map((e) => {
             const busy = busyId === e.id;
             const isDraft = e.status === "draft";
-            const shown = effectiveStatus(e);
+            const shown = effectiveExamStatus(e);
             return (
               <Card key={e.id} className="p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">

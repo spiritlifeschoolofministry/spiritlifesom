@@ -21,7 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { QuestionRenderer } from "@/components/exam/QuestionRenderer";
-import { sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType, NO_LATE_ENTRY_GRACE_MINUTES, ASSESSMENT_TYPES } from "@/lib/exam-utils";
+import { sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType, NO_LATE_ENTRY_GRACE_MINUTES, ASSESSMENT_TYPES, effectiveExamStatus } from "@/lib/exam-utils";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -32,6 +32,7 @@ const STATUS_STYLES: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
   published: "bg-blue-500/10 text-blue-600 border-blue-500/20",
   in_progress: "bg-amber-500/10 text-amber-600 border-amber-500/20",
+  ended: "bg-slate-500/10 text-slate-600 border-slate-500/20",
   closed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
   archived: "bg-muted text-muted-foreground",
 };
@@ -40,6 +41,7 @@ const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
   published: "Scheduled",
   in_progress: "Live",
+  ended: "Ended",
   closed: "Closed",
   archived: "Archived",
 };
@@ -305,6 +307,13 @@ export default function ExamBuilder() {
   const windowMinutes =
     exam.start_at && exam.end_at ? minutesBetween(exam.start_at, exam.end_at) : null;
   const windowTooShort = windowMinutes !== null && windowMinutes < Number(exam.duration_minutes || 0);
+  // Once a mark is on a transcript, what it was called is part of that record.
+  const typeLocked = !!exam.results_released;
+  // A saved exam with a window gets the clock-aware status the exams list and the
+  // student side show; an unscheduled draft has nothing to derive from.
+  const shownStatus = exam.start_at && exam.end_at
+    ? effectiveExamStatus({ status: exam.status || "draft", start_at: exam.start_at, end_at: exam.end_at })
+    : exam.status || "draft";
 
   return (
     <div className="space-y-4">
@@ -315,8 +324,8 @@ export default function ExamBuilder() {
         backLabel="Back to exams"
         description={
           <div className="flex flex-wrap items-center gap-1.5">
-            <Badge variant="outline" className={STATUS_STYLES[exam.status] || ""}>
-              {STATUS_LABELS[exam.status] ?? exam.status}
+            <Badge variant="outline" className={STATUS_STYLES[shownStatus] || ""}>
+              {STATUS_LABELS[shownStatus] ?? shownStatus}
             </Badge>
             <span className="text-xs text-muted-foreground">
               {picked.length} question{picked.length === 1 ? "" : "s"} · {totalPoints} pts
@@ -377,14 +386,22 @@ export default function ExamBuilder() {
             </div>
             <div>
               <Label>Assessment type *</Label>
-              <Select value={exam.assessment_type ?? "Exam"} onValueChange={(v) => update({ assessment_type: v })}>
+              <Select
+                value={exam.assessment_type ?? "Exam"}
+                onValueChange={(v) => update({ assessment_type: v })}
+                disabled={typeLocked}
+              >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {ASSESSMENT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
-                What this is called on the student's record. The rules, timing and marking work the same either way.
+                {typeLocked
+                  // Enforced in the database too, by exams_assessment_type_lock.
+                  ? "Results have been released, so this is already recorded as a " +
+                    `${exam.assessment_type || "Exam"} on every student's transcript. The type can no longer be changed.`
+                  : "What this is called on the student's record. The rules, timing and marking work the same either way."}
               </p>
             </div>
             <div><Label>Description</Label><Textarea value={exam.description ?? ""} onChange={(e) => update({ description: e.target.value })} rows={2} /></div>

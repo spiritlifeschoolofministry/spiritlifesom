@@ -472,6 +472,28 @@ export type ExamWindow = {
   late_entry_cutoff_minutes?: number | null;
 };
 
+/**
+ * What the exam is doing right now, as opposed to the lifecycle stage stored on
+ * the row.
+ *
+ * Nothing on the row tracks the clock. A published exam is never flipped to
+ * in_progress when its window opens, and the in_progress an exam does get —
+ * stamped by exam-start the first time a student opens the paper — is never
+ * cleared when the window shuts, so an exam that finished last night still read
+ * "Live" to staff. The student side works off the clock, so the two disagreed.
+ * This derives the answer the student side reaches, so every view agrees.
+ */
+export const effectiveExamStatus = (
+  exam: { status: string; start_at: string; end_at: string },
+): string => {
+  // draft/ended/closed/archived are only ever reached by hand; leave them be.
+  if (exam.status !== "published" && exam.status !== "in_progress") return exam.status;
+  const now = Date.now();
+  if (now < new Date(exam.start_at).getTime()) return exam.status;
+  if (now > new Date(exam.end_at).getTime()) return "ended";
+  return "in_progress";
+};
+
 export const entryClosesAt = (exam: ExamWindow): number => {
   const startMs = new Date(exam.start_at).getTime();
   const endMs = new Date(exam.end_at).getTime();
