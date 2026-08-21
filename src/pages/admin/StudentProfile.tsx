@@ -86,6 +86,8 @@ interface AssignmentRecord {
   is_manual_record: boolean;
 }
 
+const todayDateString = () => new Date().toISOString().split("T")[0];
+
 const LEARNING_MODES = ["Online", "Physical", "Hybrid"];
 const LANGUAGES = ["English", "French", "Yoruba", "Igbo", "Hausa", "Other"];
 const EDUCATION_LEVELS = ["Primary", "Secondary", "Diploma", "Bachelor's Degree", "Master's Degree", "Doctorate", "Other"];
@@ -389,12 +391,13 @@ const AdminStudentProfile = () => {
   const [attendance, setAttendance] = useState<AttendanceSummary>({ total: 0, present: 0, absent: 0, late: 0 });
   const [fees, setFees] = useState<FeeRecord[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRecord[]>([]);
+  const [examMarks, setExamMarks] = useState<Array<{ earned: number; max: number }>>([]);
   const [courses, setCourses] = useState<Array<{ id: string; title: string; cohort_id: string | null }>>([]);
   const [loading, setLoading] = useState(true);
 
   const loadStudentData = useCallback(async () => {
     try {
-      const [studentRes, attendanceRes, feesRes, assignmentsRes] = await Promise.all([
+      const [studentRes, attendanceRes, feesRes, assignmentsRes, examsRes] = await Promise.all([
         supabase
           .from("students")
           .select(`
@@ -406,7 +409,7 @@ const AdminStudentProfile = () => {
           .maybeSingle(),
         supabase
           .from("attendance")
-          .select("status")
+          .select("status, schedule_id, is_verified")
           .eq("student_id", studentId!),
         supabase
           .from("fees")
@@ -416,6 +419,13 @@ const AdminStudentProfile = () => {
           .from("assignment_submissions")
           .select("id, grade, assignment:assignments(title, category, max_points, is_manual_record)")
           .eq("student_id", studentId!),
+        // Released exam results count towards the grade the student sees, so
+        // they have to count towards the one the admin sees too.
+        supabase
+          .from("exam_attempts")
+          .select("id, score, manual_score_override, exams(total_points, results_released)")
+          .eq("student_id", studentId!)
+          .in("status", ["submitted", "graded"]),
       ]);
 
       if (studentRes.data) {
@@ -432,15 +442,36 @@ const AdminStudentProfile = () => {
         }
       }
 
-      if (attendanceRes.data) {
-        const att = attendanceRes.data;
-        setAttendance({
-          total: att.length,
-          present: att.filter(a => a.status === "Present").length,
-          absent: att.filter(a => a.status === "Absent").length,
-          late: att.filter(a => a.status === "Late").length,
-        });
+      // Attendance is measured the same way the Attendance section measures it:
+      // the denominator is the counted class sessions this student's cohort has
+      // actually held to date, not the number of rows the student happens to
+      // have. Counting rows alone made every student look like 100%, because a
+      // row only exists where they checked in — an absence is a missing row.
+      const cohortId = studentRes.data?.cohort_id ?? null;
+      let sessionIds = new Set<string>();
+      if (cohortId) {
+        const { data: sessionData } = await supabase
+          .from("schedule")
+          .select("id")
+          .eq("cohort_id", cohortId)
+          .eq("counts_for_attendance", true)
+          .lte("date", todayDateString());
+        sessionIds = new Set((sessionData || []).map(x => x.id));
       }
+
+      const counted = (attendanceRes.data || []).filter(
+        a => a.is_verified && a.schedule_id && sessionIds.has(a.schedule_id)
+      );
+      const present = counted.filter(a => (a.status || "").toUpperCase() === "PRESENT").length;
+      const late = counted.filter(a => (a.status || "").toUpperCase() === "LATE").length;
+      const total = sessionIds.size;
+      setAttendance({
+        total,
+        present,
+        late,
+        // Absence is derived: a counted session with no verified attendance.
+        absent: Math.max(0, total - present - late),
+      });
 
       if (feesRes.data) setFees(feesRes.data);
 
@@ -457,6 +488,15 @@ const AdminStudentProfile = () => {
           }))
         );
       }
+
+      setExamMarks(
+        (examsRes.data || [])
+          .filter(a => a.exams?.results_released)
+          .map(a => ({
+            earned: Number(a.manual_score_override ?? a.score ?? 0),
+            max: Number(a.exams?.total_points) || 0,
+          }))
+      );
     } catch (err) {
       console.error("Error loading student:", err);
     } finally {
@@ -504,16 +544,27 @@ const AdminStudentProfile = () => {
     Graduate: "bg-primary/10 text-primary",
   };
 
+  // Null, not 0%, when the cohort has held no counted session yet — nobody can
+  // have missed a class that never happened.
   const attendanceRate = attendance.total > 0
     ? Math.round(((attendance.present + attendance.late) / attendance.total) * 100)
-    : 0;
+    : null;
 
   const totalFeesDue = fees.reduce((sum, f) => sum + (f.amount_due || 0), 0);
   const totalFeesPaid = fees.reduce((sum, f) => sum + (f.amount_paid || 0), 0);
   const feeProgress = totalFeesDue > 0 ? Math.round((totalFeesPaid / totalFeesDue) * 100) : 0;
 
-  const avgGrade = assignments.length > 0
-    ? Math.round(assignments.filter(a => a.grade !== null).reduce((s, a) => s + (a.grade || 0), 0) / Math.max(1, assignments.filter(a => a.grade !== null).length))
+  // Weighted by points earned over points available, the same way the student's
+  // Grades page scores it. Averaging the raw marks reported, say, a 40/50 as
+  // "40%" whenever an item was not out of 100.
+  const gradedItems = [
+    ...assignments.filter(a => a.grade !== null).map(a => ({ earned: a.grade || 0, max: a.max_points || 100 })),
+    ...examMarks,
+  ];
+  const gradePointsAvailable = gradedItems.reduce((s, i) => s + i.max, 0);
+  const gradePointsEarned = gradedItems.reduce((s, i) => s + i.earned, 0);
+  const avgGrade = gradePointsAvailable > 0
+    ? Math.round((gradePointsEarned / gradePointsAvailable) * 100)
     : null;
 
   return (
@@ -569,7 +620,7 @@ const AdminStudentProfile = () => {
       {/* Quick stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Attendance", value: `${attendanceRate}%`, icon: ClipboardCheck, color: "text-emerald-600" },
+          { label: "Attendance", value: attendanceRate !== null ? `${attendanceRate}%` : "—", icon: ClipboardCheck, color: "text-emerald-600" },
           { label: "Tasks", value: String(assignments.length), icon: BookOpen, color: "text-primary" },
           { label: "Avg Grade", value: avgGrade !== null ? `${avgGrade}%` : "—", icon: GraduationCap, color: "text-amber-600" },
           { label: "Fee Progress", value: `${feeProgress}%`, icon: CreditCard, color: "text-primary" },
@@ -642,9 +693,14 @@ const AdminStudentProfile = () => {
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Overall Rate</span>
-                  <span className="font-semibold text-foreground">{attendanceRate}%</span>
+                  <span className="font-semibold text-foreground">
+                    {attendanceRate !== null ? `${attendanceRate}%` : "—"}
+                  </span>
                 </div>
-                <Progress value={attendanceRate} className="h-2" />
+                <Progress value={attendanceRate ?? 0} className="h-2" />
+                <p className="text-xs text-muted-foreground">
+                  {attendance.total} counted {attendance.total === 1 ? "session" : "sessions"} held to date
+                </p>
                 <div className="grid grid-cols-3 gap-4 text-center text-sm">
                   <div>
                     <p className="text-lg font-bold text-emerald-600">{attendance.present}</p>
