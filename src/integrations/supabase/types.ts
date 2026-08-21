@@ -2111,6 +2111,14 @@ export type Database = {
         Args: { p_payment_id: string; p_student_fee_id: string }
         Returns: undefined
       }
+      admin_update_fee_structure: {
+        Args: {
+          p_amount: number
+          p_id: string
+          p_learning_modes: string[]
+        }
+        Returns: Json
+      }
       admin_set_payment_fee_by_structure: {
         Args: { p_fee_structure_id: string; p_payment_id: string }
         Returns: string

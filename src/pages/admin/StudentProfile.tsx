@@ -499,9 +499,16 @@ const AdminStudentProfile = () => {
   }, [loadStudentData, studentId]);
 
   /**
-   * Deleting a fee cascades to the payments recorded against it
-   * (payments.fee_id is ON DELETE CASCADE), so the confirmation has to say how
-   * many receipts go with it rather than presenting this as a tidy-up.
+   * Deleting a fee does not delete the receipts filed against it:
+   * payments.student_fee_id is ON DELETE SET NULL, so each one survives with
+   * nothing to point at, and Payments then refuses to verify it until somebody
+   * reassigns it. Money already verified against the fee leaves the ledger with
+   * the row, while the receipt stays on file claiming it was paid. So the
+   * confirmation counts the receipts about to be cut loose and says that is
+   * what happens to them.
+   *
+   * Only student_fee_id is counted. payments.fee_id points at fee_structures,
+   * not at this row, so matching it here would only ever pick up unrelated rows.
    */
   const askDeleteFee = async (fee: FeeRecord) => {
     setFeeToDelete(fee);
@@ -509,7 +516,7 @@ const AdminStudentProfile = () => {
     const { count, error } = await supabase
       .from("payments")
       .select("id", { count: "exact", head: true })
-      .or(`fee_id.eq.${fee.id},student_fee_id.eq.${fee.id}`);
+      .eq("student_fee_id", fee.id);
     if (error) {
       console.error("Could not count payments for fee:", error);
       return;
@@ -847,11 +854,13 @@ const AdminStudentProfile = () => {
               </p>
             ) : linkedPayments > 0 ? (
               <p className="text-destructive font-medium">
-                {linkedPayments} payment record{linkedPayments === 1 ? "" : "s"} logged against this fee will be
-                deleted with it, receipts included. This cannot be undone.
+                {linkedPayments} receipt{linkedPayments === 1 ? "" : "s"} filed against this fee will be kept but
+                left unattached, and {linkedPayments === 1 ? "it" : "they"} cannot be verified until reassigned to
+                another fee in Fee Management. Any amount already verified against this fee stops counting towards
+                collected revenue. This cannot be undone.
               </p>
             ) : (
-              <p>No payments are logged against it. This cannot be undone.</p>
+              <p>No receipts are filed against it. This cannot be undone.</p>
             )}
           </>
         }

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Eye, Check, X, Download, Trash2, CheckCheck, Search, ArrowLeftRight } from 'lucide-react';
+import { Loader2, Eye, Check, X, Download, Trash2, CheckCheck, Search, ArrowLeftRight, Pencil } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
@@ -65,6 +65,11 @@ const AdminFees = () => {
   const [studentFees, setStudentFees] = useState<StudentFee[]>([]);
   const [reassignTarget, setReassignTarget] = useState<PaymentWithStudent | null>(null);
   const [reassignFeeId, setReassignFeeId] = useState('');
+
+  // Edit an existing fee definition (price and targeting only)
+  const [editTarget, setEditTarget] = useState<Tables<'fee_structures'> | null>(null);
+  const [editAmount, setEditAmount] = useState('');
+  const [editModes, setEditModes] = useState<string[]>(['All']);
 
   const { register, handleSubmit, reset, setValue, watch } = useForm<AddFeeFormData>({
     defaultValues: { cohort_id: '', fee_name: '', amount: '', learning_modes: ['All'] },
@@ -195,6 +200,50 @@ const AdminFees = () => {
       reset();
       const { data: fees } = await supabase.from('fee_structures').select('*').order('created_at', { ascending: false });
       if (fees) setFeeStructures(fees);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const openEditFee = (f: Tables<'fee_structures'>) => {
+    setEditTarget(f);
+    setEditAmount(String(f.amount));
+    setEditModes(toModeArray(f.learning_modes));
+  };
+
+  /**
+   * Saving reports what actually moved rather than a bare "saved": re-targeting
+   * bills or un-bills students, and a new price only reaches the records with
+   * nothing against them — a student who has already paid keeps the amount they
+   * were quoted. Staff need to see that split to trust the number.
+   */
+  const onSaveEditFee = async () => {
+    if (!editTarget) return;
+    const amount = parseFloat(editAmount);
+    if (!Number.isFinite(amount) || amount <= 0) return toast.error('Enter an amount above zero');
+    try {
+      setIsProcessing(true);
+      const { data, error } = await supabase.rpc('admin_update_fee_structure', {
+        p_id: editTarget.id,
+        p_amount: amount,
+        p_learning_modes: toModeArray(editModes),
+      });
+      if (error) { toast.error('Could not update the fee: ' + error.message); return; }
+
+      const r = (data ?? {}) as {
+        repriced?: number; kept_at_old_amount?: number;
+        students_added?: number; students_removed?: number;
+      };
+      const notes: string[] = [];
+      if (r.repriced) notes.push(`${r.repriced} record${r.repriced === 1 ? '' : 's'} re-priced`);
+      if (r.kept_at_old_amount) notes.push(`${r.kept_at_old_amount} left at the old amount (already paid or has a receipt)`);
+      if (r.students_added) notes.push(`${r.students_added} student${r.students_added === 1 ? '' : 's'} newly billed`);
+      if (r.students_removed) notes.push(`${r.students_removed} no longer billed`);
+      toast.success(notes.length > 0 ? `Fee updated — ${notes.join('; ')}` : 'Fee updated');
+
+      const { data: fees } = await supabase.from('fee_structures').select('*').order('created_at', { ascending: false });
+      if (fees) setFeeStructures(fees);
+      setEditTarget(null);
     } finally {
       setIsProcessing(false);
     }
@@ -502,6 +551,9 @@ const AdminFees = () => {
                           <TableCell><LearningModeTags modes={f.learning_modes} /></TableCell>
                           <TableCell className="text-right">₦{Number(f.amount).toLocaleString()}</TableCell>
                           <TableCell className="text-right">
+                            <Button size="sm" variant="ghost" onClick={() => openEditFee(f)} disabled={isProcessing}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
                             <Button size="sm" variant="ghost" onClick={() => setDeleteFeeId(f.id)} disabled={isProcessing}>
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
@@ -768,6 +820,48 @@ const AdminFees = () => {
             <Button variant="ghost" onClick={() => setReassignTarget(null)} disabled={isProcessing}>Cancel</Button>
             <Button onClick={confirmReassign} disabled={isProcessing || !reassignFeeId || reassignFeeId === `fee:${reassignTarget?.student_fee_id}`}>
               {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editTarget} onOpenChange={(o) => { if (!o) setEditTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit {editTarget?.fee_name}</DialogTitle>
+            <DialogDescription>
+              {cohorts.find((c) => c.id === editTarget?.cohort_id)?.name || 'This cohort'} — the name and cohort
+              are fixed, since student records are filed under the fee's name. Delete and re-add to change those.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Learning Modes</Label>
+              <LearningModeSelect value={editModes} onChange={setEditModes} disabled={isProcessing} />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Adding a mode bills the students it now covers. Removing one clears the fee from students it no
+                longer applies to, unless they have already paid or have a receipt against it.
+              </p>
+            </div>
+            <div>
+              <Label>Amount (₦)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={editAmount}
+                onChange={(e) => setEditAmount(e.target.value)}
+                disabled={isProcessing}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                A new price reaches records with nothing against them. Anyone who has already paid, part-paid or
+                submitted a receipt keeps the amount they were quoted.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditTarget(null)} disabled={isProcessing}>Cancel</Button>
+            <Button onClick={onSaveEditFee} disabled={isProcessing}>
+              {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save changes'}
             </Button>
           </DialogFooter>
         </DialogContent>
