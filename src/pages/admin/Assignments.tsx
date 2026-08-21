@@ -273,9 +273,9 @@ const AdminAssignments = () => {
 
   return (
     <div className="space-y-6 pb-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Tasks</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">Tasks</h1>
           <p className="text-sm text-muted-foreground mt-1">Create and manage tasks for cohorts</p>
         </div>
 
@@ -398,11 +398,11 @@ const AdminAssignments = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="min-w-[200px]">Title</TableHead>
-                    <TableHead className="min-w-[120px]">Category</TableHead>
-                    <TableHead className="min-w-[100px]">Max Points</TableHead>
-                    <TableHead className="min-w-[120px]">Cohort</TableHead>
-                    <TableHead className="min-w-[120px]">Due Date</TableHead>
+                    <TableHead className="min-w-[160px]">Title</TableHead>
+                    <TableHead className="hidden min-w-[120px] lg:table-cell">Category</TableHead>
+                    <TableHead className="hidden min-w-[100px] md:table-cell">Max Points</TableHead>
+                    <TableHead className="hidden min-w-[120px] lg:table-cell">Cohort</TableHead>
+                    <TableHead className="hidden min-w-[120px] sm:table-cell">Due Date</TableHead>
                     <TableHead className="min-w-[150px]">Action</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -416,11 +416,17 @@ const AdminAssignments = () => {
                           {(assignment).is_manual_record && (
                             <Badge variant="outline" className="ml-2 text-[10px] align-middle">Offline</Badge>
                           )}
+                          <span className="mt-0.5 block text-xs font-normal text-muted-foreground lg:hidden">
+                            {(assignment).category || 'Assignment'}
+                            {' · '}{cohorts.find(c => c.id === assignment.cohort_id)?.name || assignment.cohort_id}
+                            <span className="md:hidden"> · {assignment.max_points ?? 100} pts</span>
+                            <span className="sm:hidden"> · {dueDate ? dueDate.toLocaleDateString() : 'No due date'}</span>
+                          </span>
                         </TableCell>
-                        <TableCell><Badge variant="secondary" className="text-xs">{(assignment).category || 'Assignment'}</Badge></TableCell>
-                        <TableCell className="font-medium text-sm">{assignment.max_points ?? 100} pts</TableCell>
-                        <TableCell className="text-sm">{cohorts.find(c => c.id === assignment.cohort_id)?.name || assignment.cohort_id}</TableCell>
-                        <TableCell className="text-sm">{dueDate ? dueDate.toLocaleDateString() : 'No due date'}</TableCell>
+                        <TableCell className="hidden lg:table-cell"><Badge variant="secondary" className="text-xs">{(assignment).category || 'Assignment'}</Badge></TableCell>
+                        <TableCell className="hidden font-medium text-sm md:table-cell">{assignment.max_points ?? 100} pts</TableCell>
+                        <TableCell className="hidden text-sm lg:table-cell">{cohorts.find(c => c.id === assignment.cohort_id)?.name || assignment.cohort_id}</TableCell>
+                        <TableCell className="hidden text-sm sm:table-cell">{dueDate ? dueDate.toLocaleDateString() : 'No due date'}</TableCell>
                         <TableCell>
                           <div className="flex flex-col sm:flex-row gap-2">
                             <Dialog open={editingAssignmentId === assignment.id} onOpenChange={(open) => {
@@ -449,12 +455,12 @@ const AdminAssignments = () => {
                               <DialogTrigger asChild><Button variant="outline" size="sm" className="text-xs"><Eye className="h-3 w-3 mr-1" /> View</Button></DialogTrigger>
                               <DialogContent className="max-h-[90vh] w-[95vw] max-w-4xl overflow-y-auto">
                                 <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
-                                  <div className="flex items-center justify-between">
+                                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                     <div>
                                       <DialogTitle>{selectedAssignment?.title}</DialogTitle>
                                       <DialogDescription>Review student submissions</DialogDescription>
                                     </div>
-                                    <Button variant="outline" size="sm" onClick={handleExportGrades} className="flex items-center gap-2">
+                                    <Button variant="outline" size="sm" onClick={handleExportGrades} className="flex items-center gap-2 self-start">
                                       <File className="h-4 w-4" /> Export Grades
                                     </Button>
                                   </div>

@@ -462,7 +462,9 @@ const AdminFees = () => {
           <h1 className="text-2xl font-bold">Fee Management</h1>
           <p className="text-sm text-muted-foreground">Create fees and approve student payments</p>
         </div>
-        <div className="flex gap-2">
+        {/* Wraps rather than overflowing: four controls in one row is wider
+            than a phone. */}
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={handleExportFees} className="gap-2">
             <Download className="h-4 w-4" /> Export Fees
           </Button>
@@ -522,7 +524,7 @@ const AdminFees = () => {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
                 <h3 className="font-semibold text-lg">Existing Fees ({filteredStructures.length})</h3>
                 <Select value={structureFilter} onValueChange={setStructureFilter}>
-                  <SelectTrigger className="w-[200px]"><SelectValue placeholder="All Cohorts" /></SelectTrigger>
+                  <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="All Cohorts" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Cohorts</SelectItem>
                     {cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -537,8 +539,8 @@ const AdminFees = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Fee</TableHead>
-                        <TableHead>Cohort</TableHead>
-                        <TableHead>Mode</TableHead>
+                        <TableHead className="hidden md:table-cell">Cohort</TableHead>
+                        <TableHead className="hidden lg:table-cell">Mode</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -546,9 +548,19 @@ const AdminFees = () => {
                     <TableBody>
                       {filteredStructures.map((f) => (
                         <TableRow key={f.id}>
-                          <TableCell className="font-medium">{f.fee_name}</TableCell>
-                          <TableCell>{cohorts.find((c) => c.id === f.cohort_id)?.name || '—'}</TableCell>
-                          <TableCell><LearningModeTags modes={f.learning_modes} /></TableCell>
+                          <TableCell className="font-medium">
+                            {f.fee_name}
+                            {/* Cohort and mode lose their columns on a narrow
+                                screen, so they ride under the fee name. */}
+                            <span className="mt-1 block text-xs font-normal text-muted-foreground md:hidden">
+                              {cohorts.find((c) => c.id === f.cohort_id)?.name || '—'}
+                            </span>
+                            <span className="mt-1 block lg:hidden">
+                              <LearningModeTags modes={f.learning_modes} />
+                            </span>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">{cohorts.find((c) => c.id === f.cohort_id)?.name || '—'}</TableCell>
+                          <TableCell className="hidden lg:table-cell"><LearningModeTags modes={f.learning_modes} /></TableCell>
                           <TableCell className="text-right">₦{Number(f.amount).toLocaleString()}</TableCell>
                           <TableCell className="text-right">
                             <Button size="sm" variant="ghost" onClick={() => openEditFee(f)} disabled={isProcessing}>
@@ -572,13 +584,13 @@ const AdminFees = () => {
       {tab === 'approvals' && (
         <>
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle>Pending Payments</CardTitle>
                 <CardDescription>Review and verify pending student receipts</CardDescription>
               </div>
               {pendingPayments.length > 0 && (
-                <Button size="sm" onClick={verifyAllPending} disabled={isProcessing} className="gap-2">
+                <Button size="sm" onClick={verifyAllPending} disabled={isProcessing} className="gap-2 self-start">
                   <CheckCheck className="h-4 w-4" /> Verify All ({pendingPayments.length})
                 </Button>
               )}
@@ -592,9 +604,9 @@ const AdminFees = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Student</TableHead>
-                        <TableHead>Fee</TableHead>
+                        <TableHead className="hidden md:table-cell">Fee</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
-                        <TableHead>Date</TableHead>
+                        <TableHead className="hidden lg:table-cell">Date</TableHead>
                         <TableHead>Receipt</TableHead>
                         <TableHead className="text-right">Action</TableHead>
                       </TableRow>
@@ -602,14 +614,22 @@ const AdminFees = () => {
                     <TableBody>
                       {pendingPayments.map((p) => (
                         <TableRow key={p.id}>
-                          <TableCell className="font-medium">{p.student_name}</TableCell>
-                          <TableCell className="text-xs">
+                          <TableCell className="font-medium">
+                            {p.student_name}
+                            <span className="mt-0.5 block text-xs font-normal text-muted-foreground md:hidden">
+                              <button onClick={() => openReassign(p)} className="text-left hover:underline">
+                                {p.fee_name || <span className="text-destructive">Not assigned — set fee</span>}
+                              </button>
+                              <span className="lg:hidden">{p.created_at ? ` · ${new Date(p.created_at).toLocaleDateString()}` : ''}</span>
+                            </span>
+                          </TableCell>
+                          <TableCell className="hidden text-xs md:table-cell">
                             <button onClick={() => openReassign(p)} className="hover:underline text-left">
                               {p.fee_name || <span className="text-destructive">Not assigned — set fee</span>}
                             </button>
                           </TableCell>
                           <TableCell className="text-right">₦{Number(p.amount_paid).toLocaleString()}</TableCell>
-                          <TableCell>{p.created_at ? new Date(p.created_at).toLocaleDateString() : ''}</TableCell>
+                          <TableCell className="hidden lg:table-cell">{p.created_at ? new Date(p.created_at).toLocaleDateString() : ''}</TableCell>
                           <TableCell>
                             {(p.payment_proof_url || p.storage_path) ? (
                               <button onClick={() => openReceipt(p)} className="text-primary hover:underline flex items-center gap-1">
@@ -678,10 +698,10 @@ const AdminFees = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Student</TableHead>
-                        <TableHead>Cohort</TableHead>
-                        <TableHead>Fee</TableHead>
+                        <TableHead className="hidden xl:table-cell">Cohort</TableHead>
+                        <TableHead className="hidden md:table-cell">Fee</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
-                        <TableHead>Date</TableHead>
+                        <TableHead className="hidden lg:table-cell">Date</TableHead>
                         <TableHead>Receipt</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -689,15 +709,27 @@ const AdminFees = () => {
                     <TableBody>
                       {filteredApproved.map((p) => (
                         <TableRow key={p.id}>
-                          <TableCell className="font-medium">{p.student_name}</TableCell>
-                          <TableCell className="text-xs">{cohorts.find((c) => c.id === p.cohort_id)?.name || '—'}</TableCell>
-                          <TableCell className="text-xs">
+                          <TableCell className="font-medium">
+                            {p.student_name}
+                            <span className="mt-0.5 block text-xs font-normal text-muted-foreground xl:hidden">
+                              <span className="md:hidden">
+                                <button onClick={() => openReassign(p)} className="text-left hover:underline">
+                                  {p.fee_name || <span className="text-destructive">Not assigned — set fee</span>}
+                                </button>
+                                {' · '}
+                              </span>
+                              {cohorts.find((c) => c.id === p.cohort_id)?.name || '—'}
+                              <span className="lg:hidden">{(p.payment_date || p.created_at) ? ` · ${new Date(p.payment_date || p.created_at!).toLocaleDateString()}` : ''}</span>
+                            </span>
+                          </TableCell>
+                          <TableCell className="hidden text-xs xl:table-cell">{cohorts.find((c) => c.id === p.cohort_id)?.name || '—'}</TableCell>
+                          <TableCell className="hidden text-xs md:table-cell">
                             <button onClick={() => openReassign(p)} className="hover:underline text-left">
                               {p.fee_name || <span className="text-destructive">Not assigned — set fee</span>}
                             </button>
                           </TableCell>
                           <TableCell className="text-right">₦{Number(p.amount_paid).toLocaleString()}</TableCell>
-                          <TableCell>{(p.payment_date || p.created_at) ? new Date(p.payment_date || p.created_at!).toLocaleDateString() : ''}</TableCell>
+                          <TableCell className="hidden lg:table-cell">{(p.payment_date || p.created_at) ? new Date(p.payment_date || p.created_at!).toLocaleDateString() : ''}</TableCell>
                           <TableCell>
                             {(p.payment_proof_url || p.storage_path) ? (
                               <button onClick={() => openReceipt(p)} className="text-primary hover:underline flex items-center gap-1">

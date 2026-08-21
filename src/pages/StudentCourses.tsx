@@ -94,7 +94,7 @@ const StudentCourses = () => {
 
   return (
     <>
-      <div className="space-y-6 pb-20 md:pb-0">
+      <div className="space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">My Courses</h1>
@@ -114,7 +114,7 @@ const StudentCourses = () => {
               <span className="text-sm font-bold text-primary">{progressPercent}%</span>
             </div>
             <Progress value={progressPercent} className="h-2.5 mb-3" />
-            <div className="flex items-center gap-6 text-sm">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm sm:gap-x-6">
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                 <span className="text-muted-foreground">{completed.length} Completed</span>

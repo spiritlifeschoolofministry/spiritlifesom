@@ -239,7 +239,7 @@ const CertificateManager = () => {
                 <TableRow>
                   <TableHead>Cohort</TableHead>
                   <TableHead>Graduation Date</TableHead>
-                  <TableHead>Text Elements</TableHead>
+                  <TableHead className="hidden lg:table-cell">Text Elements</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -259,7 +259,7 @@ const CertificateManager = () => {
                         cohort.graduation_date || 'Not set'
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       {editingCohortId === cohort.id ? (
                         <div className="space-y-2 py-1">
                           <Input 
@@ -276,7 +276,7 @@ const CertificateManager = () => {
                           />
                         </div>
                       ) : (
-                        <div className="max-w-[300px]">
+                        <div className="max-w-full lg:max-w-[300px]">
                           <p className="text-xs truncate">{cohort.certificate_text_main || 'Default main text'}</p>
                           {cohort.certificate_text_sub && (
                             <p className="text-[10px] text-muted-foreground truncate">{cohort.certificate_text_sub}</p>
@@ -317,7 +317,7 @@ const CertificateManager = () => {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <UserCheck className="h-5 w-5" /> Name Verification
@@ -326,7 +326,7 @@ const CertificateManager = () => {
                 Review and approve student requests to change their names on certificates.
               </CardDescription>
             </div>
-            <div className="relative w-64">
+            <div className="relative w-full sm:w-64">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 
                 placeholder="Search students..." 
@@ -343,7 +343,7 @@ const CertificateManager = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Student</TableHead>
-                  <TableHead>Current Name</TableHead>
+                  <TableHead className="hidden md:table-cell">Current Name</TableHead>
                   <TableHead>Requested Name</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -360,9 +360,12 @@ const CertificateManager = () => {
                     <TableRow key={change.id}>
                       <TableCell>
                         <div className="font-medium">{change.profile?.first_name} {change.profile?.last_name}</div>
-                        <div className="text-xs text-muted-foreground">{change.profile?.email}</div>
+                        <div className="break-anywhere text-xs text-muted-foreground">{change.profile?.email}</div>
+                        <div className="text-xs italic text-muted-foreground md:hidden">
+                          Now: {change.name_on_certificate || 'Not set'}
+                        </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground italic">
+                      <TableCell className="hidden text-muted-foreground italic md:table-cell">
                         {change.name_on_certificate || 'Not set'}
                       </TableCell>
                       <TableCell>
@@ -370,7 +373,8 @@ const CertificateManager = () => {
                           {change.pending_name_change}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right space-x-2">
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button 
@@ -418,6 +422,7 @@ const CertificateManager = () => {
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

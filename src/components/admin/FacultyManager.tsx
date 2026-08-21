@@ -212,7 +212,7 @@ const FacultyManager = () => {
               <Label>Photo URL (or upload above)</Label>
               <Input value={form.photo_url || ""} onChange={(e) => setForm({ ...form, photo_url: e.target.value })} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <Label>Display Order</Label>
                 <Input

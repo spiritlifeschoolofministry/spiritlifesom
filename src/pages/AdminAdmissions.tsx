@@ -613,10 +613,10 @@ const AdminAdmissions = () => {
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Filter className="w-3.5 h-3.5" /> Filters:
           </div>
-          <div className="space-y-1">
+          <div className="min-w-[8.5rem] flex-1 space-y-1 sm:flex-none">
             <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">Mode</label>
             <Select value={filterMode} onValueChange={setFilterMode}>
-              <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-full text-xs sm:w-[130px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All modes</SelectItem>
                 <SelectItem value="physical">Physical</SelectItem>
@@ -625,10 +625,10 @@ const AdminAdmissions = () => {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1">
+          <div className="min-w-[8.5rem] flex-1 space-y-1 sm:flex-none">
             <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">Cohort</label>
             <Select value={filterCohort} onValueChange={setFilterCohort}>
-              <SelectTrigger className="h-8 w-[160px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-full text-xs sm:w-[160px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All cohorts</SelectItem>
                 {cohorts.map((c) => (
@@ -637,10 +637,10 @@ const AdminAdmissions = () => {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1">
+          <div className="min-w-[8.5rem] flex-1 space-y-1 sm:flex-none">
             <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">Language</label>
             <Select value={filterLanguage} onValueChange={setFilterLanguage}>
-              <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-full text-xs sm:w-[150px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All languages</SelectItem>
                 {languageOptions.map((lang) => (
@@ -652,13 +652,13 @@ const AdminAdmissions = () => {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1">
+          <div className="min-w-[8.5rem] flex-1 space-y-1 sm:flex-none">
             <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">From</label>
-            <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} className="h-8 w-[140px] text-xs" />
+            <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} className="h-8 w-full text-xs sm:w-[140px]" />
           </div>
-          <div className="space-y-1">
+          <div className="min-w-[8.5rem] flex-1 space-y-1 sm:flex-none">
             <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">To</label>
-            <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} className="h-8 w-[140px] text-xs" />
+            <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} className="h-8 w-full text-xs sm:w-[140px]" />
           </div>
           {activeFilterCount > 0 && (
             <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs gap-1">
@@ -736,7 +736,7 @@ const AdminAdmissions = () => {
         </Card>
       )}
       <Card className="shadow-[var(--shadow-card)] border-border">
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-3">
           <CardTitle className="text-base">Pending Applications ({filteredApplications.length})</CardTitle>
           {filteredApplications.length > 0 && (
             <div className="flex items-center gap-2">

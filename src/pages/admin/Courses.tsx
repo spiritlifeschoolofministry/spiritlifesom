@@ -216,13 +216,13 @@ const AdminCourses = () => {
           </h1>
           <p className="text-muted-foreground text-sm mt-1">{courses.length} course{courses.length !== 1 ? "s" : ""} total</p>
         </div>
-        <div className="flex items-center flex-wrap gap-3">
-          <div className="relative">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative w-full sm:w-auto">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Search courses…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-48 sm:w-56" />
+            <Input placeholder="Search courses…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 w-full sm:w-56" />
           </div>
           <Select value={cohortFilter} onValueChange={setCohortFilter}>
-            <SelectTrigger className="w-[160px]"><SelectValue placeholder="All Cohorts" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[160px]"><SelectValue placeholder="All Cohorts" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Cohorts</SelectItem>
               {cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -239,7 +239,7 @@ const AdminCourses = () => {
                 <DialogTitle>{editingCourse ? "Edit Course" : "New Course"}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Course Code *</Label>
                     <Input value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} placeholder="SLSM101" />
@@ -255,7 +255,7 @@ const AdminCourses = () => {
                   <Label>Description</Label>
                   <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Brief description" rows={3} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Lecturer</Label>
                     <Input value={form.lecturer} onChange={e => setForm(f => ({ ...f, lecturer: e.target.value }))} placeholder="Lecturer name" />
@@ -265,7 +265,7 @@ const AdminCourses = () => {
                     <Input type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Cohort</Label>
                     <Select value={form.cohort_id} onValueChange={v => setForm(f => ({ ...f, cohort_id: v }))}>

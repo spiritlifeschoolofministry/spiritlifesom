@@ -355,10 +355,10 @@ export const ManualPaymentPanel = ({
                         <TableRow>
                           <TableHead className="w-10"></TableHead>
                           <TableHead>Fee</TableHead>
-                          <TableHead className="text-right">Due</TableHead>
-                          <TableHead className="text-right">Paid</TableHead>
+                          <TableHead className="hidden text-right md:table-cell">Due</TableHead>
+                          <TableHead className="hidden text-right md:table-cell">Paid</TableHead>
                           <TableHead className="text-right">Outstanding</TableHead>
-                          <TableHead>Status</TableHead>
+                          <TableHead className="hidden sm:table-cell">Status</TableHead>
                           <TableHead className="text-right">Action</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -376,11 +376,17 @@ export const ManualPaymentPanel = ({
                                   aria-label={`Select ${f.fee_type}`}
                                 />
                               </TableCell>
-                              <TableCell className="font-medium">{f.fee_type}</TableCell>
-                              <TableCell className="text-right">{naira(f.amount_due)}</TableCell>
-                              <TableCell className="text-right">{naira(f.amount_paid)}</TableCell>
+                              <TableCell className="font-medium">
+                                {f.fee_type}
+                                <span className="mt-0.5 block text-xs font-normal text-muted-foreground md:hidden">
+                                  <span className="sm:hidden">{status} · </span>
+                                  {naira(f.amount_paid)} of {naira(f.amount_due)} paid
+                                </span>
+                              </TableCell>
+                              <TableCell className="hidden text-right md:table-cell">{naira(f.amount_due)}</TableCell>
+                              <TableCell className="hidden text-right md:table-cell">{naira(f.amount_paid)}</TableCell>
                               <TableCell className="text-right">{naira(outstandingOf(f))}</TableCell>
-                              <TableCell>
+                              <TableCell className="hidden sm:table-cell">
                                 <Badge variant="outline" className={statusClass(status)}>{status}</Badge>
                               </TableCell>
                               <TableCell className="text-right">
@@ -431,20 +437,25 @@ export const ManualPaymentPanel = ({
                           <TableRow>
                             <TableHead>Fee</TableHead>
                             <TableHead className="text-right">Amount</TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Note</TableHead>
+                            <TableHead className="hidden sm:table-cell">Date</TableHead>
+                            <TableHead className="hidden md:table-cell">Note</TableHead>
                             <TableHead className="text-right">Action</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {manualEntries.map((p) => (
                             <TableRow key={p.id}>
-                              <TableCell className="font-medium">{feeNameById(p.student_fee_id)}</TableCell>
+                              <TableCell className="font-medium">
+                                {feeNameById(p.student_fee_id)}
+                                <span className="mt-0.5 block text-xs font-normal text-muted-foreground sm:hidden">
+                                  {p.payment_date ? new Date(p.payment_date).toLocaleDateString() : ''}
+                                </span>
+                              </TableCell>
                               <TableCell className="text-right">{naira(p.amount_paid)}</TableCell>
-                              <TableCell>
+                              <TableCell className="hidden sm:table-cell">
                                 {p.payment_date ? new Date(p.payment_date).toLocaleDateString() : ''}
                               </TableCell>
-                              <TableCell className="text-xs max-w-[24rem] truncate" title={p.admin_notes || ''}>
+                              <TableCell className="hidden text-xs max-w-[24rem] truncate md:table-cell" title={p.admin_notes || ''}>
                                 {p.admin_notes}
                               </TableCell>
                               <TableCell className="text-right">

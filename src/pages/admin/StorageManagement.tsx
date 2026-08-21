@@ -457,7 +457,7 @@ export default function StorageManagement() {
             Track and migrate files between Supabase Storage and Cloudflare R2
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={runFullScan} disabled={loading || auditing || migrating || cleaning}>
             {auditing ? (
               <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
@@ -691,10 +691,10 @@ export default function StorageManagement() {
                       placeholder="Filter by name or bucket…"
                       value={fileSearch}
                       onChange={(e) => setFileSearch(e.target.value)}
-                      className="sm:max-w-xs"
+                      className="w-full sm:max-w-xs"
                     />
                     <Select value={storeFilter} onValueChange={(v) => setStoreFilter(v as 'all' | StoreId)}>
-                      <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="w-full sm:w-[170px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Both stores</SelectItem>
                         <SelectItem value="r2">Cloudflare R2</SelectItem>
@@ -705,7 +705,7 @@ export default function StorageManagement() {
                       value={statusFilter}
                       onValueChange={(v) => setStatusFilter(v as 'all' | 'used' | 'unused')}
                     >
-                      <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="w-full sm:w-[150px]"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Any status</SelectItem>
                         <SelectItem value="used">In use</SelectItem>
@@ -757,7 +757,10 @@ export default function StorageManagement() {
                             <TableHead className="cursor-pointer select-none" onClick={() => sortBy('name')}>
                               File{sortArrow('name')}
                             </TableHead>
-                            <TableHead className="cursor-pointer select-none" onClick={() => sortBy('store')}>
+                            <TableHead
+                              className="hidden cursor-pointer select-none md:table-cell"
+                              onClick={() => sortBy('store')}
+                            >
                               Where{sortArrow('store')}
                             </TableHead>
                             <TableHead>Status</TableHead>
@@ -791,7 +794,7 @@ export default function StorageManagement() {
                                     />
                                   )}
                                 </TableCell>
-                                <TableCell className="max-w-[280px]">
+                                <TableCell className="max-w-[160px] sm:max-w-[280px]">
                                   <button
                                     type="button"
                                     onClick={() => openFile(f)}
@@ -801,7 +804,7 @@ export default function StorageManagement() {
                                     {f.key}
                                   </button>
                                 </TableCell>
-                                <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                <TableCell className="hidden whitespace-nowrap text-xs text-muted-foreground md:table-cell">
                                   {STORE_LABELS[f.store]}
                                   <span className="block text-[10px] truncate max-w-[140px]">{f.bucket}</span>
                                 </TableCell>

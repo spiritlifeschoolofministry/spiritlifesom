@@ -112,8 +112,8 @@ const AdminMaterials = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Title</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHead className="hidden md:table-cell">Type</TableHead>
+                    <TableHead className="hidden sm:table-cell">Created</TableHead>
                     <TableHead>Link</TableHead>
                     <TableHead className="text-right">Pin</TableHead>
                   </TableRow>
@@ -121,21 +121,29 @@ const AdminMaterials = () => {
                 <TableBody>
                   {materials.map((m) => (
                     <TableRow key={m.id}>
-                      <TableCell className="font-medium flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-primary" />
-                        {m.title}
-                        {m.is_pinned && (
-                          <Badge className="ml-1 text-xs bg-amber-100 text-amber-800">
-                            Featured
-                          </Badge>
-                        )}
+                      <TableCell className="font-medium">
+                        <span className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 shrink-0 text-primary" />
+                          {m.title}
+                          {m.is_pinned && (
+                            <Badge className="ml-1 text-xs bg-amber-100 text-amber-800">
+                              Featured
+                            </Badge>
+                          )}
+                        </span>
+                        <span className="mt-0.5 block text-xs font-normal text-muted-foreground md:hidden">
+                          {m.material_type || "General"}
+                          <span className="sm:hidden">
+                            {m.created_at ? ` · ${new Date(m.created_at).toLocaleDateString()}` : ""}
+                          </span>
+                        </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <span className="text-xs text-muted-foreground">
                           {m.material_type || "General"}
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         {m.created_at
                           ? new Date(m.created_at).toLocaleDateString()
                           : "—"}

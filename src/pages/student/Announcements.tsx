@@ -89,7 +89,7 @@ const StudentAnnouncements = () => {
   if (error) {
     return (
       <>
-        <div className="space-y-6 pb-20 md:pb-0">
+        <div className="space-y-6">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
               <Megaphone className="w-7 h-7" /> Notice Board
@@ -115,7 +115,7 @@ const StudentAnnouncements = () => {
 
   return (
     <>
-      <div className="space-y-6 pb-20 md:pb-0">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>

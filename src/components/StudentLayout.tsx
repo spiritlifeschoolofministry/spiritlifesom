@@ -281,7 +281,7 @@ const StudentLayout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="flex min-h-screen supports-[min-height:100dvh]:min-h-[100dvh] flex-col bg-background">
       <a
         href="#student-main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:text-primary-foreground"
@@ -294,10 +294,10 @@ const StudentLayout = () => {
         noindex 
       />
       {/* Top Nav */}
-      <header className="h-14 border-b border-border bg-card flex items-center justify-between px-4 shrink-0 z-30">
-        <div className="flex items-center gap-3">
+      <header className="h-14 border-b border-border bg-card flex items-center justify-between gap-2 px-3 sm:px-4 shrink-0 z-30">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <button
-            className="md:hidden text-foreground"
+            className="md:hidden -ml-1 p-1 text-foreground"
             onClick={() => setSidebarOpen(!sidebarOpen)}
             aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
             aria-expanded={sidebarOpen}
@@ -305,13 +305,15 @@ const StudentLayout = () => {
           >
             {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
-          <Link to="/student/dashboard" className="flex items-center gap-2 text-primary font-bold text-lg tracking-tight hidden sm:flex">
+          <Link to="/student/dashboard" className="flex items-center gap-2 text-primary font-bold text-lg tracking-tight">
+            {/* The mark alone on a phone, where the wordmark and the page
+                title would fight for the same row. */}
             <img src="/images/school-logo.png" alt="" className="h-8 w-8 object-contain" />
-            SLSM
+            <span className="hidden sm:inline">SLSM</span>
           </Link>
         </div>
-        <h1 className="text-sm font-semibold text-foreground tracking-wide">Student Portal</h1>
-        <div className="flex items-center gap-3">
+        <h1 className="hidden min-w-0 flex-1 truncate text-center text-sm font-semibold text-foreground tracking-wide sm:block">Student Portal</h1>
+        <div className="flex items-center gap-1 sm:gap-3 shrink-0">
           <CommandPaletteTrigger onClick={() => palette.setOpen(true)} />
           {/* Admin Portal Switch */}
           {isAdmin && (
@@ -424,7 +426,7 @@ const StudentLayout = () => {
         )}
 
         {/* Main content */}
-        <main id="student-main" className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-20 md:pb-6">
+        <main id="student-main" className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-nav">
           {/* Boundary lives inside the shell so a lazy page load only replaces
               the content area — the header and sidebar stay put. */}
           <Suspense
@@ -440,7 +442,7 @@ const StudentLayout = () => {
       </div>
 
       {/* Mobile bottom nav with sheet for all items */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border flex justify-around py-2 z-30" aria-label="Primary">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border flex justify-around pt-2 pb-safe z-30" aria-label="Primary">
         {mobilePrimary.map((item) => renderNavItem(item, { mobile: true }))}
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetTrigger asChild>

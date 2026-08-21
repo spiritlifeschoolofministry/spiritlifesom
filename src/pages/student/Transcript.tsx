@@ -182,7 +182,7 @@ const StudentTranscript = () => {
 
   return (
     <>
-      <div className="space-y-6 pb-20 md:pb-0" ref={printRef}>
+      <div className="space-y-6" ref={printRef}>
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
@@ -307,7 +307,7 @@ const StudentTranscript = () => {
                       <TableHeader>
                         <TableRow>
                           <TableHead className="text-xs">Assessment</TableHead>
-                          <TableHead className="text-xs">Category</TableHead>
+                          <TableHead className="hidden text-xs sm:table-cell">Category</TableHead>
                           <TableHead className="text-xs">Score</TableHead>
                           <TableHead className="text-xs">Grade</TableHead>
                         </TableRow>
@@ -318,8 +318,15 @@ const StudentTranscript = () => {
                           const lg = pct != null ? getLetterGrade(pct) : null;
                           return (
                             <TableRow key={a.id}>
-                              <TableCell className="text-sm">{a.title}</TableCell>
-                              <TableCell><Badge variant="outline" className="text-[10px]">{a.category}</Badge></TableCell>
+                              <TableCell className="text-sm">
+                                {a.title}
+                                {/* On a phone the category rides under the title
+                                    rather than taking a column of its own. */}
+                                <span className="mt-0.5 block text-[10px] uppercase tracking-wide text-muted-foreground sm:hidden">
+                                  {a.category}
+                                </span>
+                              </TableCell>
+                              <TableCell className="hidden sm:table-cell"><Badge variant="outline" className="text-[10px]">{a.category}</Badge></TableCell>
                               <TableCell className="text-sm">
                                 {a.grade != null ? <span className="font-medium">{a.grade}/{a.max_points}</span> : <span className="text-muted-foreground">—</span>}
                               </TableCell>

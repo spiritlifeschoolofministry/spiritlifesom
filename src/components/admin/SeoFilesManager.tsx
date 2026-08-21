@@ -293,7 +293,7 @@ const SeoFilesManager = () => {
 
       <CardContent>
         <Tabs value={active} onValueChange={setActive} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 h-auto mb-6">
+          <TabsList className="mb-6 h-auto w-full lg:grid lg:grid-cols-5">
             {files.map((f) => (
               <TabsTrigger key={f.slug} value={f.slug} className="gap-2 text-xs sm:text-sm">
                 {f.label}

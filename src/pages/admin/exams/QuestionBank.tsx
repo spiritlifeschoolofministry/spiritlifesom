@@ -275,7 +275,7 @@ export default function QuestionBank() {
           <DialogHeader><DialogTitle>{editing?.id ? "Edit" : "New"} Question</DialogTitle></DialogHeader>
           {editing && (
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <Label>Course</Label>
                   <Select value={editing.course_id} onValueChange={(v) => setEditing({ ...editing, course_id: v })}>
@@ -312,7 +312,7 @@ export default function QuestionBank() {
                 </Suspense>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <Label>Image URL (optional)</Label>
                   <Input value={editing.image_url ?? ""} onChange={(e) => setEditing({ ...editing, image_url: e.target.value })} />

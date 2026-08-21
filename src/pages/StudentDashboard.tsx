@@ -446,7 +446,7 @@ const StudentDashboard = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="space-y-6 pb-20 md:pb-0">
+      <div className="space-y-6">
         {/* Welcome Banner */}
         <Reveal>
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/70 p-6 sm:p-8 text-primary-foreground">

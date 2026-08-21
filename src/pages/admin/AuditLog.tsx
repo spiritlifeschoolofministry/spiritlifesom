@@ -166,7 +166,7 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
       {standalone && (
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
+            <h1 className="mb-2 flex items-center gap-2 text-2xl font-bold sm:text-3xl">
               <ShieldCheck className="h-7 w-7 text-primary" /> Audit Log
             </h1>
             <p className="text-muted-foreground">
@@ -225,7 +225,7 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
             </Select>
           </div>
 
-          <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col flex-wrap gap-3 sm:flex-row sm:items-end">
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-muted-foreground">From</label>
               <Popover>
@@ -233,7 +233,7 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
                   <Button
                     variant="outline"
                     className={cn(
-                      "w-[180px] justify-start text-left font-normal",
+                      "w-full justify-start text-left font-normal sm:w-[180px]",
                       !fromDate && "text-muted-foreground"
                     )}
                   >
@@ -261,7 +261,7 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
                   <Button
                     variant="outline"
                     className={cn(
-                      "w-[180px] justify-start text-left font-normal",
+                      "w-full justify-start text-left font-normal sm:w-[180px]",
                       !toDate && "text-muted-foreground"
                     )}
                   >
@@ -305,16 +305,16 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>When</TableHead>
+                    <TableHead className="hidden sm:table-cell">When</TableHead>
                     <TableHead>Action</TableHead>
                     <TableHead>Summary</TableHead>
-                    <TableHead>Admin</TableHead>
+                    <TableHead className="hidden lg:table-cell">Admin</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map((r) => (
                     <TableRow key={r.id}>
-                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                      <TableCell className="hidden whitespace-nowrap text-xs text-muted-foreground sm:table-cell">
                         {new Date(r.created_at).toLocaleString()}
                       </TableCell>
                       <TableCell>
@@ -324,6 +324,12 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
                       </TableCell>
                       <TableCell className="max-w-md">
                         <p className="text-sm">{r.summary || "—"}</p>
+                        {/* Who did it and when only get their own columns on
+                            wider screens. */}
+                        <p className="mt-1 text-[10px] text-muted-foreground lg:hidden">
+                          <span className="sm:hidden">{new Date(r.created_at).toLocaleString()} · </span>
+                          {r.actor_email || "System"}{r.actor_role ? ` (${r.actor_role})` : ""}
+                        </p>
                         {r.entity_id && (
                           <p className="text-[10px] text-muted-foreground font-mono mt-1">
                             {r.entity_type === 'student' && studentNames[r.entity_id] ? (
@@ -336,7 +342,7 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
                           </p>
                         )}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <div className="text-xs">
                           <p className="font-medium">{r.actor_email || "System"}</p>
                           {r.actor_role && (

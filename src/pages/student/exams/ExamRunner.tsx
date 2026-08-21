@@ -488,7 +488,7 @@ export default function ExamRunner() {
       )}
 
       <main className="max-w-4xl mx-auto px-4 py-6">
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <Badge variant="outline" className="mb-3">Question {idx + 1} of {questions.length} · {current.points} pt</Badge>
           <QuestionRenderer
             question={current}

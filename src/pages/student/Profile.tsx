@@ -564,7 +564,7 @@ const StudentProfile = () => {
 
   return (
     <>
-      <div className="space-y-6 pb-20 md:pb-0">
+      <div className="space-y-6">
         {/* Profile Header */}
         <div className="flex flex-col gap-4 sm:gap-6">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">

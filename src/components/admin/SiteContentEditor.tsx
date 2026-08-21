@@ -128,7 +128,7 @@ const SiteContentEditor = () => {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <CardTitle className="text-lg">Site Content Manager</CardTitle>
           <p className="text-sm text-muted-foreground mt-1">Edit text displayed on public pages (Home, About, Courses, Faculty, Contact)</p>
@@ -147,7 +147,7 @@ const SiteContentEditor = () => {
       </CardHeader>
       <CardContent>
         <Tabs value={activePage} onValueChange={setActivePage}>
-          <TabsList className="mb-4 flex-wrap h-auto">
+          <TabsList className="mb-4 w-full">
             {PAGES.map(p => (
               <TabsTrigger key={p} value={p} className="capitalize">{p}</TabsTrigger>
             ))}

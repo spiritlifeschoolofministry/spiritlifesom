@@ -242,9 +242,9 @@ const AdminMaterials = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Course Materials</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">Course Materials</h1>
           <p className="text-sm text-muted-foreground mt-1">Upload and manage course materials for cohorts</p>
         </div>
 
@@ -401,9 +401,9 @@ const AdminMaterials = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Title</TableHead>
-                    <TableHead>Cohort</TableHead>
-                    <TableHead>Mode</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead className="hidden md:table-cell">Cohort</TableHead>
+                    <TableHead className="hidden lg:table-cell">Mode</TableHead>
+                    <TableHead className="hidden lg:table-cell">Date</TableHead>
                     <TableHead>File</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -411,12 +411,19 @@ const AdminMaterials = () => {
                 <TableBody>
                   {filtered.map((m) => (
                     <TableRow key={m.id}>
-                      <TableCell className="font-medium">{m.title}</TableCell>
-                      <TableCell>{cohorts.find(c => c.id === m.cohort_id)?.name || '—'}</TableCell>
-                      <TableCell>
+                      <TableCell className="font-medium">
+                        {m.title}
+                        {/* What the hidden columns held, folded under the title. */}
+                        <span className="mt-0.5 block text-xs font-normal text-muted-foreground lg:hidden">
+                          <span className="md:hidden">{cohorts.find(c => c.id === m.cohort_id)?.name || '—'} · </span>
+                          {m.created_at ? new Date(m.created_at).toLocaleDateString() : '—'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">{cohorts.find(c => c.id === m.cohort_id)?.name || '—'}</TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <LearningModeTags modes={m.learning_modes} />
                       </TableCell>
-                      <TableCell>{m.created_at ? new Date(m.created_at).toLocaleDateString() : '—'}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{m.created_at ? new Date(m.created_at).toLocaleDateString() : '—'}</TableCell>
                       <TableCell>
                         {m.file_url ? (
                           <button onClick={() => handleDownload(m)} className="flex items-center gap-1 text-primary hover:underline text-sm">

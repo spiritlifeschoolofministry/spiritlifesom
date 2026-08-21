@@ -626,7 +626,7 @@ const AdminStudentProfile = () => {
               )}
               <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
                 {p?.email && (
-                  <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> {p.email}</span>
+                  <span className="flex min-w-0 items-center gap-1.5 break-anywhere"><Mail className="w-3.5 h-3.5 shrink-0" /> {p.email}</span>
                 )}
                 {p?.phone && (
                   <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> {p.phone}</span>

@@ -338,7 +338,7 @@ const AdminSettings = () => {
       </div>
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 lg:w-max mb-6">
+        <TabsList className="mb-6 w-full lg:grid lg:w-max lg:grid-cols-6">
           <TabsTrigger value="general" className="gap-2">
             <Settings className="w-4 h-4" /> General
           </TabsTrigger>
@@ -392,9 +392,9 @@ const AdminSettings = () => {
       {/* Storage browser & file deletion */}
       <StorageBrowserCard />
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-lg">Cohort Management</CardTitle>
-          <Button size="sm" onClick={() => setShowCreateCohortDialog(true)} className="gap-2">
+          <Button size="sm" onClick={() => setShowCreateCohortDialog(true)} className="gap-2 self-start">
             <Plus className="h-4 w-4" /> New Cohort
           </Button>
         </CardHeader>
@@ -404,8 +404,8 @@ const AdminSettings = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Start Date</TableHead>
-                  <TableHead>End Date</TableHead>
+                  <TableHead className="hidden sm:table-cell">Start Date</TableHead>
+                  <TableHead className="hidden md:table-cell">End Date</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -418,9 +418,16 @@ const AdminSettings = () => {
                 ) : (
                   cohorts.map((cohort) => (
                     <TableRow key={cohort.id}>
-                      <TableCell className="font-medium">{cohort.name}</TableCell>
-                      <TableCell>{new Date(cohort.start_date).toLocaleDateString()}</TableCell>
-                      <TableCell>{new Date(cohort.end_date).toLocaleDateString()}</TableCell>
+                      <TableCell className="font-medium">
+                        {cohort.name}
+                        {/* The dates lose their columns on a phone, so the run
+                            of the cohort goes under its name. */}
+                        <span className="mt-0.5 block text-xs font-normal text-muted-foreground md:hidden">
+                          {new Date(cohort.start_date).toLocaleDateString()} – {new Date(cohort.end_date).toLocaleDateString()}
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">{new Date(cohort.start_date).toLocaleDateString()}</TableCell>
+                      <TableCell className="hidden md:table-cell">{new Date(cohort.end_date).toLocaleDateString()}</TableCell>
                       <TableCell>
                         {cohort.is_active ? (
                           <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Active</Badge>
@@ -428,7 +435,8 @@ const AdminSettings = () => {
                           <Badge variant="secondary">Inactive</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-right space-x-2">
+                      <TableCell className="text-right">
+                        <div className="flex flex-col items-end gap-2 sm:flex-row sm:justify-end">
                         {!cohort.is_active && (
                           <Button
                             variant="outline"
@@ -452,6 +460,7 @@ const AdminSettings = () => {
                           {deletingCohortId === cohort.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                           Delete
                         </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -543,8 +552,8 @@ const AdminSettings = () => {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Promoted At</TableHead>
+                    <TableHead className="hidden sm:table-cell">Role</TableHead>
+                    <TableHead className="hidden md:table-cell">Promoted At</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -555,10 +564,13 @@ const AdminSettings = () => {
                   ) : (
                     adminUsers?.map((user) => (
                       <TableRow key={user.id}>
-                        <TableCell className="font-medium">{user.first_name} {user.last_name}</TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell><Badge>{user.role}</Badge></TableCell>
-                        <TableCell>{user.promoted_at ? new Date(user.promoted_at).toLocaleDateString() : 'System'}</TableCell>
+                        <TableCell className="font-medium">
+                          {user.first_name} {user.last_name}
+                          <span className="mt-0.5 block text-xs font-normal text-muted-foreground sm:hidden">{user.role}</span>
+                        </TableCell>
+                        <TableCell className="break-anywhere">{user.email}</TableCell>
+                        <TableCell className="hidden sm:table-cell"><Badge>{user.role}</Badge></TableCell>
+                        <TableCell className="hidden md:table-cell">{user.promoted_at ? new Date(user.promoted_at).toLocaleDateString() : 'System'}</TableCell>
                       </TableRow>
                     ))
                   )}
@@ -568,9 +580,9 @@ const AdminSettings = () => {
           </div>
 
           <div className="pt-6 border-t">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="font-semibold text-base">Promote Student to Staff</h3>
-              <Button onClick={() => setShowPromoteDialog(true)} variant="outline" size="sm">Promote User</Button>
+              <Button onClick={() => setShowPromoteDialog(true)} variant="outline" size="sm" className="self-start">Promote User</Button>
             </div>
             <p className="text-sm text-muted-foreground">Select a student to promote them to administrator or teacher role.</p>
             <div className="mt-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded p-3">

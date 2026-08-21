@@ -120,7 +120,7 @@ const AdminAnnouncements = () => {
               <label className="text-sm font-medium">Body *</label>
               <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Announcement content" required rows={4} />
             </div>
-            <div className="flex items-end gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4">
               <div className="flex-1">
                 <label className="text-sm font-medium">Target Audience</label>
                 <select value={targetCohortId} onChange={(e) => setTargetCohortId(e.target.value)} className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
@@ -128,7 +128,7 @@ const AdminAnnouncements = () => {
                   {cohorts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
-              <Button type="submit" disabled={submitting}>
+              <Button type="submit" disabled={submitting} className="self-start">
                 {submitting ? 'Posting...' : 'Post Announcement'}
               </Button>
             </div>
@@ -147,19 +147,26 @@ const AdminAnnouncements = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Title</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Audience</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead className="hidden sm:table-cell">Category</TableHead>
+                    <TableHead className="hidden lg:table-cell">Audience</TableHead>
+                    <TableHead className="hidden md:table-cell">Date</TableHead>
                     <TableHead>Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {announcements.map((a) => (
                     <TableRow key={a.id}>
-                      <TableCell className="font-medium">{a.title}</TableCell>
-                      <TableCell><Badge variant="secondary">{a.category || 'GENERAL'}</Badge></TableCell>
-                      <TableCell>{a.target_cohort_id ? 'Cohort' : 'All Students'}</TableCell>
-                      <TableCell>{a.created_at ? new Date(a.created_at).toLocaleString() : ''}</TableCell>
+                      <TableCell className="font-medium">
+                        {a.title}
+                        <span className="mt-0.5 block text-xs font-normal text-muted-foreground lg:hidden">
+                          <span className="sm:hidden">{a.category || 'GENERAL'} · </span>
+                          {a.target_cohort_id ? 'Cohort' : 'All Students'}
+                          <span className="md:hidden">{a.created_at ? ` · ${new Date(a.created_at).toLocaleDateString()}` : ''}</span>
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell"><Badge variant="secondary">{a.category || 'GENERAL'}</Badge></TableCell>
+                      <TableCell className="hidden lg:table-cell">{a.target_cohort_id ? 'Cohort' : 'All Students'}</TableCell>
+                      <TableCell className="hidden md:table-cell">{a.created_at ? new Date(a.created_at).toLocaleString() : ''}</TableCell>
                       <TableCell>
                         <Button variant="destructive" size="sm" onClick={() => handleDelete(a.id)}>
                           <Trash2 className="h-4 w-4" />

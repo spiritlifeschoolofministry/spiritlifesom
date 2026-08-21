@@ -203,7 +203,7 @@ const StudentGrades = () => {
 
   return (
     <>
-      <div className="space-y-6 pb-20 md:pb-0">
+      <div className="space-y-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Assessments</h1>
           <p className="text-muted-foreground text-sm mt-1">
@@ -304,8 +304,8 @@ const StudentGrades = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Title</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Course</TableHead>
+                      <TableHead className="hidden sm:table-cell">Category</TableHead>
+                      <TableHead className="hidden md:table-cell">Course</TableHead>
                       <TableHead>Score</TableHead>
                       <TableHead>Grade</TableHead>
                     </TableRow>
@@ -316,9 +316,18 @@ const StudentGrades = () => {
                       const lg = pct != null ? getLetterGrade(pct) : null;
                       return (
                         <TableRow key={item.id}>
-                          <TableCell className="font-medium">{item.title}</TableCell>
-                          <TableCell><Badge variant="secondary" className="text-xs">{item.category}</Badge></TableCell>
-                          <TableCell className="text-muted-foreground text-sm">{item.course_title}</TableCell>
+                          <TableCell className="font-medium">
+                            {item.title}
+                            {/* Category and course get their own columns from sm/md up;
+                                on a phone they ride under the title instead of
+                                pushing the score off the screen. */}
+                            <span className="mt-0.5 block text-xs font-normal text-muted-foreground md:hidden">
+                              <span className="sm:hidden">{item.category} · </span>
+                              {item.course_title}
+                            </span>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell"><Badge variant="secondary" className="text-xs">{item.category}</Badge></TableCell>
+                          <TableCell className="hidden md:table-cell text-muted-foreground text-sm">{item.course_title}</TableCell>
                           <TableCell>
                             {item.grade != null ? (
                               <span className="font-semibold">{item.grade}/{item.max_points}</span>

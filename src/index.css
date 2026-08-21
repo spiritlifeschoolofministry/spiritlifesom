@@ -96,6 +96,41 @@
   }
 }
 
+@layer utilities {
+  /* Horizontally scrollable strips (tab bars, filter rows) shouldn't show a
+     scrollbar on mobile — the content peeking off the edge is the affordance. */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Fixed bottom bars must clear the iOS home indicator / Android gesture bar,
+     since the viewport is set to viewport-fit=cover. */
+  .pb-safe {
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  }
+
+  /* Scrolling content above such a bar needs the same clearance plus the bar. */
+  .pb-nav {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+  @media (min-width: 768px) {
+    .pb-nav {
+      padding-bottom: 1.5rem;
+    }
+  }
+
+  /* Long unbroken strings — emails, URLs, storage keys — must wrap rather than
+     push the whole page sideways on a narrow screen. */
+  .break-anywhere {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}
+
 .gradient-purple {
   @apply bg-gradient-to-br from-[#5B2D8E] to-[#2d1b69];
 }

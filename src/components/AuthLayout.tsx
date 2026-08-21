@@ -6,7 +6,7 @@ interface AuthLayoutProps {
 
 const AuthLayout = ({ children }: AuthLayoutProps) => {
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="flex min-h-screen supports-[min-height:100dvh]:min-h-[100dvh] flex-col bg-background">
       {/* Decorative top bar */}
       <div className="h-1.5 w-full gradient-flame" />
 

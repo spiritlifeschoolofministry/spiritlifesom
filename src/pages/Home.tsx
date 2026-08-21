@@ -107,7 +107,7 @@ const Home = () => {
         }}
       />
     {/* ========== HERO ========== */}
-    <section className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center text-center text-primary-foreground overflow-hidden">
+    <section className="relative min-h-[calc(100vh-4rem)] supports-[min-height:100dvh]:min-h-[calc(100dvh-4rem)] flex items-center justify-center text-center text-primary-foreground overflow-hidden">
       {heroImages.map((name, index) =>
         mountedSlides.includes(index) ? (
           <img

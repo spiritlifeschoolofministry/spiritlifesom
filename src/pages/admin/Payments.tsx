@@ -182,9 +182,9 @@ const AdminPayments = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <div className="mb-8 flex justify-between items-start">
+      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Payments & Fees</h1>
+          <h1 className="text-2xl font-bold mb-2 sm:text-3xl">Payments & Fees</h1>
           <p className="text-muted-foreground">Verify student payments and manage fee structures</p>
         </div>
         <Dialog open={isAddFeeModalOpen} onOpenChange={setIsAddFeeModalOpen}>
@@ -241,8 +241,8 @@ const AdminPayments = () => {
                   <TableRow>
                     <TableHead>Student</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead className="hidden sm:table-cell">Type</TableHead>
+                    <TableHead className="hidden md:table-cell">Date</TableHead>
                     <TableHead>Action</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -252,11 +252,19 @@ const AdminPayments = () => {
                       <TableCell>
                         <div>
                           <p className="font-medium">{payment.student_name}</p>
-                          <p className="text-xs text-muted-foreground">{payment.student_email}</p>
+                          <p className="break-anywhere text-xs text-muted-foreground">{payment.student_email}</p>
+                          {/* Payment type and date lose their columns on a phone. */}
+                          <p className="text-xs text-muted-foreground md:hidden">
+                            <span className="sm:hidden">
+                              {payment.payment_type === 'FULL' ? 'Full payment' : payment.payment_type === 'PART' ? 'Part payment' : 'Type not stated'}
+                              {' · '}
+                            </span>
+                            {payment.created_at ? new Date(payment.created_at).toLocaleDateString() : 'No date'}
+                          </p>
                         </div>
                       </TableCell>
                       <TableCell className="text-right">₦{Number(payment.amount_paid).toLocaleString()}</TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         {payment.payment_type === 'FULL' ? (
                           <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-300">Full</Badge>
                         ) : payment.payment_type === 'PART' ? (
@@ -265,7 +273,7 @@ const AdminPayments = () => {
                           <span className="text-xs text-muted-foreground">Not stated</span>
                         )}
                       </TableCell>
-                      <TableCell>{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : ''}</TableCell>
+                      <TableCell className="hidden md:table-cell">{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : ''}</TableCell>
                       <TableCell>
                         <Dialog open={isReviewModalOpen && selectedPayment?.id === payment.id} onOpenChange={setIsReviewModalOpen}>
                           <DialogTrigger asChild>
@@ -333,7 +341,7 @@ const AdminPayments = () => {
                                 </div>
 
                                 <div className="sticky bottom-0 bg-background pt-4 border-t">
-                                  <div className="flex gap-4">
+                                  <div className="flex gap-2 sm:gap-4">
                                     <Button onClick={() => setPendingConfirm("approve")} disabled={isProcessing} className="flex-1">
                                       <CheckCircle className="mr-2 h-4 w-4" /> Approve
                                     </Button>

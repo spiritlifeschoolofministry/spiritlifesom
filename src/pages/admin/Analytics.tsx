@@ -527,7 +527,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
               </DropdownMenuContent>
             </DropdownMenu>
             <Select value={cohortFilter} onValueChange={setCohortFilter}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Filter by cohort" />
               </SelectTrigger>
               <SelectContent>
@@ -542,9 +542,9 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
       )}
 
       {!standalone && (
-        <div className="flex justify-end items-center gap-2 mb-2">
+        <div className="mb-2 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
           <Select value={cohortFilter} onValueChange={setCohortFilter}>
-            <SelectTrigger className="w-48 h-9">
+            <SelectTrigger className="h-9 w-full sm:w-48">
               <SelectValue placeholder="Filter by cohort" />
             </SelectTrigger>
             <SelectContent>
@@ -597,7 +597,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
             <p className="text-sm font-bold text-primary">{feeCollectionRate}%</p>
           </div>
           <Progress value={feeCollectionRate} className="h-3" />
-          <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+          <div className="mt-2 flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <span>Collected: ₦{summaryCards.totalRevenue.toLocaleString()}</span>
             {summaryCards.waivedFees > 0 && (
               <span>Waived: ₦{summaryCards.waivedFees.toLocaleString()}</span>
@@ -801,10 +801,10 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Code</TableHead>
+                      <TableHead className="hidden sm:table-cell">Code</TableHead>
                       <TableHead>Course</TableHead>
-                      <TableHead className="text-center">Tasks</TableHead>
-                      <TableHead className="text-center">Submissions</TableHead>
+                      <TableHead className="hidden text-center md:table-cell">Tasks</TableHead>
+                      <TableHead className="hidden text-center md:table-cell">Submissions</TableHead>
                       <TableHead className="text-center">Avg Grade</TableHead>
                       <TableHead className="text-center">Status</TableHead>
                     </TableRow>
@@ -812,10 +812,16 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
                   <TableBody>
                     {coursePerformance.map((c) => (
                       <TableRow key={c.code}>
-                        <TableCell className="font-mono text-xs">{c.code}</TableCell>
-                        <TableCell className="font-medium text-sm">{c.title}</TableCell>
-                        <TableCell className="text-center">{c.assignments}</TableCell>
-                        <TableCell className="text-center">{c.submissions}</TableCell>
+                        <TableCell className="hidden font-mono text-xs sm:table-cell">{c.code}</TableCell>
+                        <TableCell className="font-medium text-sm">
+                          {c.title}
+                          <span className="mt-0.5 block text-xs font-normal text-muted-foreground md:hidden">
+                            <span className="sm:hidden">{c.code} · </span>
+                            {c.assignments} tasks · {c.submissions} submissions
+                          </span>
+                        </TableCell>
+                        <TableCell className="hidden text-center md:table-cell">{c.assignments}</TableCell>
+                        <TableCell className="hidden text-center md:table-cell">{c.submissions}</TableCell>
                         <TableCell className="text-center">
                           <span className={c.avgGrade >= 70 ? "text-emerald-600 font-semibold" : c.avgGrade >= 50 ? "text-amber-600" : "text-destructive"}>
                             {c.avgGrade}%

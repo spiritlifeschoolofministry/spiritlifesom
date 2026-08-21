@@ -259,11 +259,11 @@ export default function StorageBrowserCard() {
   return (
     <Card>
       <CardHeader className="space-y-3">
-        <div className="flex flex-row items-center justify-between gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
             <FolderOpen className="h-5 w-5" /> Storage Browser
           </CardTitle>
-          <Button size="sm" variant="outline" onClick={loadItems} disabled={loading || !bucket} className="gap-1.5">
+          <Button size="sm" variant="outline" onClick={loadItems} disabled={loading || !bucket} className="gap-1.5 self-start">
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             Refresh
           </Button>

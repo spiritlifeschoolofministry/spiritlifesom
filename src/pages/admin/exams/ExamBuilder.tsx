@@ -406,7 +406,7 @@ export default function ExamBuilder() {
             </div>
             <div><Label>Description</Label><Textarea value={exam.description ?? ""} onChange={(e) => update({ description: e.target.value })} rows={2} /></div>
             <div><Label>Instructions (shown on rules page)</Label><Textarea value={exam.instructions ?? ""} onChange={(e) => update({ instructions: e.target.value })} rows={4} /></div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div><Label>Course *</Label>
                 <Select value={exam.course_id} onValueChange={(v) => update({ course_id: v })}>
                   <SelectTrigger aria-invalid={!!errors.course_id}><SelectValue placeholder="Pick course" /></SelectTrigger>

@@ -170,7 +170,7 @@ const AttendanceRecordRow = ({
     return (
       <div className="border-2 border-primary rounded-lg p-4 bg-primary/5">
         <div className="flex flex-wrap gap-3 items-center">
-          <div className="min-w-[180px] text-sm text-muted-foreground">{formatAttendanceDate(record.marked_at)}</div>
+          <div className="w-full text-sm text-muted-foreground sm:w-auto sm:min-w-[180px]">{formatAttendanceDate(record.marked_at)}</div>
           <select
             value={editStatus}
             onChange={(e) => setEditStatus(e.target.value)}
@@ -201,7 +201,7 @@ const AttendanceRecordRow = ({
   return (
     <div className="border rounded-lg p-4 hover:bg-primary/5 transition-colors">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-[180px] text-sm text-muted-foreground">{formatAttendanceDate(record.marked_at)}</div>
+        <div className="w-full text-sm text-muted-foreground sm:w-auto sm:min-w-[180px]">{formatAttendanceDate(record.marked_at)}</div>
         <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClass(record.status)}`}>
           {record.status}
         </span>
@@ -932,7 +932,7 @@ const AdminAttendance = () => {
                     />
                   </div>
                   {toggle.enabled && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pl-12">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:pl-12">
                       <div>
                         <label className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mb-1">
                           <Clock className="w-3 h-3" /> Start Time
@@ -1102,7 +1102,7 @@ const AdminAttendance = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Student Name</TableHead>
-                    <TableHead>Cohort</TableHead>
+                    <TableHead className="hidden sm:table-cell">Cohort</TableHead>
                     <TableHead>Time</TableHead>
                     <TableHead className="text-right">Action</TableHead>
                   </TableRow>
@@ -1110,8 +1110,13 @@ const AdminAttendance = () => {
                 <TableBody>
                   {filteredPending.map((row) => (
                     <TableRow key={row.id}>
-                      <TableCell className="font-medium">{row.student_name || "—"}</TableCell>
-                      <TableCell>{row.cohort_name}</TableCell>
+                      <TableCell className="font-medium">
+                        {row.student_name || "—"}
+                        <span className="mt-0.5 block text-xs font-normal text-muted-foreground sm:hidden">
+                          {row.cohort_name}
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">{row.cohort_name}</TableCell>
                       <TableCell>
                         {row.marked_at ? new Date(row.marked_at).toLocaleString() : "—"}
                       </TableCell>
@@ -1196,13 +1201,13 @@ const AdminAttendance = () => {
               <option value="late">Has Late</option>
               <option value="absent">Has Missed Class</option>
             </select>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <Input
                 type="date"
                 value={statsFrom}
                 max={statsTo || undefined}
                 onChange={(e) => setStatsFrom(e.target.value)}
-                className="max-w-[160px]"
+                className="min-w-0 flex-1 sm:max-w-[160px]"
                 aria-label="Statistics from date"
               />
               <span className="text-xs text-muted-foreground">to</span>
@@ -1211,7 +1216,7 @@ const AdminAttendance = () => {
                 value={statsTo}
                 min={statsFrom || undefined}
                 onChange={(e) => setStatsTo(e.target.value)}
-                className="max-w-[160px]"
+                className="min-w-0 flex-1 sm:max-w-[160px]"
                 aria-label="Statistics to date"
               />
             </div>
@@ -1232,11 +1237,11 @@ const AdminAttendance = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Cohort</TableHead>
-                  <TableHead>Classes Held</TableHead>
-                  <TableHead>Attended</TableHead>
-                  <TableHead>Late</TableHead>
-                  <TableHead>Missed</TableHead>
+                  <TableHead className="hidden lg:table-cell">Cohort</TableHead>
+                  <TableHead className="hidden md:table-cell">Classes Held</TableHead>
+                  <TableHead className="hidden md:table-cell">Attended</TableHead>
+                  <TableHead className="hidden md:table-cell">Late</TableHead>
+                  <TableHead className="hidden md:table-cell">Missed</TableHead>
                   <TableHead>Attendance %</TableHead>
                   <TableHead className="text-right">Edit</TableHead>
                 </TableRow>
@@ -1259,20 +1264,29 @@ const AdminAttendance = () => {
                         >
                           {s.name || "—"}
                         </button>
+                        {/* The counts that lose their own column on a narrow
+                            screen still have to be readable somewhere. */}
+                        <span className="mt-0.5 block text-xs text-muted-foreground lg:hidden">
+                          {s.cohort_name}
+                          <span className="md:hidden">
+                            {" · "}{s.verified_present}/{s.total_classes} attended · {s.late_count} late · {s.absent_count} missed
+                          </span>
+                        </span>
                       </TableCell>
-                      <TableCell>{s.cohort_name}</TableCell>
-                      <TableCell>{s.total_classes}</TableCell>
-                      <TableCell>{s.verified_present}</TableCell>
-                      <TableCell className={s.late_count > 0 ? "text-amber-600 font-medium" : "text-muted-foreground"}>
+                      <TableCell className="hidden lg:table-cell">{s.cohort_name}</TableCell>
+                      <TableCell className="hidden md:table-cell">{s.total_classes}</TableCell>
+                      <TableCell className="hidden md:table-cell">{s.verified_present}</TableCell>
+                      <TableCell className={`hidden md:table-cell ${s.late_count > 0 ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
                         {s.late_count}
                       </TableCell>
-                      <TableCell className={s.absent_count > 0 ? "text-red-600 font-medium" : "text-muted-foreground"}>
+                      <TableCell className={`hidden md:table-cell ${s.absent_count > 0 ? "text-red-600 font-medium" : "text-muted-foreground"}`}>
                         {s.absent_count}
                       </TableCell>
                       <TableCell>
                         <span className={pctColor(s.attendance_pct)}>{s.attendance_pct}%</span>
                       </TableCell>
-                      <TableCell className="text-right space-x-1">
+                      <TableCell className="text-right">
+                        <div className="flex flex-col items-end gap-1 sm:flex-row sm:justify-end">
                         <Button
                           type="button"
                           size="sm"
@@ -1290,6 +1304,7 @@ const AdminAttendance = () => {
                         >
                           Edit Records
                         </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

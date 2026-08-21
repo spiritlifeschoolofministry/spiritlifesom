@@ -203,7 +203,7 @@ const StudentCertificate = () => {
   if (!isGraduate) {
     return (
       <>
-        <div className="space-y-6 pb-20 md:pb-0">
+        <div className="space-y-6">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
             <Award className="w-7 h-7" /> Certificate
           </h1>
@@ -223,7 +223,7 @@ const StudentCertificate = () => {
 
   return (
     <>
-      <div className="space-y-6 pb-20 md:pb-0">
+      <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 print:hidden">
           <div className="space-y-4 w-full sm:w-auto">
             <div>
