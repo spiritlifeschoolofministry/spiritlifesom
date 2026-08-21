@@ -31,6 +31,8 @@ const COLORS = [
   "#14b8a6",
 ];
 
+const todayDateString = () => new Date().toISOString().split("T")[0];
+
 const TOOLTIP_STYLE = { background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 };
 
 const EmptyState = ({ message = "No data available for this selection" }: { message?: string }) => (
@@ -72,15 +74,26 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
   const [genderData, setGenderData] = useState<NameValuePoint[]>([]);
   const [learningModeData, setLearningModeData] = useState<NameValuePoint[]>([]);
   const [feeCollectionRate, setFeeCollectionRate] = useState(0);
-  const [summaryCards, setSummaryCards] = useState({
+  const [summaryCards, setSummaryCards] = useState<{
+    totalStudents: number;
+    totalRevenue: number;
+    avgAttendance: number | null;
+    avgCompletion: number;
+    totalMaterials: number;
+    totalCourses: number;
+    graduateCount: number;
+    outstandingFees: number;
+    waivedFees: number;
+  }>({
     totalStudents: 0,
     totalRevenue: 0,
-    avgAttendance: 0,
+    avgAttendance: null,
     avgCompletion: 0,
     totalMaterials: 0,
     totalCourses: 0,
     graduateCount: 0,
     outstandingFees: 0,
+    waivedFees: 0,
   });
 
   useEffect(() => {
@@ -145,22 +158,46 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
   }, [cohortFilter]);
 
   const loadRevenue = useCallback(async () => {
-    let query = supabase.from("fees").select("amount_paid, amount_due, fee_type, cohort_id, payment_status");
-    if (cohortFilter !== "all") query = query.eq("cohort_id", cohortFilter);
-    const { data } = await query;
+    // Scoped by whose fee it is, not by fees.cohort_id: that column is often
+    // blank on a fee raised for one student, so filtering on it silently
+    // dropped real money out of a cohort's figures. Staff preview accounts are
+    // excluded here for the same reason they are excluded from Total Students.
+    let studentQuery = supabase.from("students").select("id").eq("is_staff_preview", false);
+    if (cohortFilter !== "all") studentQuery = studentQuery.eq("cohort_id", cohortFilter);
+    const { data: scopedStudents } = await studentQuery;
+    const studentIds = (scopedStudents || []).map((s) => s.id);
+    if (studentIds.length === 0) {
+      setRevenueData([]);
+      setFeeCollectionRate(0);
+      setSummaryCards((prev) => ({ ...prev, totalRevenue: 0, outstandingFees: 0, waivedFees: 0 }));
+      return;
+    }
+
+    const { data } = await supabase
+      .from("fees")
+      .select("amount_paid, amount_due, fee_type, student_id, payment_status, waived")
+      .in("student_id", studentIds);
     if (!data) return;
 
     const typeMap: Record<string, { collected: number; outstanding: number }> = {};
     let totalCollected = 0;
     let totalDue = 0;
+    let totalWaived = 0;
     data.forEach((f) => {
       const type = f.fee_type || "Other";
       if (!typeMap[type]) typeMap[type] = { collected: 0, outstanding: 0 };
       const paid = Number(f.amount_paid) || 0;
       const due = Number(f.amount_due) || 0;
       typeMap[type].collected += paid;
-      typeMap[type].outstanding += Math.max(0, due - paid);
       totalCollected += paid;
+      // A waived fee is money nobody is going to collect, so it belongs in
+      // neither the outstanding balance nor the collection-rate denominator.
+      // Counting it as debt made collection look worse than it is.
+      if (f.waived) {
+        totalWaived += Math.max(0, due - paid);
+        return;
+      }
+      typeMap[type].outstanding += Math.max(0, due - paid);
       totalDue += due;
     });
 
@@ -171,46 +208,85 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
       ...prev,
       totalRevenue: totalCollected,
       outstandingFees: Math.max(0, totalDue - totalCollected),
+      waivedFees: totalWaived,
     }));
   }, [cohortFilter]);
 
   const loadAttendance = useCallback(async () => {
-    let query = supabase.from("attendance").select("status, schedule_id, student_id");
-    
-    if (cohortFilter !== "all") {
-      const { data: students } = await supabase.from("students").select("id").eq("is_staff_preview", false).eq("cohort_id", cohortFilter);
-      const studentIds = (students || []).map(s => s.id);
-      if (studentIds.length === 0) {
-        setAttendanceData([]);
-        setSummaryCards((prev) => ({ ...prev, avgAttendance: 0 }));
-        return;
-      }
-      query = query.in("student_id", studentIds);
-    }
+    // Measured the way the Attendance section measures it: the denominator is
+    // every counted class session each student's cohort has actually held to
+    // date, not the number of attendance rows on file. A row only exists where
+    // a student checked in — an absence is a missing row — so counting rows
+    // alone always came out at ~100%.
+    let studentQuery = supabase
+      .from("students")
+      .select("id, cohort_id")
+      .eq("is_staff_preview", false)
+      .not("cohort_id", "is", null);
+    if (cohortFilter !== "all") studentQuery = studentQuery.eq("cohort_id", cohortFilter);
 
-    const { data } = await query;
-    if (!data || data.length === 0) {
+    let sessionQuery = supabase
+      .from("schedule")
+      .select("id, cohort_id")
+      .not("cohort_id", "is", null)
+      .eq("counts_for_attendance", true)
+      .lte("date", todayDateString());
+    if (cohortFilter !== "all") sessionQuery = sessionQuery.eq("cohort_id", cohortFilter);
+
+    const [{ data: students }, { data: sessions }] = await Promise.all([studentQuery, sessionQuery]);
+
+    const studentIds = (students || []).map((s) => s.id);
+    if (studentIds.length === 0) {
       setAttendanceData([]);
-      setSummaryCards((prev) => ({ ...prev, avgAttendance: 0 }));
+      setSummaryCards((prev) => ({ ...prev, avgAttendance: null }));
       return;
     }
 
-    const statusCount: Record<string, number> = {};
-    data.forEach((a) => {
-      const s = a.status || "Unknown";
-      statusCount[s] = (statusCount[s] || 0) + 1;
+    const cohortBySession = new Map<string, string>();
+    const sessionsHeldByCohort = new Map<string, number>();
+    (sessions || []).forEach((sess) => {
+      cohortBySession.set(sess.id, sess.cohort_id!);
+      sessionsHeldByCohort.set(sess.cohort_id!, (sessionsHeldByCohort.get(sess.cohort_id!) || 0) + 1);
     });
 
-    const total = data.length;
-    const present = (statusCount["Present"] || 0) + (statusCount["Late"] || 0);
-    const avgRate = total > 0 ? Math.round((present / total) * 100) : 0;
+    // One expected mark per student per session their own cohort held.
+    const expected = (students || []).reduce(
+      (sum, st) => sum + (sessionsHeldByCohort.get(st.cohort_id!) || 0),
+      0
+    );
 
-    setAttendanceData(Object.entries(statusCount).map(([status, count]) => ({
-      status,
-      count,
-      percentage: Math.round((count / total) * 100),
-    })));
-    setSummaryCards((prev) => ({ ...prev, avgAttendance: avgRate }));
+    const { data } = await supabase
+      .from("attendance")
+      .select("status, schedule_id, student_id, is_verified")
+      .in("student_id", studentIds);
+
+    const counted = (data || []).filter(
+      (a) => a.is_verified && a.schedule_id && cohortBySession.has(a.schedule_id)
+    );
+    const present = counted.filter((a) => (a.status || "").toUpperCase() === "PRESENT").length;
+    const late = counted.filter((a) => (a.status || "").toUpperCase() === "LATE").length;
+    // Absence is derived: a counted session with no verified attendance.
+    const absent = Math.max(0, expected - present - late);
+
+    if (expected === 0) {
+      setAttendanceData([]);
+      setSummaryCards((prev) => ({ ...prev, avgAttendance: null }));
+      return;
+    }
+
+    setAttendanceData(
+      [
+        { status: "Present", count: present },
+        { status: "Late", count: late },
+        { status: "Absent", count: absent },
+      ]
+        .filter((d) => d.count > 0)
+        .map((d) => ({ ...d, percentage: Math.round((d.count / expected) * 100) }))
+    );
+    setSummaryCards((prev) => ({
+      ...prev,
+      avgAttendance: Math.round(((present + late) / expected) * 100),
+    }));
   }, [cohortFilter]);
 
   const loadAssignments = useCallback(async () => {
@@ -224,10 +300,25 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
     }
 
     const assignIds = assignments.map((a) => a.id);
-    const { data: submissions } = await supabase
-      .from("assignment_submissions")
-      .select("assignment_id, grade")
-      .in("assignment_id", assignIds);
+
+    // The completion denominator counts admitted, non-preview students, so the
+    // numerator has to be restricted to the same people — otherwise a
+    // submission from a pending or preview account inflated the rate.
+    let countedStudentQuery = supabase
+      .from("students")
+      .select("id")
+      .eq("is_staff_preview", false)
+      .eq("admission_status", "ADMITTED");
+    if (cohortFilter !== "all") countedStudentQuery = countedStudentQuery.eq("cohort_id", cohortFilter);
+
+    const [{ data: submissions }, { data: countedStudents }] = await Promise.all([
+      supabase
+        .from("assignment_submissions")
+        .select("assignment_id, grade, student_id")
+        .in("assignment_id", assignIds),
+      countedStudentQuery,
+    ]);
+    const countedStudentIds = new Set((countedStudents || []).map((st) => st.id));
 
     const result = assignments.slice(0, 10).map((a) => {
       const subs = (submissions || []).filter((s) => s.assignment_id === a.id);
@@ -247,12 +338,11 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
     // work onsite, so counting them against the whole cohort would drag the
     // rate down for work that was never set to anyone.
     const onlineIds = new Set(assignments.filter((a) => !a.is_manual_record).map((a) => a.id));
-    const onlineSubmissions = (submissions || []).filter((s) => onlineIds.has(s.assignment_id));
+    const onlineSubmissions = (submissions || []).filter(
+      (s) => onlineIds.has(s.assignment_id) && s.student_id && countedStudentIds.has(s.student_id)
+    );
     const totalSubmissions = onlineSubmissions.length;
-    let studQuery = supabase.from("students").select("id", { count: "exact", head: true }).eq("is_staff_preview", false).eq("admission_status", "ADMITTED");
-    if (cohortFilter !== "all") studQuery = studQuery.eq("cohort_id", cohortFilter);
-    const { count: studentCount } = await studQuery;
-    const expected = (studentCount || 1) * onlineIds.size;
+    const expected = countedStudentIds.size * onlineIds.size;
     const completionRate = expected > 0 ? Math.round((totalSubmissions / expected) * 100) : 0;
 
     setAssignmentData(result);
@@ -316,7 +406,14 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
       const courseAssignIds = courseAssignments.map(a => a.id);
       const courseSubs = (submissions || []).filter(s => courseAssignIds.includes(s.assignment_id));
       const graded = courseSubs.filter(s => s.grade !== null);
-      const avgGrade = graded.length > 0 ? Math.round(graded.reduce((sum, s) => sum + Number(s.grade), 0) / graded.length) : 0;
+      // Shown as a percentage, so it has to be points earned over points
+      // available. Averaging the raw marks reported a 40/50 as "40%" whenever
+      // a task was not scored out of 100.
+      const pointsFor = (id: string) =>
+        courseAssignments.find(a => a.id === id)?.max_points || 100;
+      const pointsAvailable = graded.reduce((sum, s) => sum + pointsFor(s.assignment_id), 0);
+      const pointsEarned = graded.reduce((sum, s) => sum + Number(s.grade), 0);
+      const avgGrade = pointsAvailable > 0 ? Math.round((pointsEarned / pointsAvailable) * 100) : 0;
       return {
         code: c.code,
         title: c.title.length > 25 ? c.title.slice(0, 25) + "…" : c.title,
@@ -377,7 +474,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
   const SUMMARY = [
     { title: "Total Students", value: summaryCards.totalStudents, icon: Users, color: "text-primary" },
     { title: "Revenue Collected", value: `₦${summaryCards.totalRevenue.toLocaleString()}`, icon: TrendingUp, color: "text-emerald-600" },
-    { title: "Attendance Rate", value: `${summaryCards.avgAttendance}%`, icon: CalendarCheck, color: "text-blue-600" },
+    { title: "Attendance Rate", value: summaryCards.avgAttendance !== null ? `${summaryCards.avgAttendance}%` : "—", icon: CalendarCheck, color: "text-blue-600" },
     { title: "Task Completion", value: `${summaryCards.avgCompletion}%`, icon: ClipboardList, color: "text-amber-600" },
     { title: "Total Materials", value: summaryCards.totalMaterials, icon: Folder, color: "text-violet-600" },
     { title: "Active Courses", value: summaryCards.totalCourses, icon: BookOpen, color: "text-teal-600" },
@@ -502,6 +599,9 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
           <Progress value={feeCollectionRate} className="h-3" />
           <div className="flex justify-between mt-2 text-xs text-muted-foreground">
             <span>Collected: ₦{summaryCards.totalRevenue.toLocaleString()}</span>
+            {summaryCards.waivedFees > 0 && (
+              <span>Waived: ₦{summaryCards.waivedFees.toLocaleString()}</span>
+            )}
             <span>Outstanding: ₦{summaryCards.outstandingFees.toLocaleString()}</span>
           </div>
         </CardContent>
