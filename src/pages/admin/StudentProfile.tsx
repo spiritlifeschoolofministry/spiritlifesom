@@ -71,6 +71,11 @@ interface FeeRecord {
   payment_status: string | null;
 }
 
+/**
+ * One assessment on this student's record. Coursework and anything sat through
+ * the exam engine share the shape so staff see the same single list the student
+ * sees on their Assessments page.
+ */
 interface AssignmentRecord {
   id: string;
   title: string;
@@ -79,6 +84,8 @@ interface AssignmentRecord {
   grade: number | null;
   submitted: boolean;
   is_manual_record: boolean;
+  /** True for an exam-engine sitting whose result staff have not released yet. */
+  awaiting_release?: boolean;
 }
 
 const LEARNING_MODES = ["Online", "Physical", "Hybrid"];
@@ -384,7 +391,7 @@ const AdminStudentProfile = () => {
   const [attendance, setAttendance] = useState<AttendanceTally>(EMPTY_TALLY);
   const [fees, setFees] = useState<FeeRecord[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRecord[]>([]);
-  const [examMarks, setExamMarks] = useState<Array<{ earned: number; max: number }>>([]);
+  const [examRecords, setExamRecords] = useState<AssignmentRecord[]>([]);
   const [courses, setCourses] = useState<Array<{ id: string; title: string; cohort_id: string | null }>>([]);
   const [loading, setLoading] = useState(true);
 
@@ -416,7 +423,7 @@ const AdminStudentProfile = () => {
         // they have to count towards the one the admin sees too.
         supabase
           .from("exam_attempts")
-          .select("id, score, manual_score_override, exams(total_points, results_released)")
+          .select("id, score, manual_score_override, exams(title, assessment_type, total_points, results_released)")
           .eq("student_id", studentId!)
           .in("status", ["submitted", "graded"]),
       ]);
@@ -456,13 +463,24 @@ const AdminStudentProfile = () => {
         );
       }
 
-      setExamMarks(
+      setExamRecords(
         (examsRes.data || [])
-          .filter(a => a.exams?.results_released)
-          .map(a => ({
-            earned: Number(a.manual_score_override ?? a.score ?? 0),
-            max: Number(a.exams?.total_points) || 0,
-          }))
+          .filter(a => a.exams)
+          .map(a => {
+            const released = !!a.exams.results_released;
+            return {
+              id: a.id,
+              title: a.exams.title,
+              category: a.exams.assessment_type || "Exam",
+              max_points: Number(a.exams.total_points) || 0,
+              // An unreleased sitting has a score, but it is not the student's
+              // mark yet — it must not reach the average or show as marked.
+              grade: released ? Number(a.manual_score_override ?? a.score ?? 0) : null,
+              submitted: true,
+              is_manual_record: false,
+              awaiting_release: !released,
+            };
+          })
       );
     } catch (err) {
       console.error("Error loading student:", err);
@@ -522,10 +540,10 @@ const AdminStudentProfile = () => {
   // Weighted by points earned over points available, the same way the student's
   // Grades page scores it. Averaging the raw marks reported, say, a 40/50 as
   // "40%" whenever an item was not out of 100.
-  const gradedItems = [
-    ...assignments.filter(a => a.grade !== null).map(a => ({ earned: a.grade || 0, max: a.max_points || 100 })),
-    ...examMarks,
-  ];
+  const assessments = [...assignments, ...examRecords];
+  const gradedItems = assessments
+    .filter(a => a.grade !== null)
+    .map(a => ({ earned: a.grade || 0, max: a.max_points || 100 }));
   const gradePointsAvailable = gradedItems.reduce((s, i) => s + i.max, 0);
   const gradePointsEarned = gradedItems.reduce((s, i) => s + i.earned, 0);
   const avgGrade = gradePointsAvailable > 0
@@ -586,7 +604,7 @@ const AdminStudentProfile = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: "Attendance", value: attendanceRate !== null ? `${attendanceRate}%` : "—", icon: ClipboardCheck, color: "text-emerald-600" },
-          { label: "Tasks", value: String(assignments.length), icon: BookOpen, color: "text-primary" },
+          { label: "Assessments", value: String(assessments.length), icon: BookOpen, color: "text-primary" },
           { label: "Avg Grade", value: avgGrade !== null ? `${avgGrade}%` : "—", icon: GraduationCap, color: "text-amber-600" },
           { label: "Fee Progress", value: `${feeProgress}%`, icon: CreditCard, color: "text-primary" },
         ].map(stat => (
@@ -686,7 +704,7 @@ const AdminStudentProfile = () => {
             {/* Assignments */}
             <Card className="shadow-[var(--shadow-card)] border-border">
               <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-                <CardTitle className="text-base flex items-center gap-2"><BookOpen className="w-4 h-4" /> Task Records</CardTitle>
+                <CardTitle className="text-base flex items-center gap-2"><BookOpen className="w-4 h-4" /> Assessment Records</CardTitle>
                 <ManualRecordDialog
                   cohorts={[]}
                   courses={courses}
@@ -700,11 +718,11 @@ const AdminStudentProfile = () => {
                 />
               </CardHeader>
               <CardContent>
-                {assignments.length === 0 ? (
+                {assessments.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No records yet.</p>
                 ) : (
                   <div className="space-y-2">
-                    {assignments.map(a => (
+                    {assessments.map(a => (
                       <div key={a.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                         <div>
                           <p className="text-sm font-medium text-foreground">{a.title}</p>
@@ -712,9 +730,13 @@ const AdminStudentProfile = () => {
                             {a.category}{a.is_manual_record ? " · Offline" : ""}
                           </p>
                         </div>
-                        <Badge variant={a.grade !== null ? (a.grade >= (a.max_points || 100) * 0.5 ? "default" : "destructive") : "secondary"}>
-                          {a.grade !== null ? `${a.grade}/${a.max_points}` : "Ungraded"}
-                        </Badge>
+                        {a.awaiting_release ? (
+                          <Badge variant="outline">Awaiting release</Badge>
+                        ) : (
+                          <Badge variant={a.grade !== null ? (a.grade >= (a.max_points || 100) * 0.5 ? "default" : "destructive") : "secondary"}>
+                            {a.grade !== null ? `${a.grade}/${a.max_points}` : "Ungraded"}
+                          </Badge>
+                        )}
                       </div>
                     ))}
                   </div>

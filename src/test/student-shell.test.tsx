@@ -78,9 +78,9 @@ describe("student shell", () => {
   it("collapses a section and remembers it", () => {
     renderAt("/student/dashboard");
 
-    expect(screen.getAllByRole("link", { name: "Grades" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Assessments" }).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: /my record/i }));
-    expect(screen.queryByRole("link", { name: "Grades" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Assessments" })).not.toBeInTheDocument();
     expect(localStorage.getItem("slsm.nav.collapsed.student-record")).toBe("1");
   });
 
@@ -94,7 +94,7 @@ describe("student shell", () => {
   it("locks restricted items while admission is pending", () => {
     authState.current = auth({ student: { admission_status: "PENDING" } as never });
     renderAt("/student/dashboard");
-    expect(screen.queryByRole("link", { name: "Grades" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Assessments" })).not.toBeInTheDocument();
     expect(screen.getByText(/application is under review/i)).toBeInTheDocument();
   });
 });

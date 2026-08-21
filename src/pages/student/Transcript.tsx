@@ -77,7 +77,7 @@ const StudentTranscript = () => {
         // reported a student's standing from coursework alone.
         supabase
           .from("exam_attempts")
-          .select("id, score, manual_score_override, graded_at, exam:exams(id, title, total_points, course_id, results_released)")
+          .select("id, score, manual_score_override, graded_at, exam:exams(id, title, assessment_type, total_points, course_id, results_released)")
           .eq("student_id", student.id)
           .in("status", ["submitted", "graded"]),
       ]);
@@ -93,7 +93,9 @@ const StudentTranscript = () => {
         subsByCourse.get(courseId)!.push(sub);
       }
 
-      // Released exam results, grouped by the course they belong to.
+      // Released results from the exam engine, grouped by the course they belong
+      // to. Each one keeps its own label — an Exam, a Test and a Quiz are three
+      // separate lines on a transcript, never pooled into one.
       const examsByCourse = new Map<string, GradeEntry[]>();
       for (const att of (examsRes.data || [])) {
         if (!att.exam?.results_released) continue;
@@ -103,7 +105,7 @@ const StudentTranscript = () => {
         examsByCourse.get(courseId)!.push({
           id: att.id,
           title: att.exam.title,
-          category: "Exam",
+          category: att.exam.assessment_type || "Exam",
           max_points: Number(att.exam.total_points) || 0,
           grade: Number(att.manual_score_override ?? att.score ?? 0),
           reviewed_at: att.graded_at,
@@ -157,6 +159,8 @@ const StudentTranscript = () => {
     : 0;
   const overallGrade = getLetterGrade(overallAvg);
   const completedCount = courses.filter(c => c.is_completed).length;
+  // Counts every assessment on the record, coursework and exam-engine sittings
+  // alike — a transcript that ignored exam results would understate the work.
   const totalTasks = courses.reduce((s, c) => s + c.assignments.length, 0);
   const gradedTasks = courses.reduce((s, c) => s + c.assignments.filter(a => a.grade != null).length, 0);
 
@@ -249,7 +253,7 @@ const StudentTranscript = () => {
           <Card className="shadow-[var(--shadow-card)] border-border">
             <CardContent className="p-4 text-center">
               <p className="text-4xl font-black text-foreground">{gradedTasks}<span className="text-lg text-muted-foreground">/{totalTasks}</span></p>
-              <p className="text-xs text-muted-foreground mt-1">Tasks Graded</p>
+              <p className="text-xs text-muted-foreground mt-1">Assessments Graded</p>
             </CardContent>
           </Card>
           <Card className="shadow-[var(--shadow-card)] border-border">
@@ -302,7 +306,7 @@ const StudentTranscript = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-xs">Task</TableHead>
+                          <TableHead className="text-xs">Assessment</TableHead>
                           <TableHead className="text-xs">Category</TableHead>
                           <TableHead className="text-xs">Score</TableHead>
                           <TableHead className="text-xs">Grade</TableHead>

@@ -84,7 +84,10 @@ const NAV_GROUPS: NavGroup[] = [
     title: "My Record",
     items: [
       { label: "Attendance", icon: CalendarCheck, path: "/student/attendance", restrictedWhenPending: false },
-      { label: "Grades", icon: GraduationCap, path: "/student/grades", restrictedWhenPending: true },
+      // One place for every assessment the student has ever taken — coursework
+      // and anything sat through the exam engine. The path is unchanged so
+      // existing links and bookmarks still resolve.
+      { label: "Assessments", icon: GraduationCap, path: "/student/grades", restrictedWhenPending: true },
       { label: "Transcript", icon: FileText, path: "/student/transcript", restrictedWhenPending: true },
       { label: "Certificate", icon: Award, path: "/student/certificate", restrictedWhenPending: false },
       { label: "Fees", icon: CreditCard, path: "/student/fees", restrictedWhenPending: false },

@@ -21,7 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { QuestionRenderer } from "@/components/exam/QuestionRenderer";
-import { sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType, NO_LATE_ENTRY_GRACE_MINUTES } from "@/lib/exam-utils";
+import { sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType, NO_LATE_ENTRY_GRACE_MINUTES, ASSESSMENT_TYPES } from "@/lib/exam-utils";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -54,6 +54,7 @@ type ExamDraft = Partial<Tables<'exams'>> & { id?: string };
 
 const DEFAULT: ExamDraft = {
   title: "",
+  assessment_type: "Exam",
   description: "",
   instructions: "Read all instructions carefully before starting.",
   course_id: "",
@@ -373,6 +374,18 @@ export default function ExamBuilder() {
               <Input value={exam.title} onChange={(e) => update({ title: e.target.value })} maxLength={200}
                 aria-invalid={!!errors.title} />
               <FieldError message={errors.title} />
+            </div>
+            <div>
+              <Label>Assessment type *</Label>
+              <Select value={exam.assessment_type ?? "Exam"} onValueChange={(v) => update({ assessment_type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {ASSESSMENT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                What this is called on the student's record. The rules, timing and marking work the same either way.
+              </p>
             </div>
             <div><Label>Description</Label><Textarea value={exam.description ?? ""} onChange={(e) => update({ description: e.target.value })} rows={2} /></div>
             <div><Label>Instructions (shown on rules page)</Label><Textarea value={exam.instructions ?? ""} onChange={(e) => update({ instructions: e.target.value })} rows={4} /></div>

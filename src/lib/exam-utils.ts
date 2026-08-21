@@ -1,5 +1,15 @@
 import DOMPurify from "dompurify";
 
+/**
+ * What an assessment is called on a student's record. The exam engine delivers
+ * all of them identically — same timing, marking and proctoring options — so
+ * this is a label and a grouping, not a different mechanism. Mirrored by the
+ * exams_assessment_type_check constraint in the database.
+ */
+export const ASSESSMENT_TYPES = ["Exam", "Test", "Quiz", "Assignment"] as const;
+
+export type AssessmentType = (typeof ASSESSMENT_TYPES)[number];
+
 export type QuestionType =
   | "mcq_single"
   | "mcq_multi"

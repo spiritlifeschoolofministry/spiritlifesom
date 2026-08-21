@@ -10,18 +10,33 @@ import {
 } from "@/components/ui/table";
 import {
   GraduationCap, Award, BookOpen, Users, Briefcase, ClipboardList, FileText,
+  Clock, PencilRuler, Timer,
 } from "lucide-react";
 import { getLetterGrade } from "@/lib/grading";
+import { ASSESSMENT_TYPES } from "@/lib/exam-utils";
+import { Button } from "@/components/ui/button";
 
+/**
+ * One line on a student's record. Both sources land in this shape: work handed
+ * in (assignment_submissions) and anything sat through the exam engine
+ * (exam_attempts), whatever that assessment calls itself.
+ */
 interface GradedItem {
   id: string;
   title: string;
+  /** Exam, Test, Quiz, Assignment, Project… — the label this carries on the record. */
   category: string;
   max_points: number;
   grade: number | null;
   feedback: string | null;
   reviewed_at: string | null;
   course_title: string;
+  /**
+   * graded   — marked, grade is set.
+   * awaiting — sat and submitted, but the result has not been released yet.
+   * pending  — set for the student, not yet done or not yet marked.
+   */
+  state: "graded" | "awaiting" | "pending";
 }
 
 interface CategorySummary {
@@ -36,6 +51,8 @@ interface CategorySummary {
 
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
   Exam: GraduationCap,
+  Test: PencilRuler,
+  Quiz: Timer,
   Assignment: ClipboardList,
   Project: Briefcase,
   "Class Work": BookOpen,
@@ -47,6 +64,7 @@ const StudentGrades = () => {
   const { student } = useAuth();
   const [items, setItems] = useState<GradedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [typeFilter, setTypeFilter] = useState<string>("All");
 
   const loadGrades = useCallback(async () => {
     if (!student?.id || !student?.cohort_id) return;
@@ -83,29 +101,38 @@ const StudentGrades = () => {
           feedback: sub?.feedback ?? null,
           reviewed_at: sub?.reviewed_at ?? null,
           course_title: a.courses?.title || "—",
+          state: (sub?.grade ?? null) != null ? "graded" as const : "pending" as const,
         };
       });
-      // Released exam results belong here too. They used to live only on the
-      // exams page, so a mark counted for nothing in the student's grade
-      // summary even though the release dialog promised it went "into Grades".
+      // Anything sat through the exam engine belongs here too — exams, tests,
+      // quizzes alike. It used to live only on the exams page, so a mark
+      // counted for nothing in the student's summary even though the release
+      // dialog promised it went "into Grades".
       const { data: examAttempts } = await supabase
         .from("exam_attempts")
-        .select("id, score, manual_score_override, status, exams(id, title, total_points, results_released, courses(title))")
+        .select("id, score, manual_score_override, status, submitted_at, exams(id, title, assessment_type, total_points, results_released, courses(title))")
         .eq("student_id", student.id)
         .in("status", ["submitted", "graded"]);
 
+      // A sitting the student has finished but staff have not released shows as
+      // "Awaiting result" rather than not showing at all — otherwise a student
+      // who sat a test this morning opens this page and finds no trace of it.
       const examItems: GradedItem[] = (examAttempts ?? [])
-        .filter((a) => a.exams?.results_released)
-        .map((a) => ({
-          id: a.id,
-          title: a.exams.title,
-          category: "Exam",
-          max_points: Number(a.exams.total_points) || 0,
-          grade: Number(a.manual_score_override ?? a.score ?? 0),
-          feedback: null,
-          reviewed_at: null,
-          course_title: a.exams.courses?.title || "—",
-        }));
+        .filter((a) => a.exams)
+        .map((a) => {
+          const released = !!a.exams.results_released;
+          return {
+            id: a.id,
+            title: a.exams.title,
+            category: a.exams.assessment_type || "Exam",
+            max_points: Number(a.exams.total_points) || 0,
+            grade: released ? Number(a.manual_score_override ?? a.score ?? 0) : null,
+            feedback: null,
+            reviewed_at: a.submitted_at ?? null,
+            course_title: a.exams.courses?.title || "—",
+            state: released ? "graded" as const : "awaiting" as const,
+          };
+        });
 
       setItems([...gradedItems, ...examItems]);
     } catch (err) {
@@ -143,6 +170,17 @@ const StudentGrades = () => {
     };
   });
 
+  // Every type actually present, in the order staff would name them, so the
+  // filter never offers a type this student has nothing under.
+  const presentTypes = [
+    ...ASSESSMENT_TYPES.filter((t) => items.some((i) => i.category === t)),
+    ...[...new Set(items.map((i) => i.category))]
+      .filter((c) => !ASSESSMENT_TYPES.includes(c as (typeof ASSESSMENT_TYPES)[number]))
+      .sort(),
+  ];
+
+  const visible = typeFilter === "All" ? items : items.filter((i) => i.category === typeFilter);
+
   const allGraded = items.filter((i) => i.grade != null);
   const overallTotal = allGraded.reduce((s, i) => s + i.max_points, 0);
   const overallEarned = allGraded.reduce((s, i) => s + (i.grade || 0), 0);
@@ -167,9 +205,9 @@ const StudentGrades = () => {
     <>
       <div className="space-y-6 pb-20 md:pb-0">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Grades</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Assessments</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Your academic performance overview across all categories.
+            Every assessment you have taken — exams, tests, quizzes and coursework — with your marks.
           </p>
         </div>
 
@@ -234,12 +272,32 @@ const StudentGrades = () => {
         <Card className="shadow-[var(--shadow-card)] border-border">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Award className="w-4 h-4 text-primary" /> All Grades
+              <Award className="w-4 h-4 text-primary" /> Every assessment
             </CardTitle>
+            {presentTypes.length > 1 && (
+              <div className="flex flex-wrap gap-1.5 pt-2">
+                {["All", ...presentTypes].map((t) => (
+                  <Button
+                    key={t}
+                    size="sm"
+                    variant={typeFilter === t ? "default" : "outline"}
+                    className="h-7 px-3 text-xs"
+                    onClick={() => setTypeFilter(t)}
+                  >
+                    {t}
+                    <span className="ml-1.5 opacity-60">
+                      {t === "All" ? items.length : items.filter((i) => i.category === t).length}
+                    </span>
+                  </Button>
+                ))}
+              </div>
+            )}
           </CardHeader>
           <CardContent>
-            {items.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No assignments or grades yet.</p>
+            {visible.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                {items.length === 0 ? "Nothing to show yet." : `No ${typeFilter.toLowerCase()} on your record yet.`}
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <Table>
@@ -253,7 +311,7 @@ const StudentGrades = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {items.map((item) => {
+                    {visible.map((item) => {
                       const pct = item.grade != null ? Math.round((item.grade / item.max_points) * 100) : null;
                       const lg = pct != null ? getLetterGrade(pct) : null;
                       return (
@@ -265,12 +323,19 @@ const StudentGrades = () => {
                             {item.grade != null ? (
                               <span className="font-semibold">{item.grade}/{item.max_points}</span>
                             ) : (
-                              <span className="text-muted-foreground text-sm">Not graded</span>
+                              <span className="text-muted-foreground text-sm">
+                                {item.state === "awaiting" ? "—" : "Not graded"}
+                              </span>
                             )}
                           </TableCell>
                           <TableCell>
                             {lg ? (
                               <span className={`font-bold ${lg.color}`}>{lg.letter} ({pct}%)</span>
+                            ) : item.state === "awaiting" ? (
+                              // Sat and submitted; staff have not released the result.
+                              <Badge variant="outline" className="text-xs gap-1">
+                                <Clock className="w-3 h-3" /> Awaiting result
+                              </Badge>
                             ) : (
                               <Badge variant="outline" className="text-xs">Pending</Badge>
                             )}

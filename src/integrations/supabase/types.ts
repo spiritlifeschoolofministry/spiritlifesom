@@ -1070,6 +1070,7 @@ export type Database = {
       exams: {
         Row: {
           allow_late_entry: boolean
+          assessment_type: string
           allow_mobile: boolean
           audio_clip_seconds: number
           autosave_interval_seconds: number
@@ -1107,6 +1108,7 @@ export type Database = {
         }
         Insert: {
           allow_late_entry?: boolean
+          assessment_type?: string
           allow_mobile?: boolean
           audio_clip_seconds?: number
           autosave_interval_seconds?: number
@@ -1144,6 +1146,7 @@ export type Database = {
         }
         Update: {
           allow_late_entry?: boolean
+          assessment_type?: string
           allow_mobile?: boolean
           audio_clip_seconds?: number
           autosave_interval_seconds?: number

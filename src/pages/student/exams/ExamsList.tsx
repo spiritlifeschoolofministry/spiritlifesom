@@ -162,7 +162,12 @@ export default function StudentExamsList() {
                 <Card key={e.id} className="p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold">{e.title}</h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold">{e.title}</h3>
+                        {/* Say what this is: sitting a ten-minute quiz should not
+                            be announced to a student as an exam. */}
+                        <Badge variant="secondary" className="text-xs">{e.assessment_type || "Exam"}</Badge>
+                      </div>
                       <p className="text-xs text-muted-foreground">{e.courses?.code} · {e.duration_minutes} min · {e.total_points} pts</p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {format(start, "PPp")} → {format(end, "PPp")}

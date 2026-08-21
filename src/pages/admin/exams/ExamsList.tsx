@@ -16,6 +16,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 type Exam = {
   id: string;
   title: string;
+  assessment_type: string;
   status: string;
   course_id: string;
   cohort_id: string;
@@ -151,7 +152,7 @@ export default function ExamsList() {
     return exams.filter((e) => {
       if (filter !== "all" && effectiveStatus(e) !== filter) return false;
       if (!q) return true;
-      return `${e.title} ${e.courseLabel} ${e.cohortLabel}`.toLowerCase().includes(q);
+      return `${e.title} ${e.assessment_type} ${e.courseLabel} ${e.cohortLabel}`.toLowerCase().includes(q);
     });
   }, [exams, filter, query]);
 
@@ -298,6 +299,8 @@ export default function ExamsList() {
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <h3 className="font-semibold">{e.title}</h3>
+                      {/* What students will see this called on their record. */}
+                      <Badge variant="secondary" className="text-xs">{e.assessment_type || "Exam"}</Badge>
                       <Badge variant="outline" className={STATUS_STYLES[shown] || ""}>
                         {STATUS_LABELS[shown] ?? shown}
                       </Badge>
