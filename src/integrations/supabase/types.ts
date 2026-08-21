@@ -2099,6 +2099,7 @@ export type Database = {
           p_covered_by_payment_id?: string
           p_note?: string
           p_payment_date?: string
+          p_payment_method?: string
           p_student_fee_id: string
         }
         Returns: string

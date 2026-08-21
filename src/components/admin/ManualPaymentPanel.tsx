@@ -24,6 +24,8 @@ interface StudentRow {
   profile: { first_name: string | null; last_name: string | null; email: string | null } | null;
 }
 
+const PAYMENT_METHODS = ['Bank Transfer', 'Cash', 'Online Payment', 'Other'] as const;
+
 const naira = (n: number | null | undefined) => `₦${Number(n || 0).toLocaleString()}`;
 
 const outstandingOf = (f: StudentFee) =>
@@ -81,6 +83,7 @@ export const ManualPaymentPanel = ({
   const [payDate, setPayDate] = useState('');
   const [note, setNote] = useState('');
   const [coveredBy, setCoveredBy] = useState('none');
+  const [method, setMethod] = useState<string>('Bank Transfer');
 
   const [reverseTarget, setReverseTarget] = useState<Payment | null>(null);
 
@@ -199,6 +202,7 @@ export const ManualPaymentPanel = ({
         : '',
     );
     setCoveredBy('none');
+    setMethod('Bank Transfer');
   };
 
   const closeDialog = () => {
@@ -231,6 +235,7 @@ export const ManualPaymentPanel = ({
           p_payment_date: payDate || null,
           p_note: note.trim() || null,
           p_covered_by_payment_id: coveredBy === 'none' ? null : coveredBy,
+          p_payment_method: method,
         });
         if (error) failures.push(`${r.fee.fee_type}: ${error.message}`);
         else ok++;
@@ -502,6 +507,18 @@ export const ManualPaymentPanel = ({
             <div>
               <Label>Payment date</Label>
               <Input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} className="mt-1" />
+            </div>
+
+            <div>
+              <Label>How they paid</Label>
+              <Select value={method} onValueChange={setMethod}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_METHODS.map((m) => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
