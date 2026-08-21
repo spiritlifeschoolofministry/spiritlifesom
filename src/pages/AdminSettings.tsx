@@ -236,10 +236,16 @@ const AdminSettings = () => {
       toast.error('Please fill all cohort fields');
       return;
     }
+    // Cohort names carry the session in full, so the same session cannot end up
+    // written two ways ("2025/26" and "2025/2026") across the portal.
+    if (!/^\d{4}\/\d{4}$/.test(newCohort.name.trim())) {
+      toast.error('Cohort name must be a full session, e.g. 2025/2026');
+      return;
+    }
     try {
       setCreatingCohort(true);
       const { error } = await supabase.from('cohorts').insert({
-        name: newCohort.name,
+        name: newCohort.name.trim(),
         start_date: newCohort.start_date,
         end_date: newCohort.end_date,
         is_active: false,
@@ -642,7 +648,7 @@ const AdminSettings = () => {
             <div>
               <Label>Cohort Name</Label>
               <Input
-                placeholder="e.g. 2025/26"
+                placeholder="e.g. 2025/2026"
                 value={newCohort.name}
                 onChange={(e) => setNewCohort({ ...newCohort, name: e.target.value })}
                 className="mt-1"

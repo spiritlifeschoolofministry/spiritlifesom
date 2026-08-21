@@ -267,7 +267,9 @@ const AdminDashboard = () => {
     {
       title: "Active Courses",
       value: String(stats.activeCourses),
-      subtitle: "2025/26 Session",
+      // Reads the active cohort rather than naming a session in the source,
+      // which left the card claiming 2025/26 long after that session closed.
+      subtitle: stats.activeCohort ? `${stats.activeCohort} Session` : "Current session",
       icon: BookOpen,
       color: "text-emerald-600",
       bg: "bg-emerald-50",

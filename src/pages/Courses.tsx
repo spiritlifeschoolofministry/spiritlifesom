@@ -54,7 +54,7 @@ const CoursesPage = () => {
         <div className="relative z-10 max-w-3xl mx-auto px-4 space-y-3">
           <Reveal>
             <h1 className="text-3xl sm:text-5xl font-extrabold">{get("hero_title", "Our Programme")}</h1>
-            <p className="text-primary-foreground/80 text-lg">{get("hero_subtitle", "Equipping believers for ministry — 2025/26 Academic Session")}</p>
+            <p className="text-primary-foreground/80 text-lg">{get("hero_subtitle", "Equipping believers for ministry — 2025/2026 Academic Session")}</p>
           </Reveal>
         </div>
       </section>
