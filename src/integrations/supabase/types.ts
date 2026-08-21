@@ -1407,11 +1407,13 @@ export type Database = {
       payments: {
         Row: {
           admin_notes: string | null
+          covered_by_payment_id: string | null
           amount_paid: number
           created_at: string | null
           fee_id: string | null
           id: string
           idempotency_key: string | null
+          is_manual_record: boolean
           payment_date: string | null
           payment_type: string | null
           payment_proof_url: string | null
@@ -1423,11 +1425,13 @@ export type Database = {
         }
         Insert: {
           admin_notes?: string | null
+          covered_by_payment_id?: string | null
           amount_paid?: number
           created_at?: string | null
           fee_id?: string | null
           id?: string
           idempotency_key?: string | null
+          is_manual_record?: boolean
           payment_date?: string | null
           payment_type?: string | null
           payment_proof_url?: string | null
@@ -1439,11 +1443,13 @@ export type Database = {
         }
         Update: {
           admin_notes?: string | null
+          covered_by_payment_id?: string | null
           amount_paid?: number
           created_at?: string | null
           fee_id?: string | null
           id?: string
           idempotency_key?: string | null
+          is_manual_record?: boolean
           payment_date?: string | null
           payment_type?: string | null
           payment_proof_url?: string | null
@@ -2082,6 +2088,20 @@ export type Database = {
       admin_approve_payment: {
         Args: { p_payment_id: string }
         Returns: undefined
+      }
+      admin_delete_manual_payment: {
+        Args: { p_payment_id: string }
+        Returns: undefined
+      }
+      admin_record_manual_payment: {
+        Args: {
+          p_amount?: number
+          p_covered_by_payment_id?: string
+          p_note?: string
+          p_payment_date?: string
+          p_student_fee_id: string
+        }
+        Returns: string
       }
       admin_set_payment_fee: {
         Args: { p_payment_id: string; p_student_fee_id: string }

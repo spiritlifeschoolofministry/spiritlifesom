@@ -16,6 +16,7 @@ import { downloadCSV } from '@/lib/csv-export';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import type { Tables } from '@/integrations/supabase/types';
 import { LearningModeSelect, LearningModeTags } from '@/components/admin/LearningModeSelect';
+import { ManualPaymentPanel } from '@/components/admin/ManualPaymentPanel';
 import { toModeArray } from '@/lib/learning-modes';
 
 interface AddFeeFormData {
@@ -35,7 +36,7 @@ type PaymentWithStudent = Tables<'payments'> & {
 type StudentFee = Tables<'fees'>;
 
 const AdminFees = () => {
-  const [tab, setTab] = useState<'manager' | 'approvals'>('manager');
+  const [tab, setTab] = useState<'manager' | 'approvals' | 'manual'>('manager');
   const [cohorts, setCohorts] = useState<Tables<'cohorts'>[]>([]);
   const [feeStructures, setFeeStructures] = useState<Tables<'fee_structures'>[]>([]);
   const [pendingPayments, setPendingPayments] = useState<PaymentWithStudent[]>([]);
@@ -306,9 +307,13 @@ const AdminFees = () => {
     if (!deleteTarget) return;
     try {
       setIsProcessing(true);
-      const { error } = await supabase.from('payments').delete().eq('id', deleteTarget.id);
+      // A manual entry has no receipt behind it, so removing it has to take the
+      // amount back off the fee it was credited to.
+      const { error } = deleteTarget.is_manual_record
+        ? await supabase.rpc('admin_delete_manual_payment', { p_payment_id: deleteTarget.id })
+        : await supabase.from('payments').delete().eq('id', deleteTarget.id);
       if (error) { toast.error('Failed to delete: ' + error.message); return; }
-      toast.success('Payment record deleted');
+      toast.success(deleteTarget.is_manual_record ? 'Manual payment reversed' : 'Payment record deleted');
       setPendingPayments((prev) => prev.filter((p) => p.id !== deleteTarget.id));
       setApprovedPayments((prev) => prev.filter((p) => p.id !== deleteTarget.id));
     } finally {
@@ -418,6 +423,9 @@ const AdminFees = () => {
             {pendingPayments.length > 0 && (
               <Badge variant="destructive" className="ml-2">{pendingPayments.length}</Badge>
             )}
+          </Button>
+          <Button variant={tab === 'manual' ? 'default' : 'ghost'} onClick={() => setTab('manual')}>
+            Record Payment
           </Button>
         </div>
       </div>
@@ -643,6 +651,8 @@ const AdminFees = () => {
                               <button onClick={() => openReceipt(p)} className="text-primary hover:underline flex items-center gap-1">
                                 <Eye className="h-4 w-4" /> View
                               </button>
+                            ) : p.is_manual_record ? (
+                              <Badge variant="outline" className="text-xs">Manual entry</Badge>
                             ) : <span className="text-muted-foreground text-sm">No receipt</span>}
                           </TableCell>
                           <TableCell className="text-right">
@@ -664,6 +674,14 @@ const AdminFees = () => {
             </CardContent>
           </Card>
         </>
+      )}
+
+      {tab === 'manual' && (
+        <ManualPaymentPanel
+          cohorts={cohorts}
+          feeStructures={feeStructures}
+          onRecorded={fetchPaymentsWithStudents}
+        />
       )}
 
       {/* Receipt viewer (always mounted) */}
@@ -759,7 +777,13 @@ const AdminFees = () => {
         open={!!deleteTarget}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
         title="Delete payment record?"
-        description={deleteTarget ? `This will permanently remove the ${deleteTarget.status} payment of ₦${Number(deleteTarget.amount_paid).toLocaleString()} from ${deleteTarget.student_name}. The student's fee balance is NOT auto-adjusted — verify the fee record afterward.` : ''}
+        description={
+          deleteTarget
+            ? deleteTarget.is_manual_record
+              ? `This manual entry of ₦${Number(deleteTarget.amount_paid).toLocaleString()} for ${deleteTarget.student_name} will be removed and the amount taken back off the fee.`
+              : `This will permanently remove the ${deleteTarget.status} payment of ₦${Number(deleteTarget.amount_paid).toLocaleString()} from ${deleteTarget.student_name}. The student's fee balance is NOT auto-adjusted — verify the fee record afterward.`
+            : ''
+        }
         confirmLabel="Delete record"
         variant="destructive"
         onConfirm={confirmDeletePayment}
