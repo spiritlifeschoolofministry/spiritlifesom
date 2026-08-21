@@ -26,6 +26,8 @@ import {
 import PortalBreadcrumbs from "@/components/portal/PortalBreadcrumbs";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import ManualRecordDialog from "@/components/admin/ManualRecordDialog";
+import { EMPTY_TALLY, tallyAttendance, type AttendanceTally } from "@/lib/attendance";
+import { fetchCountedSessionIds } from "@/lib/attendance-queries";
 
 interface StudentDetail {
   id: string;
@@ -61,13 +63,6 @@ interface StudentDetail {
   cohort: { name: string } | null;
 }
 
-interface AttendanceSummary {
-  total: number;
-  present: number;
-  absent: number;
-  late: number;
-}
-
 interface FeeRecord {
   id: string;
   fee_type: string;
@@ -85,8 +80,6 @@ interface AssignmentRecord {
   submitted: boolean;
   is_manual_record: boolean;
 }
-
-const todayDateString = () => new Date().toISOString().split("T")[0];
 
 const LEARNING_MODES = ["Online", "Physical", "Hybrid"];
 const LANGUAGES = ["English", "French", "Yoruba", "Igbo", "Hausa", "Other"];
@@ -388,7 +381,7 @@ const AdminStudentProfile = () => {
   const { studentId } = useParams<{ studentId: string }>();
   const navigate = useNavigate();
   const [student, setStudent] = useState<StudentDetail | null>(null);
-  const [attendance, setAttendance] = useState<AttendanceSummary>({ total: 0, present: 0, absent: 0, late: 0 });
+  const [attendance, setAttendance] = useState<AttendanceTally>(EMPTY_TALLY);
   const [fees, setFees] = useState<FeeRecord[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRecord[]>([]);
   const [examMarks, setExamMarks] = useState<Array<{ earned: number; max: number }>>([]);
@@ -442,36 +435,10 @@ const AdminStudentProfile = () => {
         }
       }
 
-      // Attendance is measured the same way the Attendance section measures it:
-      // the denominator is the counted class sessions this student's cohort has
-      // actually held to date, not the number of rows the student happens to
-      // have. Counting rows alone made every student look like 100%, because a
-      // row only exists where they checked in — an absence is a missing row.
-      const cohortId = studentRes.data?.cohort_id ?? null;
-      let sessionIds = new Set<string>();
-      if (cohortId) {
-        const { data: sessionData } = await supabase
-          .from("schedule")
-          .select("id")
-          .eq("cohort_id", cohortId)
-          .eq("counts_for_attendance", true)
-          .lte("date", todayDateString());
-        sessionIds = new Set((sessionData || []).map(x => x.id));
-      }
-
-      const counted = (attendanceRes.data || []).filter(
-        a => a.is_verified && a.schedule_id && sessionIds.has(a.schedule_id)
-      );
-      const present = counted.filter(a => (a.status || "").toUpperCase() === "PRESENT").length;
-      const late = counted.filter(a => (a.status || "").toUpperCase() === "LATE").length;
-      const total = sessionIds.size;
-      setAttendance({
-        total,
-        present,
-        late,
-        // Absence is derived: a counted session with no verified attendance.
-        absent: Math.max(0, total - present - late),
-      });
+      // See src/lib/attendance.ts for why the denominator is the cohort's
+      // sessions and not the rows this student happens to have.
+      const sessionIds = await fetchCountedSessionIds(studentRes.data?.cohort_id ?? null);
+      setAttendance(tallyAttendance(sessionIds, attendanceRes.data || []));
 
       if (feesRes.data) setFees(feesRes.data);
 
@@ -546,9 +513,7 @@ const AdminStudentProfile = () => {
 
   // Null, not 0%, when the cohort has held no counted session yet — nobody can
   // have missed a class that never happened.
-  const attendanceRate = attendance.total > 0
-    ? Math.round(((attendance.present + attendance.late) / attendance.total) * 100)
-    : null;
+  const attendanceRate = attendance.rate;
 
   const totalFeesDue = fees.reduce((sum, f) => sum + (f.amount_due || 0), 0);
   const totalFeesPaid = fees.reduce((sum, f) => sum + (f.amount_paid || 0), 0);

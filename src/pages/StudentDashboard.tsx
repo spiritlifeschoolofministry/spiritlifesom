@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchStudentAttendance } from "@/lib/attendance-queries";
 import { useAuth } from "@/contexts/useAuth";
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -203,11 +204,9 @@ const StudentDashboard = () => {
 
       if (studentId) {
         try {
-          const { data: attendance } = await supabase.from("attendance").select("status").eq("student_id", studentId);
-          if (attendance && attendance.length > 0) {
-              const present = attendance.filter((a) => a.status === "Present" || a.status === "Late").length;
-              attendanceRate = Math.round((present / attendance.length) * 100);
-          }
+          // Measured against the classes the cohort actually held, not the rows
+          // on file — see src/lib/attendance.ts.
+          attendanceRate = (await fetchStudentAttendance(studentId, cohortId)).rate;
         } catch (e) {
           console.warn("[Dashboard] Attendance unavailable:", e);
         }

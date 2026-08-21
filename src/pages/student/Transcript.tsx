@@ -35,19 +35,15 @@ interface CourseRecord {
   courseAvg: number | null;
 }
 
-interface AttendanceSummary {
-  total: number;
-  present: number;
-  rate: number;
-}
-
 import { getLetterGrade } from "@/lib/grading";
+import { EMPTY_TALLY, tallyAttendance, type AttendanceTally } from "@/lib/attendance";
+import { fetchCountedSessionIds } from "@/lib/attendance-queries";
 
 
 const StudentTranscript = () => {
   const { student, profile } = useAuth();
   const [courses, setCourses] = useState<CourseRecord[]>([]);
-  const [attendance, setAttendance] = useState<AttendanceSummary>({ total: 0, present: 0, rate: 0 });
+  const [attendance, setAttendance] = useState<AttendanceTally>(EMPTY_TALLY);
   const [cohortName, setCohortName] = useState("");
   const [loading, setLoading] = useState(true);
   const printRef = useRef<HTMLDivElement>(null);
@@ -69,7 +65,7 @@ const StudentTranscript = () => {
           .eq("student_id", student.id),
         supabase
           .from("attendance")
-          .select("status")
+          .select("status, schedule_id, is_verified")
           .eq("student_id", student.id),
         supabase
           .from("cohorts")
@@ -138,14 +134,10 @@ const StudentTranscript = () => {
 
       setCourses(courseRecords);
 
-      // Attendance
-      const attData = attRes.data || [];
-      const present = attData.filter((a) => a.status === "Present" || a.status === "Late").length;
-      setAttendance({
-        total: attData.length,
-        present,
-        rate: attData.length > 0 ? Math.round((present / attData.length) * 100) : 0,
-      });
+      // Attendance is measured against the classes the cohort actually held —
+      // counting only the rows on file put every transcript near 100%.
+      const sessionIds = await fetchCountedSessionIds(student.cohort_id);
+      setAttendance(tallyAttendance(sessionIds, attRes.data || []));
     } catch (err) {
       console.error("[Transcript] Load error:", err);
     } finally {
@@ -262,8 +254,15 @@ const StudentTranscript = () => {
           </Card>
           <Card className="shadow-[var(--shadow-card)] border-border">
             <CardContent className="p-4 text-center">
-              <p className={`text-4xl font-black ${attendance.rate >= 75 ? "text-emerald-600" : "text-red-600"}`}>{attendance.rate}%</p>
-              <p className="text-xs text-muted-foreground mt-1">Attendance Rate</p>
+              <p className={`text-4xl font-black ${attendance.rate == null ? "text-foreground" : attendance.rate >= 75 ? "text-emerald-600" : "text-red-600"}`}>
+                {attendance.rate != null ? `${attendance.rate}%` : "—"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Attendance Rate
+                {attendance.total > 0 && (
+                  <span className="block">of {attendance.total} {attendance.total === 1 ? "class" : "classes"}</span>
+                )}
+              </p>
             </CardContent>
           </Card>
         </div>
