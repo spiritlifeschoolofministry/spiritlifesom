@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { PageSkeleton } from '@/components/portal/PageSkeleton';
 
 const SOURCE_LABELS: Record<string, string> = {
   payments: 'Payment receipts',
@@ -191,28 +192,37 @@ export default function StorageManagement() {
     }
   }, []);
 
+  /** Live figure from R2 itself — the Cloudflare dashboard's count lags badly. */
+  const loadInventory = useCallback(async () => {
+    try {
+      const inv = await r2Storage.list();
+      setInventory({ objects: inv.objects, bytes: inv.bytes });
+      setR2Status('ok');
+    } catch {
+      setInventory(null);
+    }
+  }, []);
+
+  // The three reads are independent, so they go out together rather than one
+  // after another, and each card fills in the moment its own call lands. The
+  // page stops being a loading screen as soon as the scan is back — waiting on
+  // all three is what used to park this screen on a spinner for ten seconds.
   const runScan = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
+    const inventoryDone = loadInventory();
+    const usageDone = loadUsage();
     try {
       const { data, error } = await supabase.functions.invoke('migrate-storage', { body: { action: 'scan' } });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setScan(data as ScanResult);
-      // Live figure from R2 itself — the Cloudflare dashboard's count lags badly.
-      try {
-        const inv = await r2Storage.list();
-        setInventory({ objects: inv.objects, bytes: inv.bytes });
-        setR2Status('ok');
-      } catch {
-        setInventory(null);
-      }
-      await loadUsage();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to scan storage');
     } finally {
       setLoading(false);
     }
-  }, [loadUsage]);
+    await Promise.allSettled([inventoryDone, usageDone]);
+  }, [loadInventory, loadUsage]);
 
   useEffect(() => { runScan(); }, [runScan]);
 
@@ -350,11 +360,7 @@ export default function StorageManagement() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return <PageSkeleton stats={2} panels={2} hint="Checking Supabase Storage and Cloudflare R2…" />;
   }
 
   const rows = Object.keys(SOURCE_LABELS)

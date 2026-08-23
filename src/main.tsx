@@ -28,3 +28,15 @@ createRoot(document.getElementById("root")!).render(
     <App />
   </HelmetProvider>,
 );
+
+requestAnimationFrame(() => {
+  // React clears #root as it mounts, which takes the pre-hydration shell in
+  // index.html with it. Belt and braces in case a future React ever stops
+  // doing that — a leftover shell would sit under the real UI.
+  document.getElementById("boot-shell")?.remove();
+  // The inline background index.html paints before the stylesheet arrives has
+  // done its job. Leave it and it outranks the stylesheet, so the page would
+  // keep the boot theme's background when someone flips the theme toggle.
+  document.documentElement.style.removeProperty("background-color");
+  document.documentElement.style.removeProperty("color-scheme");
+});

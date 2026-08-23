@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { PageSkeleton } from '@/components/portal/PageSkeleton';
 import { Loader2, Trash2, Edit2, Plus, ChevronLeft, ChevronRight, CalendarDays, List, Clock, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
@@ -165,7 +166,7 @@ const AdminCalendar = () => {
 
   const selectedDateEvents = selectedDate ? getEventsForDate(selectedDate) : [];
 
-  if (loading) return <div className="flex items-center justify-center min-h-[400px]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (loading) return <PageSkeleton />;
 
   return (
     <div className="space-y-5 pb-6">

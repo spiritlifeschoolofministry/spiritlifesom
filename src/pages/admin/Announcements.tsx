@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Trash2 } from 'lucide-react';
+import { PageSkeleton } from '@/components/portal/PageSkeleton';
+import { Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -88,7 +89,7 @@ const AdminAnnouncements = () => {
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center min-h-[200px]"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  if (loading) return <PageSkeleton />;
 
   return (
     <div className="space-y-6 pb-6">

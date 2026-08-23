@@ -16,6 +16,7 @@ import { Loader2, CheckCircle, XCircle, Eye, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { PageSkeleton } from '@/components/portal/PageSkeleton';
 
 type PaymentReview = Tables<'payments'> & {
   student_name?: string;
@@ -173,11 +174,7 @@ const AdminPayments = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageSkeleton panels={2} />;
   }
 
   return (

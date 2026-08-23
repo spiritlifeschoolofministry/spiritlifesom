@@ -12,6 +12,7 @@ import {
 import { format, isAfter, isBefore } from "date-fns";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Skeleton } from '@/components/ui/skeleton';
 import { effectiveExamStatus } from "@/lib/exam-utils";
 
 type Exam = {
@@ -234,10 +235,12 @@ export default function ExamsList() {
       )}
 
       {loading ? (
-        <Card className="p-10 text-center text-muted-foreground">
-          <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
-          Loading exams…
-        </Card>
+        <div className="space-y-3" role="status" aria-busy="true">
+          <span className="sr-only">Loading exams</span>
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))}
+        </div>
       ) : loadError ? (
         <Card className="p-8 text-center space-y-3">
           <AlertCircle className="w-6 h-6 mx-auto text-destructive" />

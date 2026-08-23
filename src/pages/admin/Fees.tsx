@@ -17,6 +17,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import type { Tables } from '@/integrations/supabase/types';
 import { LearningModeSelect, LearningModeTags } from '@/components/admin/LearningModeSelect';
 import { ManualPaymentPanel } from '@/components/admin/ManualPaymentPanel';
+import { PageSkeleton } from '@/components/portal/PageSkeleton';
 import { toModeArray } from '@/lib/learning-modes';
 
 interface AddFeeFormData {
@@ -452,7 +453,7 @@ const AdminFees = () => {
   );
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    return <PageSkeleton panels={2} />;
   }
 
   return (

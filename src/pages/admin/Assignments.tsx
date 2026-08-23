@@ -16,6 +16,7 @@ import BulkGradeImport from '@/components/BulkGradeImport';
 import ManualRecordDialog from '@/components/admin/ManualRecordDialog';
 import { downloadCSV } from '@/lib/csv-export';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { PageSkeleton } from '@/components/portal/PageSkeleton';
 import type { Tables } from '@/integrations/supabase/types';
 
 const ASSIGNMENT_CATEGORIES = [
@@ -268,7 +269,7 @@ const AdminAssignments = () => {
   };
 
   if (loading) {
-    return (<div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin" /></div>);
+    return <PageSkeleton />;
   }
 
   return (

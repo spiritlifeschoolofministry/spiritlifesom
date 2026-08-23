@@ -75,18 +75,129 @@
   <meta name="twitter:title" content="Spirit Life School of Ministry | SLSOM Official Website">
   <meta property="og:description" content="Spirit Life School of Ministry is a comprehensive ministry training School equipping men and women for effective Christian ministry in Nigeria and beyond.">
   <meta name="twitter:description" content="Spirit Life School of Ministry is a comprehensive ministry training School equipping men and women for effective Christian ministry in Nigeria and beyond.">
+
+  <!-- Pre-hydration paint. The JS bundle takes a few seconds to arrive and
+       parse on a cold load; without this the viewport is plain white until the
+       stylesheet lands and then empty until React mounts. Keep the two
+       background values in sync with --background in src/index.css. -->
+  <style>
+    html, body { background-color: hsl(0 0% 100%); color-scheme: light; }
+    html.dark, html.dark body { background-color: hsl(222.2 84% 4.9%); color-scheme: dark; }
+
+    /* The portal frame, drawn from static HTML so a cold load shows the shape
+       of the app instead of nothing. React clears #root when it mounts. */
+    #boot-shell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    #boot-shell[hidden] { display: none; }
+    #boot-shell .bs-line { background-color: hsl(210 40% 96.1%); border-radius: 6px; }
+    html.dark #boot-shell .bs-line { background-color: hsl(217.2 32.6% 17.5%); }
+    #boot-shell .bs-header {
+      height: 56px; flex: none; display: flex; align-items: center; gap: 12px;
+      padding: 0 16px; border-bottom: 1px solid hsl(214.3 31.8% 91.4%);
+      background-color: hsl(0 0% 100%);
+    }
+    html.dark #boot-shell .bs-header {
+      border-bottom-color: hsl(217.2 32.6% 17.5%); background-color: hsl(222.2 84% 4.9%);
+    }
+    #boot-shell .bs-logo { width: 32px; height: 32px; border-radius: 8px; flex: none; }
+    #boot-shell .bs-grow { flex: 1; }
+    #boot-shell .bs-avatar { width: 32px; height: 32px; border-radius: 9999px; flex: none; }
+    #boot-shell .bs-body { flex: 1; display: flex; min-height: 0; }
+    #boot-shell .bs-sidebar {
+      display: none; width: 224px; flex: none; padding: 16px 8px;
+      background-image: linear-gradient(to bottom right, #5B2D8E, #2d1b69);
+    }
+    @media (min-width: 768px) { #boot-shell .bs-sidebar { display: block; } }
+    #boot-shell .bs-nav { height: 30px; margin: 6px 4px; border-radius: 6px; background-color: rgba(255, 255, 255, 0.12); }
+    #boot-shell .bs-main { flex: 1; min-width: 0; padding: 24px; }
+    #boot-shell .bs-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 24px 0; }
+    @media (min-width: 1024px) { #boot-shell .bs-cards { grid-template-columns: repeat(4, 1fr); } }
+    #boot-shell .bs-card { height: 96px; border-radius: 12px; }
+    #boot-shell .bs-table { height: 340px; border-radius: 12px; }
+    /* Matches the Skeleton component React swaps in a moment later. */
+    #boot-shell .bs-line { animation: bs-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    #boot-shell .bs-stalled {
+      margin: auto; padding: 32px; text-align: center; max-width: 420px;
+      font: 14px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; color: hsl(215.4 16.3% 46.9%);
+    }
+    html.dark #boot-shell .bs-stalled { color: hsl(215 20.2% 65.1%); }
+    #boot-shell .bs-stalled button {
+      margin-top: 16px; padding: 8px 16px; font: inherit; cursor: pointer;
+      border-radius: 8px; border: 0; color: #fff; background-color: hsl(262.1 83.3% 57.8%);
+    }
+    @keyframes bs-pulse { 50% { opacity: 0.5; } }
+    @media (prefers-reduced-motion: reduce) { #boot-shell .bs-line { animation: none; } }
+  </style>
 </head>
 
   <body>
     <script>
-      // Apply saved theme preference (default: light)
-      if (localStorage.getItem("theme") === "dark") {
-        document.documentElement.classList.add("dark");
-      } else {
-        document.documentElement.classList.remove("dark");
-      }
+      // Apply saved theme preference (default: light). The colour-scheme and
+      // background go straight onto the element rather than waiting for the
+      // stylesheet: the stylesheet is render-blocking, so a dark-mode user
+      // otherwise stares at a white canvas until it arrives.
+      (function () {
+        var dark = localStorage.getItem("theme") === "dark";
+        var root = document.documentElement;
+        root.classList.toggle("dark", dark);
+        root.style.colorScheme = dark ? "dark" : "light";
+        root.style.backgroundColor = dark ? "hsl(222.2 84% 4.9%)" : "hsl(0 0% 100%)";
+      })();
     </script>
-    <div id="root"></div>
+    <div id="root">
+      <div id="boot-shell" aria-hidden="true" hidden>
+        <div class="bs-header">
+          <div class="bs-logo bs-line"></div>
+          <div class="bs-line" style="width: 96px; height: 16px"></div>
+          <div class="bs-grow"></div>
+          <div class="bs-line" style="width: 88px; height: 16px"></div>
+          <div class="bs-avatar bs-line"></div>
+        </div>
+        <div class="bs-body">
+          <div class="bs-sidebar">
+            <div class="bs-nav"></div><div class="bs-nav"></div><div class="bs-nav"></div>
+            <div class="bs-nav"></div><div class="bs-nav"></div><div class="bs-nav"></div>
+            <div class="bs-nav"></div><div class="bs-nav"></div>
+          </div>
+          <div class="bs-main">
+            <div class="bs-line" style="width: 220px; height: 28px"></div>
+            <div class="bs-cards">
+              <div class="bs-card bs-line"></div><div class="bs-card bs-line"></div>
+              <div class="bs-card bs-line"></div><div class="bs-card bs-line"></div>
+            </div>
+            <div class="bs-table bs-line"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      // Only the portals wear this frame — the public pages have their own
+      // above-the-fold content and would flash a sidebar that never arrives,
+      // and so would a signed-out visitor on their way to the login redirect.
+      var signedIn = false;
+      try {
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (k && k.indexOf("sb-") === 0 && k.indexOf("-auth-token") > 0) { signedIn = true; break; }
+        }
+      } catch (e) { /* storage blocked — fall back to no shell */ }
+      if (signedIn && /^\/(admin|student)(\/|$)/.test(location.pathname)) {
+        document.getElementById("boot-shell").hidden = false;
+      } else {
+        document.getElementById("boot-shell").remove();
+      }
+      // React takes the frame down as it mounts. Still here a good while later
+      // means the bundle never booted — a bad deploy, a dead connection — and
+      // an endless skeleton would just be lying about it.
+      setTimeout(function () {
+        var shell = document.getElementById("boot-shell");
+        if (!shell) return;
+        shell.innerHTML =
+          '<div class="bs-stalled">' +
+          "<p>The portal is taking longer than usual to load. Check your connection, then try again.</p>" +
+          '<button type="button" onclick="location.reload()">Reload</button>' +
+          "</div>";
+      }, 20000);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

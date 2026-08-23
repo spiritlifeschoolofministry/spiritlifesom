@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { r2Storage } from '@/lib/r2-storage';
 import { LearningModeSelect, LearningModeTags } from '@/components/admin/LearningModeSelect';
+import { PageSkeleton } from '@/components/portal/PageSkeleton';
 import { toModeArray } from '@/lib/learning-modes';
 
 const MATERIAL_TYPES = ['Notes', 'Slides', 'Handout', 'Worksheet', 'Reference', 'Video', 'Other'] as const;
@@ -232,7 +233,7 @@ const AdminMaterials = () => {
   };
 
   if (loading) {
-    return (<div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin" /></div>);
+    return <PageSkeleton />;
   }
 
   // Cohorts available to share to (exclude the material's current cohort)
