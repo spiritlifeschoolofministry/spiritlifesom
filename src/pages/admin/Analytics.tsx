@@ -158,10 +158,14 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
   }, [cohortFilter]);
 
   const loadRevenue = useCallback(async () => {
-    // Scoped by whose fee it is, not by fees.cohort_id: that column is often
-    // blank on a fee raised for one student, so filtering on it silently
-    // dropped real money out of a cohort's figures. Staff preview accounts are
-    // excluded here for the same reason they are excluded from Total Students.
+    // Two-step scoping. Whose fee it is comes first, because fees.cohort_id is
+    // blank on some older rows and filtering on it alone silently dropped real
+    // money out of a cohort's figures. But a fee that names its own session is
+    // then held to it: a student promoted out of a closed session keeps those
+    // old fees rows, and counting them by the student's current cohort read a
+    // finished session's debt as this session's outstanding balance. Staff
+    // preview accounts are excluded here for the same reason they are excluded
+    // from Total Students.
     let studentQuery = supabase.from("students").select("id").eq("is_staff_preview", false);
     if (cohortFilter !== "all") studentQuery = studentQuery.eq("cohort_id", cohortFilter);
     const { data: scopedStudents } = await studentQuery;
@@ -175,15 +179,21 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
 
     const { data } = await supabase
       .from("fees")
-      .select("amount_paid, amount_due, fee_type, student_id, payment_status, waived")
+      .select("amount_paid, amount_due, fee_type, student_id, payment_status, waived, cohort_id")
       .in("student_id", studentIds);
     if (!data) return;
 
+    // A fee with no cohort_id of its own falls back to its student's cohort,
+    // which is all the scoping above has already guaranteed.
+    const fees = cohortFilter === "all"
+      ? data
+      : data.filter((f) => !f.cohort_id || f.cohort_id === cohortFilter);
+
     const typeMap: Record<string, { collected: number; outstanding: number }> = {};
     let totalCollected = 0;
-    let totalDue = 0;
+    let totalOutstanding = 0;
     let totalWaived = 0;
-    data.forEach((f) => {
+    fees.forEach((f) => {
       const type = f.fee_type || "Other";
       if (!typeMap[type]) typeMap[type] = { collected: 0, outstanding: 0 };
       const paid = Number(f.amount_paid) || 0;
@@ -197,17 +207,21 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
         totalWaived += Math.max(0, due - paid);
         return;
       }
+      totalOutstanding += Math.max(0, due - paid);
       typeMap[type].outstanding += Math.max(0, due - paid);
-      totalDue += due;
     });
 
     setRevenueData(Object.entries(typeMap).map(([type, vals]) => ({ type, ...vals })));
-    const collRate = totalDue > 0 ? Math.round((totalCollected / totalDue) * 100) : 0;
+    // Outstanding is summed per fee, so an overpaid one cannot cancel out debt
+    // elsewhere, and it matches the per-type figures in the chart below. The
+    // rate is measured against every naira either collected or still owed.
+    const denominator = totalCollected + totalOutstanding;
+    const collRate = denominator > 0 ? Math.round((totalCollected / denominator) * 100) : 0;
     setFeeCollectionRate(collRate);
     setSummaryCards((prev) => ({
       ...prev,
       totalRevenue: totalCollected,
-      outstandingFees: Math.max(0, totalDue - totalCollected),
+      outstandingFees: totalOutstanding,
       waivedFees: totalWaived,
     }));
   }, [cohortFilter]);
