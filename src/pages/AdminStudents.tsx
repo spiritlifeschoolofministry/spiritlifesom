@@ -126,6 +126,7 @@ const AdminStudents = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [cohortFilter, setCohortFilter] = useState("all");
   const [languageFilter, setLanguageFilter] = useState("all");
+  const [modeFilter, setModeFilter] = useState("all");
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -205,8 +206,15 @@ const AdminStudents = () => {
         return lang === languageFilter.toLowerCase();
       });
     }
+    if (modeFilter !== "all") {
+      filtered = filtered.filter((s) => {
+        const mode = (s.learning_mode || "").trim().toLowerCase();
+        if (modeFilter === "__none__") return !mode;
+        return mode === modeFilter.toLowerCase();
+      });
+    }
     return filtered;
-  }, [students, searchQuery, statusFilter, cohortFilter, languageFilter]);
+  }, [students, searchQuery, statusFilter, cohortFilter, languageFilter, modeFilter]);
 
   const loadEmailStatuses = async () => {
     try {
@@ -692,6 +700,27 @@ const AdminStudents = () => {
             )}
           </SelectContent>
         </Select>
+        <Select value={modeFilter} onValueChange={setModeFilter}>
+          <SelectTrigger className="w-full sm:w-44">
+            <SelectValue placeholder="Filter by learning mode" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Learning Modes</SelectItem>
+            {Array.from(
+              new Set([
+                "Online", "Physical", "Hybrid",
+                ...students.map((s) => (s.learning_mode || "").trim()).filter((v) => v.length > 0),
+              ])
+            )
+              .sort((a, b) => a.localeCompare(b))
+              .map((mode) => (
+                <SelectItem key={mode} value={mode}>{mode}</SelectItem>
+              ))}
+            {students.some((s) => !(s.learning_mode || "").trim()) && (
+              <SelectItem value="__none__">Not specified</SelectItem>
+            )}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Results count */}
@@ -700,6 +729,7 @@ const AdminStudents = () => {
         {statusFilter !== "all" && <span> · Status: <span className="font-medium text-foreground">{statusFilter}</span></span>}
         {cohortFilter !== "all" && <span> · Cohort: <span className="font-medium text-foreground">{cohorts.find(c => c.id === cohortFilter)?.name}</span></span>}
         {languageFilter !== "all" && <span> · Language: <span className="font-medium text-foreground">{languageFilter === "__none__" ? "Not specified" : languageFilter}</span></span>}
+        {modeFilter !== "all" && <span> · Mode: <span className="font-medium text-foreground">{modeFilter === "__none__" ? "Not specified" : modeFilter}</span></span>}
       </p>
 
       {/* Desktop Table */}
