@@ -26,6 +26,7 @@ import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone
 import { toast } from "sonner";
 import Reveal from "@/components/Reveal";
 import { isStudentProfileComplete } from "@/lib/profile-complete";
+import { splitFeesBySession } from "@/lib/fee-sessions";
 
 interface FeeBreakdown {
   paid: number;
@@ -228,11 +229,18 @@ const StudentDashboard = () => {
         }
 
         try {
-          const { data: feesData } = await supabase.from("fees").select("payment_status").eq("student_id", studentId);
-          if (feesData && feesData.length > 0) {
-            const paid = feesData.filter(f => f.payment_status === "Paid").length;
-            const unpaid = feesData.filter(f => f.payment_status === "Unpaid").length;
-            const partial = feesData.filter(f => f.payment_status === "Partial").length;
+          const { data: allFees } = await supabase
+            .from("fees")
+            .select("payment_status, cohort_id, waived")
+            .eq("student_id", studentId);
+          // The current session only — see src/lib/fee-sessions.ts. Counting a
+          // session the student has moved on from would report its write-off as
+          // this session's unpaid fees.
+          const feesData = splitFeesBySession(allFees || [], cohortId).current;
+          if (feesData.length > 0) {
+            const paid = feesData.filter(f => f.payment_status === "Paid" || f.waived).length;
+            const unpaid = feesData.filter(f => f.payment_status === "Unpaid" && !f.waived).length;
+            const partial = feesData.filter(f => f.payment_status === "Partial" && !f.waived).length;
             const total = feesData.length;
             let status = "N/A";
             if (paid === total) status = "Paid";

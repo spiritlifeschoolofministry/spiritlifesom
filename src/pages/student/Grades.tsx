@@ -15,6 +15,7 @@ import {
 import { getLetterGrade } from "@/lib/grading";
 import { ASSESSMENT_TYPES } from "@/lib/exam-utils";
 import { Button } from "@/components/ui/button";
+import { fetchStudentHistory } from "@/lib/student-sessions";
 
 /**
  * One line on a student's record. Both sources land in this shape: work handed
@@ -37,6 +38,14 @@ interface GradedItem {
    * pending  — set for the student, not yet done or not yet marked.
    */
   state: "graded" | "awaiting" | "pending";
+}
+
+/** An earlier session's marks, kept apart from the current session's. */
+interface PastSessionGrades {
+  cohortId: string;
+  cohortName: string;
+  studentCode: string | null;
+  items: GradedItem[];
 }
 
 interface CategorySummary {
@@ -63,6 +72,7 @@ const CATEGORY_ICONS: Record<string, React.ElementType> = {
 const StudentGrades = () => {
   const { student } = useAuth();
   const [items, setItems] = useState<GradedItem[]>([]);
+  const [pastSessions, setPastSessions] = useState<PastSessionGrades[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<string>("All");
 
@@ -110,31 +120,81 @@ const StudentGrades = () => {
       // dialog promised it went "into Grades".
       const { data: examAttempts } = await supabase
         .from("exam_attempts")
-        .select("id, score, manual_score_override, status, submitted_at, exams(id, title, assessment_type, total_points, results_released, courses(title))")
+        .select("id, score, manual_score_override, status, submitted_at, exams(id, title, assessment_type, total_points, results_released, cohort_id, courses(title))")
         .eq("student_id", student.id)
         .in("status", ["submitted", "graded"]);
 
       // A sitting the student has finished but staff have not released shows as
       // "Awaiting result" rather than not showing at all — otherwise a student
       // who sat a test this morning opens this page and finds no trace of it.
+      const examOf = (a: { exams: { cohort_id: string | null } | null }) => a.exams?.cohort_id ?? null;
+
+      const toExamItem = (a: NonNullable<typeof examAttempts>[number]): GradedItem => {
+        const released = !!a.exams!.results_released;
+        return {
+          id: a.id,
+          title: a.exams!.title,
+          category: a.exams!.assessment_type || "Exam",
+          max_points: Number(a.exams!.total_points) || 0,
+          grade: released ? Number(a.manual_score_override ?? a.score ?? 0) : null,
+          feedback: null,
+          reviewed_at: a.submitted_at ?? null,
+          course_title: a.exams!.courses?.title || "—",
+          state: released ? "graded" as const : "awaiting" as const,
+        };
+      };
+
       const examItems: GradedItem[] = (examAttempts ?? [])
         .filter((a) => a.exams)
-        .map((a) => {
-          const released = !!a.exams.results_released;
-          return {
-            id: a.id,
-            title: a.exams.title,
-            category: a.exams.assessment_type || "Exam",
-            max_points: Number(a.exams.total_points) || 0,
-            grade: released ? Number(a.manual_score_override ?? a.score ?? 0) : null,
-            feedback: null,
-            reviewed_at: a.submitted_at ?? null,
-            course_title: a.exams.courses?.title || "—",
-            state: released ? "graded" as const : "awaiting" as const,
-          };
-        });
+        // A sitting from an earlier session belongs to that session's block, not
+        // to this one. An exam with no cohort cannot be placed, so it stays here.
+        .filter((a) => !examOf(a) || examOf(a) === student.cohort_id)
+        .map(toExamItem);
 
       setItems([...gradedItems, ...examItems]);
+
+      // Earlier sessions: the student was moved forward rather than re-registered,
+      // so the work they were graded on back then is still theirs to see.
+      const history = await fetchStudentHistory(student.id, null);
+      const earlier = await Promise.all(
+        history.past.map(async (past) => {
+          const { data: pastAssignments } = await supabase
+            .from("assignments")
+            .select("id, title, category, max_points, courses(title)")
+            .eq("cohort_id", past.cohortId);
+
+          const pastItems: GradedItem[] = (pastAssignments || [])
+            // Only what they were actually marked on. An assignment set for that
+            // cohort which this student never submitted is not their record.
+            .filter((a) => subMap.get(a.id)?.grade != null)
+            .map((a) => {
+              const sub = subMap.get(a.id)!;
+              return {
+                id: a.id,
+                title: a.title,
+                category: a.category || "Assignment",
+                max_points: a.max_points || 100,
+                grade: sub.grade,
+                feedback: sub.feedback ?? null,
+                reviewed_at: sub.reviewed_at ?? null,
+                course_title: a.courses?.title || "—",
+                state: "graded" as const,
+              };
+            });
+
+          const pastExams = (examAttempts ?? [])
+            .filter((a) => a.exams && examOf(a) === past.cohortId && a.exams.results_released)
+            .map(toExamItem);
+
+          return {
+            cohortId: past.cohortId,
+            cohortName: past.cohortName,
+            studentCode: past.studentCode,
+            items: [...pastItems, ...pastExams],
+          };
+        })
+      );
+      setPastSessions(earlier.filter((sess) => sess.items.length > 0));
     } catch (err) {
       // silent
     } finally {
@@ -358,6 +418,48 @@ const StudentGrades = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Earlier sessions */}
+        {pastSessions.map((session) => {
+          const graded = session.items.filter((i) => i.grade != null);
+          const total = graded.reduce((sum, i) => sum + i.max_points, 0);
+          const earned = graded.reduce((sum, i) => sum + (i.grade || 0), 0);
+          const pct = total > 0 ? Math.round((earned / total) * 100) : null;
+          const lg = pct != null ? getLetterGrade(pct) : null;
+          return (
+            <Card key={session.cohortId} className="shadow-[var(--shadow-card)] border-border border-dashed">
+              <CardHeader className="pb-3">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Clock className="w-4 h-4" /> {session.cohortName}
+                    <Badge variant="outline" className="text-[10px]">Previous session</Badge>
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    {session.studentCode && <span className="font-mono">{session.studentCode} · </span>}
+                    {lg ? `${lg.letter} · ${pct}%` : "Not graded"}
+                  </p>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {session.items.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg bg-secondary/40 p-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{item.title}</p>
+                      <p className="text-xs text-muted-foreground">{item.category} · {item.course_title}</p>
+                    </div>
+                    <span className="text-sm font-semibold shrink-0">
+                      {item.grade != null ? `${item.grade}/${item.max_points}` : "—"}
+                    </span>
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground">
+                  These marks are from a session you have since moved on from. They do not count towards
+                  your current grade.
+                </p>
+              </CardContent>
+            </Card>
+          );
+        })}
 
         {/* Grading Scale Reference */}
         <Card className="shadow-[var(--shadow-card)] border-border">

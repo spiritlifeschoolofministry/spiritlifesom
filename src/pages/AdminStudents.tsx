@@ -38,7 +38,7 @@ import {
 import {
   Search, MoreHorizontal, GraduationCap, Loader2, Trash2,
   AlertTriangle, Mail, Send, Users, UserCheck, Clock, XCircle, Eye, ChevronRight, Download,
-  ShieldCheck,
+  ShieldCheck, ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { downloadCSV } from "@/lib/csv-export";
@@ -57,6 +57,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { MoveCohortDialog } from "@/components/admin/MoveCohortDialog";
 
 interface Student {
   id: string;
@@ -64,6 +65,7 @@ interface Student {
   created_at: string | null;
   profile_id?: string;
   cohort_id: string | null;
+  learning_mode?: string | null;
   preferred_language?: string | null;
   profile: {
     first_name: string;
@@ -127,6 +129,7 @@ const AdminStudents = () => {
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showMoveDialog, setShowMoveDialog] = useState(false);
   const [showBulkGraduateDialog, setShowBulkGraduateDialog] = useState(false);
   const [bulkGraduating, setBulkGraduating] = useState(false);
   const [graduatingId, setGraduatingId] = useState<string | null>(null);
@@ -166,7 +169,7 @@ const AdminStudents = () => {
     try {
       const { data, error } = await supabase
         .from("students")
-        .select(`id, admission_status, created_at, profile_id, cohort_id, preferred_language, profile:profiles(first_name, last_name, email, role), cohort:cohorts(name)`)
+        .select(`id, admission_status, created_at, profile_id, cohort_id, learning_mode, preferred_language, profile:profiles(first_name, last_name, email, role), cohort:cohorts(name)`)
         .eq("is_staff_preview", false)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -622,6 +625,11 @@ const AdminStudents = () => {
           </Button>
           <Button size="sm" onClick={() => setShowBulkGraduateDialog(true)} className="gap-1.5 text-xs h-8">
             <GraduationCap className="h-3.5 w-3.5" /> Graduate
+          </Button>
+          {/* For the ones who did not graduate: carry them into the next session
+              instead of making them register again. */}
+          <Button variant="outline" size="sm" onClick={() => setShowMoveDialog(true)} className="gap-1.5 text-xs h-8">
+            <ArrowRight className="h-3.5 w-3.5" /> Move to cohort
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())} className="text-xs h-8 ml-auto text-muted-foreground">
             Clear
@@ -1081,6 +1089,22 @@ const AdminStudents = () => {
             : "default"
         }
         onConfirm={runConfirmedAction}
+      />
+
+      <MoveCohortDialog
+        open={showMoveDialog}
+        onOpenChange={setShowMoveDialog}
+        students={filteredStudents
+          .filter((s) => selectedIds.has(s.id))
+          .map((s) => ({
+            id: s.id,
+            name: `${s.profile.first_name} ${s.profile.last_name}`.trim(),
+            cohort_id: s.cohort_id,
+            cohort_name: s.cohort?.name || null,
+            learning_mode: s.learning_mode,
+            admission_status: s.admission_status,
+          }))}
+        onDone={() => { setSelectedIds(new Set()); loadStudents(); }}
       />
     </div>
   );

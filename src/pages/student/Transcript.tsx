@@ -25,6 +25,15 @@ interface GradeEntry {
   reviewed_at: string | null;
 }
 
+/** One session on the transcript: the cohort, its courses and its attendance. */
+interface SessionRecord {
+  cohortId: string;
+  cohortName: string;
+  studentCode: string | null;
+  courses: CourseRecord[];
+  attendance: AttendanceTally;
+}
+
 interface CourseRecord {
   id: string;
   title: string;
@@ -38,6 +47,7 @@ interface CourseRecord {
 import { getLetterGrade } from "@/lib/grading";
 import { EMPTY_TALLY, tallyAttendance, type AttendanceTally } from "@/lib/attendance";
 import { fetchCountedSessionIds } from "@/lib/attendance-queries";
+import { fetchStudentHistory } from "@/lib/student-sessions";
 
 
 const StudentTranscript = () => {
@@ -45,6 +55,11 @@ const StudentTranscript = () => {
   const [courses, setCourses] = useState<CourseRecord[]>([]);
   const [attendance, setAttendance] = useState<AttendanceTally>(EMPTY_TALLY);
   const [cohortName, setCohortName] = useState("");
+  // Sessions the student has been through before this one — they were moved
+  // into their current cohort rather than made to register again, so the work
+  // they did back then is still theirs and belongs on the transcript.
+  const [pastSessions, setPastSessions] = useState<SessionRecord[]>([]);
+  const [previousCodes, setPreviousCodes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -112,7 +127,7 @@ const StudentTranscript = () => {
         });
       }
 
-      const courseRecords: CourseRecord[] = (coursesRes.data || []).map((c) => {
+      const buildRecords = (rows: typeof coursesRes.data): CourseRecord[] => (rows || []).map((c) => {
         const subs = (subsByCourse.get(c.id) || []);
         const assignments = [
           ...subs.map((s) => ({
@@ -134,18 +149,43 @@ const StudentTranscript = () => {
         return { ...c, assignments, courseAvg };
       });
 
-      setCourses(courseRecords);
+      setCourses(buildRecords(coursesRes.data));
 
       // Attendance is measured against the classes the cohort actually held —
       // counting only the rows on file put every transcript near 100%.
       const sessionIds = await fetchCountedSessionIds(student.cohort_id);
       setAttendance(tallyAttendance(sessionIds, attRes.data || []));
+
+      // The same figures for each earlier session, each measured against its own
+      // cohort's classes and its own courses.
+      const history = await fetchStudentHistory(student.id, student.student_code);
+      setPreviousCodes(history.previousCodes);
+      const earlier = await Promise.all(
+        history.past.map(async (past) => {
+          const [{ data: pastCourses }, pastSessionIds] = await Promise.all([
+            supabase
+              .from("courses")
+              .select("id, title, code, lecturer, is_completed")
+              .eq("cohort_id", past.cohortId)
+              .order("title"),
+            fetchCountedSessionIds(past.cohortId),
+          ]);
+          return {
+            cohortId: past.cohortId,
+            cohortName: past.cohortName,
+            studentCode: past.studentCode,
+            courses: buildRecords(pastCourses),
+            attendance: tallyAttendance(pastSessionIds, attRes.data || []),
+          };
+        })
+      );
+      setPastSessions(earlier);
     } catch (err) {
       console.error("[Transcript] Load error:", err);
     } finally {
       setLoading(false);
     }
-  }, [student?.id, student?.cohort_id]);
+  }, [student?.id, student?.cohort_id, student?.student_code]);
 
   useEffect(() => {
     loadTranscript();
@@ -222,6 +262,11 @@ const StudentTranscript = () => {
                 <div>
                   <p className="text-xs text-muted-foreground">Student Code</p>
                   <p className="font-semibold text-sm font-mono">{student?.student_code || "—"}</p>
+                  {previousCodes.length > 0 && (
+                    <p className="text-xs text-muted-foreground font-mono">
+                      formerly {previousCodes.join(", ")}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -358,6 +403,60 @@ const StudentTranscript = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Earlier sessions. Kept separate: each has its own courses, its own
+            attendance denominator and the code the student held at the time. */}
+        {pastSessions.map((session) => (
+          <Card key={session.cohortId} className="shadow-[var(--shadow-card)] border-border border-dashed">
+            <CardHeader className="pb-3">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Clock className="w-4 h-4" /> {session.cohortName}
+                  <Badge variant="outline" className="text-[10px]">Previous session</Badge>
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  {session.studentCode && <span className="font-mono">{session.studentCode} · </span>}
+                  Attendance {session.attendance.rate != null ? `${session.attendance.rate}%` : "—"}
+                  {session.attendance.total > 0 && ` of ${session.attendance.total}`}
+                </p>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {session.courses.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No course records from this session.</p>
+              ) : (
+                session.courses.map((course) => {
+                  const grade = course.courseAvg != null ? getLetterGrade(course.courseAvg) : null;
+                  return (
+                    <div key={course.id} className="rounded-lg border border-border p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">{course.title}</p>
+                          <p className="text-xs text-muted-foreground">{course.code}</p>
+                        </div>
+                        {grade && (
+                          <span className={`text-lg font-black shrink-0 ${grade.color}`}>
+                            {grade.letter} <span className="text-xs font-medium text-muted-foreground">{course.courseAvg}%</span>
+                          </span>
+                        )}
+                      </div>
+                      {course.assignments.filter((a) => a.grade != null).length > 0 && (
+                        <ul className="mt-2 space-y-1">
+                          {course.assignments.filter((a) => a.grade != null).map((a) => (
+                            <li key={a.id} className="flex items-center justify-between gap-3 text-xs">
+                              <span className="truncate text-muted-foreground">{a.title}</span>
+                              <span className="font-medium shrink-0">{a.grade}/{a.max_points}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+        ))}
 
         {/* Footer note */}
         <div className="text-center text-xs text-muted-foreground print:mt-8">

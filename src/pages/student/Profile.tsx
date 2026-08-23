@@ -32,6 +32,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
+import { fetchStudentHistory } from '@/lib/student-sessions';
 
 interface PersonalFormData {
   first_name: string;
@@ -84,6 +85,15 @@ const AcademicInfoCard = ({
     ministry_description: studentData.ministry_description || '',
   });
   const { profile } = useAuth();
+
+  // A student who was moved into a later cohort holds a code for the session
+  // they are in now, and held another one before. Both are theirs.
+  const [previousCodes, setPreviousCodes] = useState<string[]>([]);
+  useEffect(() => {
+    fetchStudentHistory(studentData.id, studentData.student_code).then((h) =>
+      setPreviousCodes(h.previousCodes)
+    );
+  }, [studentData.id, studentData.student_code]);
 
   const hasPendingRequest = Boolean(
     studentData.requested_learning_mode && studentData.requested_learning_mode !== studentData.learning_mode
@@ -191,6 +201,11 @@ const AcademicInfoCard = ({
           <div>
             <Label className="text-xs text-muted-foreground">Student Code</Label>
             <p className="text-sm font-semibold mt-0.5">{studentData.student_code || 'N/A'}</p>
+            {previousCodes.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Previously {previousCodes.join(', ')}
+              </p>
+            )}
           </div>
           <div>
             <Label className="text-xs text-muted-foreground">Admission Status</Label>

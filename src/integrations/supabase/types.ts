@@ -1819,6 +1819,76 @@ export type Database = {
         }
         Relationships: []
       }
+      student_cohort_moves: {
+        Row: {
+          fees_raised_amount: number
+          fees_raised_count: number
+          fees_waived_amount: number
+          fees_waived_count: number
+          from_cohort_id: string | null
+          from_student_code: string | null
+          id: string
+          moved_at: string
+          moved_by: string | null
+          reason: string | null
+          student_id: string
+          to_cohort_id: string
+          to_student_code: string | null
+        }
+        Insert: {
+          fees_raised_amount?: number
+          fees_raised_count?: number
+          fees_waived_amount?: number
+          fees_waived_count?: number
+          from_cohort_id?: string | null
+          from_student_code?: string | null
+          id?: string
+          moved_at?: string
+          moved_by?: string | null
+          reason?: string | null
+          student_id: string
+          to_cohort_id: string
+          to_student_code?: string | null
+        }
+        Update: {
+          fees_raised_amount?: number
+          fees_raised_count?: number
+          fees_waived_amount?: number
+          fees_waived_count?: number
+          from_cohort_id?: string | null
+          from_student_code?: string | null
+          id?: string
+          moved_at?: string
+          moved_by?: string | null
+          reason?: string | null
+          student_id?: string
+          to_cohort_id?: string
+          to_student_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_cohort_moves_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_cohort_moves_from_cohort_id_fkey"
+            columns: ["from_cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_cohort_moves_to_cohort_id_fkey"
+            columns: ["to_cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           address: string | null
@@ -2084,6 +2154,23 @@ export type Database = {
       }
     }
     Functions: {
+      move_student_to_cohort: {
+        Args: { p_reason?: string; p_student_id: string; p_to_cohort: string }
+        Returns: Json
+      }
+      move_students_to_cohort: {
+        Args: { p_reason?: string; p_student_ids: string[]; p_to_cohort: string }
+        Returns: {
+          detail: Json
+          error: string
+          moved: boolean
+          student_id: string
+        }[]
+      }
+      next_student_code: {
+        Args: { p_cohort_id: string; p_exclude_student?: string }
+        Returns: string
+      }
       adjust_fee_amount_paid: {
         Args: { p_delta: number; p_fee_id: string }
         Returns: undefined

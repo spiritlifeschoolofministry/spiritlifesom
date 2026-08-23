@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { r2Storage } from '@/lib/r2-storage';
 import { resolveReceiptUrl } from '@/lib/receipt-url';
+import { splitFeesBySession } from '@/lib/fee-sessions';
 
 type Fee = Tables<'fees'>;
 type Payment = Tables<'payments'>;
@@ -69,15 +70,19 @@ const StudentFees = () => {
     fetchData();
   }, [user, student?.id]);
 
-  const totalOwed = fees.reduce((sum, fee) => sum + (fee.amount_due || 0), 0);
-  const totalPaid = fees.reduce((sum, fee) => sum + (fee.amount_paid || 0), 0);
+  // See src/lib/fee-sessions.ts: a fee belongs to the session it was raised for,
+  // and this page reads every row the student has.
+  const { current: currentFees, past: pastFees } = splitFeesBySession(fees, student?.cohort_id);
+
+  const totalOwed = currentFees.reduce((sum, fee) => sum + (fee.amount_due || 0), 0);
+  const totalPaid = currentFees.reduce((sum, fee) => sum + (fee.amount_paid || 0), 0);
   const remainingBalance = totalOwed - totalPaid;
   const paidPercent = totalOwed > 0 ? Math.round((totalPaid / totalOwed) * 100) : 0;
 
-  const paidFees = fees.filter(f => f.payment_status === 'Paid' || f.waived);
-  const unpaidFees = fees.filter(f => f.payment_status !== 'Paid' && !f.waived);
+  const paidFees = currentFees.filter(f => f.payment_status === 'Paid' || f.waived);
+  const unpaidFees = currentFees.filter(f => f.payment_status !== 'Paid' && !f.waived);
 
-  const isFullyPaid = remainingBalance <= 0 && fees.length > 0;
+  const isFullyPaid = remainingBalance <= 0 && currentFees.length > 0;
   const hasBalance = remainingBalance > 0;
 
   const feeNameFor = (payment: { student_fee_id?: string | null }) =>
@@ -392,10 +397,10 @@ const StudentFees = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Assigned Fees</CardTitle>
-            <CardDescription>All fees for your cohort</CardDescription>
+            <CardDescription>Fees for your current session</CardDescription>
           </CardHeader>
           <CardContent>
-            {fees.length === 0 ? (
+            {currentFees.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No fees assigned yet</p>
             ) : (
               <>
@@ -412,7 +417,7 @@ const StudentFees = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {fees.map((fee) => {
+                      {currentFees.map((fee) => {
                         const balance = (fee.amount_due || 0) - (fee.amount_paid || 0);
                         return (
                           <TableRow key={fee.id}>
@@ -431,7 +436,7 @@ const StudentFees = () => {
                 </div>
                 {/* Mobile cards */}
                 <div className="sm:hidden space-y-3">
-                  {fees.map((fee) => {
+                  {currentFees.map((fee) => {
                     const balance = (fee.amount_due || 0) - (fee.amount_paid || 0);
                     return (
                       <div key={fee.id} className="rounded-lg border border-border p-3 space-y-2">
@@ -458,6 +463,30 @@ const StudentFees = () => {
                   })}
                 </div>
               </>
+            )}
+
+            {pastFees.length > 0 && (
+              <div className="mt-6 pt-4 border-t border-border space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Previous session — closed
+                </p>
+                {pastFees.map((fee) => (
+                  <div key={fee.id} className="flex items-center justify-between gap-3 rounded-lg bg-muted/40 p-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{fee.fee_type}</p>
+                      <p className="text-xs text-muted-foreground">
+                        ₦{(fee.amount_paid || 0).toLocaleString()} of ₦{(fee.amount_due || 0).toLocaleString()} paid
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="shrink-0">
+                      {fee.waived ? 'Written off' : fee.payment_status || 'Unpaid'}
+                    </Badge>
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground">
+                  Kept for your records. Nothing here is owed — it does not count towards this session's fees.
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>

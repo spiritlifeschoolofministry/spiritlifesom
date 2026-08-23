@@ -21,11 +21,14 @@ import {
 import { toast } from "sonner";
 import {
   ArrowLeft, Mail, Phone, MapPin, Calendar, BookOpen,
-  GraduationCap, CreditCard, ClipboardCheck, User2, Pencil, Save, Loader2, X, Plus, Trash2
+  GraduationCap, CreditCard, ClipboardCheck, User2, Pencil, Save, Loader2, X, Plus, Trash2, ArrowRight, History
 } from "lucide-react";
 import PortalBreadcrumbs from "@/components/portal/PortalBreadcrumbs";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import ManualRecordDialog from "@/components/admin/ManualRecordDialog";
+import { MoveCohortDialog } from "@/components/admin/MoveCohortDialog";
+import { naira } from "@/lib/money";
+import { splitFeesBySession } from "@/lib/fee-sessions";
 import { EMPTY_TALLY, tallyAttendance, type AttendanceTally } from "@/lib/attendance";
 import { fetchCountedSessionIds } from "@/lib/attendance-queries";
 
@@ -69,6 +72,23 @@ interface FeeRecord {
   amount_due: number | null;
   amount_paid: number | null;
   payment_status: string | null;
+  cohort_id: string | null;
+  waived: boolean | null;
+}
+
+/** A cohort move, as recorded by move_student_to_cohort. */
+interface CohortMove {
+  id: string;
+  from_cohort_id: string | null;
+  to_cohort_id: string;
+  from_student_code: string | null;
+  to_student_code: string | null;
+  reason: string | null;
+  fees_waived_count: number;
+  fees_waived_amount: number;
+  moved_at: string;
+  from_cohort: { name: string } | null;
+  to_cohort: { name: string } | null;
 }
 
 /**
@@ -94,16 +114,15 @@ const EDUCATION_LEVELS = ["Primary", "Secondary", "Diploma", "Bachelor's Degree"
 const MARITAL_STATUSES = ["Single", "Married", "Divorced", "Widowed"];
 const ADMISSION_STATUSES = ["Pending", "ADMITTED", "REJECTED", "Graduate"];
 
-interface CohortOption {
-  id: string;
-  name: string;
-}
-
-const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; onSaved: (s: StudentDetail) => void }) => {
+const AdminAcademicEditCard = ({ student, onSaved, onMoved }: {
+  student: StudentDetail;
+  onSaved: (s: StudentDetail) => void;
+  onMoved: () => void;
+}) => {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [cohorts, setCohorts] = useState<CohortOption[]>([]);
+  const [moveOpen, setMoveOpen] = useState(false);
   const [form, setForm] = useState({
     learning_mode: student.learning_mode || "",
     preferred_language: student.preferred_language || "",
@@ -112,16 +131,9 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
     address: student.address || "",
     ministry_description: student.ministry_description || "",
     admission_status: student.admission_status || "Pending",
-    cohort_id: student.cohort_id || "",
     student_code: student.student_code || "",
     graduation_date: student.graduation_date || "",
   });
-
-  useEffect(() => {
-    supabase.from("cohorts").select("id, name").order("name").then(({ data }) => {
-      if (data) setCohorts(data);
-    });
-  }, []);
 
   const set = (key: string, val: string) => setForm(f => ({ ...f, [key]: val }));
 
@@ -138,7 +150,6 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
           address: form.address || null,
           ministry_description: form.ministry_description || null,
           admission_status: form.admission_status || null,
-          cohort_id: form.cohort_id || null,
           student_code: form.student_code || null,
           graduation_date: form.graduation_date || null,
         })
@@ -172,7 +183,6 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
       address: student.address || "",
       ministry_description: student.ministry_description || "",
       admission_status: student.admission_status || "Pending",
-      cohort_id: student.cohort_id || "",
       student_code: student.student_code || "",
       graduation_date: student.graduation_date || "",
     });
@@ -194,12 +204,17 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
         {editing ? (
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Cohort is not a field. Changing it by hand skipped the write-off
+                  of the old session, the new code and the record of the move, so
+                  it goes through "Move to cohort" instead. */}
               <div>
                 <Label className="text-xs">Cohort</Label>
-                <Select value={form.cohort_id} onValueChange={v => set("cohort_id", v)}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select cohort" /></SelectTrigger>
-                  <SelectContent>{cohorts.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <div className="mt-1 flex items-center gap-2">
+                  <p className="text-sm font-medium text-foreground">{student.cohort?.name || "—"}</p>
+                  <Button variant="outline" size="sm" className="h-7 gap-1.5" onClick={() => setMoveOpen(true)}>
+                    <ArrowRight className="w-3 h-3" /> Move
+                  </Button>
+                </div>
               </div>
               <div>
                 <Label className="text-xs">Learning Mode</Label>
@@ -289,6 +304,21 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
         )}
       </CardContent>
 
+      <MoveCohortDialog
+        open={moveOpen}
+        onOpenChange={setMoveOpen}
+        students={[{
+          id: student.id,
+          name: `${student.profile?.first_name || ""} ${student.profile?.last_name || ""}`.trim() || "this student",
+          cohort_id: student.cohort_id,
+          cohort_name: student.cohort?.name || null,
+          student_code: student.student_code,
+          learning_mode: student.learning_mode,
+          admission_status: student.admission_status,
+        }]}
+        onDone={onMoved}
+      />
+
       {/* Confirmation before saving sensitive academic changes */}
       <ConfirmDialog
         open={confirmOpen}
@@ -300,7 +330,6 @@ const AdminAcademicEditCard = ({ student, onSaved }: { student: StudentDetail; o
           if (form.admission_status !== (student.admission_status || "Pending")) {
             changes.push(`Status: "${student.admission_status || "Pending"}" → "${form.admission_status}"`);
           }
-          if (form.cohort_id !== (student.cohort_id || "")) changes.push("Cohort will change");
           if (form.student_code !== (student.student_code || "")) {
             changes.push(`Student code: "${student.student_code || "—"}" → "${form.student_code || "—"}"`);
           }
@@ -397,6 +426,8 @@ const AdminStudentProfile = () => {
   const [assignments, setAssignments] = useState<AssignmentRecord[]>([]);
   const [examRecords, setExamRecords] = useState<AssignmentRecord[]>([]);
   const [courses, setCourses] = useState<Array<{ id: string; title: string; cohort_id: string | null }>>([]);
+  const [moves, setMoves] = useState<CohortMove[]>([]);
+  const [cohortNames, setCohortNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   const loadStudentData = useCallback(async () => {
@@ -417,7 +448,7 @@ const AdminStudentProfile = () => {
           .eq("student_id", studentId!),
         supabase
           .from("fees")
-          .select("id, fee_type, amount_due, amount_paid, payment_status")
+          .select("id, fee_type, amount_due, amount_paid, payment_status, cohort_id, waived")
           .eq("student_id", studentId!),
         supabase
           .from("assignment_submissions")
@@ -452,6 +483,20 @@ const AdminStudentProfile = () => {
       setAttendance(tallyAttendance(sessionIds, attendanceRes.data || []));
 
       if (feesRes.data) setFees(feesRes.data);
+
+      // Enrollment history: the sessions this student has been through, and the
+      // codes they held in each.
+      const { data: moveData } = await supabase
+        .from("student_cohort_moves")
+        .select("*, from_cohort:cohorts!student_cohort_moves_from_cohort_id_fkey(name), to_cohort:cohorts!student_cohort_moves_to_cohort_id_fkey(name)")
+        .eq("student_id", studentId!)
+        .order("moved_at", { ascending: false });
+      setMoves((moveData || []) as unknown as CohortMove[]);
+
+      // Named so a fee row from a session the student has left can still say
+      // which session that was.
+      const { data: cohortRows } = await supabase.from("cohorts").select("id, name");
+      setCohortNames(Object.fromEntries((cohortRows || []).map((c) => [c.id, c.name])));
 
       if (assignmentsRes.data) {
         setAssignments(
@@ -577,8 +622,22 @@ const AdminStudentProfile = () => {
   // have missed a class that never happened.
   const attendanceRate = attendance.rate;
 
-  const totalFeesDue = fees.reduce((sum, f) => sum + (f.amount_due || 0), 0);
-  const totalFeesPaid = fees.reduce((sum, f) => sum + (f.amount_paid || 0), 0);
+  // Fees belong to the session they were raised for. A student moved out of a
+  // closed session keeps its rows, so the progress bar has to be scoped or last
+  // session's write-off reads as this session's shortfall.
+  // Every code this student has held, oldest first, excluding the current one.
+  const previousCodes = [...moves]
+    .sort((a, b) => a.moved_at.localeCompare(b.moved_at))
+    .map((m) => m.from_student_code)
+    .filter((c): c is string => !!c && c !== student?.student_code)
+    .filter((c, i, all) => all.indexOf(c) === i);
+
+  const cohortNameById = new Map(Object.entries(cohortNames));
+  // Fees belong to the session they were raised for, so the progress bar is
+  // scoped to the current one — see src/lib/fee-sessions.ts.
+  const { current: currentFees, past: previousFees } = splitFeesBySession(fees, student?.cohort_id);
+  const totalFeesDue = currentFees.reduce((sum, f) => sum + (f.amount_due || 0), 0);
+  const totalFeesPaid = currentFees.reduce((sum, f) => sum + (f.amount_paid || 0), 0);
   const feeProgress = totalFeesDue > 0 ? Math.round((totalFeesPaid / totalFeesDue) * 100) : 0;
 
   // Weighted by points earned over points available, the same way the student's
@@ -622,7 +681,14 @@ const AdminStudentProfile = () => {
                 </Badge>
               </div>
               {student.student_code && (
-                <p className="text-sm text-muted-foreground font-mono mb-2">{student.student_code}</p>
+                <p className="text-sm text-muted-foreground font-mono mb-2">
+                  {student.student_code}
+                  {previousCodes.length > 0 && (
+                    <span className="ml-2 opacity-70">
+                      (formerly {previousCodes.join(", ")})
+                    </span>
+                  )}
+                </p>
               )}
               <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
                 {p?.email && (
@@ -712,7 +778,36 @@ const AdminStudentProfile = () => {
         <TabsContent value="academic">
           <div className="space-y-4">
             {/* Academic Profile - Editable */}
-            <AdminAcademicEditCard student={student} onSaved={(updated) => setStudent(updated)} />
+            <AdminAcademicEditCard student={student} onSaved={(updated) => setStudent(updated)} onMoved={loadStudentData} />
+
+            {moves.length > 0 && (
+              <Card className="shadow-[var(--shadow-card)] border-border">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <History className="w-4 h-4" /> Session History
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {moves.map((m) => (
+                    <div key={m.id} className="text-sm border-l-2 border-border pl-3 space-y-0.5">
+                      <p className="font-medium text-foreground">
+                        {m.from_cohort?.name || "No cohort"} → {m.to_cohort?.name || "—"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(m.moved_at).toLocaleDateString()}
+                        {m.from_student_code && m.to_student_code && m.from_student_code !== m.to_student_code
+                          ? ` · ${m.from_student_code} → ${m.to_student_code}`
+                          : ""}
+                        {Number(m.fees_waived_amount) > 0
+                          ? ` · ${naira(Number(m.fees_waived_amount))} written off`
+                          : ""}
+                      </p>
+                      {m.reason && <p className="text-xs text-muted-foreground italic">{m.reason}</p>}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Attendance */}
             <Card className="shadow-[var(--shadow-card)] border-border">
@@ -800,11 +895,11 @@ const AdminStudentProfile = () => {
               </div>
               <Progress value={feeProgress} className="h-2" />
 
-              {fees.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No fee records found.</p>
+              {currentFees.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No fee records for this session.</p>
               ) : (
                 <div className="space-y-2 mt-4">
-                  {fees.map(f => (
+                  {currentFees.map(f => (
                     <div key={f.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
                       <div>
                         <p className="text-sm font-medium text-foreground">{f.fee_type}</p>
@@ -828,6 +923,30 @@ const AdminStudentProfile = () => {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {previousFees.length > 0 && (
+                <div className="pt-4 border-t border-border space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Previous sessions — closed
+                  </p>
+                  {previousFees.map(f => (
+                    <div key={f.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/40">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{f.fee_type}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {naira(f.amount_paid || 0)} of {naira(f.amount_due || 0)}
+                          {" · "}
+                          {cohortNameById.get(f.cohort_id || "") || "Unknown session"}
+                        </p>
+                      </div>
+                      <Badge variant="outline">{f.waived ? "Written off" : f.payment_status || "Unpaid"}</Badge>
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground">
+                    Kept on file for the record. These do not count towards this session's fees.
+                  </p>
                 </div>
               )}
             </CardContent>
