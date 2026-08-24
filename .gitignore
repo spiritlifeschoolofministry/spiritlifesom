@@ -32,3 +32,6 @@ android/.gradle
 android/app/build
 android/build
 android/local.properties
+
+# Reference code copied in from other projects (never committed)
+/cert-ref/

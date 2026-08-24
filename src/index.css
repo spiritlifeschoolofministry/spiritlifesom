@@ -1,3 +1,54 @@
+/* Certificate typefaces, self-hosted.
+ *
+ * These are not loaded from Google Fonts, for two reasons. The certificate
+ * has to render identically every time it is exported, and html-to-image
+ * rasterises through an SVG foreignObject that has to inline every face it
+ * finds -- a cross-origin stylesheet made that unreliable, and Yellowtail in
+ * particular came out of the exporter as a fallback serif. Same-origin faces
+ * are read straight from document.styleSheets, so the export matches the
+ * screen. It also means a printed certificate does not depend on Google being
+ * reachable.
+ *
+ * Playfair Display, Yellowtail and Nunito are all SIL Open Font License 1.1.
+ * Latin subsets only, taken from the Google Fonts CDN.
+ */
+
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: italic;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('/fonts/playfair-display-400900-italic.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('/fonts/playfair-display-400900.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Yellowtail';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/yellowtail-400.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('/fonts/nunito-300700.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -153,37 +204,45 @@
   body * {
     visibility: hidden;
   }
-  
+
   /* Show only the certificate and its children */
   .certificate-container,
   .certificate-container * {
     visibility: visible;
   }
-  
+
   /* Position the certificate at the top left of the printed page */
   .certificate-container {
     position: absolute;
     left: 0;
     top: 0;
-    width: 100vw !important;
-    height: 100vh !important;
     margin: 0 !important;
     padding: 0 !important;
+    max-width: none !important;
+    overflow: visible !important;
     z-index: 9999;
   }
 
-  /* Ensure the content fills the width */
-  .certificate-content {
-    width: 100% !important;
+  /* The artwork is drawn at 1123x794px, which at 96dpi is exactly 297x210mm --
+     one A4 landscape sheet. So printing wants it at 1:1: drop the preview's
+     fit-to-width transform and the height the preview box reserved for it. */
+  .certificate-preview {
+    width: auto !important;
+    height: auto !important;
     max-width: none !important;
+    margin: 0 !important;
     box-shadow: none !important;
-    border-radius: 0 !important;
-    border: none !important;
+    overflow: visible !important;
   }
 
-  /* Adjust page margins */
+  .certificate-scale {
+    transform: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
   @page {
-    size: landscape;
+    size: A4 landscape;
     margin: 0;
   }
 }
