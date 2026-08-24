@@ -37,6 +37,8 @@ interface PendingNameChange {
 interface CohortSettings {
   id: string;
   name: string;
+  start_date: string | null;
+  end_date: string | null;
   graduation_date: string | null;
   certificate_text_main: string | null;
   certificate_text_sub: string | null;
@@ -77,7 +79,7 @@ const CertificateManager = () => {
       // Load cohorts
       const { data: cohortData } = await supabase
         .from('cohorts')
-        .select('id, name, graduation_date, certificate_text_main, certificate_text_sub')
+        .select('id, name, start_date, end_date, graduation_date, certificate_text_main, certificate_text_sub')
         .order('name');
       
       if (cohortData) setCohorts(cohortData as CohortSettings[]);

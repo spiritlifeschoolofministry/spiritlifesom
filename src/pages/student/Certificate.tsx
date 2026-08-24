@@ -172,13 +172,12 @@ const StudentCertificate = () => {
   const formatDate = (value: string) =>
     new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
-  // The student's own graduation date wins, then their cohort's, then the
-  // school-wide fallback in system_settings.
-  const graduationDateText = student?.graduation_date
-    ? formatDate(student.graduation_date)
-    : cohortData?.graduation_date
-      ? formatDate(cohortData.graduation_date)
-      : globalDate;
+  // A cohort graduates on one day, so the date is the cohort's -- not the
+  // student's. students.graduation_date used to win here, which let one graduate
+  // silently carry a different date from the people they graduated beside.
+  const graduationDateText = cohortData?.graduation_date
+    ? formatDate(cohortData.graduation_date)
+    : globalDate;
 
   if (loading) {
     return (

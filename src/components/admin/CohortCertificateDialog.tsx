@@ -33,6 +33,8 @@ export type EditableCohort = {
   graduation_date: string | null;
   certificate_text_main: string | null;
   certificate_text_sub: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
 };
 
 const DEFAULT_MAIN_TEXT =
@@ -88,6 +90,14 @@ export const CohortCertificateDialog = ({
         setLoading(false);
       });
   }, [cohort, open]);
+
+  // Every cohort once carried the same 2025-04-20, copied from an old default --
+  // one of them a month before that session even began. A date outside the
+  // session's own dates is nearly always that mistake repeating.
+  const dateLooksWrong =
+    graduationDate && cohort?.start_date && cohort?.end_date
+      ? graduationDate < cohort.start_date || graduationDate > cohort.end_date
+      : false;
 
   const updateSignatory = (index: number, patch: Partial<CertificateSignatory>) =>
     setSignatories((current) =>
@@ -168,8 +178,14 @@ export const CohortCertificateDialog = ({
                   onChange={(e) => setGraduationDate(e.target.value)}
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  A student with their own graduation date on record keeps theirs.
+                  Every graduate of this cohort is certified on this date.
                 </p>
+                {dateLooksWrong && (
+                  <p className="text-[11px] font-medium text-amber-600">
+                    That is outside this session ({cohort?.start_date} to {cohort?.end_date}). Saveable,
+                    but check it is what you mean.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">

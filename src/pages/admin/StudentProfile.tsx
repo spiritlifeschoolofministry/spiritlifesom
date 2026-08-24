@@ -63,7 +63,7 @@ interface StudentDetail {
     phone: string | null;
     avatar_url: string | null;
   };
-  cohort: { name: string } | null;
+  cohort: { name: string; graduation_date: string | null } | null;
 }
 
 interface FeeRecord {
@@ -158,7 +158,7 @@ const AdminAcademicEditCard = ({ student, onSaved, onMoved }: {
 
       const { data, error: fetchError } = await supabase
         .from("students")
-        .select(`*, profile:profiles(first_name, last_name, middle_name, email, phone, avatar_url), cohort:cohorts(name)`)
+        .select(`*, profile:profiles(first_name, last_name, middle_name, email, phone, avatar_url), cohort:cohorts(name, graduation_date)`)
         .eq("id", student.id)
         .single();
       if (fetchError) throw fetchError;
@@ -257,10 +257,6 @@ const AdminAcademicEditCard = ({ student, onSaved, onMoved }: {
                 <Label className="text-xs">Student Code</Label>
                 <Input value={form.student_code} onChange={e => set("student_code", e.target.value)} className="mt-1" placeholder="e.g. SLSM-2526-0001" />
               </div>
-              <div>
-                <Label className="text-xs">Graduation Date</Label>
-                <Input type="date" value={form.graduation_date} onChange={e => set("graduation_date", e.target.value)} className="mt-1" />
-              </div>
             </div>
             <div>
               <Label className="text-xs">Address</Label>
@@ -290,7 +286,14 @@ const AdminAcademicEditCard = ({ student, onSaved, onMoved }: {
               { label: "Educational Background", value: student.educational_background },
               { label: "Marital Status", value: student.marital_status },
               { label: "Student Code", value: student.student_code },
-              { label: "Graduation Date", value: student.graduation_date ? new Date(student.graduation_date).toLocaleDateString() : "Global default" },
+              // Read-only, and read from the cohort: everyone in a session
+              // graduates on the same day. Edited in admin certificate settings.
+              {
+                label: "Graduation Date",
+                value: student.cohort?.graduation_date
+                  ? new Date(student.cohort.graduation_date).toLocaleDateString()
+                  : "Not set for this cohort",
+              },
               { label: "Admission Status", value: student.admission_status },
               { label: "Address", value: student.address },
               { label: "Ministry Description", value: student.ministry_description },
@@ -438,7 +441,7 @@ const AdminStudentProfile = () => {
           .select(`
             *, 
             profile:profiles(first_name, last_name, middle_name, email, phone, avatar_url),
-            cohort:cohorts(name)
+            cohort:cohorts(name, graduation_date)
           `)
           .eq("id", studentId!)
           .maybeSingle(),
