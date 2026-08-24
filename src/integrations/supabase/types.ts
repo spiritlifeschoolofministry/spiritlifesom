@@ -1819,6 +1819,86 @@ export type Database = {
         }
         Relationships: []
       }
+      certificates: {
+        Row: {
+          cohort_id: string | null
+          id: string
+          issued_at: string
+          issued_by: string | null
+          revoke_reason: string | null
+          revoked_at: string | null
+          serial: string
+          student_code_at_issue: string | null
+          student_id: string
+        }
+        Insert: {
+          cohort_id?: string | null
+          id?: string
+          issued_at?: string
+          issued_by?: string | null
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          serial?: string
+          student_code_at_issue?: string | null
+          student_id: string
+        }
+        Update: {
+          cohort_id?: string | null
+          id?: string
+          issued_at?: string
+          issued_by?: string | null
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          serial?: string
+          student_code_at_issue?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificates_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cohort_certificate_settings: {
+        Row: {
+          cohort_id: string
+          signatories: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          cohort_id: string
+          signatories?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          cohort_id?: string
+          signatories?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cohort_certificate_settings_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: true
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_cohort_moves: {
         Row: {
           fees_raised_amount: number
@@ -2166,6 +2246,22 @@ export type Database = {
           moved: boolean
           student_id: string
         }[]
+      }
+      issue_certificate: {
+        Args: { p_student_id: string }
+        Returns: Database["public"]["Tables"]["certificates"]["Row"]
+      }
+      next_certificate_serial: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      set_certificate_revocation: {
+        Args: { p_serial: string; p_revoked: boolean; p_reason?: string }
+        Returns: Database["public"]["Tables"]["certificates"]["Row"]
+      }
+      verify_certificate: {
+        Args: { p_serial: string }
+        Returns: Json
       }
       next_student_code: {
         Args: { p_cohort_id: string; p_exclude_student?: string }

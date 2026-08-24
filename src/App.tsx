@@ -25,6 +25,7 @@ import {
   Courses,
   Faculty,
   Contact,
+  VerifyCertificate,
   Register,
   Login,
   ForgotPassword,
@@ -119,6 +120,10 @@ const App = () => {
             <Route path="/courses" element={<Courses />} />
             <Route path="/faculty" element={<Faculty />} />
             <Route path="/contact" element={<Contact />} />
+            {/* Public certificate check. The bare path offers the lookup form;
+                the serial form is what is printed on a certificate. */}
+            <Route path="/verify" element={<VerifyCertificate />} />
+            <Route path="/verify/:serial" element={<VerifyCertificate />} />
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />

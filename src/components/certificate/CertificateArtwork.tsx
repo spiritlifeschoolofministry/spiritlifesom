@@ -24,6 +24,8 @@ export const CertificateArtwork = ({
   mainText,
   subText,
   signatories,
+  serial,
+  verifyHost,
 }: CertificateArtworkProps) => {
   useEffect(() => {
     void loadCertificateFonts();
@@ -373,13 +375,38 @@ export const CertificateArtwork = ({
         <circle cx="93" cy="43" r="6" fill="#ef5b93" />
       </svg>
 
+      {/* Verification line, along the very bottom edge */}
+      {serial && (
+        <p
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: 762,
+            margin: 0,
+            textAlign: "center",
+            color: "#8a8371",
+            fontFamily: BODY,
+            fontSize: 11,
+            letterSpacing: "0.03em",
+          }}
+        >
+          {verifyHost ? `Verify at ${verifyHost} — ` : "Certificate No. "}
+          {serial}
+        </p>
+      )}
+
       {/* Signatories */}
       <div
         style={{
           position: "absolute",
           left: 200,
           right: 90,
-          top: 711,
+          // Anchored by its bottom, not its top: a signature drawn above each
+          // name has to grow the block upwards, or it pushes the roles off the
+          // sheet. flex-end then keeps both roles on the same line whether or
+          // not a given side has a signature.
+          bottom: 40,
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-end",

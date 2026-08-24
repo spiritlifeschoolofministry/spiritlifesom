@@ -57,4 +57,8 @@ export type CertificateArtworkProps = {
   subText?: string | null;
   /** Rendered left to right; only the first two are drawn. */
   signatories: CertificateSignatory[];
+  /** Printed serial, the key a verifier looks the certificate up by. */
+  serial?: string | null;
+  /** Host shown beside the serial, e.g. "spiritlifesom.org/verify". */
+  verifyHost?: string | null;
 };

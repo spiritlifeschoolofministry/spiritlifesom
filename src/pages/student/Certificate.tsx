@@ -23,6 +23,8 @@ import {
   loadCertificateFonts,
   type CertificateSignatory,
 } from "@/lib/certificate-design";
+import { DEFAULT_SIGNATORIES, parseSignatories } from "@/lib/certificate-signatories";
+import { CERTIFICATE_VERIFY_HOST, certificateVerifyUrl } from "@/lib/certificate-serial";
 import { CertificateFrame } from "@/components/certificate/CertificateFrame";
 import { certificateFilename, exportCertificate } from "@/lib/certificate-export";
 
@@ -38,6 +40,8 @@ const StudentCertificate = () => {
   const [globalDate, setGlobalDate] = useState("20th April, 2025");
   const [isPendingVerification, setIsPendingVerification] = useState(false);
   const [originalFullName, setOriginalFullName] = useState("");
+  const [signatories, setSignatories] = useState<CertificateSignatory[]>(DEFAULT_SIGNATORIES);
+  const [serial, setSerial] = useState<string | null>(null);
 
   useEffect(() => {
     const loadCertConfig = async () => {
@@ -70,6 +74,25 @@ const StudentCertificate = () => {
       supabase.from("cohorts").select("name, graduation_date, certificate_text_main, certificate_text_sub").eq("id", student.cohort_id).single().then(({ data }) => {
         if (data) setCohortData(data);
       });
+
+      // Who signs this cohort's certificates. A cohort with no row falls back to
+      // the pair that was hardcoded before this was configurable.
+      supabase
+        .from("cohort_certificate_settings")
+        .select("signatories")
+        .eq("cohort_id", student.cohort_id)
+        .maybeSingle()
+        .then(({ data }) => setSignatories(parseSignatories(data?.signatories)));
+    }
+
+    if (student?.id) {
+      // Issued at graduation by a trigger, so this exists for any graduate.
+      supabase
+        .from("certificates")
+        .select("serial")
+        .eq("student_id", student.id)
+        .maybeSingle()
+        .then(({ data }) => setSerial(data?.serial ?? null));
     }
     
     void loadCertificateFonts();
@@ -156,11 +179,6 @@ const StudentCertificate = () => {
     : cohortData?.graduation_date
       ? formatDate(cohortData.graduation_date)
       : globalDate;
-
-  const signatories: CertificateSignatory[] = [
-    { name: "Pastor Folakemi Obadare", title: "Residence Pastor" },
-    { name: "Prophet Cherub Obadare", title: "Founder/Proprietor" },
-  ];
 
   if (loading) {
     return (
@@ -310,13 +328,31 @@ const StudentCertificate = () => {
               }
               subText={cohortData?.certificate_text_sub}
               signatories={signatories}
+              serial={serial}
+              verifyHost={CERTIFICATE_VERIFY_HOST}
             />
           </CertificateFrame>
         </div>
 
-        <p className="text-center text-xs text-muted-foreground print:hidden">
-          Saved and printed copies come out at full A4 landscape size regardless of the screen you are on.
-        </p>
+        <div className="text-center space-y-2 print:hidden">
+          <p className="text-xs text-muted-foreground">
+            Saved and printed copies come out at full A4 landscape size regardless of the screen you are on.
+          </p>
+          {serial && (
+            <p className="text-xs text-muted-foreground break-anywhere">
+              Certificate No. <span className="font-mono text-foreground">{serial}</span> — anyone can
+              confirm it at{" "}
+              <a
+                href={certificateVerifyUrl(serial)}
+                className="underline hover:text-foreground"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {CERTIFICATE_VERIFY_HOST}/{serial}
+              </a>
+            </p>
+          )}
+        </div>
       </div>
     </>
   );

@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Check, X, Loader2, Award, UserCheck, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import { CohortCertificateDialog } from '@/components/admin/CohortCertificateDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,8 +49,7 @@ const CertificateManager = () => {
   const [pendingChanges, setPendingChanges] = useState<PendingNameChange[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [cohorts, setCohorts] = useState<CohortSettings[]>([]);
-  const [editingCohortId, setEditingCohortId] = useState<string | null>(null);
-  const [cohortForm, setCohortForm] = useState<Partial<CohortSettings>>({});
+  const [editingCohort, setEditingCohort] = useState<CohortSettings | null>(null);
 
   useEffect(() => {
     loadCertificateData();
@@ -122,30 +122,6 @@ const CertificateManager = () => {
     } catch (err) {
       console.error('Error saving global date:', err);
       toast.error('Failed to update graduation date');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const updateCohort = async (cohortId: string) => {
-    try {
-      setSaving(true);
-      const { error } = await supabase
-        .from('cohorts')
-        .update({
-          graduation_date: cohortForm.graduation_date || null,
-          certificate_text_main: cohortForm.certificate_text_main || null,
-          certificate_text_sub: cohortForm.certificate_text_sub || null,
-        })
-        .eq('id', cohortId);
-      
-      if (error) throw error;
-      toast.success('Cohort certificate settings updated');
-      setEditingCohortId(null);
-      await loadCertificateData();
-    } catch (err) {
-      console.error('Error updating cohort:', err);
-      toast.error('Failed to update cohort settings');
     } finally {
       setSaving(false);
     }
@@ -229,7 +205,8 @@ const CertificateManager = () => {
             <Award className="h-5 w-5" /> Cohort Certificate Settings
           </CardTitle>
           <CardDescription>
-            Manage certificate details (date, descriptions) for each cohort.
+            Graduation date, wording and signatories, per cohort. Each opens with a live preview
+            of the certificate those settings produce.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -239,7 +216,7 @@ const CertificateManager = () => {
                 <TableRow>
                   <TableHead>Cohort</TableHead>
                   <TableHead>Graduation Date</TableHead>
-                  <TableHead className="hidden lg:table-cell">Text Elements</TableHead>
+                  <TableHead className="hidden lg:table-cell">Wording</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -247,65 +224,23 @@ const CertificateManager = () => {
                 {cohorts.map((cohort) => (
                   <TableRow key={cohort.id}>
                     <TableCell className="font-medium">{cohort.name}</TableCell>
-                    <TableCell>
-                      {editingCohortId === cohort.id ? (
-                        <Input 
-                          type="date" 
-                          value={cohortForm.graduation_date || ''} 
-                          onChange={(e) => setCohortForm({ ...cohortForm, graduation_date: e.target.value })}
-                          className="h-8"
-                        />
-                      ) : (
-                        cohort.graduation_date || 'Not set'
-                      )}
-                    </TableCell>
+                    <TableCell>{cohort.graduation_date || 'Not set'}</TableCell>
                     <TableCell className="hidden lg:table-cell">
-                      {editingCohortId === cohort.id ? (
-                        <div className="space-y-2 py-1">
-                          <Input 
-                            placeholder="Main text..." 
-                            value={cohortForm.certificate_text_main || ''} 
-                            onChange={(e) => setCohortForm({ ...cohortForm, certificate_text_main: e.target.value })}
-                            className="h-8 text-xs"
-                          />
-                          <Input 
-                            placeholder="Sub text (optional)..." 
-                            value={cohortForm.certificate_text_sub || ''} 
-                            onChange={(e) => setCohortForm({ ...cohortForm, certificate_text_sub: e.target.value })}
-                            className="h-8 text-xs"
-                          />
-                        </div>
-                      ) : (
-                        <div className="max-w-full lg:max-w-[300px]">
-                          <p className="text-xs truncate">{cohort.certificate_text_main || 'Default main text'}</p>
-                          {cohort.certificate_text_sub && (
-                            <p className="text-[10px] text-muted-foreground truncate">{cohort.certificate_text_sub}</p>
-                          )}
-                        </div>
-                      )}
+                      <div className="max-w-full lg:max-w-[320px]">
+                        <p className="text-xs truncate">
+                          {cohort.certificate_text_main || 'Default main text'}
+                        </p>
+                        {cohort.certificate_text_sub && (
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {cohort.certificate_text_sub}
+                          </p>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      {editingCohortId === cohort.id ? (
-                        <div className="flex justify-end gap-1">
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditingCohortId(null)}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" className="h-8 w-8 p-0" onClick={() => updateCohort(cohort.id)} disabled={saving}>
-                            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={() => {
-                            setEditingCohortId(cohort.id);
-                            setCohortForm({ ...cohort });
-                          }}
-                        >
-                          Edit
-                        </Button>
-                      )}
+                      <Button size="sm" variant="outline" onClick={() => setEditingCohort(cohort)}>
+                        Edit
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -314,6 +249,13 @@ const CertificateManager = () => {
           </div>
         </CardContent>
       </Card>
+
+      <CohortCertificateDialog
+        cohort={editingCohort}
+        open={Boolean(editingCohort)}
+        onOpenChange={(next) => !next && setEditingCohort(null)}
+        onSaved={loadCertificateData}
+      />
 
       <Card>
         <CardHeader>

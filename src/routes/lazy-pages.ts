@@ -33,6 +33,7 @@ export const About = lazyPage(() => import("@/pages/About"));
 export const Courses = lazyPage(() => import("@/pages/Courses"));
 export const Faculty = lazyPage(() => import("@/pages/Faculty"));
 export const Contact = lazyPage(() => import("@/pages/Contact"));
+export const VerifyCertificate = lazyPage(() => import("@/pages/VerifyCertificate"));
 export const Register = lazyPage(() => import("@/pages/Register"));
 export const Login = lazyPage(() => import("@/pages/Login"));
 export const ForgotPassword = lazyPage(() => import("@/pages/ForgotPassword"));
@@ -98,6 +99,7 @@ const PAGE_BY_PATH: Record<string, LazyPage> = {
   "/courses": Courses,
   "/faculty": Faculty,
   "/contact": Contact,
+  "/verify": VerifyCertificate,
   "/login": Login,
   "/register": Register,
   "/student/dashboard": StudentDashboard,
