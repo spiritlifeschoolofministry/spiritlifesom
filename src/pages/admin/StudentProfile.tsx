@@ -255,7 +255,7 @@ const AdminAcademicEditCard = ({ student, onSaved, onMoved }: {
               </div>
               <div>
                 <Label className="text-xs">Student Code</Label>
-                <Input value={form.student_code} onChange={e => set("student_code", e.target.value)} className="mt-1" placeholder="e.g. SLSM-2526-0001" />
+                <Input value={form.student_code} onChange={e => set("student_code", e.target.value)} className="mt-1" placeholder="e.g. SLSM/BBM/2025/001" />
               </div>
             </div>
             <div>

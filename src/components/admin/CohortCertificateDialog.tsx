@@ -251,7 +251,7 @@ export const CohortCertificateDialog = ({
               <CertificateFrame className="rounded-lg border border-border shadow-sm">
                 <CertificateArtwork
                   recipientName="Adebayo Oluwaseun Grace"
-                  studentCode="SLSM-2526-0001"
+                  studentCode="SLSM/BBM/2025/001"
                   dateText={formatDate(graduationDate || null)}
                   mainText={mainText.trim() || DEFAULT_MAIN_TEXT}
                   subText={subText.trim() || null}
