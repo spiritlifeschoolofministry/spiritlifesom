@@ -10,6 +10,7 @@ import { QuestionRenderer } from "@/components/exam/QuestionRenderer";
 import WebcamProctor from "@/components/exam/WebcamProctor";
 import AudioProctor from "@/components/exam/AudioProctor";
 import { formatDuration, generateFingerprint, generateSessionId, isAnswered } from "@/lib/exam-utils";
+import { fullscreenSupported, isFullscreen, requestFullscreen, exitFullscreen, onFullscreenChange } from "@/lib/fullscreen";
 import { edgeErrorMessage } from "@/lib/edge-error";
 import { AlertTriangle, ChevronLeft, ChevronRight, Send, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
@@ -100,7 +101,11 @@ export default function ExamRunner() {
       setFullscreenExits(fullscreenExitsRef.current);
       // The lobby asks for fullscreen on the click that starts the exam, but the
       // browser can refuse it. Gate the paper rather than opening it anyway.
-      if (e.enforce_fullscreen && !document.fullscreenElement) setFullscreenBlocked(true);
+      // Only gate the paper on fullscreen where fullscreen is actually
+      // obtainable. On a device without the API the overlay could never be
+      // dismissed, so enforcing it here locked the student out of an exam they
+      // were entitled to sit; the setting is treated as unenforceable instead.
+      if (e.enforce_fullscreen && fullscreenSupported() && !isFullscreen()) setFullscreenBlocked(true);
     })();
   }, [id, navigate]);
 
@@ -210,9 +215,9 @@ export default function ExamRunner() {
       // before the page changes — so the student was told off for exiting
       // fullscreen as their paper went in. Only flag it while the exam is live.
       if (submittedRef.current) return;
-      if (!exam.enforce_fullscreen) return;
+      if (!exam.enforce_fullscreen || !fullscreenSupported()) return;
 
-      if (!document.fullscreenElement) {
+      if (!isFullscreen()) {
         // Leaving fullscreen now has a consequence. It used to be recorded and
         // warned about and nothing else, so a student could drop out of
         // fullscreen on the first question and sit the rest of the paper with
@@ -240,7 +245,7 @@ export default function ExamRunner() {
     document.addEventListener("cut", onCopy);
     document.addEventListener("contextmenu", onContext);
     document.addEventListener("keydown", onKey);
-    document.addEventListener("fullscreenchange", onFsChange);
+    const offFsChange = onFullscreenChange(onFsChange);
     window.addEventListener("beforeunload", onBeforeUnload);
 
     return () => {
@@ -249,7 +254,7 @@ export default function ExamRunner() {
       document.removeEventListener("cut", onCopy);
       document.removeEventListener("contextmenu", onContext);
       document.removeEventListener("keydown", onKey);
-      document.removeEventListener("fullscreenchange", onFsChange);
+      offFsChange();
       window.removeEventListener("beforeunload", onBeforeUnload);
     };
   }, [exam, autosave]);
@@ -318,7 +323,7 @@ export default function ExamRunner() {
       // An attempt already closed server-side is a success from here.
       if (!failure || /already submitted/i.test(failure)) {
         toast.success("Exam submitted");
-        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        void exitFullscreen();
         navigate("/student/exams");
         return;
       }
@@ -447,7 +452,7 @@ export default function ExamRunner() {
         <Progress value={progress} className="h-1 rounded-none" />
       </header>
 
-      {fullscreenBlocked && exam.enforce_fullscreen && (
+      {fullscreenBlocked && exam.enforce_fullscreen && fullscreenSupported() && (
         <div className="fixed inset-0 z-50 bg-background/98 backdrop-blur-sm flex items-center justify-center p-6">
           <Card className="max-w-md p-6 text-center space-y-3">
             <ShieldAlert className="w-8 h-8 text-destructive mx-auto" />
@@ -459,9 +464,11 @@ export default function ExamRunner() {
               {fullscreenExits}.
             </p>
             <Button
-              onClick={() => document.documentElement.requestFullscreen().catch(() => {
-                toast.error("Your browser refused fullscreen. Allow it and try again.");
-              })}
+              onClick={async () => {
+                if (!(await requestFullscreen())) {
+                  toast.error("Your browser refused fullscreen. Allow it and try again.");
+                }
+              }}
             >
               Re-enter fullscreen
             </Button>

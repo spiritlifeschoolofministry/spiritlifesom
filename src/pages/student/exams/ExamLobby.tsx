@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Camera, CameraOff, Clock, ShieldAlert, Monitor, Smartphone, Mic, MicOff } from "lucide-react";
 import { entryClosesAt, formatDuration } from "@/lib/exam-utils";
+import { fullscreenSupported, requestFullscreen } from "@/lib/fullscreen";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -129,6 +130,9 @@ export default function ExamLobby() {
   const entryClosesMs = entryClosesAt(exam);
   const entryClosed = !beforeStart && now > entryClosesMs;
 
+  // Support is a property of the browser, not of this render — but it is read
+  // during render, so it is computed here rather than held in state.
+  const canFullscreen = fullscreenSupported();
   const cameraRequired = !!exam.enable_webcam_proctoring;
   const cameraReady = !cameraRequired || camera === "granted";
   const micRequired = !!exam.enable_audio_proctoring;
@@ -138,9 +142,11 @@ export default function ExamLobby() {
 
   const startExam = async () => {
     if (!canStart) return;
-    if (exam.enforce_fullscreen) {
-      try { await document.documentElement.requestFullscreen(); } catch { /* ignore */ }
-    }
+    // A refusal here is recoverable — the runner offers the student a way back
+    // in. A device with no fullscreen at all is not, and the runner knows to
+    // stop enforcing rather than covering the paper with an overlay that can
+    // never be dismissed.
+    if (exam.enforce_fullscreen) await requestFullscreen();
     nav(`/student/exams/${id}/take`);
   };
 
@@ -200,7 +206,8 @@ export default function ExamLobby() {
             <li>Once you start, the exam <strong>cannot be paused</strong>. You must finish in {exam.duration_minutes} minutes.</li>
             <li>Questions are shown <strong>one at a time</strong>{exam.randomize_questions ? " in random order" : ""}.</li>
             <li>You have <strong>only one attempt</strong>.</li>
-            {exam.enforce_fullscreen && <li>The exam will run in <strong>fullscreen</strong>. Leaving fullscreen hides your questions until you return, the clock keeps running, and after {exam.max_fullscreen_exits} exits your exam is submitted automatically.</li>}
+            {exam.enforce_fullscreen && canFullscreen && <li>The exam will run in <strong>fullscreen</strong>. Leaving fullscreen hides your questions until you return, the clock keeps running, and after {exam.max_fullscreen_exits} exits your exam is submitted automatically.</li>}
+            {exam.enforce_fullscreen && !canFullscreen && <li>This exam is normally sat in <strong>fullscreen</strong>, which your device does not support — iPhones and iPads have no fullscreen mode for web pages. You can sit the paper as normal; leaving the app is still recorded.</li>}
             {exam.block_shortcuts && <li>Copy, paste, right-click, and developer tools are <strong>disabled</strong>.</li>}
             {exam.enable_webcam_proctoring && <li>Your <strong>webcam is required</strong> and takes snapshots every {exam.snapshot_interval_seconds ?? 30}s for your lecturer to review.</li>}
             {exam.enable_audio_proctoring && <li>Your <strong>microphone is required</strong> and is recorded in {exam.audio_clip_seconds ?? 60}s clips throughout the exam for your lecturer to review.</li>}
