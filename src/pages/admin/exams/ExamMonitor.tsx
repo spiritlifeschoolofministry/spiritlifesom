@@ -249,6 +249,19 @@ export default function ExamMonitor() {
     setGradeData({ answers, questions, override: "" });
   };
 
+  /**
+   * Sum the marks that count: all of them, or the best n where the paper says
+   * so. Sorting descending and taking n is what "answer any two of three"
+   * means — a student who answered all three keeps their best two, and the
+   * zero written for a question they were invited to skip sorts to the bottom
+   * where it belongs.
+   */
+  const bestOf = (values: number[]) => {
+    const n = Number(exam?.count_best_n) || 0;
+    const counted = n > 0 ? [...values].sort((a, b) => b - a).slice(0, n) : values;
+    return counted.reduce((sum, v) => sum + v, 0);
+  };
+
   const saveGrading = async () => {
     if (!grading) return;
     // Save each question's mark. Rows that never existed — questions the
@@ -274,7 +287,11 @@ export default function ExamMonitor() {
     // The total is the sum of the question marks, full stop. There is no
     // separate figure to type in: a score has to be traceable to the answers
     // it came from, and any change is made by regrading the question itself.
-    const total = gradeData.answers.reduce((s, a) => s + (Number(a.points_awarded) || 0), 0);
+    //
+    // Where the paper counts only the best few, the sum is of those marks —
+    // the same rule exam-submit applies, so a hand-marked paper and an
+    // auto-marked one cannot disagree about what a student scored.
+    const total = bestOf(gradeData.answers.map((a) => Number(a.points_awarded) || 0));
 
     // Regrading is allowed, so keep what the mark used to be. Without this a
     // score can change after release with no record of the previous figure.
@@ -297,8 +314,12 @@ export default function ExamMonitor() {
     load();
   };
 
-  const gradedTotal = gradeData.answers.reduce((s, a) => s + (Number(a.points_awarded) || 0), 0);
-  const gradeMax = gradeData.questions.reduce((s, q) => s + (Number(q.points) || 0), 0);
+  const gradedTotal = bestOf(gradeData.answers.map((a) => Number(a.points_awarded) || 0));
+  // The best-n ceiling is the highest-valued questions served, matching what
+  // exam-start recorded on the attempt — not every question on the paper.
+  const gradeMax = bestOf(
+    gradeData.questions.map((q) => Number(q.points) || 0),
+  );
   const manualRemaining = gradeData.questions.filter((q) => {
     const ans = gradeData.answers.find((a) => a.question_id === q.id);
     if (!ans) return false;

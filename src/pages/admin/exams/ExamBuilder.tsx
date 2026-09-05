@@ -80,6 +80,7 @@ const DEFAULT: ExamDraft = {
   target_audience: "cohort",
   target_student_ids: [],
   questions_per_attempt: null,
+  count_best_n: null,
   enable_webcam_proctoring: false,
   snapshot_interval_seconds: 30,
   enable_audio_proctoring: false,
@@ -212,10 +213,21 @@ export default function ExamBuilder() {
     return new Date(d.getTime() - off * 60000).toISOString().slice(0, 16);
   };
 
+  // What a student can actually reach when only the best few answers count:
+  // the highest-valued questions on the paper, which is the same ceiling
+  // exam-start records on each attempt.
+  const countedBest = Number(exam.count_best_n) || 0;
   const totalPoints = picked.reduce((sum, qid) => {
     const q = bank.find((b) => b.id === qid);
     return sum + (q ? Number(q.points) : 0);
   }, 0);
+  const bestPoints = countedBest > 0
+    ? picked
+        .map((qid) => Number(bank.find((b) => b.id === qid)?.points) || 0)
+        .sort((a, b) => b - a)
+        .slice(0, countedBest)
+        .reduce((sum, p) => sum + p, 0)
+    : totalPoints;
 
   /** Returns a per-field message for everything that would stop this exam being saved. */
   const validate = () => {
@@ -261,6 +273,7 @@ export default function ExamBuilder() {
         start_at: new Date(exam.start_at).toISOString(),
         end_at: new Date(exam.end_at).toISOString(),
         total_points: totalPoints,
+        count_best_n: exam.count_best_n || null,
         status: newStatus ?? exam.status,
       } as TablesInsert<'exams'> & { id?: string };
       delete payload.id;
@@ -504,8 +517,40 @@ export default function ExamBuilder() {
 
         <TabsContent value="questions" className="space-y-3">
           <Card className="p-4">
+            <div className="mb-3 p-3 rounded-md border border-border">
+              <Label>Questions that count towards the score</Label>
+              <Input
+                type="number"
+                min={0}
+                max={picked.length || undefined}
+                placeholder={`All ${picked.length || ""}`.trim()}
+                value={exam.count_best_n ?? ""}
+                onChange={(e) => update({ count_best_n: e.target.value === "" ? null : Number(e.target.value) })}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {countedBest > 0 && countedBest < picked.length ? (
+                  <>
+                    An <strong>answer any {countedBest} of {picked.length}</strong> paper. Every question is shown; each
+                    student's best {countedBest} count, so it is marked out of {bestPoints} rather than {totalPoints}.
+                    Say so in the question text too — the system will not tell them.
+                  </>
+                ) : (
+                  <>Leave blank when every question counts. Set it to 2 on a three-question paper to mark students on their best two.</>
+                )}
+              </p>
+              {countedBest > picked.length && picked.length > 0 && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Only {picked.length} question{picked.length === 1 ? " is" : "s are"} selected, so every one counts.
+                </p>
+              )}
+            </div>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <p className="text-sm">Select questions from the bank ({picked.length} selected, {totalPoints} pts total)</p>
+              <p className="text-sm">
+                Select questions from the bank ({picked.length} selected,{" "}
+                {countedBest > 0 && countedBest < picked.length
+                  ? `best ${countedBest} count — ${bestPoints} pts`
+                  : `${totalPoints} pts total`})
+              </p>
               <Dialog open={importOpen} onOpenChange={async (o) => {
                 setImportOpen(o);
                 if (o && otherExams.length === 0) {

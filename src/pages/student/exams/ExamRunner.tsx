@@ -49,6 +49,8 @@ export default function ExamRunner() {
   const submittedRef = useRef(false);
   // Counters read by the event handlers. State alone went stale inside the
   // listeners, which is how the third tab switch could be counted as the first.
+  // Client clock minus server clock, in ms. Zero until exam-start answers.
+  const clockOffsetRef = useRef(0);
   const tabSwitchesRef = useRef(0);
   const fullscreenExitsRef = useRef(0);
   // One grace window per device: a revoked camera fires several signals, and
@@ -76,6 +78,19 @@ export default function ExamRunner() {
         return;
       }
       const att = data.attempt;
+      // How far this device's clock is from the server's.
+      //
+      // The countdown used to compare the server's deadline against Date.now(),
+      // so a phone running twenty minutes fast was auto-submitted twenty minutes
+      // early — students lost most of a paper, and one lost all of it before
+      // writing a word. The offset is measured once here and every later reading
+      // is corrected by it, which is what makes the clock the server's rather
+      // than the handset's. A device with no skew gives an offset near zero and
+      // nothing changes.
+      if (data.server_now) {
+        const parsed = Date.parse(data.server_now);
+        if (!Number.isNaN(parsed)) clockOffsetRef.current = Date.now() - parsed;
+      }
       setAttempt(att);
 
       const qIds = att.question_order ?? [];
@@ -113,7 +128,9 @@ export default function ExamRunner() {
   useEffect(() => {
     if (!attempt) return;
     const calc = () => {
-      const remain = Math.floor((new Date(attempt.server_deadline_at).getTime() - Date.now()) / 1000);
+      // Date.now() corrected onto the server's clock, never the raw device time.
+      const serverNow = Date.now() - clockOffsetRef.current;
+      const remain = Math.floor((new Date(attempt.server_deadline_at).getTime() - serverNow) / 1000);
       setSecondsLeft(Math.max(0, remain));
       if (remain <= 0 && !submittedRef.current) submitExam("timeout");
     };

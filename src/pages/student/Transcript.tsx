@@ -92,7 +92,7 @@ const StudentTranscript = () => {
         // reported a student's standing from coursework alone.
         supabase
           .from("exam_attempts")
-          .select("id, score, manual_score_override, graded_at, exam:exams(id, title, assessment_type, total_points, course_id, results_released)")
+          .select("id, score, manual_score_override, graded_at, max_points, exam:exams(id, title, assessment_type, total_points, course_id, results_released)")
           .eq("student_id", student.id)
           .in("status", ["submitted", "graded"]),
       ]);
@@ -121,7 +121,10 @@ const StudentTranscript = () => {
           id: att.id,
           title: att.exam.title,
           category: att.exam.assessment_type || "Exam",
-          max_points: Number(att.exam.total_points) || 0,
+          // The attempt's own denominator where it has one: the whole
+          // paper is the wrong divisor for a sitting served a subset of it,
+          // or marked on only its best few answers.
+          max_points: Number(att.max_points ?? att.exam.total_points) || 0,
           grade: Number(att.manual_score_override ?? att.score ?? 0),
           reviewed_at: att.graded_at,
         });

@@ -461,7 +461,7 @@ const AdminStudentProfile = () => {
         // they have to count towards the one the admin sees too.
         supabase
           .from("exam_attempts")
-          .select("id, score, manual_score_override, exams(title, assessment_type, total_points, results_released)")
+          .select("id, score, manual_score_override, max_points, exams(title, assessment_type, total_points, results_released)")
           .eq("student_id", studentId!)
           .in("status", ["submitted", "graded"]),
       ]);
@@ -524,7 +524,10 @@ const AdminStudentProfile = () => {
               id: a.id,
               title: a.exams.title,
               category: a.exams.assessment_type || "Exam",
-              max_points: Number(a.exams.total_points) || 0,
+          // The attempt's own denominator where it has one: the whole
+          // paper is the wrong divisor for a sitting served a subset of it,
+          // or marked on only its best few answers.
+              max_points: Number(a.max_points ?? a.exams.total_points) || 0,
               // An unreleased sitting has a score, but it is not the student's
               // mark yet — it must not reach the average or show as marked.
               grade: released ? Number(a.manual_score_override ?? a.score ?? 0) : null,

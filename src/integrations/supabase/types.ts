@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
   }
   graphql_public: {
     Tables: {
@@ -397,6 +397,121 @@ export type Database = {
         }
         Relationships: []
       }
+      certificates: {
+        Row: {
+          cohort_id: string | null
+          id: string
+          issued_at: string
+          issued_by: string | null
+          revoke_reason: string | null
+          revoked_at: string | null
+          serial: string
+          student_code_at_issue: string | null
+          student_id: string
+        }
+        Insert: {
+          cohort_id?: string | null
+          id?: string
+          issued_at?: string
+          issued_by?: string | null
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          serial?: string
+          student_code_at_issue?: string | null
+          student_id: string
+        }
+        Update: {
+          cohort_id?: string | null
+          id?: string
+          issued_at?: string
+          issued_by?: string | null
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          serial?: string
+          student_code_at_issue?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificates_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "certificates_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "graduate_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cohort_certificate_settings: {
+        Row: {
+          cohort_id: string
+          signatories: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          cohort_id: string
+          signatories?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          cohort_id?: string
+          signatories?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cohort_certificate_settings_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: true
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cohort_certificate_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "cohort_certificate_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cohorts: {
         Row: {
           certificate_text_main: string | null
@@ -750,6 +865,7 @@ export type Database = {
           ip_address: string | null
           last_heartbeat_at: string | null
           manual_score_override: number | null
+          max_points: number | null
           option_orders: Json
           question_order: Json
           regrade_history: Json
@@ -779,6 +895,7 @@ export type Database = {
           ip_address?: string | null
           last_heartbeat_at?: string | null
           manual_score_override?: number | null
+          max_points?: number | null
           option_orders?: Json
           question_order?: Json
           regrade_history?: Json
@@ -808,6 +925,7 @@ export type Database = {
           ip_address?: string | null
           last_heartbeat_at?: string | null
           manual_score_override?: number | null
+          max_points?: number | null
           option_orders?: Json
           question_order?: Json
           regrade_history?: Json
@@ -1070,12 +1188,13 @@ export type Database = {
       exams: {
         Row: {
           allow_late_entry: boolean
-          assessment_type: string
           allow_mobile: boolean
+          assessment_type: string
           audio_clip_seconds: number
           autosave_interval_seconds: number
           block_shortcuts: boolean
           cohort_id: string
+          count_best_n: number | null
           course_id: string
           created_at: string
           created_by: string | null
@@ -1108,12 +1227,13 @@ export type Database = {
         }
         Insert: {
           allow_late_entry?: boolean
-          assessment_type?: string
           allow_mobile?: boolean
+          assessment_type?: string
           audio_clip_seconds?: number
           autosave_interval_seconds?: number
           block_shortcuts?: boolean
           cohort_id: string
+          count_best_n?: number | null
           course_id: string
           created_at?: string
           created_by?: string | null
@@ -1146,12 +1266,13 @@ export type Database = {
         }
         Update: {
           allow_late_entry?: boolean
-          assessment_type?: string
           allow_mobile?: boolean
+          assessment_type?: string
           audio_clip_seconds?: number
           autosave_interval_seconds?: number
           block_shortcuts?: boolean
           cohort_id?: string
+          count_best_n?: number | null
           course_id?: string
           created_at?: string
           created_by?: string | null
@@ -1410,16 +1531,16 @@ export type Database = {
       payments: {
         Row: {
           admin_notes: string | null
-          covered_by_payment_id: string | null
           amount_paid: number
+          covered_by_payment_id: string | null
           created_at: string | null
           fee_id: string | null
           id: string
           idempotency_key: string | null
           is_manual_record: boolean
           payment_date: string | null
-          payment_type: string | null
           payment_proof_url: string | null
+          payment_type: string | null
           status: string | null
           storage_path: string | null
           storage_provider: string | null
@@ -1428,16 +1549,16 @@ export type Database = {
         }
         Insert: {
           admin_notes?: string | null
-          covered_by_payment_id?: string | null
           amount_paid?: number
+          covered_by_payment_id?: string | null
           created_at?: string | null
           fee_id?: string | null
           id?: string
           idempotency_key?: string | null
           is_manual_record?: boolean
           payment_date?: string | null
-          payment_type?: string | null
           payment_proof_url?: string | null
+          payment_type?: string | null
           status?: string | null
           storage_path?: string | null
           storage_provider?: string | null
@@ -1446,16 +1567,16 @@ export type Database = {
         }
         Update: {
           admin_notes?: string | null
-          covered_by_payment_id?: string | null
           amount_paid?: number
+          covered_by_payment_id?: string | null
           created_at?: string | null
           fee_id?: string | null
           id?: string
           idempotency_key?: string | null
           is_manual_record?: boolean
           payment_date?: string | null
-          payment_type?: string | null
           payment_proof_url?: string | null
+          payment_type?: string | null
           status?: string | null
           storage_path?: string | null
           storage_provider?: string | null
@@ -1463,6 +1584,13 @@ export type Database = {
           student_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "payments_covered_by_payment_id_fkey"
+            columns: ["covered_by_payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payments_fee_id_fkey"
             columns: ["fee_id"]
@@ -1819,86 +1947,6 @@ export type Database = {
         }
         Relationships: []
       }
-      certificates: {
-        Row: {
-          cohort_id: string | null
-          id: string
-          issued_at: string
-          issued_by: string | null
-          revoke_reason: string | null
-          revoked_at: string | null
-          serial: string
-          student_code_at_issue: string | null
-          student_id: string
-        }
-        Insert: {
-          cohort_id?: string | null
-          id?: string
-          issued_at?: string
-          issued_by?: string | null
-          revoke_reason?: string | null
-          revoked_at?: string | null
-          serial?: string
-          student_code_at_issue?: string | null
-          student_id: string
-        }
-        Update: {
-          cohort_id?: string | null
-          id?: string
-          issued_at?: string
-          issued_by?: string | null
-          revoke_reason?: string | null
-          revoked_at?: string | null
-          serial?: string
-          student_code_at_issue?: string | null
-          student_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "certificates_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: true
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "certificates_cohort_id_fkey"
-            columns: ["cohort_id"]
-            isOneToOne: false
-            referencedRelation: "cohorts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      cohort_certificate_settings: {
-        Row: {
-          cohort_id: string
-          signatories: Json
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          cohort_id: string
-          signatories?: Json
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          cohort_id?: string
-          signatories?: Json
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cohort_certificate_settings_cohort_id_fkey"
-            columns: ["cohort_id"]
-            isOneToOne: true
-            referencedRelation: "cohorts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       student_cohort_moves: {
         Row: {
           fees_raised_amount: number
@@ -1947,17 +1995,38 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "student_cohort_moves_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "student_cohort_moves_from_cohort_id_fkey"
             columns: ["from_cohort_id"]
             isOneToOne: false
             referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_cohort_moves_moved_by_fkey"
+            columns: ["moved_by"]
+            isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "student_cohort_moves_moved_by_fkey"
+            columns: ["moved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_cohort_moves_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "graduate_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_cohort_moves_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
             referencedColumns: ["id"]
           },
           {
@@ -2234,39 +2303,6 @@ export type Database = {
       }
     }
     Functions: {
-      move_student_to_cohort: {
-        Args: { p_reason?: string; p_student_id: string; p_to_cohort: string }
-        Returns: Json
-      }
-      move_students_to_cohort: {
-        Args: { p_reason?: string; p_student_ids: string[]; p_to_cohort: string }
-        Returns: {
-          detail: Json
-          error: string
-          moved: boolean
-          student_id: string
-        }[]
-      }
-      issue_certificate: {
-        Args: { p_student_id: string }
-        Returns: Database["public"]["Tables"]["certificates"]["Row"]
-      }
-      next_certificate_serial: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      set_certificate_revocation: {
-        Args: { p_serial: string; p_revoked: boolean; p_reason?: string }
-        Returns: Database["public"]["Tables"]["certificates"]["Row"]
-      }
-      verify_certificate: {
-        Args: { p_serial: string }
-        Returns: Json
-      }
-      next_student_code: {
-        Args: { p_cohort_id: string; p_exclude_student?: string }
-        Returns: string
-      }
       adjust_fee_amount_paid: {
         Args: { p_delta: number; p_fee_id: string }
         Returns: undefined
@@ -2294,17 +2330,13 @@ export type Database = {
         Args: { p_payment_id: string; p_student_fee_id: string }
         Returns: undefined
       }
-      admin_update_fee_structure: {
-        Args: {
-          p_amount: number
-          p_id: string
-          p_learning_modes: string[]
-        }
-        Returns: Json
-      }
       admin_set_payment_fee_by_structure: {
         Args: { p_fee_structure_id: string; p_payment_id: string }
         Returns: string
+      }
+      admin_update_fee_structure: {
+        Args: { p_amount: number; p_id: string; p_learning_modes: string[] }
+        Returns: Json
       }
       approve_student_by_token: { Args: { token: string }; Returns: Json }
       approve_student_payment: {
@@ -2332,9 +2364,33 @@ export type Database = {
         Args: { p_profile_id: string }
         Returns: undefined
       }
+      fee_structure_applies: {
+        Args: { p_modes: string[]; p_student_mode: string }
+        Returns: boolean
+      }
       get_my_role: { Args: never; Returns: string }
       get_my_student_id: { Args: never; Returns: string }
       is_profile_complete: { Args: { _user_id: string }; Returns: boolean }
+      issue_certificate: {
+        Args: { p_student_id: string }
+        Returns: {
+          cohort_id: string | null
+          id: string
+          issued_at: string
+          issued_by: string | null
+          revoke_reason: string | null
+          revoked_at: string | null
+          serial: string
+          student_code_at_issue: string | null
+          student_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "certificates"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       log_manual_admission_email: {
         Args: {
           p_email_type: string
@@ -2343,6 +2399,53 @@ export type Database = {
         }
         Returns: undefined
       }
+      move_student_to_cohort: {
+        Args: { p_reason?: string; p_student_id: string; p_to_cohort: string }
+        Returns: Json
+      }
+      move_students_to_cohort: {
+        Args: {
+          p_reason?: string
+          p_student_ids: string[]
+          p_to_cohort: string
+        }
+        Returns: {
+          detail: Json
+          error: string
+          moved: boolean
+          student_id: string
+        }[]
+      }
+      next_certificate_serial: { Args: never; Returns: string }
+      next_student_code: {
+        Args: { p_cohort_id: string; p_exclude_student?: string }
+        Returns: string
+      }
+      reconcile_student_fees: {
+        Args: { p_student_id: string }
+        Returns: undefined
+      }
+      set_certificate_revocation: {
+        Args: { p_reason?: string; p_revoked: boolean; p_serial: string }
+        Returns: {
+          cohort_id: string | null
+          id: string
+          issued_at: string
+          issued_by: string | null
+          revoke_reason: string | null
+          revoked_at: string | null
+          serial: string
+          student_code_at_issue: string | null
+          student_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "certificates"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      verify_certificate: { Args: { p_serial: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
@@ -2361,12 +2464,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2390,11 +2493,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2415,11 +2518,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2440,11 +2543,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -2457,11 +2560,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

@@ -120,7 +120,7 @@ const StudentGrades = () => {
       // dialog promised it went "into Grades".
       const { data: examAttempts } = await supabase
         .from("exam_attempts")
-        .select("id, score, manual_score_override, status, submitted_at, exams(id, title, assessment_type, total_points, results_released, cohort_id, courses(title))")
+        .select("id, score, manual_score_override, status, submitted_at, max_points, exams(id, title, assessment_type, total_points, results_released, cohort_id, courses(title))")
         .eq("student_id", student.id)
         .in("status", ["submitted", "graded"]);
 
@@ -135,7 +135,10 @@ const StudentGrades = () => {
           id: a.id,
           title: a.exams!.title,
           category: a.exams!.assessment_type || "Exam",
-          max_points: Number(a.exams!.total_points) || 0,
+          // The attempt's own denominator where it has one: the whole
+          // paper is the wrong divisor for a sitting served a subset of it,
+          // or marked on only its best few answers.
+          max_points: Number(a.max_points ?? a.exams!.total_points) || 0,
           grade: released ? Number(a.manual_score_override ?? a.score ?? 0) : null,
           feedback: null,
           reviewed_at: a.submitted_at ?? null,

@@ -87,6 +87,20 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Attempt not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // The best-n rule lives on the exam and decides how the marks below add up.
+    // A missing row must not silently mean "count everything": that is the
+    // wrong total for the papers this setting exists for, so fail instead.
+    const { data: exam, error: examError } = await admin
+      .from("exams")
+      .select("id, count_best_n")
+      .eq("id", attempt.exam_id)
+      .single();
+
+    if (examError || !exam) {
+      console.error("Load exam for submit error:", examError);
+      return new Response(JSON.stringify({ error: "Exam not found for this attempt" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     if (authedUserId) {
       // Get student to verify ownership
       const { data: student } = await supabase
@@ -156,7 +170,10 @@ Deno.serve(async (req) => {
       (answers ?? []).map((a: AnswerRow) => [a.question_id, a]),
     );
 
-    let totalScore = 0;
+    // Marks per question, so a best-n paper can pick the ones that count once
+    // every question has a number. Summing as we go could not do that: the
+    // highest two of three are not known until the third is marked.
+    const marks: number[] = [];
     let awaitingManual = false;
 
     for (const questionId of servedIds) {
@@ -170,10 +187,11 @@ Deno.serve(async (req) => {
       if (graded.needsManual) {
         if (ans && ans.points_awarded !== null) {
           // A mark already entered by hand stands.
-          totalScore += Number(ans.points_awarded) || 0;
+          marks.push(Number(ans.points_awarded) || 0);
         } else if (blank) {
           // Nothing written is nothing to read: score it zero rather than
           // sending a lecturer to look at an empty box.
+          marks.push(0);
           if (ans) {
             await admin
               .from("exam_answers")
@@ -194,7 +212,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      totalScore += graded.pointsAwarded ?? 0;
+      marks.push(graded.pointsAwarded ?? 0);
       if (ans) {
         const { error: markError } = await admin
           .from("exam_answers")
@@ -214,6 +232,19 @@ Deno.serve(async (req) => {
         if (insertError) console.error("Auto-grade insert error:", insertError);
       }
     }
+
+    // Only the best n count, where the paper says so.
+    //
+    // A student told to answer two of three leaves one blank, and a blank is
+    // scored zero above rather than sent to a lecturer to read — so the zero is
+    // already in the list and sorting it to the bottom is exactly what "best
+    // two" means. Answering all three is handled by the same rule, generously
+    // and without anyone having to decide which one the student meant to drop.
+    const bestN = Number(exam.count_best_n) || 0;
+    const counted = bestN > 0
+      ? [...marks].sort((a, b) => b - a).slice(0, bestN)
+      : marks;
+    const totalScore = counted.reduce((sum, m) => sum + m, 0);
 
     // Mark as submitted.
     //

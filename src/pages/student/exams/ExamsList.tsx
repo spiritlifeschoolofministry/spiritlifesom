@@ -152,7 +152,11 @@ export default function StudentExamsList() {
               const closed = isAfter(now, end) || e.status === "closed";
               const released = e.results_released && (attempt?.status === "graded" || attempt?.status === "submitted");
               const finalScore = attempt?.manual_score_override ?? attempt?.score ?? 0;
-              const total = Number(e.total_points || 0);
+              // What this student's sitting was marked out of, not what the
+              // whole paper is worth. They differ whenever the exam serves a
+              // subset or counts only the best few answers, and the exam's own
+              // figure is the wrong denominator in both cases.
+              const total = Number(attempt?.max_points ?? e.total_points ?? 0);
               const pct = total > 0 ? Math.round((Number(finalScore) / total) * 100) : 0;
               const passed = pct >= Number(e.passing_score || 0);
               const breakdown = breakdowns[e.id];

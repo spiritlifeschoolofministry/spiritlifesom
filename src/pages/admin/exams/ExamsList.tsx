@@ -37,6 +37,7 @@ type Exam = {
   randomize_questions: boolean;
   randomize_options: boolean;
   questions_per_attempt: number | null;
+  count_best_n: number | null;
   max_tab_switches: number;
   enforce_fullscreen: boolean;
   block_shortcuts: boolean;
@@ -132,6 +133,9 @@ const securityChips = (e: Exam) => {
   }
   if (e.questions_per_attempt) {
     chips.push(<Chip key="qpa" icon={FileQuestion}>{e.questions_per_attempt} served per student</Chip>);
+  }
+  if (e.count_best_n) {
+    chips.push(<Chip key="best" icon={FileQuestion}>Best {e.count_best_n} count</Chip>);
   }
   return chips;
 };

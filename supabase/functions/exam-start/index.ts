@@ -187,7 +187,7 @@ Deno.serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ attempt: resumed, resumed: true }),
+        JSON.stringify({ attempt: resumed, resumed: true, server_now: new Date().toISOString() }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -245,7 +245,7 @@ Deno.serve(async (req) => {
 
     const { data: questions, error: questionsError } = await admin
       .from("question_bank")
-      .select("id, options")
+      .select("id, options, points")
       .in("id", linkedIds);
 
     if (questionsError) {
@@ -261,7 +261,7 @@ Deno.serve(async (req) => {
     // teacher set.
     // Shape of the select above. Without it `byId.get()` yields unknown and
     // reading `.options` off it does not type-check.
-    type BankQuestion = { id: string; options: unknown };
+    type BankQuestion = { id: string; options: unknown; points: number | null };
     const byId = new Map<string, BankQuestion>(
       questions.map((q: BankQuestion) => [q.id, q]),
     );
@@ -337,6 +337,23 @@ Deno.serve(async (req) => {
       Math.min(nowMs + durationMinutes * 60 * 1000, endMs),
     ).toISOString();
 
+    // What this sitting is marked out of.
+    //
+    // Recorded per attempt rather than read back off the exam, because the exam
+    // is the whole paper and this is the part of it the student was given. With
+    // questions_per_attempt they differ already; with count_best_n they differ
+    // again, and an exam edited later must not restate what an earlier student
+    // was marked against.
+    //
+    // Best-n takes the highest-valued questions served, which is the ceiling a
+    // student could reach — the marks themselves decide which ones actually
+    // count, and that is settled at submission.
+    const pointsOf = (qid: string) => Number(byId.get(qid)?.points) || 0;
+    const servedPoints = questionIds.map(pointsOf).sort((a, b) => b - a);
+    const bestN = Number(exam.count_best_n) || 0;
+    const counted = bestN > 0 ? servedPoints.slice(0, bestN) : servedPoints;
+    const maxPoints = counted.reduce((sum, p) => sum + p, 0);
+
     // Create exam attempt
     const { data: attempt, error: createError } = await supabase
       .from("exam_attempts")
@@ -350,6 +367,7 @@ Deno.serve(async (req) => {
         ip_address: req.headers.get("x-forwarded-for") || "unknown",
         user_agent: req.headers.get("user-agent") || "unknown",
         active_session_id: session_id,
+        max_points: maxPoints,
       })
       .select()
       .single();
@@ -365,7 +383,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ attempt }),
+      JSON.stringify({ attempt, server_now: new Date().toISOString() }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
