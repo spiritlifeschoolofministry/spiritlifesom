@@ -6,14 +6,15 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-  Activity, AlertCircle, BookOpen, Edit, Eye, FileQuestion, Loader2, Lock, Plus,
-  RotateCcw, Search, Send, Square, Trash2, Users,
+  Activity, AlertCircle, BookOpen, Camera, Edit, Eye, FileQuestion, Keyboard, Loader2,
+  Lock, LogIn, Maximize, Mic, Plus, RotateCcw, Search, Send, Shuffle, Smartphone,
+  Square, Trash2, Users,
 } from "lucide-react";
-import { format, isAfter, isBefore } from "date-fns";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Skeleton } from '@/components/ui/skeleton';
-import { effectiveExamStatus } from "@/lib/exam-utils";
+import { effectiveExamStatus, entryClosesAt } from "@/lib/exam-utils";
 
 type Exam = {
   id: string;
@@ -26,9 +27,22 @@ type Exam = {
   end_at: string;
   duration_minutes: number;
   total_points: number;
+  passing_score: number;
   results_released: boolean;
+  show_correct_answers: boolean;
   locked_at: string | null;
   created_at: string;
+  allow_late_entry: boolean | null;
+  late_entry_cutoff_minutes: number | null;
+  randomize_questions: boolean;
+  randomize_options: boolean;
+  questions_per_attempt: number | null;
+  max_tab_switches: number;
+  enforce_fullscreen: boolean;
+  block_shortcuts: boolean;
+  allow_mobile: boolean;
+  enable_webcam_proctoring: boolean;
+  enable_audio_proctoring: boolean;
   courseLabel: string;
   cohortLabel: string;
   questionCount: number;
@@ -60,6 +74,66 @@ const STATUS_LABELS: Record<string, string> = {
   ended: "Ended",
   closed: "Closed",
   archived: "Archived",
+};
+
+/** One setting, stated in the words a lecturer would use rather than a field name. */
+const Chip = ({ icon: Icon, children, tone = "muted" }: {
+  icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+  tone?: "muted" | "warn";
+}) => (
+  <span
+    className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 ${
+      tone === "warn"
+        ? "border-amber-500/20 bg-amber-500/10 text-amber-600"
+        : "border-border bg-muted/40 text-muted-foreground"
+    }`}
+  >
+    <Icon className="w-3 h-3" /> {children}
+  </span>
+);
+
+/**
+ * How the exam is invigilated, as a row of chips.
+ *
+ * These are all set in the builder and then never shown again, so a paper that
+ * went out with proctoring off — or with a tab-switch limit nobody meant to
+ * change — looked exactly like one that did not. Staff were opening the editor
+ * on each exam in turn to compare them the morning of a sitting.
+ *
+ * Only the settings worth a second look are listed: a protection that is off,
+ * a limit that differs from the rest, or a surveillance feature that is on.
+ */
+const securityChips = (e: Exam) => {
+  const chips: React.ReactNode[] = [];
+  if (e.enable_webcam_proctoring) chips.push(<Chip key="cam" icon={Camera}>Webcam</Chip>);
+  if (e.enable_audio_proctoring) chips.push(<Chip key="mic" icon={Mic}>Audio</Chip>);
+  chips.push(
+    e.enforce_fullscreen
+      ? <Chip key="fs" icon={Maximize}>Fullscreen</Chip>
+      : <Chip key="fs" icon={Maximize} tone="warn">No fullscreen</Chip>,
+  );
+  // A limit of zero is unlimited in exam-autosave, which is easy to set by
+  // accident and reads the same as a strict "0" on a card that only shows a
+  // number.
+  chips.push(
+    Number(e.max_tab_switches) > 0
+      ? <Chip key="tabs" icon={Square}>{e.max_tab_switches} tab switches</Chip>
+      : <Chip key="tabs" icon={Square} tone="warn">Tab switches unlimited</Chip>,
+  );
+  if (!e.block_shortcuts) chips.push(<Chip key="keys" icon={Keyboard} tone="warn">Shortcuts allowed</Chip>);
+  if (!e.allow_mobile) chips.push(<Chip key="mob" icon={Smartphone}>Desktop only</Chip>);
+  if (e.randomize_questions || e.randomize_options) {
+    chips.push(
+      <Chip key="rand" icon={Shuffle}>
+        {e.randomize_questions && e.randomize_options ? "Shuffled" : e.randomize_questions ? "Questions shuffled" : "Options shuffled"}
+      </Chip>,
+    );
+  }
+  if (e.questions_per_attempt) {
+    chips.push(<Chip key="qpa" icon={FileQuestion}>{e.questions_per_attempt} served per student</Chip>);
+  }
+  return chips;
 };
 
 export default function ExamsList() {
@@ -179,15 +253,78 @@ export default function ExamsList() {
     }
   };
 
-  /** A short note about where the exam sits relative to its scheduled window. */
-  const windowNote = (exam: Exam) => {
-    if (exam.status === "draft") return "Not visible to students";
-    const now = new Date();
+  /**
+   * The exam's whole schedule, not just the next thing to happen to it.
+   *
+   * The card used to show one of "Opens…", "Ended…" or "Open until…", so before
+   * a sitting opened there was no closing time anywhere on the page — the only
+   * way to see how long the window ran was to open the editor. The three dates
+   * that decide whether a student gets a full paper are all different, and
+   * staff need them side by side:
+   *
+   *   opens        start_at
+   *   entry closes start_at + cutoff, or the close when late entry is open
+   *   closes       end_at, which also caps every sitting still running
+   */
+  const scheduleNotes = (exam: Exam) => {
+    if (exam.status === "draft") return [{ key: "draft", text: "Not visible to students", warn: false }];
+
+    const now = Date.now();
     const start = new Date(exam.start_at);
     const end = new Date(exam.end_at);
-    if (isBefore(now, start)) return `Opens ${format(start, "PPp")}`;
-    if (isAfter(now, end)) return `Ended ${format(end, "PPp")}`;
-    return `Open until ${format(end, "p")}`;
+    const entryCloses = new Date(entryClosesAt(exam));
+    // Same day is the norm, so repeating the date on the closing time is noise.
+    const sameDay = start.toDateString() === end.toDateString();
+    const notes: { key: string; text: string; warn: boolean }[] = [];
+
+    notes.push({
+      key: "opens",
+      text: now < start.getTime() ? `Opens ${format(start, "PPp")}` : `Opened ${format(start, "PPp")}`,
+      warn: false,
+    });
+    notes.push({
+      key: "closes",
+      text: now > end.getTime()
+        ? `Ended ${format(end, sameDay ? "p" : "PPp")}`
+        : `Closes ${format(end, sameDay ? "p" : "PPp")}`,
+      warn: false,
+    });
+
+    if (now <= end.getTime()) {
+      // Entry closing with the exam is the common case and needs no line of its
+      // own; an earlier cutoff is the one that turns students away.
+      if (entryCloses.getTime() < end.getTime()) {
+        notes.push({
+          key: "entry",
+          text: `${now > entryCloses.getTime() ? "Entry closed" : "Entry closes"} ${format(entryCloses, "p")}`,
+          warn: now > entryCloses.getTime(),
+        });
+      }
+
+      // The trap in a window much longer than the paper: entry stays open, but
+      // a sitting is capped at end_at, so a student who starts late is quietly
+      // handed a short exam rather than being turned away.
+      const lastFullStart = end.getTime() - Number(exam.duration_minutes || 0) * 60_000;
+      if (lastFullStart > start.getTime() && lastFullStart < entryCloses.getTime()) {
+        notes.push({
+          key: "full",
+          text: `Full ${exam.duration_minutes} min only if started by ${format(new Date(lastFullStart), "p")}`,
+          warn: now > lastFullStart,
+        });
+      }
+    }
+
+    return notes;
+  };
+
+  /** Settings that are legal but almost never intended. */
+  const scheduleWarning = (exam: Exam) => {
+    if (exam.status === "draft") return null;
+    const windowMinutes = (new Date(exam.end_at).getTime() - new Date(exam.start_at).getTime()) / 60_000;
+    if (Number(exam.duration_minutes) > windowMinutes) {
+      return `This paper runs ${exam.duration_minutes} min but its window is only ${Math.round(windowMinutes)} min — nobody can finish it.`;
+    }
+    return null;
   };
 
   return (
@@ -301,7 +438,8 @@ export default function ExamsList() {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {e.courseLabel} · {e.cohortLabel} · {e.duration_minutes} min · {e.total_points} pts
+                      {e.courseLabel} · {e.cohortLabel} · {e.duration_minutes} min · {e.total_points} pts ·
+                      {" "}{e.passing_score}% to pass
                     </p>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1.5">
                       <span className={`inline-flex items-center gap-1 ${e.questionCount === 0 ? "text-amber-600" : ""}`}>
@@ -313,8 +451,24 @@ export default function ExamsList() {
                           <Users className="w-3.5 h-3.5" /> {e.attemptCount} attempt{e.attemptCount === 1 ? "" : "s"}
                         </span>
                       )}
-                      <span>{windowNote(e)}</span>
+                      {scheduleNotes(e).map((n) => (
+                        <span key={n.key} className={n.warn ? "text-amber-600" : ""}>
+                          {n.key === "entry" && <LogIn className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />}
+                          {n.text}
+                        </span>
+                      ))}
                     </div>
+                    {!isDraft && (
+                      <div className="flex flex-wrap items-center gap-1 text-[11px] mt-1.5">
+                        {securityChips(e)}
+                        {e.show_correct_answers && (
+                          <Chip icon={Eye}>Answers shown after release</Chip>
+                        )}
+                      </div>
+                    )}
+                    {scheduleWarning(e) && (
+                      <p className="text-xs text-amber-600 mt-1.5">{scheduleWarning(e)}</p>
+                    )}
                     {isDraft && e.questionCount === 0 && (
                       <p className="text-xs text-amber-600 mt-1.5">
                         This draft has no questions yet — add some before publishing.
