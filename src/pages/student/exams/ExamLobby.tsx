@@ -21,6 +21,9 @@ export default function ExamLobby() {
   const { student } = useAuth();
   const nav = useNavigate();
   const [exam, setExam] = useState<ExamWithCourse | null>(null);
+  // Null until known; falls back to the exam's own total, which is right for
+  // every paper where all questions count.
+  const [markedOutOf, setMarkedOutOf] = useState<number | null>(null);
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
@@ -34,6 +37,25 @@ export default function ExamLobby() {
     (async () => {
       const { data } = await supabase.from("exams").select("*, courses(code, title)").eq("id", id).maybeSingle();
       setExam(data);
+      // What this paper is actually marked out of. exams.total_points is every
+      // question on it, which overstates the mark available whenever only the
+      // best few count — a student told to answer two of three would be
+      // promised 45 points and then marked out of 30.
+      if (data?.count_best_n) {
+        const { data: qs } = await supabase
+          .from("exam_question_paper")
+          .select("points")
+          .eq("exam_id", id!);
+        if (qs?.length) {
+          setMarkedOutOf(
+            qs
+              .map((q) => Number(q.points) || 0)
+              .sort((a, b) => b - a)
+              .slice(0, data.count_best_n!)
+              .reduce((sum, n) => sum + n, 0),
+          );
+        }
+      }
       setLoading(false);
     })();
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -164,8 +186,10 @@ export default function ExamLobby() {
               <p className="font-bold">{exam.duration_minutes} min</p>
             </div>
             <div className="p-3 rounded-md bg-muted/50">
-              <p className="text-xs text-muted-foreground">Total points</p>
-              <p className="font-bold">{exam.total_points}</p>
+              <p className="text-xs text-muted-foreground">
+                {exam.count_best_n ? `Best ${exam.count_best_n} count` : "Total points"}
+              </p>
+              <p className="font-bold">{markedOutOf ?? exam.total_points}</p>
             </div>
             <div className="p-3 rounded-md bg-muted/50">
               <p className="text-xs text-muted-foreground">Pass mark</p>
