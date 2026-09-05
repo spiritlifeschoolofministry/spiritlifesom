@@ -31,6 +31,23 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
 
+    // question_bank is staff-only under RLS — it carries the answer key, so no
+    // student may read it and none ever should. Every other table this function
+    // touches has a student policy, so one caller-scoped client looked like
+    // enough; the bank read then came back empty for students rather than
+    // failing, and the empty result was reported as "Exam has no questions".
+    // Staff previews sail through the same policy, so the paper looked fine
+    // right up until a real student tried to sit it.
+    //
+    // Reading the bank with the service role is safe here: this function has
+    // already established who the caller is and that they are entitled to this
+    // exam, and it hands back only the shuffled id order — never the answers.
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { persistSession: false } },
+    );
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return new Response(JSON.stringify({ error: "Invalid token" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -226,7 +243,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Exam has no questions" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { data: questions, error: questionsError } = await supabase
+    const { data: questions, error: questionsError } = await admin
       .from("question_bank")
       .select("id, options")
       .in("id", linkedIds);
