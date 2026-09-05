@@ -290,33 +290,14 @@ export default function ExamsList() {
       warn: false,
     });
 
-    if (now <= end.getTime()) {
-      // Entry closing with the exam is the common case and needs no line of its
-      // own; an earlier cutoff is the one that turns students away.
-      if (entryCloses.getTime() < end.getTime()) {
-        notes.push({
-          key: "entry",
-          text: `${now > entryCloses.getTime() ? "Entry closed" : "Entry closes"} ${format(entryCloses, "p")}`,
-          warn: now > entryCloses.getTime(),
-        });
-      }
-
-      // The trap in a window much longer than the paper: entry stays open, but
-      // a sitting is capped at end_at, so a student who starts late is quietly
-      // handed a short exam rather than being turned away.
-      //
-      // Worded as cause and effect rather than as a bare deadline. "Full 40 min
-      // only if started by 12:50" read as a rule of its own — staff asked where
-      // 12:50 had come from, since nothing else on the card mentions it — when
-      // it is only ever the closing time minus the paper's length.
-      const lastFullStart = end.getTime() - Number(exam.duration_minutes || 0) * 60_000;
-      if (lastFullStart > start.getTime() && lastFullStart < entryCloses.getTime()) {
-        notes.push({
-          key: "full",
-          text: `Starting after ${format(new Date(lastFullStart), "p")} is cut short by the ${format(end, "p")} close`,
-          warn: now > lastFullStart,
-        });
-      }
+    // Entry closing with the exam is the common case and needs no line of its
+    // own; an earlier cutoff is the one that turns students away.
+    if (now <= end.getTime() && entryCloses.getTime() < end.getTime()) {
+      notes.push({
+        key: "entry",
+        text: `${now > entryCloses.getTime() ? "Entry closed" : "Entry closes"} ${format(entryCloses, "p")}`,
+        warn: now > entryCloses.getTime(),
+      });
     }
 
     return notes;
