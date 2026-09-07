@@ -223,6 +223,33 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Is this exam for this student at all?
+    //
+    // Nothing checked before now. target_audience was read nowhere, and the
+    // visibility rule combined the named list with OR, so naming students
+    // widened the audience rather than limiting it — an exam meant for three
+    // people was startable by the whole cohort. Hiding a card was never the
+    // control anyway: this endpoint is what creates an attempt, so this is
+    // where the answer has to be enforced.
+    //
+    // Same function the policy and the question view call, so a student can
+    // never be shown a paper the runner then refuses, or vice versa.
+    const { data: isTargeted, error: targetError } = await admin.rpc("exam_targets_student", {
+      p_exam_id: exam_id,
+      p_student_id: student.id,
+    });
+
+    if (targetError) {
+      console.error("Targeting check error:", targetError);
+      return new Response(JSON.stringify({ error: "Could not check whether this exam is for you" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (!isTargeted) {
+      return new Response(
+        JSON.stringify({ error: "This exam has not been set for you. Ask your lecturer if you think it should have been." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // Questions hang off an exam through exam_questions — question_bank has no
     // exam_id of its own. Querying it by exam_id failed at the schema level, and
     // because the error was dropped it surfaced as "Exam has no questions",

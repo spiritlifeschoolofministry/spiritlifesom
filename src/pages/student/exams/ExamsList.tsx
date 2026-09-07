@@ -41,7 +41,12 @@ export default function StudentExamsList() {
         .from("exams")
         .select("*, courses(code,title)")
         .in("status", ["published", "in_progress", "closed"])
-        .or(`cohort_id.eq.${student.cohort_id},target_student_ids.cs.{${student.id}}`)
+        // No audience filter here on purpose. This used to say "my cohort OR I
+        // am named", which widened rather than narrowed — an exam set for three
+        // students listed itself to everyone in their cohort. The row-level
+        // policy now asks exam_targets_student, the one rule exam-start also
+        // enforces, so a student is sent exactly the exams they may sit and the
+        // list cannot promise a paper the runner will refuse.
         .order("start_at", { ascending: false });
       setExams(ex ?? []);
       const { data: at } = await supabase

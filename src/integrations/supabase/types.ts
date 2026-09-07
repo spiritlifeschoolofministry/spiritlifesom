@@ -1220,6 +1220,8 @@ export type Database = {
           start_at: string
           status: string
           target_audience: string
+          target_languages: string[] | null
+          target_learning_modes: string[] | null
           target_student_ids: string[] | null
           title: string
           total_points: number
@@ -1259,6 +1261,8 @@ export type Database = {
           start_at: string
           status?: string
           target_audience?: string
+          target_languages?: string[] | null
+          target_learning_modes?: string[] | null
           target_student_ids?: string[] | null
           title: string
           total_points?: number
@@ -1298,6 +1302,8 @@ export type Database = {
           start_at?: string
           status?: string
           target_audience?: string
+          target_languages?: string[] | null
+          target_learning_modes?: string[] | null
           target_student_ids?: string[] | null
           title?: string
           total_points?: number
@@ -2363,6 +2369,10 @@ export type Database = {
       ensure_staff_preview_student: {
         Args: { p_profile_id: string }
         Returns: undefined
+      }
+      exam_targets_student: {
+        Args: { p_exam_id: string; p_student_id: string }
+        Returns: boolean
       }
       fee_structure_applies: {
         Args: { p_modes: string[]; p_student_mode: string }

@@ -38,6 +38,10 @@ type Exam = {
   randomize_options: boolean;
   questions_per_attempt: number | null;
   count_best_n: number | null;
+  target_audience: string | null;
+  target_student_ids: string[] | null;
+  target_learning_modes: string[] | null;
+  target_languages: string[] | null;
   max_tab_switches: number;
   enforce_fullscreen: boolean;
   block_shortcuts: boolean;
@@ -136,6 +140,19 @@ const securityChips = (e: Exam) => {
   }
   if (e.count_best_n) {
     chips.push(<Chip key="best" icon={FileQuestion}>Best {e.count_best_n} count</Chip>);
+  }
+  // Who the paper is for. Only worth a chip when it is not simply everyone —
+  // a narrowed audience is the setting most likely to be forgotten, and the
+  // one whose mistake looks identical to students not turning up.
+  if (e.target_audience === "specific") {
+    const n = e.target_student_ids?.length ?? 0;
+    chips.push(<Chip key="aud" icon={Users}>{n} named student{n === 1 ? "" : "s"}</Chip>);
+  } else if (e.target_learning_modes?.length || e.target_languages?.length) {
+    chips.push(
+      <Chip key="aud" icon={Users}>
+        {[...(e.target_learning_modes ?? []), ...(e.target_languages ?? [])].join(" · ")} only
+      </Chip>,
+    );
   }
   return chips;
 };

@@ -79,6 +79,8 @@ const DEFAULT: ExamDraft = {
   show_correct_answers: false,
   target_audience: "cohort",
   target_student_ids: [],
+  target_learning_modes: [],
+  target_languages: [],
   questions_per_attempt: null,
   count_best_n: null,
   enable_webcam_proctoring: false,
@@ -120,6 +122,7 @@ export default function ExamBuilder() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [exam, setExam] = useState<ExamDraft>(DEFAULT);
+  const [audienceOpen, setAudienceOpen] = useState(false);
   const [courses, setCourses] = useState<CourseOption[]>([]);
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
   const [bank, setBank] = useState<Tables<'question_bank'>[]>([]);
@@ -133,6 +136,8 @@ export default function ExamBuilder() {
   const [importExamId, setImportExamId] = useState<string>("");
   const [importQids, setImportQids] = useState<string[]>([]);
   const [importQuestions, setImportQuestions] = useState<Tables<'question_bank'>[]>([]);
+  // The cohort's roster, for working out who this exam will actually reach.
+  const [roster, setRoster] = useState<{ id: string; name: string; code: string; mode: string | null; language: string | null }[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
   const [confirmPublish, setConfirmPublish] = useState(false);
@@ -159,6 +164,29 @@ export default function ExamBuilder() {
       return next;
     });
   };
+
+  // Load the chosen cohort's roster so the audience panel can say who this
+  // exam reaches. Refetched when the cohort changes, since that is the base
+  // every other filter narrows.
+  useEffect(() => {
+    if (!exam.cohort_id) return setRoster([]);
+    (async () => {
+      const { data } = await supabase
+        .from("students")
+        .select("id, student_code, learning_mode, preferred_language, is_staff_preview, profiles(first_name, last_name)")
+        .eq("cohort_id", exam.cohort_id)
+        .eq("is_staff_preview", false);
+      setRoster(
+        (data ?? []).map((r) => ({
+          id: r.id,
+          name: [r.profiles?.first_name, r.profiles?.last_name].filter(Boolean).join(" ").trim() || r.student_code,
+          code: r.student_code ?? "",
+          mode: r.learning_mode,
+          language: r.preferred_language,
+        })).sort((a, b) => a.name.localeCompare(b.name)),
+      );
+    })();
+  }, [exam.cohort_id]);
 
   // Warn before a browser reload/close throws away unsaved edits.
   useEffect(() => {
@@ -229,6 +257,45 @@ export default function ExamBuilder() {
         .reduce((sum, p) => sum + p, 0)
     : totalPoints;
 
+  /**
+   * Who this exam will reach, worked out the same way the database does.
+   *
+   * exam_targets_student in the database is the authority — this is the copy
+   * that lets an admin see the answer before saving, which is the whole point:
+   * an audience that is wrong is otherwise only discovered by the students who
+   * never saw the paper.
+   *
+   * A blank attribute matches no filter, deliberately. Those students are
+   * counted separately so the panel can name them rather than let them vanish.
+   */
+  const modeFilter = (exam.target_learning_modes ?? []) as string[];
+  const langFilter = (exam.target_languages ?? []) as string[];
+  const namedIds = (exam.target_student_ids ?? []) as string[];
+  const byNamedList = exam.target_audience === "specific";
+
+  const audience = byNamedList
+    ? roster.filter((r) => namedIds.includes(r.id))
+    : roster.filter(
+        (r) =>
+          (modeFilter.length === 0 || (r.mode !== null && modeFilter.includes(r.mode))) &&
+          (langFilter.length === 0 || (r.language !== null && langFilter.includes(r.language))),
+      );
+
+  // Excluded only because a field is empty — not because they failed the filter.
+  const blankExcluded = byNamedList
+    ? []
+    : roster.filter(
+        (r) =>
+          !audience.includes(r) &&
+          ((modeFilter.length > 0 && r.mode === null) || (langFilter.length > 0 && r.language === null)),
+      );
+
+  const modesOnRoster = [...new Set(roster.map((r) => r.mode).filter(Boolean))] as string[];
+  const langsOnRoster = [...new Set(roster.map((r) => r.language).filter(Boolean))] as string[];
+
+  const toggleIn = (list: string[], value: string) =>
+    list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+
   /** Returns a per-field message for everything that would stop this exam being saved. */
   const validate = () => {
     const errs: Record<string, string> = {};
@@ -262,6 +329,13 @@ export default function ExamBuilder() {
       return toast.error(Object.values(errs)[0]);
     }
     if (exam.locked_at) return toast.error("Exam is locked — students have started");
+    // Publishing to nobody is always a mistake, and a silent one: the exam
+    // looks live on the staff list and simply never appears for any student.
+    // Saving a draft this way is fine — the audience is often chosen last.
+    if (newStatus === "published" && roster.length > 0 && audience.length === 0) {
+      setTab("settings");
+      return toast.error("Nobody matches this exam's audience — it would publish to an empty room.");
+    }
 
     setSaving(true);
     try {
@@ -302,7 +376,7 @@ export default function ExamBuilder() {
       setDirty(false);
       toast.success(
         newStatus === "published"
-          ? "Exam published — students in this cohort can see it now"
+          ? `Exam published — ${audience.length} student${audience.length === 1 ? "" : "s"} can see it now`
           : `Saved as ${payload.status === "draft" ? "draft" : payload.status}`,
       );
       if (isNew) navigate(`/admin/exams/${examId}/edit`, { replace: true });
@@ -500,6 +574,128 @@ export default function ExamBuilder() {
                 )}
               </div>
             )}
+
+            <div className="p-3 rounded-md border border-border space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <Label>Who sits this exam</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {byNamedList
+                      ? `${namedIds.length} named student${namedIds.length === 1 ? "" : "s"}`
+                      : modeFilter.length === 0 && langFilter.length === 0
+                        ? "Everyone in the cohort"
+                        : [
+                            modeFilter.length ? modeFilter.join(" or ") : null,
+                            langFilter.length ? langFilter.join(" or ") : null,
+                          ].filter(Boolean).join(" · ")}
+                  </p>
+                </div>
+                <p className="text-sm font-semibold shrink-0">
+                  {audience.length}<span className="text-muted-foreground font-normal"> of {roster.length}</span>
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={byNamedList ? "outline" : "default"}
+                  onClick={() => update({ target_audience: "cohort" })}
+                >
+                  Whole cohort
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={byNamedList ? "default" : "outline"}
+                  onClick={() => update({ target_audience: "specific" })}
+                >
+                  Only chosen students
+                </Button>
+              </div>
+
+              {!byNamedList && (
+                <div className="space-y-2">
+                  {modesOnRoster.length > 1 && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Study mode</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {modesOnRoster.map((m) => (
+                          <Button
+                            key={m}
+                            type="button"
+                            size="sm"
+                            variant={modeFilter.includes(m) ? "default" : "outline"}
+                            onClick={() => update({ target_learning_modes: toggleIn(modeFilter, m) })}
+                          >
+                            {m}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {langsOnRoster.length > 1 && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Language</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {langsOnRoster.map((l) => (
+                          <Button
+                            key={l}
+                            type="button"
+                            size="sm"
+                            variant={langFilter.includes(l) ? "default" : "outline"}
+                            onClick={() => update({ target_languages: toggleIn(langFilter, l) })}
+                          >
+                            {l}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">Pick none to include every one.</p>
+                </div>
+              )}
+
+              {byNamedList && (
+                <div className="space-y-2">
+                  <Button type="button" size="sm" variant="outline" onClick={() => setAudienceOpen((o) => !o)}>
+                    {audienceOpen ? "Done choosing" : `Choose students (${namedIds.length} picked)`}
+                  </Button>
+                  {audienceOpen && (
+                    <div className="max-h-64 overflow-y-auto rounded-md border border-border divide-y divide-border">
+                      {roster.map((r) => (
+                        <label key={r.id} className="flex items-center gap-2 p-2 text-sm cursor-pointer hover:bg-muted/50">
+                          <input
+                            type="checkbox"
+                            checked={namedIds.includes(r.id)}
+                            onChange={() => update({ target_student_ids: toggleIn(namedIds, r.id) })}
+                          />
+                          <span className="flex-1">{r.name}</span>
+                          <span className="text-xs text-muted-foreground">{r.code}</span>
+                        </label>
+                      ))}
+                      {roster.length === 0 && <p className="p-3 text-xs text-muted-foreground">Pick a cohort first.</p>}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* The exclusion an admin would otherwise only learn about from
+                  the students who never saw the paper. */}
+              {blankExcluded.length > 0 && (
+                <p className="text-xs text-amber-600">
+                  {blankExcluded.length} student{blankExcluded.length === 1 ? "" : "s"} will not see this exam because
+                  their record has no {modeFilter.length > 0 && blankExcluded.some((r) => r.mode === null) ? "study mode" : "language"} set
+                  {blankExcluded.length <= 6 ? `: ${blankExcluded.map((r) => r.name).join(", ")}` : ""}.
+                  Fix the records or widen the filter.
+                </p>
+              )}
+              {audience.length === 0 && roster.length > 0 && (
+                <p className="text-xs text-destructive">
+                  Nobody matches this. The exam would publish to an empty room.
+                </p>
+              )}
+            </div>
 
             <div className="flex items-center justify-between p-3 rounded-md border border-border">
               <div><Label>Allow late entry</Label><p className="text-xs text-muted-foreground">Off, students must start within {NO_LATE_ENTRY_GRACE_MINUTES} minutes of the opening time</p></div>
