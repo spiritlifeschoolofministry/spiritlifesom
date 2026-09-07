@@ -114,12 +114,12 @@ const AdminAssignments = () => {
         max_points: data.max_points,
       });
       if (error) throw error;
-      toast.success('Assignment created');
+      toast.success('Task created');
       reset();
       await loadData();
     } catch (err) {
       console.error('Create error:', err);
-      toast.error('Failed to create assignment');
+      toast.error('Failed to create task');
     } finally {
       setIsCreating(false);
     }
@@ -295,11 +295,11 @@ const AdminAssignments = () => {
             <form onSubmit={handleSubmit(onCreateAssignment)} className="space-y-4 pt-4">
               <div>
                 <Label>Title *</Label>
-                <Input {...register('title', { required: true })} placeholder="Assignment title" />
+                <Input {...register('title', { required: true })} placeholder="Task title" />
               </div>
               <div>
                 <Label>Description</Label>
-                <Textarea {...register('description')} placeholder="Assignment description" />
+                <Textarea {...register('description')} placeholder="Task description" />
               </div>
               <div>
                 <Label>Due Date *</Label>

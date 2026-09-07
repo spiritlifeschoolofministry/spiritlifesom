@@ -177,7 +177,7 @@ const BulkGradeImport = ({ assignments, onImportComplete }: Props) => {
           <div>
             <Label>Select Assignment *</Label>
             <Select value={selectedAssignmentId} onValueChange={(v) => { setSelectedAssignmentId(v); setRows([]); }}>
-              <SelectTrigger><SelectValue placeholder="Choose an assignment" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Choose a task" /></SelectTrigger>
               <SelectContent>
                 {assignments.map((a) => (
                   <SelectItem key={a.id} value={a.id}>{a.title} ({a.max_points} pts)</SelectItem>

@@ -45,7 +45,7 @@ const StudentAssignments = () => {
       setAssignments((assignmentsData || []).map((a) => ({ ...a, submission: submissionMap.get(a.id) || null })));
     } catch (err) {
       console.error('Load assignments error:', err);
-      toast.error('Failed to load assignments');
+      toast.error('Failed to load tasks');
     } finally {
       setLoading(false);
     }
@@ -105,7 +105,7 @@ const StudentAssignments = () => {
       await loadAssignments();
     } catch (err) {
       console.error('Submit error:', err);
-      toast.error('Failed to submit assignment');
+      toast.error('Failed to submit task');
     } finally {
       setSubmitting(null);
     }
@@ -194,13 +194,13 @@ const StudentAssignments = () => {
           </Card>
         </div>
 
-        {/* Assignment List */}
+        {/* Task list */}
         {assignments.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
               <div className="text-center py-8">
                 <ClipboardList className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">No assignments yet</p>
+                <p className="text-muted-foreground">No tasks yet</p>
               </div>
             </CardContent>
           </Card>
