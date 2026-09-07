@@ -79,6 +79,10 @@ const ManualRecordDialog = ({ cohorts, courses, student, onSaved, trigger }: Pro
   const [description, setDescription] = useState("");
   const [recordDate, setRecordDate] = useState(todayLocal());
   const [maxPoints, setMaxPoints] = useState("100");
+  // The exam an onsite sitting belongs to, when it belongs to one. Optional:
+  // plenty of offline marks are ordinary class work with no paper behind them.
+  const [examId, setExamId] = useState<string>("");
+  const [examOptions, setExamOptions] = useState<{ id: string; title: string; max: number }[]>([]);
 
   // Single-student mode
   const [mode, setMode] = useState<"new" | "existing">("new");
@@ -109,11 +113,45 @@ const ManualRecordDialog = ({ cohorts, courses, student, onSaved, trigger }: Pro
     setDescription("");
     setRecordDate(todayLocal());
     setMaxPoints("100");
+    setExamId("");
     setScore("");
     setRemark("");
     setExistingTaskId("");
     setRoster((rows) => rows.map((r) => ({ ...r, score: "", remark: "" })));
   };
+
+  // Exams this cohort actually has, so an onsite sitting can be filed against
+  // the paper it was sat for rather than floating loose in the course.
+  useEffect(() => {
+    if (!open || !cohortId) return setExamOptions([]);
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("exams")
+        .select("id, title, total_points, count_best_n, course_id, exam_questions(question_id, points_override, question_bank(points))")
+        .eq("cohort_id", cohortId)
+        .order("start_at", { ascending: false });
+      if (cancelled) return;
+      setExamOptions(
+        (data ?? [])
+          .filter((e) => !courseId || e.course_id === courseId)
+          .map((e) => {
+            // What the paper is really marked out of. total_points is every
+            // question on it, which overstates a paper where only the best few
+            // answers count — an onsite sitting has to be marked out of the
+            // same figure as an online one or the two are not comparable.
+            const points = (e.exam_questions ?? [])
+              .map((q) => Number(q.points_override ?? q.question_bank?.points) || 0)
+              .sort((a, b) => b - a);
+            const n = Number(e.count_best_n) || 0;
+            const counted = n > 0 ? points.slice(0, n) : points;
+            const summed = counted.reduce((sum, v) => sum + v, 0);
+            return { id: e.id, title: e.title, max: summed || Number(e.total_points) || 0 };
+          }),
+      );
+    })();
+    return () => { cancelled = true; };
+  }, [open, cohortId, courseId]);
 
   // Roster for cohort mode; existing tasks for single-student mode.
   useEffect(() => {
@@ -252,6 +290,7 @@ const ManualRecordDialog = ({ cohorts, courses, student, onSaved, trigger }: Pro
           category,
           max_points: max,
           is_manual_record: true,
+          exam_id: examId || null,
           created_by: userId,
         })
         .select("id")
@@ -327,6 +366,39 @@ const ManualRecordDialog = ({ cohorts, courses, student, onSaved, trigger }: Pro
           </Select>
         </div>
       </div>
+
+      {/* Only asked for exam marks, and only when the cohort has papers to
+          point at. Attaching one puts this sitting in the same mark list as
+          everyone who sat the paper online. */}
+      {category === "Exam" && examOptions.length > 0 && (
+        <div>
+          <Label>Which exam was this? <span className="text-muted-foreground font-normal">(optional)</span></Label>
+          <Select
+            value={examId || "none"}
+            onValueChange={(v) => {
+              const chosen = v === "none" ? "" : v;
+              setExamId(chosen);
+              // Match the paper's own total so the two sittings are marked out
+              // of the same thing and the averages stay comparable.
+              const opt = examOptions.find((o) => o.id === chosen);
+              if (opt?.max) setMaxPoints(String(opt.max));
+            }}
+          >
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Not tied to an exam</SelectItem>
+              {examOptions.map((o) => (
+                <SelectItem key={o.id} value={o.id}>{o.title}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground mt-1">
+            {examId
+              ? "These marks will appear with the online results for this exam."
+              : "Leave as it is for a paper that was never set online."}
+          </p>
+        </div>
+      )}
       <div>
         <Label>Title *</Label>
         <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Onsite practical — Week 4" />

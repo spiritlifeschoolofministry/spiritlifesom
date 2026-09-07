@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import {
   Activity, AlertCircle, BookOpen, Camera, Edit, Eye, FileQuestion, Keyboard, Loader2,
   Lock, LogIn, Maximize, Mic, Plus, RotateCcw, Search, Send, Shuffle, Smartphone,
-  Square, Trash2, Users,
+  Square, Trash2, Users, Archive,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -61,6 +61,7 @@ const FILTERS = [
   { key: "in_progress", label: "Live" },
   { key: "ended", label: "Ended" },
   { key: "closed", label: "Closed" },
+  { key: "archived", label: "Archived" },
 ] as const;
 
 const STATUS_STYLES: Record<string, string> = {
@@ -257,6 +258,17 @@ export default function ExamsList() {
     return setStatus(exam, "published", `"${exam.title}" is now visible to students`);
   };
 
+  /**
+   * Retire an assessment without touching what anyone scored on it.
+   *
+   * Deleting used to be the only way to clear an old paper off the list, and it
+   * took every attempt with it — the scores, the transcript lines, the course
+   * averages. Archiving keeps all of that and simply stops the exam appearing
+   * to students, which is what "we're done with this one" actually means.
+   */
+  const archive = (exam: Exam) =>
+    setStatus(exam, "archived", `"${exam.title}" archived — results are kept`);
+
   const handleDelete = async (exam: Exam) => {
     try {
       setBusyId(exam.id);
@@ -268,7 +280,14 @@ export default function ExamsList() {
       setExamToDelete(null);
       setExams((prev) => prev.filter((e) => e.id !== exam.id));
     } catch (err) {
-      toast.error(err.message || "Failed to delete exam");
+      // The database refuses to delete an exam that students have sat, so their
+      // scores cannot be lost to a mis-click. Say what to do instead.
+      const msg = String(err?.message ?? "");
+      toast.error(
+        /foreign key|violates|restrict/i.test(msg)
+          ? "This exam has student attempts, so deleting it would erase their scores. Archive it instead."
+          : msg || "Failed to delete exam",
+      );
     } finally {
       setBusyId(null);
     }
@@ -510,6 +529,27 @@ export default function ExamsList() {
                         <Square className="w-3.5 h-3.5 mr-1.5" /> Close
                       </Button>
                     )}
+                    {shown !== "archived" && !isDraft && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => archive(e)}
+                        title="Hide from students, keep every result"
+                      >
+                        <Archive className="w-3.5 h-3.5 mr-1.5" /> Archive
+                      </Button>
+                    )}
+                    {shown === "archived" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => setStatus(e, "published", `"${e.title}" is back on the students' list`)}
+                      >
+                        Restore
+                      </Button>
+                    )}
                     <Button variant="ghost" size="icon" asChild title="Edit">
                       <Link to={`/admin/exams/${e.id}/edit`}><Edit className="w-4 h-4" /></Link>
                     </Button>
@@ -551,10 +591,16 @@ export default function ExamsList() {
                 been recorded for this exam.
               </p>
             )}
-            <p className="text-destructive font-medium">
-              This will permanently delete the exam, all its questions, and any student results/attempts. This action
-              cannot be undone.
-            </p>
+            {examToDelete?.attemptCount ? (
+              <p className="text-destructive font-medium">
+                Deleting is blocked while students have sat this exam, because their scores would go with it.
+                Archive it instead — it disappears from the students' list and every result is kept.
+              </p>
+            ) : (
+              <p className="text-destructive font-medium">
+                This will permanently delete the exam and all its questions. This action cannot be undone.
+              </p>
+            )}
           </>
         }
         confirmLabel="Delete Exam"

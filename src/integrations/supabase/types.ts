@@ -215,6 +215,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           due_date: string | null
+          exam_id: string | null
           id: string
           is_manual_record: boolean
           max_points: number
@@ -229,6 +230,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           due_date?: string | null
+          exam_id?: string | null
           id?: string
           is_manual_record?: boolean
           max_points?: number
@@ -243,6 +245,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           due_date?: string | null
+          exam_id?: string | null
           id?: string
           is_manual_record?: boolean
           max_points?: number
@@ -276,6 +279,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignments_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
             referencedColumns: ["id"]
           },
         ]

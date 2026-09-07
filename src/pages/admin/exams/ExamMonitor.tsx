@@ -39,6 +39,7 @@ type MonitoredAttempt = Tables<'exam_attempts'> & {
 };
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -55,6 +56,10 @@ export default function ExamMonitor() {
   const { id } = useParams();
   const [exam, setExam] = useState<MonitoredExam | null>(null);
   const [attempts, setAttempts] = useState<MonitoredAttempt[]>([]);
+  // Marks entered by hand for students who sat this paper on site. They are
+  // real results on the same exam, so this screen shows one list rather than
+  // sending staff to the coursework page to find half the cohort.
+  const [onsite, setOnsite] = useState<{ id: string; name: string; code: string; grade: number | null; max: number; recorded: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [grading, setGrading] = useState<MonitoredAttempt | null>(null);
   const [gradeData, setGradeData] = useState<{ answers: GradableAnswer[]; questions: Tables<'question_bank'>[]; override: string }>({ answers: [], questions: [], override: "" });
@@ -87,6 +92,25 @@ export default function ExamMonitor() {
     const rows = (a ?? []).map((att) => ({ ...att, isRehearsal: previewIds.has(att.student_id) }));
     setHiddenRehearsals(rows.filter((r) => r.isRehearsal).length);
     setAttempts(showRehearsals ? rows : rows.filter((r) => !r.isRehearsal));
+
+    // Offline records filed against this exam, with the marks entered for them.
+    const { data: offline } = await supabase
+      .from("assignments")
+      .select("id, max_points, assignment_submissions(grade, reviewed_at, students(student_code, profiles(first_name, last_name)))")
+      .eq("exam_id", id!);
+    setOnsite(
+      (offline ?? []).flatMap((task) =>
+        (task.assignment_submissions ?? []).map((sub) => ({
+          id: `${task.id}-${sub.students?.student_code ?? Math.random()}`,
+          name: [sub.students?.profiles?.first_name, sub.students?.profiles?.last_name].filter(Boolean).join(" ").trim()
+            || (sub.students?.student_code ?? "Unknown"),
+          code: sub.students?.student_code ?? "",
+          grade: sub.grade === null ? null : Number(sub.grade),
+          max: Number(task.max_points) || 0,
+          recorded: sub.reviewed_at,
+        })),
+      ).sort((a, b) => a.name.localeCompare(b.name)),
+    );
     setLoading(false);
   }, [id, showRehearsals]);
 
@@ -189,7 +213,7 @@ export default function ExamMonitor() {
 
   const exportCSV = () => {
     const rows = [
-      ["Student Code", "Name", "Email", "Status", "Score", "Override", "Tab Switches", "Fullscreen Exits", "Started", "Submitted", "Auto-submitted", "Reason", "Rule Breach"],
+      ["Student Code", "Name", "Email", "Status", "Score", "Override", "Tab Switches", "Fullscreen Exits", "Started", "Submitted", "Auto-submitted", "Reason", "Rule Breach", "Sat"],
       ...attempts.map((a) => [
         a.students?.student_code ?? "",
         `${a.students?.profiles?.first_name ?? ""} ${a.students?.profiles?.last_name ?? ""}`.trim(),
@@ -204,6 +228,12 @@ export default function ExamMonitor() {
         a.auto_submitted ? "yes" : "no",
         submissionReasonLabel(a.submission_reason),
         isBreachReason(a.submission_reason) ? "yes" : "no",
+        "Online",
+      ]),
+      // One export, both sittings — a mark list split by how it was sat is not
+      // a mark list.
+      ...onsite.map((o) => [
+        o.code, o.name, "", "recorded", o.grade ?? "", "", "", "", "", o.recorded ?? "", "no", "Sat on site", "no", "On site",
       ]),
     ];
     const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -525,6 +555,29 @@ export default function ExamMonitor() {
             </tr>
           </thead>
           <tbody>
+            {/* Sat on site, entered by hand. Listed with the online sittings
+                because they are results on the same paper — the proctoring
+                columns are simply blank, since nobody was being watched by a
+                browser. */}
+            {onsite.map((o) => (
+              <tr key={o.id} className="border-b border-border/50 bg-muted/20">
+                <td className="py-2 pr-3">
+                  <p className="font-medium">{o.name}</p>
+                  <p className="text-xs text-muted-foreground">{o.code}</p>
+                </td>
+                <td className="py-2 pr-3">
+                  <Badge variant="outline">Sat on site</Badge>
+                </td>
+                <td className="py-2 pr-3">
+                  {o.grade === null ? <span className="text-muted-foreground">—</span> : <>{o.grade}<span className="text-muted-foreground"> / {o.max}</span></>}
+                </td>
+                <td className="py-2 pr-3 text-muted-foreground text-xs">Not applicable</td>
+                <td className="py-2 pr-3 text-xs text-muted-foreground">
+                  {o.recorded ? format(new Date(o.recorded), "PPp") : "—"}
+                </td>
+                <td className="py-2 pr-3"></td>
+              </tr>
+            ))}
             {attempts.map((a) => (
               <Fragment key={a.id}>
               <tr className="border-b border-border/50">
