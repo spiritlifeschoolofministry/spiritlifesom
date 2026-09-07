@@ -52,6 +52,8 @@ type Exam = {
   cohortLabel: string;
   questionCount: number;
   attemptCount: number;
+  /** What a student is marked out of, which is not the whole paper on a best-n exam. */
+  markedOutOf: number;
 };
 
 const FILTERS = [
@@ -176,7 +178,7 @@ export default function ExamsList() {
       supabase.from("exams").select("*").order("created_at", { ascending: false }),
       supabase.from("courses").select("id, code, title"),
       supabase.from("cohorts").select("id, name"),
-      supabase.from("exam_questions").select("exam_id"),
+      supabase.from("exam_questions").select("exam_id, points_override, question_bank(points)"),
       supabase.from("exam_attempts").select("exam_id, student_id"),
       supabase.from("students").select("id").eq("is_staff_preview", true),
     ]);
@@ -196,6 +198,22 @@ export default function ExamsList() {
       return m;
     };
     const questionCounts = tally(linkRes.data);
+
+    // What each paper is really marked out of. exams.total_points is every
+    // question linked to it, which overstates a paper where only the best few
+    // answers count — the card showed "45 pts" beside a "Best 2 count" chip on
+    // an exam students are marked out of 30.
+    const pointsByExam = new Map<string, number[]>();
+    for (const r of linkRes.data ?? []) {
+      const pts = Number(r.points_override ?? r.question_bank?.points) || 0;
+      pointsByExam.set(r.exam_id, [...(pointsByExam.get(r.exam_id) ?? []), pts]);
+    }
+    const markedOutOf = (examId: string, bestN: number | null, fallback: number) => {
+      const pts = (pointsByExam.get(examId) ?? []).sort((a, b) => b - a);
+      if (pts.length === 0) return fallback;
+      const counted = bestN && bestN > 0 ? pts.slice(0, bestN) : pts;
+      return counted.reduce((sum, p) => sum + p, 0);
+    };
     // Staff rehearsals must not inflate the sat-the-paper count.
     const previewIds = new Set((previewRes.data ?? []).map((r) => r.id));
     const attemptCounts = tally((attemptRes.data ?? []).filter((r) => !previewIds.has(r.student_id)));
@@ -209,6 +227,7 @@ export default function ExamsList() {
           cohortLabel: cohortById.get(e.cohort_id)?.name ?? "Unknown cohort",
           questionCount: questionCounts.get(e.id) ?? 0,
           attemptCount: attemptCounts.get(e.id) ?? 0,
+          markedOutOf: markedOutOf(e.id, e.count_best_n, Number(e.total_points) || 0),
         };
       }),
     );
@@ -464,7 +483,7 @@ export default function ExamsList() {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {e.courseLabel} · {e.cohortLabel} · {e.duration_minutes} min · {e.total_points} pts ·
+                      {e.courseLabel} · {e.cohortLabel} · {e.duration_minutes} min · {e.markedOutOf} pts ·
                       {" "}{e.passing_score}% to pass
                     </p>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1.5">
