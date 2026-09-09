@@ -66,6 +66,7 @@
     "lowlight": "^3.3.0",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
+    "pdfjs-dist": "^4.10.38",
     "posthog-js": "^1.372.1",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",

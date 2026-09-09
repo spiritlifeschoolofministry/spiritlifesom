@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import ProgressSummary from "@/components/student/ProgressSummary";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Loader2, AlertCircle, TrendingUp, ChevronRight, Sparkles, GraduationCap, Award, FileText, Zap } from "lucide-react";
@@ -478,6 +479,12 @@ const StudentDashboard = () => {
               )}
             </div>
           </div>
+        </Reveal>
+
+        {/* Placed under the greeting and above the figures: it is a summary of
+            them, so it should not sit where it looks like the record itself. */}
+        <Reveal>
+          <ProgressSummary />
         </Reveal>
 
         {/* Summary Cards */}

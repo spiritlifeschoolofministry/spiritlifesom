@@ -41,6 +41,9 @@ import {
   ShieldCheck, ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { draftMessage, MESSAGE_KIND_LABELS, MESSAGE_KINDS, type MessageKind } from "@/lib/ai-message";
+import { useAiFeature } from "@/lib/ai-flags";
+import { Sparkles } from "lucide-react";
 import { downloadCSV } from "@/lib/csv-export";
 import {
   DropdownMenu,
@@ -144,6 +147,12 @@ const AdminStudents = () => {
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
+  // Drafting the email. `emailBrief` is the writer's own instruction; the
+  // figures behind the draft are gathered server-side.
+  const aiDrafting = useAiFeature("ai_message_drafting");
+  const [emailKind, setEmailKind] = useState<MessageKind>("general");
+  const [emailBrief, setEmailBrief] = useState("");
+  const [draftingEmail, setDraftingEmail] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
 
   // Generic confirmation dialog state
@@ -476,6 +485,32 @@ const AdminStudents = () => {
     const sel = filteredStudents.filter((s) => selectedIds.has(s.id));
     if (sel.length === 0) { toast.error("No students selected"); return; }
     setEmailTargets(sel); setEmailSubject(""); setEmailBody(""); setShowEmailDialog(true);
+  };
+
+  /**
+   * Writes a draft into the subject and body.
+   *
+   * Scoped to one cohort only when every recipient shares one — a draft citing
+   * "your cohort's" figures across a mixed selection would be quoting numbers
+   * that are true of nobody in particular.
+   */
+  const writeEmailDraft = async () => {
+    setDraftingEmail(true);
+    try {
+      const cohorts = new Set(emailTargets.map((s) => s.cohort_id).filter(Boolean));
+      const draft = await draftMessage({
+        kind: emailKind,
+        brief: emailBrief,
+        cohortId: cohorts.size === 1 ? [...cohorts][0] as string : null,
+      });
+      if (draft.subject) setEmailSubject(draft.subject);
+      setEmailBody(draft.body);
+      toast.success("Draft written — read it before sending.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not write a draft");
+    } finally {
+      setDraftingEmail(false);
+    }
   };
 
   const handleSendEmail = async () => {
@@ -1068,6 +1103,43 @@ const AdminStudents = () => {
             </div>
           )}
           <div className="space-y-4">
+            {aiDrafting && (
+              <div className="rounded-lg border border-dashed p-3 space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" /> Draft it for me
+                </Label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Select value={emailKind} onValueChange={(v) => setEmailKind(v as MessageKind)}>
+                    <SelectTrigger className="sm:w-48"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {MESSAGE_KINDS.filter((k) => k !== "announcement").map((k) => (
+                        <SelectItem key={k} value={k}>{MESSAGE_KIND_LABELS[k]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={emailBrief}
+                    onChange={(e) => setEmailBrief(e.target.value)}
+                    placeholder="Anything specific to say? (optional)"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={draftingEmail}
+                    onClick={writeEmailDraft}
+                    className="shrink-0"
+                  >
+                    {draftingEmail
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : "Write a draft"}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Fills in the subject and message below for you to edit. Nothing is sent until you
+                  press Send.
+                </p>
+              </div>
+            )}
             <div>
               <Label htmlFor="email-subject">Subject</Label>
               <Input id="email-subject" value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} placeholder="Email subject..." className="mt-1" />

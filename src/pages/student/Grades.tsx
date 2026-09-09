@@ -14,6 +14,11 @@ import {
 } from "lucide-react";
 import { getLetterGrade } from "@/lib/grading";
 import { ASSESSMENT_TYPES } from "@/lib/exam-utils";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Loader2, Sparkles } from "lucide-react";
+import { fetchResultGuidance } from "@/lib/ai-student";
+import { useAiFeature } from "@/lib/ai-flags";
 import { Button } from "@/components/ui/button";
 import { fetchStudentHistory } from "@/lib/student-sessions";
 
@@ -38,6 +43,15 @@ interface GradedItem {
    * pending  — set for the student, not yet done or not yet marked.
    */
   state: "graded" | "awaiting" | "pending";
+  /**
+   * Set only for a sitting that went through the exam engine.
+   *
+   * Revision guidance is built from the individual answers on an attempt, so a
+   * task submission — which has one mark and no answers — has nothing to build
+   * from. This is what distinguishes the two in a list that deliberately mixes
+   * them.
+   */
+  attemptId?: string;
 }
 
 /** An earlier session's marks, kept apart from the current session's. */
@@ -46,6 +60,11 @@ interface PastSessionGrades {
   cohortName: string;
   studentCode: string | null;
   items: GradedItem[];
+}
+
+interface GuidanceState {
+  title: string;
+  body: string;
 }
 
 interface CategorySummary {
@@ -75,6 +94,12 @@ const StudentGrades = () => {
   const [pastSessions, setPastSessions] = useState<PastSessionGrades[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<string>("All");
+
+  // Revision guidance, opened per sitting. Written once per attempt and cached
+  // server-side, so re-opening it costs nothing.
+  const aiGuidance = useAiFeature("ai_result_guidance");
+  const [guidance, setGuidance] = useState<GuidanceState | null>(null);
+  const [loadingGuidance, setLoadingGuidance] = useState<string | null>(null);
 
   const loadGrades = useCallback(async () => {
     if (!student?.id || !student?.cohort_id) return;
@@ -144,6 +169,7 @@ const StudentGrades = () => {
           reviewed_at: a.submitted_at ?? null,
           course_title: a.exams!.courses?.title || "—",
           state: released ? "graded" as const : "awaiting" as const,
+          attemptId: a.id,
         };
       };
 
@@ -241,6 +267,19 @@ const StudentGrades = () => {
       .filter((c) => !ASSESSMENT_TYPES.includes(c as (typeof ASSESSMENT_TYPES)[number]))
       .sort(),
   ];
+
+  const openGuidance = async (item: GradedItem) => {
+    if (!item.attemptId) return;
+    setLoadingGuidance(item.attemptId);
+    try {
+      const body = await fetchResultGuidance(item.attemptId);
+      setGuidance({ title: item.title, body });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not work out what to revise");
+    } finally {
+      setLoadingGuidance(null);
+    }
+  };
 
   const visible = typeFilter === "All" ? items : items.filter((i) => i.category === typeFilter);
 
@@ -402,7 +441,23 @@ const StudentGrades = () => {
                           </TableCell>
                           <TableCell>
                             {lg ? (
-                              <span className={`font-bold ${lg.color}`}>{lg.letter} ({pct}%)</span>
+                              <span className="flex items-center gap-2">
+                                <span className={`font-bold ${lg.color}`}>{lg.letter} ({pct}%)</span>
+                                {aiGuidance && item.attemptId && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    title="What should I revise?"
+                                    disabled={loadingGuidance === item.attemptId}
+                                    onClick={() => openGuidance(item)}
+                                  >
+                                    {loadingGuidance === item.attemptId
+                                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                                      : <Sparkles className="h-3 w-3" />}
+                                  </Button>
+                                )}
+                              </span>
                             ) : item.state === "awaiting" ? (
                               // Sat and submitted; staff have not released the result.
                               <Badge variant="outline" className="text-xs gap-1">
@@ -490,6 +545,21 @@ const StudentGrades = () => {
           </CardContent>
         </Card>
       </div>
+      <Dialog open={!!guidance} onOpenChange={(open) => !open && setGuidance(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Sparkles className="h-4 w-4 text-primary" /> What to revise
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">{guidance?.title}</p>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed">{guidance?.body}</p>
+          <p className="text-xs text-muted-foreground border-t pt-3">
+            Drawn from the questions you did not get full marks on, and from those questions only.
+            Your lecturer is the place to go for anything this does not cover.
+          </p>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

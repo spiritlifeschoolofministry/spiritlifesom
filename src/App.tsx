@@ -72,6 +72,8 @@ import {
   AdminExamMonitor,
   AdminQuestionBank,
   AdminStorage,
+  AdminAiSettings,
+  StudentStudy,
 } from "@/routes/lazy-pages";
 
 const queryClient = new QueryClient();
@@ -142,6 +144,7 @@ const App = () => {
             <Route path="/student/attendance" element={<StudentAttendance />} />
             <Route path="/student/assignments" element={<StudentAssignments />} />
             <Route path="/student/grades" element={<StudentGrades />} />
+            <Route path="/student/study" element={<StudentStudy />} />
             <Route path="/student/materials" element={<StudentMaterials />} />
             <Route path="/student/coursemates" element={<Coursemates />} />
             <Route path="/student/fees" element={<StudentFees />} />
@@ -179,6 +182,7 @@ const App = () => {
             <Route path="/admin/email-history" element={<ProtectedRoute requiredRole="superadmin"><AdminEmailHistory /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute requiredRole="superadmin"><AdminSettings /></ProtectedRoute>} />
             <Route path="/admin/storage" element={<ProtectedRoute requiredRole="superadmin"><AdminStorage /></ProtectedRoute>} />
+            <Route path="/admin/ai" element={<ProtectedRoute requiredRole="superadmin"><AdminAiSettings /></ProtectedRoute>} />
             <Route path="/admin/exams" element={<ProtectedRoute requiredRole="admin"><AdminExamsList /></ProtectedRoute>} />
             <Route path="/admin/exams/questions" element={<ProtectedRoute requiredRole="admin"><AdminQuestionBank /></ProtectedRoute>} />
             <Route path="/admin/exams/new" element={<ProtectedRoute requiredRole="admin"><AdminExamBuilder /></ProtectedRoute>} />

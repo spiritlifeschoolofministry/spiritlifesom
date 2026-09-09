@@ -76,3 +76,43 @@ entrypoint = "./functions/migrate-storage/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/seo-files/index.ts"
+
+# --- AI ---------------------------------------------------------------------
+# Every one of these requires a JWT: the guard reads the caller's role, their
+# student record and their open exam attempts from their own token, so an
+# unauthenticated call has nothing to check.
+
+[functions.ai-settings]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/ai-settings/index.ts"
+
+[functions.ai-material]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/ai-material/index.ts"
+
+[functions.ai-questions]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/ai-questions/index.ts"
+
+[functions.ai-message]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/ai-message/index.ts"
+
+[functions.ai-mark]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/ai-mark/index.ts"
+
+[functions.ai-student]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/ai-student/index.ts"
+
+[functions.ai-study]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/ai-study/index.ts"

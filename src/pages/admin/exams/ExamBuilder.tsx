@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { aiDb } from "@/lib/ai-db";
 import type { Tables, TablesInsert } from '@/integrations/supabase/types';
 
 /** The columns each picker query selects, rather than the whole row. */
@@ -209,7 +210,11 @@ export default function ExamBuilder() {
       const [cRes, ccRes, bRes] = await Promise.all([
         supabase.from("courses").select("id, code, title").order("code"),
         supabase.from("cohorts").select("id, name, is_active").order("created_at", { ascending: false }),
-        supabase.from("question_bank").select("*").eq("archived", false),
+        // Approved only. A drafted question is invisible here until somebody
+        // has read it — otherwise an AI draft could be picked into a live exam
+        // the moment it was written. Via aiDb because `status` post-dates the
+        // generated types; see ai-db.ts.
+        aiDb.from("question_bank").select("*").eq("archived", false).eq("status", "approved"),
       ]);
       setCourses(cRes.data ?? []);
       setCohorts(ccRes.data ?? []);

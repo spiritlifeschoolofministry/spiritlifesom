@@ -23,6 +23,7 @@ import {
   CalendarDays,
   ClipboardList,
   FileCheck,
+  Sparkles,
   FileText,
   Users,
   CreditCard,
@@ -77,6 +78,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "Course Materials", icon: FileText, path: "/student/materials", restrictedWhenPending: true },
       { label: "Tasks", icon: ClipboardList, path: "/student/assignments", restrictedWhenPending: true },
       { label: "Exams", icon: FileCheck, path: "/student/exams", restrictedWhenPending: true },
+      { label: "Study", icon: Sparkles, path: "/student/study", restrictedWhenPending: true },
     ],
   },
   {

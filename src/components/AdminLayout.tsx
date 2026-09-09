@@ -40,6 +40,7 @@ import {
   ClipboardCheck,
   Mail,
   HardDrive,
+  Sparkles,
   BadgeDollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -117,6 +118,7 @@ const NAV_GROUPS: NavGroup[] = [
     title: "System",
     items: [
       { label: "Storage", icon: HardDrive, path: "/admin/storage" },
+      { label: "AI", icon: Sparkles, path: "/admin/ai" },
       { label: "Settings", icon: Settings, path: "/admin/settings" },
       { label: "Profile", icon: UserCircle, path: "/admin/profile" },
     ],
@@ -139,6 +141,7 @@ const MOBILE_PRIMARY_PATHS = [
 const ADMIN_ONLY_PATHS = new Set([
   "/admin/settings",
   "/admin/storage",
+  "/admin/ai",
   "/admin/audit",
   "/admin/email-history",
 ]);

@@ -41,7 +41,10 @@ const RichTextEditor = lazy(() =>
 );
 import { QUESTION_TYPE_LABELS, QuestionType, parseMatchingQuestion, parseQuestionCSV, sanitizeHtml } from "@/lib/exam-utils";
 import { toast } from "sonner";
-import { Plus, Upload, Archive, Edit, Trash2, Search, Loader2 } from "lucide-react";
+import { Plus, Upload, Archive, Edit, Trash2, Search, Loader2, Sparkles, CheckCircle2, MessageSquare } from "lucide-react";
+import { draftQuestions, DRAFTABLE_LABELS, DRAFTABLE_TYPES, type DraftableType, writeExplanation } from "@/lib/ai-questions";
+import { useAiFeature } from "@/lib/ai-flags";
+import { aiDb, type MaterialRow } from "@/lib/ai-db";
 import PageHeader from "@/components/portal/PageHeader";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
@@ -62,26 +65,125 @@ export default function QuestionBank() {
   const [questionToDelete, setQuestionToDelete] = useState<Tables<'question_bank'> | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Drafting from a material. `showDrafts` swaps the list over to the drafts
+  // waiting for approval, which is a different job from browsing the bank.
+  const aiDrafting = useAiFeature("ai_question_drafting");
+  const [showDrafts, setShowDrafts] = useState(false);
+  const [draftOpen, setDraftOpen] = useState(false);
+  const [materials, setMaterials] = useState<MaterialRow[]>([]);
+  const [draftMaterial, setDraftMaterial] = useState("");
+  const [draftCount, setDraftCount] = useState(10);
+  const [draftTypes, setDraftTypes] = useState<DraftableType[]>([
+    "mcq_single",
+    "true_false",
+    "short_answer",
+  ]);
+  const [drafting, setDrafting] = useState(false);
+  const [explaining, setExplaining] = useState<string | null>(null);
+  const [approving, setApproving] = useState<string | null>(null);
+
   const load = async () => {
     setLoading(true);
-    const [qRes, cRes] = await Promise.all([
+    const [qRes, cRes, mRes] = await Promise.all([
       supabase.from("question_bank").select("*").order("created_at", { ascending: false }),
       supabase.from("courses").select("id, code, title").order("code"),
+      // Only materials whose text was actually captured can be drafted from,
+      // so the picker never offers one that would be refused.
+      aiDb
+        .from("course_materials")
+        .select("id, title, course_id, cohort_id, ai_excerpt")
+        .not("ai_excerpt", "is", null)
+        .order("created_at", { ascending: false }),
     ]);
     setQuestions(qRes.data ?? []);
     setCourses(cRes.data ?? []);
+    setMaterials((mRes.data ?? []) as MaterialRow[]);
     setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
 
+  /** A row's status, defaulting to approved for anything written before drafts existed. */
+  const statusOf = (q: Tables<'question_bank'>) =>
+    String((q as unknown as { status?: string }).status ?? "approved");
+
+  const draftCountWaiting = questions.filter(
+    (q) => statusOf(q) === "draft" && !q.archived,
+  ).length;
+
   const filtered = questions.filter((q) => {
+    if ((statusOf(q) === "draft") !== showDrafts) return false;
     if (q.archived !== showArchived) return false;
     if (filterCourse !== "all" && q.course_id !== filterCourse) return false;
     if (filterType !== "all" && q.question_type !== filterType) return false;
     if (search && !(q.question_text || "").toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+
+  const runDraft = async () => {
+    if (!draftMaterial) return toast.error("Pick a material to draft from");
+    if (draftTypes.length === 0) return toast.error("Pick at least one question type");
+    setDrafting(true);
+    try {
+      const result = await draftQuestions({
+        materialId: draftMaterial,
+        count: draftCount,
+        types: draftTypes,
+      });
+      setDraftOpen(false);
+      // Land the admin on the drafts, since reviewing them is the next step
+      // and finding them otherwise means knowing the filter exists.
+      setShowDrafts(true);
+      await load();
+      toast.success(
+        `${result.drafted} question${result.drafted === 1 ? "" : "s"} drafted — read them before approving.` +
+          (result.discarded ? ` ${result.discarded} were malformed and discarded.` : ""),
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not draft questions");
+    } finally {
+      setDrafting(false);
+    }
+  };
+
+  /** Approving is the only way a draft becomes usable, and it is one at a time. */
+  const approve = async (q: Tables<'question_bank'>) => {
+    setApproving(q.id);
+    try {
+      const { error } = await aiDb
+        .from("question_bank")
+        .update({ status: "approved" })
+        .eq("id", q.id);
+      if (error) throw error;
+      setQuestions((prev) =>
+        prev.map((row) =>
+          row.id === q.id
+            ? ({ ...row, status: "approved" } as Tables<'question_bank'>)
+            : row
+        )
+      );
+      toast.success("Approved — it can now be picked into an exam");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not approve it");
+    } finally {
+      setApproving(null);
+    }
+  };
+
+  const explain = async (q: Tables<'question_bank'>) => {
+    setExplaining(q.id);
+    try {
+      const explanation = await writeExplanation(q.id);
+      setQuestions((prev) =>
+        prev.map((row) => (row.id === q.id ? { ...row, explanation } : row))
+      );
+      toast.success("Explanation written");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not write an explanation");
+    } finally {
+      setExplaining(null);
+    }
+  };
 
   const newQuestion = () => {
     setEditing({
@@ -200,6 +302,11 @@ export default function QuestionBank() {
         backLabel="Back to exams"
         actions={
           <>
+            {aiDrafting && (
+              <Button variant="outline" onClick={() => setDraftOpen(true)}>
+                <Sparkles className="w-4 h-4 mr-1.5" /> Draft from material
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setImportOpen(true)}>
               <Upload className="w-4 h-4 mr-1.5" /> Import CSV
             </Button>
@@ -232,12 +339,32 @@ export default function QuestionBank() {
         <Button variant={showArchived ? "default" : "outline"} size="sm" onClick={() => setShowArchived(!showArchived)}>
           {showArchived ? "Showing archived" : "Show archived"}
         </Button>
+        <Button
+          variant={showDrafts ? "default" : "outline"}
+          size="sm"
+          onClick={() => setShowDrafts(!showDrafts)}
+        >
+          {showDrafts ? "Showing drafts" : "Drafts"}
+          {draftCountWaiting > 0 && !showDrafts && (
+            <Badge variant="secondary" className="ml-1.5">{draftCountWaiting}</Badge>
+          )}
+        </Button>
       </Card>
+
+      {showDrafts && (
+        <Card className="p-3 text-sm bg-muted/40 border-dashed">
+          These are drafts. Students cannot see them and they cannot be picked into an exam until
+          you approve them. Read each one against the material it came from — a model can be
+          fluent and still wrong about what a lecturer actually taught.
+        </Card>
+      )}
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : filtered.length === 0 ? (
-        <Card className="p-10 text-center text-muted-foreground">No questions found.</Card>
+        <Card className="p-10 text-center text-muted-foreground">
+          {showDrafts ? "No drafts waiting." : "No questions found."}
+        </Card>
       ) : (
         <div className="grid gap-3">
           {filtered.map((q) => (
@@ -248,11 +375,48 @@ export default function QuestionBank() {
                     <Badge variant="secondary">{QUESTION_TYPE_LABELS[q.question_type as QuestionType] ?? q.question_type}</Badge>
                     <Badge variant="outline">{q.points} pt</Badge>
                     {q.archived && <Badge variant="destructive">Archived</Badge>}
+                    {statusOf(q) === "draft" && <Badge>Draft</Badge>}
+                    {(q as unknown as { ai_generated?: boolean }).ai_generated && (
+                      <Badge variant="outline" className="gap-1">
+                        <Sparkles className="w-3 h-3" /> AI
+                      </Badge>
+                    )}
+                    {!q.explanation && q.question_type !== "essay" && (
+                      <Badge variant="outline" className="text-muted-foreground">
+                        no explanation
+                      </Badge>
+                    )}
                   </div>
                   <div className="prose prose-sm dark:prose-invert max-w-none line-clamp-2"
                     dangerouslySetInnerHTML={{ __html: sanitizeHtml(q.question_text) }} />
                 </div>
                 <div className="flex gap-1 shrink-0">
+                  {statusOf(q) === "draft" && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Approve this question"
+                      disabled={approving === q.id}
+                      onClick={() => approve(q)}
+                    >
+                      {approving === q.id
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                    </Button>
+                  )}
+                  {aiDrafting && !q.explanation && q.question_type !== "essay" && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Write the explanation students see after marking"
+                      disabled={explaining === q.id}
+                      onClick={() => explain(q)}
+                    >
+                      {explaining === q.id
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <MessageSquare className="w-4 h-4" />}
+                    </Button>
+                  )}
                   <Button variant="ghost" size="icon" onClick={() => { setEditing(toDraft(q)); setOpenEditor(true); }}>
                     <Edit className="w-4 h-4" />
                   </Button>
@@ -268,6 +432,80 @@ export default function QuestionBank() {
           ))}
         </div>
       )}
+
+      {/* Draft-from-material dialog */}
+      <Dialog open={draftOpen} onOpenChange={setDraftOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Draft questions from a material</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Material</Label>
+              <Select value={draftMaterial} onValueChange={setDraftMaterial}>
+                <SelectTrigger><SelectValue placeholder="Pick a material" /></SelectTrigger>
+                <SelectContent>
+                  {materials.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {materials.length === 0 && (
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  No materials have readable text yet. Text is captured when a file is uploaded, so
+                  re-upload a PDF to draft from it — and note that a scanned PDF has no text to
+                  read.
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label>How many</Label>
+              <Input
+                type="number"
+                min={1}
+                max={20}
+                value={draftCount}
+                onChange={(e) => setDraftCount(Number(e.target.value))}
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Fewer may come back. If the material does not support twenty questions, it is
+                asked to write fewer rather than pad.
+              </p>
+            </div>
+
+            <div>
+              <Label>Types</Label>
+              <div className="mt-1.5 space-y-1.5">
+                {DRAFTABLE_TYPES.map((type) => (
+                  <label key={type} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="rounded border-border"
+                      checked={draftTypes.includes(type)}
+                      onChange={(e) =>
+                        setDraftTypes((prev) =>
+                          e.target.checked ? [...prev, type] : prev.filter((t) => t !== type)
+                        )}
+                    />
+                    {DRAFTABLE_LABELS[type]}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <Button className="w-full" disabled={drafting || !draftMaterial} onClick={runDraft}>
+              {drafting
+                ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Drafting…</>
+                : <><Sparkles className="w-4 h-4 mr-1.5" /> Draft into the bank</>}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Everything lands as a draft for you to read, edit or delete. Nothing reaches a
+              student, or the exam builder, until you approve it.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Editor dialog */}
       <Dialog open={openEditor} onOpenChange={(v) => { setOpenEditor(v); if (!v) setEditing(null); }}>
@@ -435,6 +673,25 @@ export default function QuestionBank() {
                 <Label>Explanation (shown only to admins)</Label>
                 <Textarea value={editing.explanation ?? ""} onChange={(e) => setEditing({ ...editing, explanation: e.target.value })} rows={2} />
               </div>
+
+              {/* A rubric only matters where a person has to judge the answer. */}
+              {(editing.question_type === "essay" || editing.question_type === "short_answer") && (
+                <div>
+                  <Label>Marking rubric</Label>
+                  <Textarea
+                    value={(editing as { rubric?: string | null }).rubric ?? ""}
+                    onChange={(e) =>
+                      setEditing({ ...editing, rubric: e.target.value } as typeof editing)}
+                    rows={3}
+                    placeholder="What a full-marks answer must contain."
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Write this yourself. It is the standard a suggested mark is judged against, so
+                    a rubric written by a model would just be the model marking its own work —
+                    without one, suggestions are deliberately generous and say so.
+                  </p>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>

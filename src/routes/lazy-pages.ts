@@ -90,6 +90,8 @@ export const AdminExamBuilder = lazyPage(() => import("@/pages/admin/exams/ExamB
 export const AdminExamMonitor = lazyPage(() => import("@/pages/admin/exams/ExamMonitor"));
 export const AdminQuestionBank = lazyPage(() => import("@/pages/admin/exams/QuestionBank"));
 export const AdminStorage = lazyPage(() => import("@/pages/admin/StorageManagement"));
+export const AdminAiSettings = lazyPage(() => import("@/pages/admin/AiSettings"));
+export const StudentStudy = lazyPage(() => import("@/pages/student/Study"));
 export const ComingSoon = lazyPage(() => import("@/pages/ComingSoon"));
 export const AdminComingSoon = lazyPage(() => import("@/pages/AdminComingSoon"));
 
@@ -133,6 +135,8 @@ const PAGE_BY_PATH: Record<string, LazyPage> = {
   "/admin/calendar": AdminCalendar,
   "/admin/analytics": AdminAnalytics,
   "/admin/storage": AdminStorage,
+  "/admin/ai": AdminAiSettings,
+  "/student/study": StudentStudy,
   "/admin/settings": AdminSettings,
   "/admin/audit": AdminAuditLog,
   "/admin/email-history": AdminEmailHistory,

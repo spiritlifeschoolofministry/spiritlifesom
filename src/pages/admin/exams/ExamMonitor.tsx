@@ -48,6 +48,9 @@ import { Label } from "@/components/ui/label";
 import { Download, AlertTriangle, CheckCircle2, Send, Camera, Mic, Trash2, Loader2, LockKeyhole, ShieldAlert } from "lucide-react";
 import PageHeader from "@/components/portal/PageHeader";
 import { toast } from "sonner";
+import { Sparkles } from "lucide-react";
+import { suggestMarks, type MarkSuggestion } from "@/lib/ai-mark";
+import { useAiFeature } from "@/lib/ai-flags";
 import { AUTO_GRADED_TYPES, formatAnswer, isBreachReason, sanitizeHtml, submissionReasonLabel } from "@/lib/exam-utils";
 import { r2Storage } from "@/lib/r2-storage";
 import { edgeErrorMessage } from "@/lib/edge-error";
@@ -63,6 +66,13 @@ export default function ExamMonitor() {
   const [loading, setLoading] = useState(true);
   const [grading, setGrading] = useState<MonitoredAttempt | null>(null);
   const [gradeData, setGradeData] = useState<{ answers: GradableAnswer[]; questions: Tables<'question_bank'>[]; override: string }>({ answers: [], questions: [], override: "" });
+
+  // Suggested marks, keyed by exam_answers.id. Kept in their own state rather
+  // than merged into gradeData: a suggestion must never be mistaken for a mark
+  // that has been given, and keeping them apart makes that structural.
+  const aiMarking = useAiFeature("ai_essay_marking");
+  const [suggestions, setSuggestions] = useState<Record<string, MarkSuggestion>>({});
+  const [suggestingMarks, setSuggestingMarks] = useState(false);
   const [snapshots, setSnapshots] = useState<Record<string, Array<{ id: string; storage_path: string; captured_at: string; storage_provider: string; signedUrl?: string }>>>({});
   const [snapshotViewer, setSnapshotViewer] = useState<{ url: string; meta: string } | null>(null);
   const [loadingSnapsFor, setLoadingSnapsFor] = useState<string | null>(null);
@@ -277,6 +287,8 @@ export default function ExamMonitor() {
 
     setGrading(attempt);
     setGradeData({ answers, questions, override: "" });
+    // Whatever was suggested for the last student says nothing about this one.
+    setSuggestions({});
   };
 
   /**
@@ -290,6 +302,38 @@ export default function ExamMonitor() {
     const n = Number(exam?.count_best_n) || 0;
     const counted = n > 0 ? [...values].sort((a, b) => b - a).slice(0, n) : values;
     return counted.reduce((sum, v) => sum + v, 0);
+  };
+
+  /**
+   * Asks for suggestions on every written answer still unmarked.
+   *
+   * Suggestions land beside the marking controls, not in them. Nothing is
+   * saved to this attempt's marks by this call — accepting one is a separate,
+   * per-answer click, and closing the dialog without accepting leaves the
+   * paper exactly as it was.
+   */
+  const suggestAllMarks = async () => {
+    if (!grading) return;
+    setSuggestingMarks(true);
+    try {
+      const result = await suggestMarks(grading.id);
+      setSuggestions(result.suggestions);
+      const count = Object.keys(result.suggestions).length;
+      if (count === 0) {
+        toast.info("Nothing here needs a suggested mark — every written answer is already marked.");
+      } else {
+        toast.success(
+          `${count} suggested mark${count === 1 ? "" : "s"} — accept each one you agree with.`,
+        );
+      }
+      if (result.failures.length) {
+        toast.warning(`${result.failures.length} answer(s) could not be read by any provider.`);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not suggest marks");
+    } finally {
+      setSuggestingMarks(false);
+    }
   };
 
   const saveGrading = async () => {
@@ -755,6 +799,27 @@ export default function ExamMonitor() {
                 : " · nothing left to mark"}
             </p>
           </DialogHeader>
+          {aiMarking && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed p-3">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={suggestingMarks}
+                onClick={suggestAllMarks}
+              >
+                {suggestingMarks
+                  ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Reading the answers…</>
+                  : <><Sparkles className="mr-1.5 h-3.5 w-3.5" /> Suggest marks</>}
+              </Button>
+              <p className="text-xs text-muted-foreground flex-1 min-w-48">
+                Reads the written answers and proposes a mark against each question's rubric. You
+                accept them one at a time — nothing is applied until you do, and nothing is saved
+                until you press Save.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-3">
             {gradeData.questions.map((q, idx) => {
               const ans = gradeData.answers.find((a) => a.question_id === q.id);
@@ -795,6 +860,51 @@ export default function ExamMonitor() {
                       <span className="text-emerald-600">{formatAnswer(q.correct_answer, q)}</span>
                     </div>
                   )}
+
+                  {(() => {
+                    const suggestion = ans.id ? suggestions[ans.id] : undefined;
+                    if (!suggestion) return null;
+                    const applied = Number(ans.points_awarded) === suggestion.points &&
+                      ans.manual_feedback === suggestion.feedback;
+                    return (
+                      <div className="rounded-md border border-dashed bg-muted/40 p-2.5 space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline" className="gap-1 text-[10px]">
+                            <Sparkles className="h-3 w-3" /> Suggested
+                          </Badge>
+                          <span className="text-sm font-medium">
+                            {suggestion.points}/{max}
+                          </span>
+                          {suggestion.note === "blank" && (
+                            <span className="text-xs text-muted-foreground">
+                              (no answer was given — decided without a model)
+                            </span>
+                          )}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={applied ? "outline" : "default"}
+                            className="ml-auto h-7 text-xs"
+                            disabled={applied}
+                            onClick={() =>
+                              setAnswer({
+                                points_awarded: suggestion.points,
+                                manual_feedback: suggestion.feedback,
+                              })}
+                          >
+                            {applied ? "Accepted" : "Accept"}
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{suggestion.feedback}</p>
+                        {!(q as unknown as { rubric?: string | null }).rubric && (
+                          <p className="text-xs text-amber-600">
+                            No rubric is set for this question, so this was marked generously on
+                            coherence alone. Add one to the question for a mark worth trusting.
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   <div className="flex flex-wrap items-center gap-2 pt-1">
                     <span className="text-xs text-muted-foreground">Marks:</span>

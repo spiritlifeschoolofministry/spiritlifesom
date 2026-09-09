@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { describeMaterial, suggestMaterialTags } from '@/lib/ai-material';
+import { canExtractText as canRead, extractExcerpt } from '@/lib/pdf-excerpt';
+import { useAiFeature } from '@/lib/ai-flags';
+import { isBlankText } from '@/lib/ai-format';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,7 +13,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Upload, Pin, PinOff, Trash2, ExternalLink, Share2, Search } from 'lucide-react';
+import { Loader2, Upload, Pin, PinOff, Trash2, ExternalLink, Share2, Search, Sparkles } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { r2Storage } from '@/lib/r2-storage';
@@ -40,6 +45,13 @@ const AdminMaterials = () => {
   const [isPinningId, setIsPinningId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [cohortFilter, setCohortFilter] = useState('all');
+  // The opening words of the chosen file, read once when it is picked. Every AI
+  // feature that touches this material later reads the stored copy instead.
+  const [excerpt, setExcerpt] = useState('');
+  const [readingFile, setReadingFile] = useState(false);
+  const [writingDescription, setWritingDescription] = useState(false);
+  const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
+  const aiDescriptions = useAiFeature('ai_material_descriptions');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Share to cohort state
@@ -93,6 +105,73 @@ const AdminMaterials = () => {
     }
   };
 
+  /**
+   * Reading the file's opening once, when it is picked.
+   *
+   * A PDF's words are only reachable in the browser holding it, so this is the
+   * one moment they can be captured. The excerpt is stored on the row so that
+   * describing it now, and drafting exam questions from it next month, both
+   * read the same text without the file ever being uploaded twice.
+   */
+  const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setSelectedFile(file);
+    setExcerpt('');
+    if (!file) return;
+
+    // A title the uploader hasn't typed is better guessed from the filename
+    // than left empty — they can still change it.
+    if (!watch('title')) {
+      setValue('title', file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim());
+    }
+
+    if (!canRead(file)) return;
+    setReadingFile(true);
+    try {
+      setExcerpt(await extractExcerpt(file));
+    } finally {
+      setReadingFile(false);
+    }
+  };
+
+  /**
+   * Writes the description, and files the material while it is at it.
+   *
+   * The two are one click because they are one decision: an uploader who wants
+   * a description written wants the thing filed too, and asking twice for what
+   * is always wanted is just an extra click. The tags are suggestions until the
+   * material is saved — each one can be removed from the row of pills.
+   */
+  const writeDescription = async () => {
+    const title = watch('title');
+    if (!title) return;
+    setWritingDescription(true);
+    try {
+      const meta = {
+        title,
+        courseName: courses.find((c) => c.id === watch('course_id'))?.title ?? null,
+        materialType: watch('material_type') || null,
+        fileType: selectedFile?.type || null,
+        excerpt,
+      };
+      const [described, tagged] = await Promise.all([
+        describeMaterial(meta),
+        suggestMaterialTags(meta),
+      ]);
+
+      setValue('description', described.description);
+      setSuggestedTags(tagged.tags);
+
+      // A plain template sentence is a success, not a failure — but the uploader
+      // should know why it reads flatly, and that they can improve it.
+      if (described.note) toast.info(described.note);
+      else toast.success(`Description written by ${described.provider}.`);
+      if (tagged.note && tagged.tags.length === 0) toast.info(tagged.note);
+    } finally {
+      setWritingDescription(false);
+    }
+  };
+
   const onSubmit = async (data: UploadForm) => {
     if (!data.cohort_id || !data.course_id || !data.title) {
       toast.error('Please provide title, cohort, and course');
@@ -123,11 +202,15 @@ const AdminMaterials = () => {
         learning_modes: toModeArray(data.learning_modes),
         is_paid: false,
         uploaded_by: null,
+        // Cast: `tags` and `ai_excerpt` post-date the generated types. See ai-db.ts.
+        ...({ tags: suggestedTags, ai_excerpt: excerpt || null } as Record<string, unknown>),
       });
       if (insertError) throw insertError;
 
       toast.success('Material uploaded successfully');
       reset();
+      setExcerpt('');
+      setSuggestedTags([]);
       setSelectedFile(null);
       setIsModalOpen(false);
       await fetchData();
@@ -264,8 +347,43 @@ const AdminMaterials = () => {
                 <Input placeholder="e.g., Chapter 1 Notes" {...register('title', { required: true })} />
               </div>
               <div>
-                <Label>Description</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label>Description</Label>
+                  {aiDescriptions && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs"
+                      disabled={writingDescription || !watch('title')}
+                      onClick={writeDescription}
+                      title={watch('title') ? undefined : 'Give it a title first'}
+                    >
+                      {writingDescription
+                        ? <><Loader2 className="mr-1 h-3 w-3 animate-spin" /> Writing…</>
+                        : <><Sparkles className="mr-1 h-3 w-3" /> {isBlankText(watch('description')) ? 'Write one' : 'Rewrite'}</>}
+                    </Button>
+                  )}
+                </div>
                 <Textarea placeholder="Optional description" {...register('description')} className="min-h-[80px]" />
+                {suggestedTags.length > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">Filed under:</span>
+                    {suggestedTags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        {tag}
+                        <button
+                          type="button"
+                          className="ml-1 hover:text-destructive"
+                          onClick={() => setSuggestedTags((prev) => prev.filter((t) => t !== tag))}
+                          aria-label={`Remove ${tag}`}
+                        >
+                          ×
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
               <div>
                 <Label>Cohort *</Label>
@@ -310,7 +428,17 @@ const AdminMaterials = () => {
               </div>
               <div>
                 <Label>File *</Label>
-                <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.gif" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} className="block w-full text-sm border border-border rounded px-3 py-2" />
+                <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.gif" onChange={onPickFile} className="block w-full text-sm border border-border rounded px-3 py-2" />
+                {readingFile && (
+                  <p className="mt-1 text-xs text-muted-foreground flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Reading the opening pages…
+                  </p>
+                )}
+                {!readingFile && excerpt && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Read {excerpt.length.toLocaleString()} characters of text from this file.
+                  </p>
+                )}
               </div>
               <div className="sticky bottom-0 bg-background pt-4 border-t">
                 <Button type="submit" disabled={isUploading} className="w-full">
