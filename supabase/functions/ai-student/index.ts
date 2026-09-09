@@ -23,6 +23,7 @@
 import { chainFailureResponse, corsHeaders, guard, json } from "../_shared/ai-guard.ts";
 import { runChain } from "../_shared/ai-chain.ts";
 import { line } from "../_shared/ai-text.ts";
+import { standingOf, tallyAttendance } from "../_shared/attendance.ts";
 
 /** How many questions one practice round serves. */
 const PRACTICE_SIZE = 10;
@@ -31,12 +32,19 @@ const PROGRESS_RULES =
   `You are writing a short progress note for one student at Spirit Life School of Ministry, a Christian Bible school. They are reading it about themselves, on their own dashboard.
 
 Rules:
-- Two or three short sentences. British English, warm and direct, second person ("you").
+- Three or four short sentences, at most 90 words. British English, warm and direct, second person ("you").
 - Use only the figures given. Never invent a mark, a deadline, a rank or a comparison with other students.
-- Lead with what is actually true rather than with encouragement. If attendance has slipped, say so plainly and without scolding; if everything is in order, say that instead of manufacturing a concern.
-- Name the one thing most worth doing next, only where the figures point at one.
+- Lead with what is actually true rather than with encouragement. If everything is in order, say that instead of manufacturing a concern.
 - No greeting, no sign-off, no scripture, no exclamation marks.
-- Never predict whether they will pass, graduate or be certificated. That is not yours to say.`;
+- Never predict whether they will pass, graduate or be certificated. That is not yours to say.
+
+Attendance:
+- Always say where their attendance stands, in one sentence, using the figure given. It is the thing a student can still change, so it is never the part you leave out.
+- The standing is given to you. Where it is "slipping" or "serious", warn them plainly: say that it is below where it should be, and say what it puts at risk in the school's own terms — missed teaching they will be examined on. Do not scold, do not moralise, and do not soften it into a compliment.
+- Where it is "serious", say plainly that it needs attention now.
+- Where it is "good", say so briefly and move on. Do not manufacture a concern from good attendance, and do not warn about lateness unless the late figure given is genuinely high.
+- Where it is "unknown", say that no classes have been counted yet and leave it there. Never guess a figure.
+- Follow any warning with one concrete recommendation drawn from the figures — attending the next counted class, speaking to the school office about absences, or catching up on the material for classes missed. One recommendation, not a list.`;
 
 const GUIDANCE_RULES =
   `You are writing revision guidance for one student at a Bible school, from the questions they got wrong in an exam they have just had marked.
@@ -87,8 +95,29 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (cached) return json({ body: (cached as { body: string }).body, cached: true });
 
-      const [attendance, fees, attempts, assignments] = await Promise.all([
-        service.from("attendance").select("status").eq("student_id", studentId).limit(500),
+      // The student's cohort, because attendance is measured against the
+      // classes that cohort held rather than against the rows this student has.
+      const { data: whoRow } = await service
+        .from("students")
+        .select("cohort_id")
+        .eq("id", studentId)
+        .maybeSingle();
+      const cohortId = (whoRow as { cohort_id?: string | null } | null)?.cohort_id ?? null;
+
+      const [attendance, sessions, fees, attempts, assignments] = await Promise.all([
+        service
+          .from("attendance")
+          .select("status, schedule_id, is_verified")
+          .eq("student_id", studentId)
+          .limit(1000),
+        cohortId
+          ? service
+            .from("schedule")
+            .select("id")
+            .eq("cohort_id", cohortId)
+            .eq("counts_for_attendance", true)
+            .lte("date", new Date().toISOString().slice(0, 10))
+          : Promise.resolve({ data: [] as { id: string }[] }),
         service
           .from("fees")
           .select("amount_due, amount_paid, fee_type")
@@ -109,13 +138,36 @@ Deno.serve(async (req) => {
 
       const facts: string[] = [];
 
-      const marks = (attendance.data ?? []) as { status: string | null }[];
-      if (marks.length) {
-        const present = marks.filter((row) => /present|late/i.test(String(row.status ?? ""))).length;
-        facts.push(line("Attendance", `${present} of ${marks.length} classes (${
-          Math.round((present / marks.length) * 100)
-        }%)`));
+      /**
+       * Attendance, counted the way the student's own attendance page counts it.
+       *
+       * This used to count the rows this student had, which scores everybody at
+       * or near 100% — an absence is a missing row, not a row saying "absent".
+       * A student could be told they had perfect attendance by this paragraph
+       * and 40% by the page one click away.
+       */
+      const tally = tallyAttendance(
+        new Set(((sessions.data ?? []) as { id: string }[]).map((row) => row.id)),
+        (attendance.data ?? []) as {
+          status: string | null;
+          schedule_id: string | null;
+          is_verified: boolean | null;
+        }[],
+      );
+      const standing = standingOf(tally.rate);
+
+      if (tally.total > 0) {
+        facts.push(line(
+          "Attendance",
+          `${tally.present + tally.late} of ${tally.total} classes held (${tally.rate}%)`,
+        ));
+        facts.push(line("Classes missed", tally.absent));
+        if (tally.late > 0) facts.push(line("Arrived late", tally.late));
       }
+      // Named rather than left for the model to judge from the percentage, so
+      // the warning fires on the school's own threshold every time instead of
+      // on whatever the model considers low today.
+      facts.push(line("Attendance standing", standing));
 
       const feeRows = (fees.data ?? []) as { amount_due: number | null; amount_paid: number | null }[];
       const owing = feeRows
