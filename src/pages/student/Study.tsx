@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import PageHeader from '@/components/portal/PageHeader';
+import AssistantAttribution from '@/components/student/AssistantAttribution';
 import { useAiFlags, useAssistantName } from '@/lib/ai-flags';
 import {
   answerPractice,
@@ -278,7 +279,7 @@ export default function Study() {
     <div className="space-y-4">
       <PageHeader
         title="Study"
-        description={`Practice questions, and ${name} to help with your own course materials`}
+        description={`${name}, your study assistant, working from your own course materials`}
       />
 
       {/* Said once, plainly, at the top — a student unsure whether this counts
@@ -473,11 +474,11 @@ export default function Study() {
                     <p className="whitespace-pre-wrap text-sm leading-relaxed">
                       {answered.answer}
                     </p>
-                    <p className="flex items-center gap-1.5 border-t pt-2 text-xs text-muted-foreground">
-                      <Sparkles className="h-3 w-3" />
-                      {name}, from “{answered.title}”. Go and read that section yourself — this is
-                      a pointer to the material, not a replacement for it.
-                    </p>
+                    <AssistantAttribution
+                      className="border-t pt-2"
+                      source={`“${answered.title}”`}
+                      fallback="Go and read that section yourself — this is a pointer to the material, not a replacement for it."
+                    />
                   </div>
                 )}
               </CardContent>

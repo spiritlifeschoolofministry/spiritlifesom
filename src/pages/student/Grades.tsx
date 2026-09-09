@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Loader2, Sparkles } from "lucide-react";
 import { fetchResultGuidance } from "@/lib/ai-student";
 import { useAiFeature, useAssistantName } from "@/lib/ai-flags";
+import AssistantAttribution from "@/components/student/AssistantAttribution";
 import { Button } from "@/components/ui/button";
 import { fetchStudentHistory } from "@/lib/student-sessions";
 
@@ -550,15 +551,16 @@ const StudentGrades = () => {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="h-4 w-4 text-primary" /> What to revise
+              <Sparkles className="h-4 w-4 text-primary" /> What to revise, from {assistantName}
             </DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground">{guidance?.title}</p>
           <p className="whitespace-pre-wrap text-sm leading-relaxed">{guidance?.body}</p>
-          <p className="text-xs text-muted-foreground border-t pt-3">
-            {assistantName}, from the questions you did not get full marks on and from those only.
-            Your lecturer is the place to go for anything this does not cover.
-          </p>
+          <AssistantAttribution
+            className="border-t pt-3"
+            source="the questions you did not get full marks on, and those only"
+            fallback="Your lecturer is the place to go for anything it does not cover."
+          />
         </DialogContent>
       </Dialog>
     </>

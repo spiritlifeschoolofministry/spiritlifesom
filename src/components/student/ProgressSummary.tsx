@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Sparkles } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAiFeature, useAssistantName } from '@/lib/ai-flags';
+import { useAiFeature } from '@/lib/ai-flags';
+import AssistantAttribution from '@/components/student/AssistantAttribution';
 import { fetchProgressSummary } from '@/lib/ai-student';
 
 /**
@@ -21,7 +22,6 @@ import { fetchProgressSummary } from '@/lib/ai-student';
  */
 export default function ProgressSummary() {
   const enabled = useAiFeature('ai_progress_summary');
-  const name = useAssistantName();
   const [body, setBody] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -65,12 +65,14 @@ export default function ProgressSummary() {
     <Card className="border-primary/20 bg-primary/[0.03]">
       <CardContent className="flex gap-3 pt-6">
         <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <p className="text-sm leading-relaxed">{body}</p>
-          <p className="text-xs text-muted-foreground">
-            {name}, from your own attendance, fees, tasks and exams. The figures on this page are
-            the record; this is only a summary of them.
-          </p>
+          {/* The shared line, so this reads as the same assistant as the one
+              beside a grade and the one under Study. */}
+          <AssistantAttribution
+            source="your own attendance, fees, tasks and exams"
+            fallback="The figures on this page are the record; this is only a summary of them."
+          />
         </div>
       </CardContent>
     </Card>

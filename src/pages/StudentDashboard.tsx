@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import ProgressSummary from "@/components/student/ProgressSummary";
 import AssistantCard from "@/components/student/AssistantCard";
-import { useAiFlags } from "@/lib/ai-flags";
+import { useAssistantContext } from "@/lib/assistant-places";
 import { preloadPath } from "@/routes/lazy-pages";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -77,7 +77,7 @@ const EMPTY_DATA: DashboardData = {
 const StudentDashboard = () => {
   const navigate = useNavigate();
   const { student, user, profile, isProfileResolved, refreshProfile } = useAuth();
-  const { data: aiFlags } = useAiFlags();
+  const assistant = useAssistantContext();
 
   // Identity comes from the auth context, which is the one place that reads and
   // caches these rows. The dashboard used to re-query profiles/students itself,
@@ -357,7 +357,9 @@ const StudentDashboard = () => {
    * sidebar, which on a phone is behind a drawer — they are the two pages a
    * student most often wants next from here.
    */
-  const studyOn = !!aiFlags?.on("ai_study_assistant") || !!aiFlags?.on("ai_practice_quizzes");
+  // Same answer the assistant card uses, so the tile and the card can never
+  // disagree about whether Study has anything on it.
+  const { studyOn } = assistant;
 
   const QUICK_ACTIONS = [
     { label: "Submit Task", icon: ClipboardList, path: "/student/assignments", color: "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400" },
@@ -514,7 +516,8 @@ const StudentDashboard = () => {
           <ProgressSummary />
         </Reveal>
 
-        {/* Renders nothing while the study features are switched off. */}
+        {/* Introduces the assistant by name and lists where he turns up.
+            Renders nothing while every student-facing AI feature is off. */}
         <Reveal delay={40}>
           <AssistantCard />
         </Reveal>
