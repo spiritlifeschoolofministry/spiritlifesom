@@ -28,9 +28,21 @@ export const AI_FEATURES = [
 
 export type AiFeature = (typeof AI_FEATURES)[number];
 
+/**
+ * What the school calls its assistant, when the setting has not loaded yet.
+ *
+ * A fallback rather than the source of truth: the name lives in
+ * `system_settings` so it can be changed without a deploy, and every screen
+ * reads it from there. This is only what shows in the instant before the
+ * settings query returns.
+ */
+export const DEFAULT_ASSISTANT_NAME = 'Barnabas';
+
 export interface AiFlags {
   /** Off disables every feature regardless of its own flag. */
   enabled: boolean;
+  /** The name students and staff see. Never a model or provider name. */
+  assistantName: string;
   features: Record<AiFeature, boolean>;
   limits: { admin: number; student: number };
   /** True for a feature only when the master switch is on as well. */
@@ -56,6 +68,7 @@ const asNumber = (raw: unknown, fallback: number): number => {
 
 const SETTING_KEYS = [
   'ai_enabled',
+  'ai_assistant_name',
   ...AI_FEATURES,
   'ai_daily_limit_admin',
   'ai_daily_limit_student',
@@ -76,8 +89,13 @@ export const fetchAiFlags = async (): Promise<AiFlags> => {
     AI_FEATURES.map((feature) => [feature, isOn(map.get(feature))]),
   ) as Record<AiFeature, boolean>;
 
+  const rawName = map.get('ai_assistant_name');
+  const assistantName = String(rawName ?? '').trim().replace(/^"(.*)"$/, '$1') ||
+    DEFAULT_ASSISTANT_NAME;
+
   return {
     enabled,
+    assistantName,
     features,
     limits: {
       admin: asNumber(map.get('ai_daily_limit_admin'), 200),
@@ -104,4 +122,17 @@ export const useAiFlags = () =>
 export const useAiFeature = (feature: AiFeature): boolean => {
   const { data } = useAiFlags();
   return !!data?.on(feature);
+};
+
+/**
+ * The assistant's name, for copy.
+ *
+ * Deliberately never falls back to "the AI" or to a model name: students are
+ * not meant to know that nine models sit behind this, and a screen that says
+ * "Groq wrote this" would be both confusing and, when the chain falls through,
+ * wrong.
+ */
+export const useAssistantName = (): string => {
+  const { data } = useAiFlags();
+  return data?.assistantName || DEFAULT_ASSISTANT_NAME;
 };

@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Sparkles } from "lucide-react";
 import { fetchResultGuidance } from "@/lib/ai-student";
-import { useAiFeature } from "@/lib/ai-flags";
+import { useAiFeature, useAssistantName } from "@/lib/ai-flags";
 import { Button } from "@/components/ui/button";
 import { fetchStudentHistory } from "@/lib/student-sessions";
 
@@ -98,6 +98,7 @@ const StudentGrades = () => {
   // Revision guidance, opened per sitting. Written once per attempt and cached
   // server-side, so re-opening it costs nothing.
   const aiGuidance = useAiFeature("ai_result_guidance");
+  const assistantName = useAssistantName();
   const [guidance, setGuidance] = useState<GuidanceState | null>(null);
   const [loadingGuidance, setLoadingGuidance] = useState<string | null>(null);
 
@@ -448,7 +449,7 @@ const StudentGrades = () => {
                                     variant="ghost"
                                     size="icon"
                                     className="h-6 w-6"
-                                    title="What should I revise?"
+                                    title={`Ask ${assistantName} what to revise`}
                                     disabled={loadingGuidance === item.attemptId}
                                     onClick={() => openGuidance(item)}
                                   >
@@ -555,7 +556,7 @@ const StudentGrades = () => {
           <p className="text-xs text-muted-foreground">{guidance?.title}</p>
           <p className="whitespace-pre-wrap text-sm leading-relaxed">{guidance?.body}</p>
           <p className="text-xs text-muted-foreground border-t pt-3">
-            Drawn from the questions you did not get full marks on, and from those questions only.
+            {assistantName}, from the questions you did not get full marks on and from those only.
             Your lecturer is the place to go for anything this does not cover.
           </p>
         </DialogContent>

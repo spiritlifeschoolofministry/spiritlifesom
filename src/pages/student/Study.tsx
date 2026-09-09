@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import PageHeader from '@/components/portal/PageHeader';
-import { useAiFlags } from '@/lib/ai-flags';
+import { useAiFlags, useAssistantName } from '@/lib/ai-flags';
 import {
   answerPractice,
   askAboutMaterial,
@@ -55,6 +55,7 @@ interface CourseOption {
 export default function Study() {
   const { student } = useAuth();
   const { data: flags } = useAiFlags();
+  const name = useAssistantName();
 
   const [courses, setCourses] = useState<CourseOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -260,13 +261,13 @@ export default function Study() {
   if (!practiceOn && !assistantOn) {
     return (
       <div className="space-y-4">
-        <PageHeader title="Study" description="Practice questions and help with your materials" />
+        <PageHeader title="Study" description={`Practice questions and help from ${name}`} />
         <Alert>
           <Info className="h-4 w-4" />
           <AlertTitle>Not available yet</AlertTitle>
           <AlertDescription>
-            The school has not switched these on. Your course materials and past papers are still
-            where they always were.
+            The school has not switched {name} on yet. Your course materials and past papers are
+            still where they always were.
           </AlertDescription>
         </Alert>
       </div>
@@ -277,7 +278,7 @@ export default function Study() {
     <div className="space-y-4">
       <PageHeader
         title="Study"
-        description="Practice questions and help with your own course materials"
+        description={`Practice questions, and ${name} to help with your own course materials`}
       />
 
       {/* Said once, plainly, at the top — a student unsure whether this counts
@@ -295,7 +296,7 @@ export default function Study() {
       <Tabs defaultValue={practiceOn ? 'practice' : 'ask'}>
         <TabsList>
           {practiceOn && <TabsTrigger value="practice">Practice</TabsTrigger>}
-          {assistantOn && <TabsTrigger value="ask">Ask about a material</TabsTrigger>}
+          {assistantOn && <TabsTrigger value="ask">Ask {name}</TabsTrigger>}
         </TabsList>
 
         {/* ---------------------------------------------------------------- */}
@@ -420,9 +421,9 @@ export default function Study() {
           <TabsContent value="ask" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Ask about a course material</CardTitle>
+                <CardTitle className="text-base">Ask {name} about a course material</CardTitle>
                 <CardDescription>
-                  Answers come from the material you pick and from nothing else. If it does not
+                  {name} answers from the material you pick and from nothing else. If it does not
                   cover your question you will be told so — which is the honest answer, and the
                   point at which to ask your lecturer.
                 </CardDescription>
@@ -463,8 +464,8 @@ export default function Study() {
                   onClick={ask}
                 >
                   {asking
-                    ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Reading…</>
-                    : <><MessageCircleQuestion className="mr-1.5 h-4 w-4" /> Ask</>}
+                    ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> {name} is reading…</>
+                    : <><MessageCircleQuestion className="mr-1.5 h-4 w-4" /> Ask {name}</>}
                 </Button>
 
                 {answered && (
@@ -474,8 +475,8 @@ export default function Study() {
                     </p>
                     <p className="flex items-center gap-1.5 border-t pt-2 text-xs text-muted-foreground">
                       <Sparkles className="h-3 w-3" />
-                      From “{answered.title}”. Go and read that section yourself — this is a
-                      pointer to the material, not a replacement for it.
+                      {name}, from “{answered.title}”. Go and read that section yourself — this is
+                      a pointer to the material, not a replacement for it.
                     </p>
                   </div>
                 )}

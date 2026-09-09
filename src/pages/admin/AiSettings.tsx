@@ -11,7 +11,7 @@ import {
   saveAiProvider,
   testAiProvider,
 } from '@/lib/ai-providers';
-import { AI_FEATURES, fetchAiFlags, type AiFeature } from '@/lib/ai-flags';
+import { AI_FEATURES, DEFAULT_ASSISTANT_NAME, fetchAiFlags, type AiFeature } from '@/lib/ai-flags';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -126,6 +126,7 @@ export default function AiSettings() {
   const [masterOn, setMasterOn] = useState(false);
   const [flags, setFlags] = useState<Record<string, boolean>>({});
   const [limits, setLimits] = useState({ admin: 200, student: 20 });
+  const [assistantName, setAssistantName] = useState(DEFAULT_ASSISTANT_NAME);
 
   const [busyRow, setBusyRow] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<Record<string, string>>({});
@@ -143,6 +144,7 @@ export default function AiSettings() {
       setMasterOn(ai.enabled);
       setFlags(ai.features);
       setLimits(ai.limits);
+      setAssistantName(ai.assistantName);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not load AI settings');
     } finally {
@@ -163,7 +165,7 @@ export default function AiSettings() {
    *
    * The cached flags are invalidated because both portals read them.
    */
-  const writeSetting = async (key: string, value: boolean | number) => {
+  const writeSetting = async (key: string, value: boolean | number | string) => {
     const { error } = await supabase
       .from('system_settings')
       .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
@@ -294,7 +296,8 @@ export default function AiSettings() {
           <Sparkles className="h-5 w-5 text-primary" /> AI
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          The models the school can call, in the order they are tried, and which features use them.
+          What {assistantName} runs on: the models the school can call, in the order they are
+          tried, and which features use them.
         </p>
       </div>
 
@@ -310,6 +313,36 @@ export default function AiSettings() {
           </AlertDescription>
         </Alert>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">What it is called</CardTitle>
+          <CardDescription>
+            The name students and staff see on every AI button and note. They are not shown which
+            model answered, and should not be — nine sit behind this name, and which one replies
+            depends on whose free allowance is intact at the time.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Input
+            className="max-w-xs"
+            defaultValue={assistantName}
+            onBlur={async (e) => {
+              const next = e.target.value.trim();
+              if (!next || next === assistantName) return;
+              setAssistantName(next);
+              if (await writeSetting('ai_assistant_name', next)) {
+                toast.success(`Now called ${next} everywhere.`);
+              }
+            }}
+          />
+          <p className="text-xs text-muted-foreground">
+            Worth avoiding names for the Holy Spirit — Paraclete, Ruach, Comforter, Helper. A study
+            tool carrying that name invites students to read authority into something that drafts
+            work for staff to approve.
+          </p>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-4">
@@ -562,8 +595,8 @@ export default function AiSettings() {
         <CardHeader>
           <CardTitle className="text-base">Features</CardTitle>
           <CardDescription>
-            Each can be switched off on its own. The student-facing ones start off, so the provider
-            chain can be watched on staff traffic before a whole cohort reaches it.
+            Each can be switched off on its own. The student-facing ones start off, so {assistantName}
+            can be watched on staff traffic before a whole cohort reaches it.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-1 divide-y">

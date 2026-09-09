@@ -43,7 +43,7 @@ import { QUESTION_TYPE_LABELS, QuestionType, parseMatchingQuestion, parseQuestio
 import { toast } from "sonner";
 import { Plus, Upload, Archive, Edit, Trash2, Search, Loader2, Sparkles, CheckCircle2, MessageSquare } from "lucide-react";
 import { draftQuestions, DRAFTABLE_LABELS, DRAFTABLE_TYPES, type DraftableType, writeExplanation } from "@/lib/ai-questions";
-import { useAiFeature } from "@/lib/ai-flags";
+import { useAiFeature, useAssistantName } from "@/lib/ai-flags";
 import { aiDb, type MaterialRow } from "@/lib/ai-db";
 import PageHeader from "@/components/portal/PageHeader";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -68,6 +68,7 @@ export default function QuestionBank() {
   // Drafting from a material. `showDrafts` swaps the list over to the drafts
   // waiting for approval, which is a different job from browsing the bank.
   const aiDrafting = useAiFeature("ai_question_drafting");
+  const assistantName = useAssistantName();
   const [showDrafts, setShowDrafts] = useState(false);
   const [draftOpen, setDraftOpen] = useState(false);
   const [materials, setMaterials] = useState<MaterialRow[]>([]);
@@ -136,7 +137,7 @@ export default function QuestionBank() {
       setShowDrafts(true);
       await load();
       toast.success(
-        `${result.drafted} question${result.drafted === 1 ? "" : "s"} drafted — read them before approving.` +
+        `${assistantName} drafted ${result.drafted} question${result.drafted === 1 ? "" : "s"} — read them before approving.` +
           (result.discarded ? ` ${result.discarded} were malformed and discarded.` : ""),
       );
     } catch (err) {
@@ -304,7 +305,7 @@ export default function QuestionBank() {
           <>
             {aiDrafting && (
               <Button variant="outline" onClick={() => setDraftOpen(true)}>
-                <Sparkles className="w-4 h-4 mr-1.5" /> Draft from material
+                <Sparkles className="w-4 h-4 mr-1.5" /> Ask {assistantName}
               </Button>
             )}
             <Button variant="outline" onClick={() => setImportOpen(true)}>
@@ -353,9 +354,9 @@ export default function QuestionBank() {
 
       {showDrafts && (
         <Card className="p-3 text-sm bg-muted/40 border-dashed">
-          These are drafts. Students cannot see them and they cannot be picked into an exam until
-          you approve them. Read each one against the material it came from — a model can be
-          fluent and still wrong about what a lecturer actually taught.
+          {assistantName} drafted these. Students cannot see them and they cannot be picked into
+          an exam until you approve them. Read each one against the material it came from —
+          {assistantName} can be fluent and still wrong about what a lecturer actually taught.
         </Card>
       )}
 
@@ -408,7 +409,7 @@ export default function QuestionBank() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      title="Write the explanation students see after marking"
+                      title={`${assistantName}: write the explanation students see after marking`}
                       disabled={explaining === q.id}
                       onClick={() => explain(q)}
                     >
@@ -437,7 +438,7 @@ export default function QuestionBank() {
       <Dialog open={draftOpen} onOpenChange={setDraftOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Draft questions from a material</DialogTitle>
+            <DialogTitle>{assistantName}: draft questions from a material</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -496,12 +497,12 @@ export default function QuestionBank() {
 
             <Button className="w-full" disabled={drafting || !draftMaterial} onClick={runDraft}>
               {drafting
-                ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Drafting…</>
+                ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> {assistantName} is reading…</>
                 : <><Sparkles className="w-4 h-4 mr-1.5" /> Draft into the bank</>}
             </Button>
             <p className="text-xs text-muted-foreground">
-              Everything lands as a draft for you to read, edit or delete. Nothing reaches a
-              student, or the exam builder, until you approve it.
+              Everything {assistantName} writes lands as a draft for you to read, edit or delete.
+              Nothing reaches a student, or the exam builder, until you approve it.
             </p>
           </div>
         </DialogContent>
@@ -687,7 +688,7 @@ export default function QuestionBank() {
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
                     Write this yourself. It is the standard a suggested mark is judged against, so
-                    a rubric written by a model would just be the model marking its own work —
+                    a rubric written by {assistantName} would just be it marking its own work —
                     without one, suggestions are deliberately generous and say so.
                   </p>
                 </div>

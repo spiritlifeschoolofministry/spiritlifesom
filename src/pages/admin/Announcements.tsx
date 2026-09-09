@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { PageSkeleton } from '@/components/portal/PageSkeleton';
 import { Loader2, Sparkles } from 'lucide-react';
 import { draftMessage } from '@/lib/ai-message';
-import { useAiFeature } from '@/lib/ai-flags';
+import { useAiFeature, useAssistantName } from '@/lib/ai-flags';
 import { Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
@@ -30,6 +30,7 @@ const AdminAnnouncements = () => {
   // Drafting. `brief` is what the writer wants said, in their own words; the
   // figures come from the server. `facts` is kept so they can check them.
   const aiDrafting = useAiFeature('ai_message_drafting');
+  const assistantName = useAssistantName();
   const [brief, setBrief] = useState('');
   const [drafting, setDrafting] = useState(false);
   const [draftFacts, setDraftFacts] = useState('');
@@ -73,7 +74,7 @@ const AdminAnnouncements = () => {
       setBody(draft.body);
       setDraftFacts(draft.facts);
       if (draft.subject && !title.trim()) setTitle(draft.subject);
-      toast.success(`Draft written by ${draft.provider ?? 'the model'} — edit it before posting.`);
+      toast.success(`${assistantName} wrote a draft — edit it before posting.`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not write a draft');
     } finally {
@@ -157,7 +158,7 @@ const AdminAnnouncements = () => {
             {aiDrafting && (
               <div className="rounded-lg border border-dashed p-3 space-y-2">
                 <label className="text-sm font-medium flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5 text-primary" /> Draft it for me
+                  <Sparkles className="h-3.5 w-3.5 text-primary" /> Ask {assistantName} to draft it
                 </label>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Input
@@ -174,18 +175,18 @@ const AdminAnnouncements = () => {
                   >
                     {drafting
                       ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Writing…</>
-                      : 'Write a draft'}
+                      : `Ask ${assistantName}`}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  The draft lands in the body below for you to edit. It uses the school's own
-                  figures for the audience you have chosen, and invents nothing — anything it does
-                  not know, it leaves out for you to add.
+                  {assistantName} writes into the body below for you to edit, using the school's
+                  own figures for the audience you have chosen. It invents nothing — anything it
+                  does not know, it leaves out for you to add.
                 </p>
                 {draftFacts && (
                   <details className="text-xs">
                     <summary className="cursor-pointer text-muted-foreground">
-                      Figures this draft was given
+                      Figures {assistantName} was given
                     </summary>
                     <pre className="mt-1 whitespace-pre-wrap font-mono text-[11px] text-muted-foreground">
                       {draftFacts}

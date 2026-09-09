@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Sparkles } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAiFeature } from '@/lib/ai-flags';
+import { useAiFeature, useAssistantName } from '@/lib/ai-flags';
 import { fetchProgressSummary } from '@/lib/ai-student';
 
 /**
@@ -21,6 +21,7 @@ import { fetchProgressSummary } from '@/lib/ai-student';
  */
 export default function ProgressSummary() {
   const enabled = useAiFeature('ai_progress_summary');
+  const name = useAssistantName();
   const [body, setBody] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -67,8 +68,8 @@ export default function ProgressSummary() {
         <div className="space-y-1.5">
           <p className="text-sm leading-relaxed">{body}</p>
           <p className="text-xs text-muted-foreground">
-            Written from your own attendance, fees, tasks and exams. Figures on this page are the
-            record; this is only a summary of them.
+            {name}, from your own attendance, fees, tasks and exams. The figures on this page are
+            the record; this is only a summary of them.
           </p>
         </div>
       </CardContent>

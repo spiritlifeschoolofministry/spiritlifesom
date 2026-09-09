@@ -75,6 +75,14 @@ export interface GuardOk {
   /** Set for a caller who is a student; null for staff. */
   studentId: string | null;
   usage: { used: number; quota: number };
+  /**
+   * What the school calls its assistant.
+   *
+   * Read here rather than in each function because the guard is already
+   * reading settings, and because a name that differed between two screens
+   * would be worse than no name at all.
+   */
+  assistantName: string;
 }
 
 export type GuardResult = GuardOk | { ok: false; response: Response };
@@ -210,8 +218,13 @@ export const guard = async (req: Request, spec: GuardSpec): Promise<GuardResult>
     }
   }
 
+  const assistantName = String(await setting(service, "ai_assistant_name", "Barnabas"));
+
   if (spec.countsQuota === false) {
-    return { ok: true, service, asUser, userId: user.id, role, studentId, usage: { used: 0, quota: 0 } };
+    return {
+      ok: true, service, asUser, userId: user.id, role, studentId,
+      usage: { used: 0, quota: 0 }, assistantName,
+    };
   }
 
   const limitKey = isStaff ? "ai_daily_limit_admin" : "ai_daily_limit_student";
@@ -250,6 +263,7 @@ export const guard = async (req: Request, spec: GuardSpec): Promise<GuardResult>
     role,
     studentId,
     usage: { used: row?.used ?? 0, quota: row?.quota ?? 0 },
+    assistantName,
   };
 };
 

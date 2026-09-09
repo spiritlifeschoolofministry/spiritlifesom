@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { describeMaterial, suggestMaterialTags } from '@/lib/ai-material';
 import { canExtractText as canRead, extractExcerpt } from '@/lib/pdf-excerpt';
-import { useAiFeature } from '@/lib/ai-flags';
+import { useAiFeature, useAssistantName } from '@/lib/ai-flags';
 import { isBlankText } from '@/lib/ai-format';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -52,6 +52,7 @@ const AdminMaterials = () => {
   const [writingDescription, setWritingDescription] = useState(false);
   const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
   const aiDescriptions = useAiFeature('ai_material_descriptions');
+  const assistantName = useAssistantName();
   const [searchQuery, setSearchQuery] = useState('');
 
   // Share to cohort state
@@ -165,7 +166,7 @@ const AdminMaterials = () => {
       // A plain template sentence is a success, not a failure — but the uploader
       // should know why it reads flatly, and that they can improve it.
       if (described.note) toast.info(described.note);
-      else toast.success(`Description written by ${described.provider}.`);
+      else toast.success(`${assistantName} wrote the description.`);
       if (tagged.note && tagged.tags.length === 0) toast.info(tagged.note);
     } finally {
       setWritingDescription(false);
@@ -357,7 +358,7 @@ const AdminMaterials = () => {
                       className="h-7 text-xs"
                       disabled={writingDescription || !watch('title')}
                       onClick={writeDescription}
-                      title={watch('title') ? undefined : 'Give it a title first'}
+                      title={watch('title') ? `${assistantName} will write it` : 'Give it a title first'}
                     >
                       {writingDescription
                         ? <><Loader2 className="mr-1 h-3 w-3 animate-spin" /> Writing…</>

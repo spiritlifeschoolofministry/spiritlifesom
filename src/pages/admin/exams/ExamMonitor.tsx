@@ -50,7 +50,7 @@ import PageHeader from "@/components/portal/PageHeader";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
 import { suggestMarks, type MarkSuggestion } from "@/lib/ai-mark";
-import { useAiFeature } from "@/lib/ai-flags";
+import { useAiFeature, useAssistantName } from "@/lib/ai-flags";
 import { AUTO_GRADED_TYPES, formatAnswer, isBreachReason, sanitizeHtml, submissionReasonLabel } from "@/lib/exam-utils";
 import { r2Storage } from "@/lib/r2-storage";
 import { edgeErrorMessage } from "@/lib/edge-error";
@@ -71,6 +71,7 @@ export default function ExamMonitor() {
   // than merged into gradeData: a suggestion must never be mistaken for a mark
   // that has been given, and keeping them apart makes that structural.
   const aiMarking = useAiFeature("ai_essay_marking");
+  const assistantName = useAssistantName();
   const [suggestions, setSuggestions] = useState<Record<string, MarkSuggestion>>({});
   const [suggestingMarks, setSuggestingMarks] = useState(false);
   const [snapshots, setSnapshots] = useState<Record<string, Array<{ id: string; storage_path: string; captured_at: string; storage_provider: string; signedUrl?: string }>>>({});
@@ -327,7 +328,7 @@ export default function ExamMonitor() {
         );
       }
       if (result.failures.length) {
-        toast.warning(`${result.failures.length} answer(s) could not be read by any provider.`);
+        toast.warning(`${assistantName} could not read ${result.failures.length} answer(s).`);
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not suggest marks");
@@ -809,13 +810,13 @@ export default function ExamMonitor() {
                 onClick={suggestAllMarks}
               >
                 {suggestingMarks
-                  ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Reading the answers…</>
-                  : <><Sparkles className="mr-1.5 h-3.5 w-3.5" /> Suggest marks</>}
+                  ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> {assistantName} is reading…</>
+                  : <><Sparkles className="mr-1.5 h-3.5 w-3.5" /> Ask {assistantName} to suggest marks</>}
               </Button>
               <p className="text-xs text-muted-foreground flex-1 min-w-48">
-                Reads the written answers and proposes a mark against each question's rubric. You
-                accept them one at a time — nothing is applied until you do, and nothing is saved
-                until you press Save.
+                {assistantName} reads the written answers and proposes a mark against each
+                question's rubric. You accept them one at a time — nothing is applied until you do,
+                and nothing is saved until you press Save.
               </p>
             </div>
           )}
@@ -870,14 +871,14 @@ export default function ExamMonitor() {
                       <div className="rounded-md border border-dashed bg-muted/40 p-2.5 space-y-1.5">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="outline" className="gap-1 text-[10px]">
-                            <Sparkles className="h-3 w-3" /> Suggested
+                            <Sparkles className="h-3 w-3" /> {assistantName}
                           </Badge>
                           <span className="text-sm font-medium">
                             {suggestion.points}/{max}
                           </span>
                           {suggestion.note === "blank" && (
                             <span className="text-xs text-muted-foreground">
-                              (no answer was given — decided without a model)
+                              (no answer was given — decided without asking)
                             </span>
                           )}
                           <Button

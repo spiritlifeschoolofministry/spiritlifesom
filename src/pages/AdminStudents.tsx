@@ -42,7 +42,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { draftMessage, MESSAGE_KIND_LABELS, MESSAGE_KINDS, type MessageKind } from "@/lib/ai-message";
-import { useAiFeature } from "@/lib/ai-flags";
+import { useAiFeature, useAssistantName } from "@/lib/ai-flags";
 import { Sparkles } from "lucide-react";
 import { downloadCSV } from "@/lib/csv-export";
 import {
@@ -150,6 +150,7 @@ const AdminStudents = () => {
   // Drafting the email. `emailBrief` is the writer's own instruction; the
   // figures behind the draft are gathered server-side.
   const aiDrafting = useAiFeature("ai_message_drafting");
+  const assistantName = useAssistantName();
   const [emailKind, setEmailKind] = useState<MessageKind>("general");
   const [emailBrief, setEmailBrief] = useState("");
   const [draftingEmail, setDraftingEmail] = useState(false);
@@ -505,7 +506,7 @@ const AdminStudents = () => {
       });
       if (draft.subject) setEmailSubject(draft.subject);
       setEmailBody(draft.body);
-      toast.success("Draft written — read it before sending.");
+      toast.success(`${assistantName} wrote a draft — read it before sending.`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not write a draft");
     } finally {
@@ -1106,7 +1107,7 @@ const AdminStudents = () => {
             {aiDrafting && (
               <div className="rounded-lg border border-dashed p-3 space-y-2">
                 <Label className="flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5 text-primary" /> Draft it for me
+                  <Sparkles className="h-3.5 w-3.5 text-primary" /> Ask {assistantName} to draft it
                 </Label>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Select value={emailKind} onValueChange={(v) => setEmailKind(v as MessageKind)}>
@@ -1131,12 +1132,12 @@ const AdminStudents = () => {
                   >
                     {draftingEmail
                       ? <Loader2 className="h-4 w-4 animate-spin" />
-                      : "Write a draft"}
+                      : `Ask ${assistantName}`}
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Fills in the subject and message below for you to edit. Nothing is sent until you
-                  press Send.
+                  {assistantName} fills in the subject and message below for you to edit. Nothing
+                  is sent until you press Send.
                 </p>
               </div>
             )}

@@ -37,8 +37,26 @@ const MAX_EXCERPT_CHARS = 14_000;
 /** Beyond this a "question" is a pasted assignment, not a question. */
 const MAX_QUESTION_CHARS = 600;
 
-const RULES =
-  `You are helping a student at Spirit Life School of Ministry understand one of their own course materials. You have been given an extract from that material, and it is the only source you may use.
+/**
+ * The brief, with the assistant's own name in it.
+ *
+ * This is the only prompt in the app that carries the name, because it is the
+ * only one a person actually talks to — the rest return a description or a
+ * mark, where a signature belongs in the interface rather than in the text.
+ *
+ * The name buys one thing: a student who asks "what are you?" gets a straight
+ * answer instead of "as an AI language model". It must buy nothing else, so
+ * the instruction is explicit that the name is not to appear while teaching.
+ * A tool that talks about itself on a ministry site is spending the student's
+ * attention on the wrong subject.
+ */
+const rules = (name: string) =>
+  `You are ${name}, the study assistant at Spirit Life School of Ministry. You are helping a student understand one of their own course materials. You have been given an extract from that material, and it is the only source you may use.
+
+About yourself:
+- If, and only if, the student asks who or what you are: say in one sentence that you are ${name}, the school's study assistant, that you answer from their course materials, and that their lecturer is the person to ask about anything the materials do not cover. Then stop.
+- Otherwise never mention yourself, your name, or that you are software. Do not open with "As ${name}" or sign off. The student came for the material, not for you.
+- Never claim to be a lecturer, a minister, or any kind of spiritual authority, and never suggest your answer carries the school's teaching weight. You are repeating what a document says.
 
 Hard rules:
 - Answer only from the extract. You have a great deal of theological knowledge; none of it may appear in your answer. This school teaches what its own materials say, and a student reading your answer will reasonably believe the school taught it.
@@ -130,7 +148,7 @@ Deno.serve(async (req) => {
 
     const result = await runChain(
       service,
-      `${RULES}
+      `${rules(gate.assistantName)}
 
 ${line("Course", (course as { title?: string } | null)?.title)}${line("Material", material.title)}
 The extract — your only source:
