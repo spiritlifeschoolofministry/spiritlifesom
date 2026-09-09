@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { resolveReceiptUrl } from '@/lib/receipt-url';
+import ReceiptViewer from '@/components/admin/ReceiptViewer';
 import { downloadCSV } from '@/lib/csv-export';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import type { Tables } from '@/integrations/supabase/types';
@@ -46,6 +47,9 @@ const AdminFees = () => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [selectedReceipt, setSelectedReceipt] = useState<string | null>(null);
+  // Kept alongside the URL because the file's type has to be read from the
+  // stored path — a presigned URL's extension is hidden behind its query string.
+  const [selectedReceiptPayment, setSelectedReceiptPayment] = useState<PaymentWithStudent | null>(null);
   const [selectedReceiptLoading, setSelectedReceiptLoading] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
 
@@ -168,6 +172,7 @@ const AdminFees = () => {
   const openReceipt = async (p: PaymentWithStudent) => {
     setReceiptOpen(true);
     setSelectedReceipt(null);
+    setSelectedReceiptPayment(p);
     setSelectedReceiptLoading(true);
     try {
       const url = await resolveReceiptUrl(p);
@@ -776,24 +781,11 @@ const AdminFees = () => {
             <DialogTitle>Payment Receipt</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4 pt-4">
-            {selectedReceiptLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : selectedReceipt ? (
-              selectedReceipt.toLowerCase().endsWith('.pdf') ? (
-                <iframe src={selectedReceipt} title="Receipt" className="w-full h-[70vh] rounded border" />
-              ) : (
-                <img src={selectedReceipt} alt="Receipt" className="w-full max-h-[70vh] object-contain rounded" />
-              )
-            ) : (
-              <p className="text-sm text-destructive">Unable to load receipt.</p>
-            )}
-            {selectedReceipt && (
-              <a href={selectedReceipt} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
-                Open in new tab
-              </a>
-            )}
+            <ReceiptViewer
+              payment={selectedReceiptPayment}
+              url={selectedReceipt}
+              loading={selectedReceiptLoading}
+            />
           </div>
         </DialogContent>
       </Dialog>

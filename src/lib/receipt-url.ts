@@ -1,6 +1,11 @@
 import { supabase } from '@/integrations/supabase/client';
 import { r2Storage } from '@/lib/r2-storage';
 
+// Re-exported so callers can keep reaching for one receipt module. They live in
+// their own file because they are pure string work: a test for them should not
+// have to stand up a Supabase client.
+export { receiptKind, receiptFilename, type ReceiptKind } from '@/lib/receipt-kind';
+
 /**
  * Resolve a payment receipt to a viewable URL.
  * Handles three eras of stored values:

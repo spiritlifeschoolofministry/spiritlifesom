@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { r2Storage } from '@/lib/r2-storage';
 import { resolveReceiptUrl } from '@/lib/receipt-url';
+import ReceiptViewer from '@/components/admin/ReceiptViewer';
 import { Loader2, CheckCircle, XCircle, Eye, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
@@ -317,18 +318,16 @@ const AdminPayments = () => {
                                   </div>
                                 )}
 
-                                {(receiptUrl || selectedPayment?.payment_proof_url) && (
+                                {(receiptLoading || receiptUrl || selectedPayment?.payment_proof_url) && (
                                   <div>
-                                    <Label className="text-xs text-muted-foreground">Receipt Image</Label>
-                                    {receiptLoading ? (
-                                      <p className="text-sm text-muted-foreground mt-2">Loading receipt...</p>
-                                    ) : receiptUrl ? (
-                                      <img src={receiptUrl} alt="Receipt" className="max-h-[400px] rounded-lg border mt-2" />
-                                    ) : selectedPayment?.payment_proof_url ? (
-                                      <img src={selectedPayment.payment_proof_url} alt="Receipt" className="max-h-[400px] rounded-lg border mt-2" />
-                                    ) : (
-                                      <p className="text-sm text-destructive mt-2">Unable to load receipt image</p>
-                                    )}
+                                    <Label className="text-xs text-muted-foreground">Receipt</Label>
+                                    <div className="mt-2">
+                                      <ReceiptViewer
+                                        payment={selectedPayment}
+                                        url={receiptUrl || selectedPayment?.payment_proof_url || null}
+                                        loading={receiptLoading}
+                                      />
+                                    </div>
                                   </div>
                                 )}
 
