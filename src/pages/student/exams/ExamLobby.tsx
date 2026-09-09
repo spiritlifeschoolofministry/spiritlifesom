@@ -238,11 +238,6 @@ export default function ExamLobby() {
             <li>Switching tabs/windows is tracked. After <strong>{exam.max_tab_switches} switches</strong> your exam is auto-submitted.</li>
             <li>Your answers <strong>autosave every {exam.autosave_interval_seconds}s</strong>. If your browser crashes, you can resume.</li>
             <li>You can only be logged in <strong>on one device</strong>. A second login will block your active session.</li>
-            {/* Said plainly because it is a label this browser keeps. A student
-                is entitled to know what is stored on their own device and what
-                it is for, and "we noticed two of you used one laptop" is a
-                conversation, not an accusation. */}
-            <li>This browser keeps a <strong>random label</strong> so the school can tell if one browser was used by two students. It is a number and nothing else — not your name, your device or your location.</li>
             <li>Results are released by your lecturer. Don't expect an immediate score.</li>
           </ul>
 

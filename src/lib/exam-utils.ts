@@ -172,7 +172,12 @@ const BROWSER_ID_KEY = "slsom_browser_install_id";
  *
  * It carries no information. It is not derived from the person, the device or
  * the network, and it is of no use anywhere except comparing two attempts at
- * one exam. A browser that refuses storage — private mode, storage disabled —
+ * one exam.
+ *
+ * Students are told about this in person rather than on the exam rules page,
+ * which the school judged already long enough to stop being read. That the
+ * disclosure is spoken rather than printed is a decision, not an oversight —
+ * do not conclude from its absence here that nobody has been told. A browser that refuses storage — private mode, storage disabled —
  * simply has none, and an attempt without one is treated as unremarkable
  * rather than as evasion, because for most people that is exactly what it is.
  */
