@@ -25,6 +25,7 @@ export const AI_FEATURES = [
   'ai_result_guidance',
   'ai_study_assistant',
   'ai_chat',
+  'ai_proctor_review',
 ] as const;
 
 export type AiFeature = (typeof AI_FEATURES)[number];

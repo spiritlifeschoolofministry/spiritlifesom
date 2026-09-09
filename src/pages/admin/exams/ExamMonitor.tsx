@@ -45,7 +45,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Download, AlertTriangle, CheckCircle2, Send, Camera, Mic, Trash2, Loader2, LockKeyhole, ShieldAlert } from "lucide-react";
+import { Download, AlertTriangle, CheckCircle2, Send, Camera, Mic, Trash2, Loader2, LockKeyhole, ShieldAlert, ScanEye } from "lucide-react";
 import PageHeader from "@/components/portal/PageHeader";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
@@ -53,6 +53,7 @@ import { suggestMarks, type MarkSuggestion } from "@/lib/ai-mark";
 import { useAiFeature, useAssistantName } from "@/lib/ai-flags";
 import { AUTO_GRADED_TYPES, formatAnswer, isBreachReason, sanitizeHtml, submissionReasonLabel } from "@/lib/exam-utils";
 import { r2Storage } from "@/lib/r2-storage";
+import { reviewExam, SIGNAL_LABELS, type ProctorReview } from "@/lib/ai-proctor";
 import { edgeErrorMessage } from "@/lib/edge-error";
 
 export default function ExamMonitor() {
@@ -71,11 +72,14 @@ export default function ExamMonitor() {
   // than merged into gradeData: a suggestion must never be mistaken for a mark
   // that has been given, and keeping them apart makes that structural.
   const aiMarking = useAiFeature("ai_essay_marking");
+  const aiReview = useAiFeature("ai_proctor_review");
   const assistantName = useAssistantName();
   const [suggestions, setSuggestions] = useState<Record<string, MarkSuggestion>>({});
   const [suggestingMarks, setSuggestingMarks] = useState(false);
   const [snapshots, setSnapshots] = useState<Record<string, Array<{ id: string; storage_path: string; captured_at: string; storage_provider: string; signedUrl?: string }>>>({});
   const [snapshotViewer, setSnapshotViewer] = useState<{ url: string; meta: string } | null>(null);
+  const [review, setReview] = useState<ProctorReview | null>(null);
+  const [reviewing, setReviewing] = useState(false);
   const [loadingSnapsFor, setLoadingSnapsFor] = useState<string | null>(null);
   const [audio, setAudio] = useState<Record<string, Array<{ id: string; storage_path: string; recorded_at: string; storage_provider: string | null; mime_type: string | null; duration_seconds: number | null; bytes: number | null; signedUrl?: string | null }>>>({});
   const [loadingAudioFor, setLoadingAudioFor] = useState<string | null>(null);
@@ -402,6 +406,26 @@ export default function ExamMonitor() {
     return needsMark && ans.points_awarded == null;
   }).length;
 
+  /**
+   * Which attempts are worth opening by hand.
+   *
+   * Read-only on purpose: nothing is flagged, nothing is stored, and no mark
+   * moves. It produces a reading list, and the person reading it decides.
+   */
+  const runReview = async () => {
+    if (!id) return;
+    setReviewing(true);
+    try {
+      const result = await reviewExam(id);
+      setReview(result);
+      if (result.clean) toast.success("Nothing stood out in this exam");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not review this exam");
+    } finally {
+      setReviewing(false);
+    }
+  };
+
   const loadSnapshots = async (attemptId: string) => {
     setLoadingSnapsFor(attemptId);
     const { data, error } = await supabase
@@ -549,6 +573,87 @@ export default function ExamMonitor() {
         <Card className="p-3"><p className="text-xs text-muted-foreground">Graded</p><p className="text-2xl font-bold text-emerald-600">{graded}</p></Card>
         <Card className="p-3"><p className="text-xs text-muted-foreground">Total attempts</p><p className="text-2xl font-bold">{attempts.length}</p></Card>
       </div>
+
+      {/* After the breach card, because a stopped attempt is a fact and this is
+          only a suggestion about where to look. */}
+      {aiReview && attempts.length > 0 && (
+        <Card className="p-4 space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p className="text-sm font-medium flex items-center gap-2">
+                <ScanEye className="w-4 h-4" /> What to look at
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl">
+                Ranks attempts by how much they differ from the rest of this cohort — time taken,
+                tab switches, a shared device, identical answers. It measures; it does not decide.
+                Nothing here is recorded against anybody, and no mark changes.
+              </p>
+            </div>
+            <Button size="sm" variant="outline" disabled={reviewing} onClick={runReview}>
+              {reviewing
+                ? <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> Reading…</>
+                : <>{review ? "Review again" : "Review this exam"}</>}
+            </Button>
+          </div>
+
+          {review && (
+            review.attempts.every((a) => a.signals.length === 0)
+              ? (
+                <p className="text-sm text-emerald-700 dark:text-emerald-400">
+                  Nothing stood out across {review.reviewed} attempt{review.reviewed === 1 ? "" : "s"}.
+                  That is not proof everything was in order — it means nothing measurable differed.
+                </p>
+              )
+              : (
+                <div className="space-y-2">
+                  {review.attempts.filter((a) => a.signals.length > 0).map((a) => (
+                    <div key={a.attemptId} className="rounded-lg border p-3 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-sm">{a.studentName}</span>
+                        {a.signals.map((sig, i) => (
+                          <Badge
+                            key={i}
+                            variant={sig.weight === 3 ? "destructive" : "secondary"}
+                            className="text-[10px]"
+                          >
+                            {SIGNAL_LABELS[sig.kind] ?? sig.kind}
+                          </Badge>
+                        ))}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="ml-auto h-7"
+                          onClick={() => loadSnapshots(a.attemptId)}
+                          disabled={loadingSnapsFor === a.attemptId}
+                        >
+                          {loadingSnapsFor === a.attemptId
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <><Camera className="w-3.5 h-3.5 mr-1.5" /> Open footage</>}
+                        </Button>
+                      </div>
+
+                      {/* The measured facts come first and always show. The
+                          written sentence is a convenience underneath them, so
+                          a spent free tier costs a phrasing, never the review. */}
+                      <ul className="text-xs text-muted-foreground space-y-0.5">
+                        {a.signals.map((sig, i) => <li key={i}>· {sig.detail}</li>)}
+                      </ul>
+                      {review.notes[a.attemptId] && (
+                        <p className="text-xs italic text-muted-foreground border-t pt-1.5">
+                          {review.notes[a.attemptId]}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground">
+                    Every one of these has an innocent explanation as well as a guilty one. Open the
+                    footage and decide yourself — this list is where to start looking, and nothing more.
+                  </p>
+                </div>
+              )
+          )}
+        </Card>
+      )}
 
       {/* An attempt ended for breaking a rule is the one thing on this page a
           lecturer has to act on, and it was the one thing the page never said.

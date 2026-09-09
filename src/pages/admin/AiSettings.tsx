@@ -106,6 +106,12 @@ const FEATURE_COPY: Record<AiFeature, { title: string; blurb: string; audience: 
       'Lets a student test themselves on their course’s approved practice questions, with the explanation shown after each answer. A separate pool from the exam bank, and never counted towards a grade.',
     audience: 'Students',
   },
+  ai_proctor_review: {
+    title: 'Exam review notes',
+    blurb:
+      'After an exam, ranks the attempts worth looking at by hand — tab switches, unusual timing, a shared device, identical answers. The ranking is arithmetic, not judgement; the AI only puts it in a sentence, and never says a student cheated. Nothing is flagged or recorded: a person opens the footage and decides.',
+    audience: 'Staff',
+  },
   ai_progress_summary: {
     title: 'Progress summary',
     blurb:
