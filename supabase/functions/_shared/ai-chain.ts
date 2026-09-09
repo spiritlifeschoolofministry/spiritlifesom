@@ -41,7 +41,19 @@ interface ProviderRow {
   model: string;
   api_key: string | null;
   base_url: string | null;
+  /** The school's own ceiling for this row, or null for uncapped. */
+  daily_limit: number | null;
 }
+
+/** Midnight UTC tonight — when a limit set here comes back. */
+const nextUtcMidnight = (): string => {
+  const now = new Date();
+  return new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() + 1,
+  )).toISOString();
+};
 
 /** Asks each enabled provider in turn until one answers usably. */
 export const runChain = async (
@@ -53,10 +65,28 @@ export const runChain = async (
 
   const { data, error } = await service
     .from("ai_providers")
-    .select("id, provider, model, api_key, base_url")
+    .select("id, provider, model, api_key, base_url, daily_limit")
     .eq("enabled", true)
     .order("position", { ascending: true });
   if (error) throw new Error(error.message);
+
+  /**
+   * Today's count for every row, read once.
+   *
+   * Read up front rather than per row because the common case is that no row
+   * is capped, and a query per provider would spend nine round trips to learn
+   * that. A count that is a call or two stale only matters at the very edge of
+   * a limit, which is why the limit is set below the vendor's own.
+   */
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: usageRows } = await service
+    .from("ai_model_usage")
+    .select("provider_id, calls")
+    .eq("day", today);
+  const callsToday = new Map(
+    ((usageRows ?? []) as { provider_id: string; calls: number }[])
+      .map((row) => [row.provider_id, row.calls]),
+  );
 
   // A row needs a key, a model and an adapter to be worth trying. The model
   // check matters because gateway rows are seeded without one: their free lists
@@ -68,6 +98,21 @@ export const runChain = async (
   const failures: ProviderFailure[] = [];
 
   for (const row of usable) {
+    // A row at its ceiling is skipped without being called, and the skip is
+    // recorded as a failure so the screen can say why the chain moved on. A
+    // silently absent provider is the thing that makes this hard to debug.
+    if (row.daily_limit !== null && (callsToday.get(row.id) ?? 0) >= row.daily_limit) {
+      failures.push({
+        provider: row.provider,
+        model: row.model,
+        kind: "capped",
+        detail: `${callsToday.get(row.id) ?? 0} of ${row.daily_limit} calls used today.`,
+        quotaWindow: "day",
+        resetsAt: nextUtcMidnight(),
+      });
+      continue;
+    }
+
     try {
       const raw = await ADAPTERS[row.provider]({
         apiKey: row.api_key!,
@@ -85,6 +130,7 @@ export const runChain = async (
         .from("ai_providers")
         .update({ last_used_at: new Date().toISOString(), last_error: null })
         .eq("id", row.id);
+      await service.rpc("ai_record_model_call", { p_provider_id: row.id, p_ok: true });
 
       return {
         text: raw,
@@ -100,6 +146,10 @@ export const runChain = async (
         .from("ai_providers")
         .update({ last_error: `${failure.kind}: ${failure.detail}`.slice(0, 500) })
         .eq("id", row.id);
+      // Counted even though it failed: a vendor's free tier counts a request it
+      // refused, so a count that ignored failures would run ahead of the real
+      // allowance in exactly the situation the cap exists for.
+      await service.rpc("ai_record_model_call", { p_provider_id: row.id, p_ok: false });
     }
   }
 

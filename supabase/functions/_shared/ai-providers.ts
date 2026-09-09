@@ -106,6 +106,7 @@ export const resolveBaseUrl = (provider: string, baseUrl?: string | null): strin
  */
 export type FailureKind =
   | "quota" // the allowance is spent; retryAfter/resetsAt say when it returns
+  | "capped" // the school's own daily limit for this row is reached, not the vendor's
   | "auth" // the key is missing, wrong, or not permitted
   | "model" // the model name is not one this key can call
   | "blocked" // refused by a safety filter
@@ -326,6 +327,11 @@ export const describeFailure = (f: ProviderFailure): string => {
       return `${f.provider} has used up its ${
         f.quotaWindow === "day" ? "daily" : "per-minute"
       } allowance.${when}`;
+    // Said differently from "quota" on purpose: this row was skipped by a
+    // ceiling the school set, not refused by the vendor. An admin reading the
+    // vendor's wording here would go looking at the wrong account.
+    case "capped":
+      return `${f.model} reached the daily limit set for it here, so it was skipped.${when}`;
     case "auth":
       return `${f.provider}'s API key is missing, wrong or not permitted.`;
     case "model":

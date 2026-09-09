@@ -28,6 +28,20 @@ export interface AiProvider {
   key_preview: string | null;
   last_used_at: string | null;
   last_error: string | null;
+  /** The school's own ceiling for this row per UTC day, or null for uncapped. */
+  daily_limit: number | null;
+  /** Attempts against this row today, failures included. */
+  calls_today: number;
+  failures_today: number;
+}
+
+/** One model's calls on one day. */
+export interface AiModelUsage {
+  day: string;
+  provider: string;
+  model: string;
+  calls: number;
+  failures: number;
 }
 
 /** A provider that speaks OpenAI's /chat/completions, and where its models are listed. */
@@ -60,12 +74,26 @@ export const listAiProviders = async (): Promise<AiProviderList> => {
   };
 };
 
+/**
+ * Per-model call counts for the last `days` days.
+ *
+ * Separate from `ai_usage`, which counts per student and per feature: that one
+ * enforces the daily caps a person has, this one says which model is carrying
+ * the school's load and which is close to its free tier's ceiling.
+ */
+export const fetchAiModelUsage = async (days = 30): Promise<AiModelUsage[]> => {
+  const data = await call({ action: 'usage', days });
+  return (data?.usage ?? []) as AiModelUsage[];
+};
+
 export interface AiProviderPatch {
   provider?: string;
   model?: string;
   /** Empty string clears it, falling back to the adapter's default address. */
   base_url?: string;
   enabled?: boolean;
+  /** Zero or null clears the ceiling. */
+  daily_limit?: number | null;
   /**
    * Omit to keep whatever key is stored — the console never holds the real one,
    * so it can only ever send a replacement. An empty string clears it.

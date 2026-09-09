@@ -6,6 +6,8 @@ import {
   deleteAiProvider,
   listAiModels,
   listAiProviders,
+  fetchAiModelUsage,
+  type AiModelUsage,
   providerLabel,
   reorderAiProviders,
   saveAiProvider,
@@ -143,6 +145,7 @@ export default function AiSettings() {
   const [masterOn, setMasterOn] = useState(false);
   const [flags, setFlags] = useState<Record<string, boolean>>({});
   const [limits, setLimits] = useState({ admin: 200, student: 20, chat: 40 });
+  const [modelUsage, setModelUsage] = useState<AiModelUsage[]>([]);
   const [answerRules, setAnswerRules] = useState<ChatAnswerRules>(DEFAULT_RULES);
   const [assistantName, setAssistantName] = useState(DEFAULT_ASSISTANT_NAME);
 
@@ -166,6 +169,10 @@ export default function AiSettings() {
       setMasterOn(ai.enabled);
       setFlags(ai.features);
       setLimits(ai.limits);
+      // Best-effort: the console is still usable if the counts do not load,
+      // and a provider list held back by a usage query would be the wrong
+      // trade on the screen an admin opens when the AI has stopped working.
+      fetchAiModelUsage(30).then(setModelUsage).catch(() => setModelUsage([]));
       setAssistantName(ai.assistantName);
       setAnswerRules(rules);
     } catch (err) {
@@ -327,6 +334,31 @@ export default function AiSettings() {
     }
   };
 
+  /**
+   * Usage rolled up per model, busiest first.
+   *
+   * Rolled up rather than shown day by day because the decision this informs is
+   * "is this model pulling its weight, and is it about to run out" — a
+   * per-day chart of nine models answers that worse than four numbers each.
+   */
+  const usageByModel = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const rows = new Map<
+      string,
+      { provider: string; model: string; calls: number; failures: number; today: number }
+    >();
+    for (const row of modelUsage) {
+      const key = `${row.provider}/${row.model}`;
+      const entry = rows.get(key) ??
+        { provider: row.provider, model: row.model, calls: 0, failures: 0, today: 0 };
+      entry.calls += row.calls;
+      entry.failures += row.failures;
+      if (row.day === today) entry.today += row.calls;
+      rows.set(key, entry);
+    }
+    return [...rows.values()].sort((a, b) => b.calls - a.calls);
+  }, [modelUsage]);
+
   /** A provider that will actually be tried: enabled, keyed, and with a model. */
   const workingCount = useMemo(
     () => providers.filter((p) => p.enabled && p.has_key && p.model).length,
@@ -439,6 +471,7 @@ export default function AiSettings() {
             const listed = models[row.id];
             const result = testResult[row.id];
             const gateway = compatible[row.provider];
+            const capped = row.daily_limit !== null && row.calls_today >= row.daily_limit;
 
             return (
               <div key={row.id} className="rounded-lg border p-4 space-y-3">
@@ -448,7 +481,15 @@ export default function AiSettings() {
                   {!row.enabled && <Badge variant="secondary">disabled</Badge>}
                   {!row.has_key && <Badge variant="destructive">no key</Badge>}
                   {row.has_key && !row.model && <Badge variant="destructive">no model</Badge>}
+                  {/* Said on the rail rather than only in the field below,
+                      because the question this screen is opened with is "which
+                      model has run out", and that must be answerable at a
+                      glance down the list. */}
+                  {capped && <Badge variant="destructive">limit reached</Badge>}
                   <span className="text-xs text-muted-foreground ml-auto">
+                    {row.calls_today > 0 || row.daily_limit !== null
+                      ? `${row.calls_today}${row.daily_limit !== null ? ` / ${row.daily_limit}` : ''} today · `
+                      : ''}
                     {whenLastUsed(row.last_used_at)}
                   </span>
                   <div className="flex items-center gap-1">
@@ -588,6 +629,27 @@ export default function AiSettings() {
                   </div>
                 )}
 
+                <div className="space-y-1.5 sm:max-w-64">
+                  <Label className="text-xs">Daily limit for this model</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="No limit"
+                    defaultValue={row.daily_limit ?? ''}
+                    onBlur={(e) => {
+                      const raw = e.target.value.trim();
+                      const value = raw === '' ? null : Math.floor(Number(raw));
+                      const next = value !== null && value > 0 ? value : null;
+                      if (next !== row.daily_limit) patchRow(row.id, { daily_limit: next });
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {row.daily_limit === null
+                      ? 'Called as often as the chain reaches it. Set a number a little under this tier\u2019s free ceiling and the chain will move on to the next model instead of waiting for a refusal.'
+                      : `${row.calls_today} of ${row.daily_limit} used today. Resets at midnight UTC.`}
+                  </p>
+                </div>
+
                 <div className="flex flex-wrap items-center gap-2">
                   <Button size="sm" variant="outline" disabled={busy} onClick={() => runTest(row)}>
                     {busy
@@ -702,6 +764,61 @@ export default function AiSettings() {
               />
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Which model answered</CardTitle>
+          <CardDescription>
+            Every attempt the chain made in the last 30 days, counted per model. A refused request
+            is counted too, because a vendor's free tier counts it. This is the school's side of
+            the ledger — the daily limits above are per person, and say nothing about how much of
+            a given free tier is left.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {usageByModel.length === 0
+            ? (
+              <p className="text-sm text-muted-foreground">
+                Nothing counted yet. Counting starts with the next call any AI feature makes.
+              </p>
+            )
+            : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs text-muted-foreground">
+                      <th className="pb-2 font-medium">Model</th>
+                      <th className="pb-2 font-medium text-right">Today</th>
+                      <th className="pb-2 font-medium text-right">30 days</th>
+                      <th className="pb-2 font-medium text-right">Failed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usageByModel.map((row) => (
+                      <tr key={`${row.provider}/${row.model}`} className="border-b last:border-0">
+                        <td className="py-2">
+                          <span className="font-mono text-xs">{row.model}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {providerLabel(row.provider, compatible)}
+                          </span>
+                        </td>
+                        <td className="py-2 text-right tabular-nums">{row.today}</td>
+                        <td className="py-2 text-right tabular-nums">{row.calls}</td>
+                        <td
+                          className={`py-2 text-right tabular-nums ${
+                            row.failures > 0 ? 'text-destructive' : 'text-muted-foreground'
+                          }`}
+                        >
+                          {row.failures}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
         </CardContent>
       </Card>
 

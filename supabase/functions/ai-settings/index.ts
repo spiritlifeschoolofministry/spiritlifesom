@@ -64,9 +64,10 @@ interface ProviderRow {
   position: number;
   last_used_at: string | null;
   last_error: string | null;
+  daily_limit: number | null;
 }
 
-const publicShape = (row: ProviderRow) => ({
+const publicShape = (row: ProviderRow, usage?: { calls: number; failures: number }) => ({
   id: row.id,
   provider: row.provider,
   model: row.model,
@@ -80,6 +81,11 @@ const publicShape = (row: ProviderRow) => ({
   key_preview: maskKey(row.api_key),
   last_used_at: row.last_used_at,
   last_error: row.last_error,
+  daily_limit: row.daily_limit,
+  // Today's own numbers, so the console can show a row's headroom next to the
+  // limit that governs it rather than on a separate screen.
+  calls_today: usage?.calls ?? 0,
+  failures_today: usage?.failures ?? 0,
 });
 
 Deno.serve(async (req) => {
@@ -137,13 +143,64 @@ Deno.serve(async (req) => {
     };
   };
 
+  /** UTC, matching how the chain and `ai_model_usage` both date a day. */
+  const utcDay = (offsetDays = 0): string =>
+    new Date(Date.now() + offsetDays * 86_400_000).toISOString().slice(0, 10);
+
   const listAll = async () => {
-    const { data, error } = await service
-      .from("ai_providers")
-      .select("*")
-      .order("position", { ascending: true });
+    const [{ data, error }, { data: usage }] = await Promise.all([
+      service.from("ai_providers").select("*").order("position", { ascending: true }),
+      service
+        .from("ai_model_usage")
+        .select("provider_id, calls, failures")
+        .eq("day", utcDay()),
+    ]);
     if (error) throw new Error(error.message);
-    return (data as ProviderRow[]).map(publicShape);
+
+    const byProvider = new Map(
+      ((usage ?? []) as { provider_id: string; calls: number; failures: number }[])
+        .map((row) => [row.provider_id, row]),
+    );
+    return (data as ProviderRow[]).map((row) => publicShape(row, byProvider.get(row.id)));
+  };
+
+  /**
+   * Calls and failures per model per day, most recent first.
+   *
+   * Only the counts leave this function — no keys, and nothing about who made
+   * the call. What a school needs from this is "which model is carrying the
+   * load and which one is about to run out", and a per-student breakdown is
+   * already `ai_usage`'s job.
+   */
+  const readUsage = async (days: number) => {
+    const [{ data: rows, error }, { data: providers }] = await Promise.all([
+      service
+        .from("ai_model_usage")
+        .select("provider_id, day, calls, failures")
+        .gte("day", utcDay(-Math.max(1, days) + 1))
+        .order("day", { ascending: false }),
+      service.from("ai_providers").select("id, provider, model"),
+    ]);
+    if (error) throw new Error(error.message);
+
+    const named = new Map(
+      ((providers ?? []) as { id: string; provider: string; model: string }[])
+        .map((row) => [row.id, row]),
+    );
+    return ((rows ?? []) as {
+      provider_id: string;
+      day: string;
+      calls: number;
+      failures: number;
+    }[]).map((row) => ({
+      day: row.day,
+      calls: row.calls,
+      failures: row.failures,
+      // A row whose provider was since deleted still counts towards the
+      // school's history, so it is reported rather than dropped.
+      provider: named.get(row.provider_id)?.provider ?? "removed",
+      model: named.get(row.provider_id)?.model ?? "removed",
+    }));
   };
 
   try {
@@ -232,6 +289,11 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "usage") {
+      const days = Math.min(90, Math.max(1, Number(body?.days) || 30));
+      return json({ days, usage: await readUsage(days) });
+    }
+
     if (action === "save") {
       const id = body?.id ? String(body.id) : null;
       const patch: Record<string, unknown> = {};
@@ -244,6 +306,12 @@ Deno.serve(async (req) => {
       if (body.model !== undefined) patch.model = String(body.model).trim();
       if (body.base_url !== undefined) patch.base_url = String(body.base_url).trim() || null;
       if (body.enabled !== undefined) patch.enabled = !!body.enabled;
+      // Empty or zero clears the ceiling rather than setting one of zero, which
+      // would disable the row while still showing it as enabled.
+      if (body.daily_limit !== undefined) {
+        const limit = Math.floor(Number(body.daily_limit));
+        patch.daily_limit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 1_000_000) : null;
+      }
       // Omitted keeps whatever key is stored — the console never holds the real
       // one, so it can only ever send a replacement. An empty string clears it.
       if (body.api_key !== undefined) {
