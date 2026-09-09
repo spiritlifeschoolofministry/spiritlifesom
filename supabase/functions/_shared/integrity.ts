@@ -29,6 +29,8 @@ export interface AttemptFacts {
   autoSubmitted: boolean;
   ipAddress: string | null;
   deviceFingerprint: string | null;
+  /** The browser's own random label, or null where storage was refused. */
+  browserInstallId: string | null;
   /** Question id -> the answer given, already normalised to a string. */
   answers: Record<string, string>;
   scorePercent: number | null;
@@ -44,6 +46,7 @@ export interface Signal {
     | "stopped_for_breach"
     | "unusually_fast"
     | "shared_network"
+    | "same_browser"
     | "matching_answers"
     | "no_footage";
   /** What was measured, in plain words. Carries the numbers. */
@@ -115,6 +118,14 @@ export const reviewAttempts = (attempts: AttemptFacts[]): RankedAttempt[] => {
     }
   }
 
+  const perBrowser = new Map<string, Set<string>>();
+  for (const a of attempts) {
+    if (a.browserInstallId) {
+      if (!perBrowser.has(a.browserInstallId)) perBrowser.set(a.browserInstallId, new Set());
+      perBrowser.get(a.browserInstallId)!.add(a.studentId);
+    }
+  }
+
   /**
    * `device_fingerprint` is deliberately not a signal.
    *
@@ -182,6 +193,27 @@ export const reviewAttempts = (attempts: AttemptFacts[]): RankedAttempt[] => {
             ipShare.size === 2 ? "" : "s"
           }. Normal for anyone sitting on campus or sharing a household connection.`,
         weight: 1,
+      });
+    }
+
+    /**
+     * One browser, two students, one exam.
+     *
+     * Weighted below a breach and below matching answers on purpose. It is a
+     * fact about equipment, not about a person: a couple studying together on
+     * one laptop, a student who borrowed a phone because theirs died, and two
+     * people taking turns to help each other all look identical here. So the
+     * innocent reading is given in the same sentence as the finding, and the
+     * word "shared" is used rather than anything implying intent.
+     */
+    const browserShare = a.browserInstallId ? perBrowser.get(a.browserInstallId)! : null;
+    if (browserShare && browserShare.size > 1) {
+      signals.push({
+        kind: "same_browser",
+        detail: `This exam was also sat by ${browserShare.size - 1} other student${
+          browserShare.size === 2 ? "" : "s"
+        } on the same browser. Households and shared computers look the same as anything else, so this is a question to ask rather than a finding.`,
+        weight: 2,
       });
     }
 

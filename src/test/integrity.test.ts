@@ -23,6 +23,7 @@ const attempt = (over: Partial<AttemptFacts> & { attemptId: string; studentId: s
   autoSubmitted: false,
   ipAddress: null,
   deviceFingerprint: null,
+  browserInstallId: null,
   answers: {},
   scorePercent: 60,
   snapshots: 10,
@@ -141,6 +142,36 @@ describe('reviewAttempts', () => {
       attempt({ attemptId: 'a2', studentId: 'same', ipAddress: '10.0.0.1' }),
     ]);
     expect(ranked.flatMap((r) => r.signals).some((s) => s.kind === 'shared_network')).toBe(false);
+  });
+
+  it('notes one browser used by two students, with the innocent reading attached', () => {
+    const ranked = reviewAttempts([
+      attempt({ attemptId: 'shared-1', studentId: 'x1', browserInstallId: 'b-1' }),
+      attempt({ attemptId: 'shared-2', studentId: 'x2', browserInstallId: 'b-1' }),
+      ...quietCohort(),
+    ]);
+    const signal = ranked.find((r) => r.attemptId === 'shared-1')!.signals
+      .find((s) => s.kind === 'same_browser')!;
+    expect(signal.weight).toBe(2);
+    // It must never read as an accusation on its own.
+    expect(signal.detail).toMatch(/question to ask rather than a finding/i);
+    expect(signal.detail.toLowerCase()).not.toMatch(/cheat|suspicious|guilty/);
+  });
+
+  it('says nothing when one student sits twice on their own browser', () => {
+    const ranked = reviewAttempts([
+      attempt({ attemptId: 'a1', studentId: 'same', browserInstallId: 'b-1' }),
+      attempt({ attemptId: 'a2', studentId: 'same', browserInstallId: 'b-1' }),
+    ]);
+    expect(ranked.flatMap((r) => r.signals).some((s) => s.kind === 'same_browser')).toBe(false);
+  });
+
+  it('treats a missing browser id as unremarkable, not as evasion', () => {
+    const ranked = reviewAttempts([
+      attempt({ attemptId: 'a1', studentId: 's1', browserInstallId: null }),
+      attempt({ attemptId: 'a2', studentId: 's2', browserInstallId: null }),
+    ]);
+    expect(ranked.every((r) => r.signals.length === 0)).toBe(true);
   });
 
   it('says when there is no footage to review at all', () => {

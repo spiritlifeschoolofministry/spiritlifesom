@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { QuestionRenderer } from "@/components/exam/QuestionRenderer";
 import WebcamProctor from "@/components/exam/WebcamProctor";
 import AudioProctor from "@/components/exam/AudioProctor";
-import { formatDuration, generateFingerprint, generateSessionId, isAnswered } from "@/lib/exam-utils";
+import { browserInstallId, formatDuration, generateFingerprint, generateSessionId, isAnswered } from "@/lib/exam-utils";
 import { fullscreenSupported, isFullscreen, requestFullscreen, exitFullscreen, onFullscreenChange } from "@/lib/fullscreen";
 import { edgeErrorMessage } from "@/lib/edge-error";
 import { AlertTriangle, ChevronLeft, ChevronRight, Send, ShieldAlert } from "lucide-react";
@@ -70,6 +70,7 @@ export default function ExamRunner() {
           exam_id: id,
           session_id: sessionIdRef.current,
           device_fingerprint: generateFingerprint(),
+          browser_install_id: browserInstallId(),
         },
       });
       if (error || data?.error) {

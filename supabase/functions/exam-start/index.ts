@@ -53,7 +53,14 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Invalid token" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { exam_id, session_id, device_fingerprint } = await req.json();
+    const { exam_id, session_id, device_fingerprint, browser_install_id } = await req.json();
+
+    // A random label the browser keeps, or null where storage is refused. Only
+    // ever compared with other attempts at the same exam; see the column's own
+    // comment for why the fingerprint above cannot do this job.
+    const browserId = typeof browser_install_id === "string" && browser_install_id.length <= 64
+      ? browser_install_id
+      : null;
     if (!exam_id || !session_id) {
       return new Response(JSON.stringify({ error: "Missing exam_id or session_id" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -175,6 +182,7 @@ Deno.serve(async (req) => {
         .update({
           active_session_id: session_id,
           device_fingerprint,
+          browser_install_id: browserId,
           last_heartbeat_at: new Date().toISOString(),
         })
         .eq("id", activeAttempt.id)
@@ -391,6 +399,7 @@ Deno.serve(async (req) => {
         option_orders: optionOrders,
         server_deadline_at: serverDeadline,
         device_fingerprint,
+        browser_install_id: browserId,
         ip_address: req.headers.get("x-forwarded-for") || "unknown",
         user_agent: req.headers.get("user-agent") || "unknown",
         active_session_id: session_id,

@@ -67,6 +67,7 @@ Deno.serve(async (req) => {
       .select(
         "id, student_id, started_at, submitted_at, duration_used_seconds, tab_switch_count, " +
           "fullscreen_exits, submission_reason, auto_submitted, ip_address, device_fingerprint, " +
+          "browser_install_id, " +
           "score, max_points",
       )
       .eq("exam_id", examId);
@@ -154,6 +155,9 @@ Deno.serve(async (req) => {
           deviceFingerprint: r.device_fingerprint === null
             ? null
             : String(r.device_fingerprint),
+          browserInstallId: r.browser_install_id === null
+            ? null
+            : String(r.browser_install_id),
           answers: answersByAttempt.get(String(r.id)) ?? {},
           scorePercent: Number.isFinite(score) && Number.isFinite(max) && max > 0
             ? Math.round((score / max) * 100)

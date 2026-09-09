@@ -159,6 +159,37 @@ export const generateSessionId = () =>
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
+/** Where a browser keeps its own random label. */
+const BROWSER_ID_KEY = "slsom_browser_install_id";
+
+/**
+ * A random label for this browser, made once and kept.
+ *
+ * `generateFingerprint` below describes a *kind* of device — same handset, same
+ * browser, same timezone gives one value for everybody — so it cannot tell one
+ * phone used twice from two people owning the same phone. This can, because it
+ * is a number nothing else in the world has.
+ *
+ * It carries no information. It is not derived from the person, the device or
+ * the network, and it is of no use anywhere except comparing two attempts at
+ * one exam. A browser that refuses storage — private mode, storage disabled —
+ * simply has none, and an attempt without one is treated as unremarkable
+ * rather than as evasion, because for most people that is exactly what it is.
+ */
+export const browserInstallId = (): string | null => {
+  try {
+    const existing = localStorage.getItem(BROWSER_ID_KEY);
+    if (existing) return existing;
+    const fresh = typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(BROWSER_ID_KEY, fresh);
+    return fresh;
+  } catch {
+    return null;
+  }
+};
+
 export const generateFingerprint = () => {
   try {
     const parts = [

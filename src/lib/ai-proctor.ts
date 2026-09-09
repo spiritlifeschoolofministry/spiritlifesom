@@ -15,6 +15,7 @@ export type SignalKind =
   | 'stopped_for_breach'
   | 'unusually_fast'
   | 'shared_network'
+  | 'same_browser'
   | 'matching_answers'
   | 'no_footage';
 
@@ -67,6 +68,7 @@ export const SIGNAL_LABELS: Record<SignalKind, string> = {
   stopped_for_breach: 'Stopped automatically',
   unusually_fast: 'Unusually quick',
   shared_network: 'Shared network',
+  same_browser: 'Same browser',
   matching_answers: 'Matching answers',
   no_footage: 'No recording',
 };
