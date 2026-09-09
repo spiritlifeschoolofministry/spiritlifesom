@@ -240,16 +240,22 @@ Deno.serve(async (req) => {
         rejected.push(checked.why);
         return [];
       }
+      // A rubric is the standard a person marks an answer against, and every
+      // practice answer is marked by `autograde` instead — so the practice
+      // table has no such column, and sending one is an error rather than a
+      // value that would be ignored.
+      const { rubric: _rubric, ...answerable } = checked.row;
+
       return [{
-        ...checked.row,
+        ...(target === "practice" ? answerable : checked.row),
         course_id: row.course_id,
         cohort_id: row.cohort_id,
         created_by: userId,
         source_material_id: row.id,
         ai_generated: true,
         status: "draft",
-        // `practice_questions` has no tags column: tagging exists so an exam
-        // can be assembled by topic, and practice assembles nothing.
+        // `practice_questions` has no tags column either: tagging exists so an
+        // exam can be assembled by topic, and practice assembles nothing.
         ...(target === "practice" ? {} : { tags: [] }),
       }];
     });
