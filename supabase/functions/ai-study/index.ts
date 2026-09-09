@@ -68,6 +68,30 @@ Hard rules:
 - At most 200 words. British English, plain and warm, second person.
 - No greeting, no sign-off, no added scripture references.`;
 
+/**
+ * The material tags a student's own mode entitles them to.
+ *
+ * Kept in step with `mapStudentLearningMode` on the materials page, and worth
+ * the duplication rather than a looser rule here: a Hybrid student attends both
+ * ways and can already open the Online and Physical material on that page, so a
+ * study assistant that offered them only the 'All' ones would be refusing to
+ * discuss notes the student is looking at. The legacy spellings are mapped for
+ * the same reason — a student filed as 'on-site' is a Physical student, and
+ * matching on the exact string would quietly give them nothing.
+ */
+const modesFor = (learningMode: string | null): string[] => {
+  const mode = String(learningMode ?? "").toLowerCase().trim();
+  if (!mode) return ["all"];
+  if (mode === "online") return ["all", "online"];
+  if (mode === "hybrid" || mode === "blended") {
+    return ["all", "hybrid", "online", "physical"];
+  }
+  if (["physical", "on-site", "onsite", "offline"].includes(mode)) {
+    return ["all", "physical"];
+  }
+  return ["all", mode];
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -105,7 +129,7 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(200);
 
-    const mode = String(studentRow.learning_mode ?? "").toLowerCase();
+    const allowed = modesFor(studentRow.learning_mode);
     const readable = ((materials ?? []) as {
       id: string;
       title: string;
@@ -114,7 +138,7 @@ Deno.serve(async (req) => {
       ai_excerpt: string | null;
     }[]).filter((material) => {
       const modes = (material.learning_modes ?? []).map((m) => String(m).toLowerCase());
-      return modes.length === 0 || modes.includes("all") || modes.includes(mode);
+      return modes.length === 0 || modes.some((m) => allowed.includes(m));
     });
 
     // The picker, so the student chooses what they are asking about rather than
