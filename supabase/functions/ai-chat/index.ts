@@ -894,6 +894,9 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const question = String(body?.question ?? "").trim().slice(0, MAX_QUESTION);
   const hinted = String(body?.intent ?? "");
+  // Which portal the question was asked from. Validated against the caller's
+  // role below — see the note on `audience`.
+  const fromPortal = body?.audience === "admin" ? "admin" : "student";
 
   if (!question) return json({ error: "Ask a question." }, 400);
 
@@ -909,9 +912,40 @@ Deno.serve(async (req) => {
   if (!gate.ok) return gate.response;
   const { service, asUser, userId, role, studentId, assistantName } = gate;
 
-  // The audience is the caller's role, never the request's claim.
+  /**
+   * Which portal is asking, not what the asker happens to be.
+   *
+   * This was originally derived from the role alone, which was wrong in a way
+   * that only showed up in use: staff hold a preview student record precisely
+   * so they can see the portal as a student sees it, and an admin opening the
+   * chatbox on the *student* dashboard was answered with the school's books —
+   * pending payments, every student in arrears, the week's traffic. Not a leak,
+   * since they were entitled to all of it, but an answer to a question nobody
+   * asked, in the one place built to show them what a student sees.
+   *
+   * It also silently cost money: the student intent the client had classified
+   * was not on the admin allowlist, so every such question was rejected as
+   * unrecognised and fell through to a model call — the one path that spends.
+   *
+   * So the portal asks, and the role decides whether it may. Staff may ask as
+   * either; a student asking as an admin is refused here rather than trusted.
+   */
   const isStaff = ["admin", "teacher"].includes((role ?? "").toLowerCase());
-  const audience: "admin" | "student" = isStaff ? "admin" : "student";
+  if (fromPortal === "admin" && !isStaff) {
+    return json({ error: "Only teachers and admins may ask about the school." }, 403);
+  }
+  if (fromPortal === "student" && !studentId) {
+    return json({
+      answer:
+        "This account has no student record, so there is nothing personal to report here. Ask from the admin dashboard for the school's own figures.",
+      figures: [],
+      items: [],
+      page: null,
+      source: "records",
+    });
+  }
+
+  const audience: "admin" | "student" = fromPortal;
   const allowed = audience === "admin" ? ADMIN_INTENTS : STUDENT_INTENTS;
   const intent = allowed.includes(hinted) ? hinted : null;
 

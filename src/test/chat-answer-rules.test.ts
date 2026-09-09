@@ -118,3 +118,27 @@ describe('defaults', () => {
     expect(DEFAULT_RULES.escalation).toBe('');
   });
 });
+
+/**
+ * The audience must come from the portal and be checked against the role, not
+ * inferred from the role alone.
+ */
+describe('audience resolution in the edge function', () => {
+  it('reads which portal asked from the request', () => {
+    expect(source).toMatch(/body\?\.audience === "admin"/);
+  });
+
+  it('refuses a non-staff caller asking as an admin', () => {
+    expect(source).toMatch(/fromPortal === "admin" && !isStaff/);
+  });
+
+  it('no longer derives the audience from the role alone', () => {
+    // The original line, which answered an admin on the student dashboard with
+    // the school's books.
+    expect(source).not.toMatch(/const audience[^=]*=\s*isStaff \? "admin" : "student"/);
+  });
+
+  it('takes the audience from the portal once the role has been checked', () => {
+    expect(source).toMatch(/const audience: "admin" \| "student" = fromPortal;/);
+  });
+});

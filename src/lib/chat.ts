@@ -87,8 +87,12 @@ export const askAssistant = async (
     if (local) return local;
   }
 
+  // The audience is which portal this chatbox is mounted in, not what the
+  // person is. Staff hold a preview student record so they can see the student
+  // portal as a student does, and asking there should answer as a student
+  // would be answered — `ai-chat` still checks the role permits it.
   const { data, error } = await supabase.functions.invoke('ai-chat', {
-    body: { question: asked, intent: intent ?? undefined },
+    body: { question: asked, intent: intent ?? undefined, audience },
   });
   if (error) throw new Error(await edgeErrorMessage(error, data, 'The assistant could not answer.'));
 

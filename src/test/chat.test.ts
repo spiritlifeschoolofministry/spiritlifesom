@@ -107,3 +107,52 @@ describe('canAnswerLocally', () => {
     expect(canAnswerLocally('what is the meaning of grace', 'student')).toBe(false);
   });
 });
+
+/**
+ * The bug these cover: the audience was decided server-side from the caller's
+ * role, so an admin opening the chatbox on the *student* dashboard was
+ * answered with the school's books — pending payments, students in arrears,
+ * the week's traffic — in the one place built to show them what a student
+ * sees. It also cost a model call every time, because the student intent the
+ * client had classified was not on the admin allowlist and so was rejected as
+ * unrecognised.
+ */
+describe('which portal is asking', () => {
+  beforeEach(() => {
+    invoke.mockReset();
+    invoke.mockResolvedValue({
+      data: { answer: 'ok', figures: [], items: [], page: null, source: 'records' },
+      error: null,
+    });
+  });
+
+  it('tells the server it is the student portal asking', async () => {
+    await askAssistant('what do I owe', 'student');
+    expect(invoke.mock.calls[0][1]).toMatchObject({
+      body: { audience: 'student', intent: 'fees' },
+    });
+  });
+
+  it('tells the server it is the admin portal asking', async () => {
+    await askAssistant('who has not paid', 'admin');
+    expect(invoke.mock.calls[0][1]).toMatchObject({
+      body: { audience: 'admin', intent: 'unpaid' },
+    });
+  });
+
+  it('sends a student intent from the student portal even for a staff question', async () => {
+    // Asked on the student dashboard, this must be the student digest — not
+    // the school-wide overview, whoever is signed in.
+    await askAssistant('what needs my attention this week', 'student');
+    const body = (invoke.mock.calls[0][1] as { body: Record<string, unknown> }).body;
+    expect(body.audience).toBe('student');
+    expect(body.intent).toBe('week');
+    expect(body.intent).not.toBe('overview');
+  });
+
+  it('always states an audience, so the server never has to guess', async () => {
+    await askAssistant('something completely unrecognised', 'student');
+    const body = (invoke.mock.calls[0][1] as { body: Record<string, unknown> }).body;
+    expect(body.audience).toBe('student');
+  });
+});
