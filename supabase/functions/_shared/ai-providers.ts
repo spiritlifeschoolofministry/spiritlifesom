@@ -394,17 +394,41 @@ const gemini: Adapter = async ({ apiKey, model, prompt, maxTokens = 800 }) => {
     },
   };
 
+  /**
+   * Thinking control, degrading one step at a time.
+   *
+   * `minimal` is what keeps the headroom above from being spent, but Google is
+   * withdrawing it: `gemini-3-flash-preview` accepts it and spends 0 thinking
+   * tokens, while 3.7-flash, 3.8-flash and `gemini-flash-latest` reject the
+   * whole request with a 400.
+   *
+   * So a rejection steps down to `low` before giving up on the knob entirely,
+   * because those are very different bills. Measured on one 140-character
+   * sentence: `low` on 3.8-flash spent 0 thinking tokens, whereas the same
+   * model left at its default on 3.7-flash spent 679 — fourteen times the
+   * total for an answer no better. Dropping straight to the default, as this
+   * used to, quietly bought that.
+   */
+  const attempts = [
+    body,
+    { ...body, generationConfig: { ...body.generationConfig, thinkingConfig: { thinkingLevel: "low" } } },
+    (() => {
+      const { thinkingConfig: _dropped, ...generationConfig } = body.generationConfig;
+      return { ...body, generationConfig };
+    })(),
+  ];
+
   let data;
-  try {
-    data = await postJson(url, { "x-goog-api-key": apiKey }, body);
-  } catch (err) {
-    // `thinkingConfig` is a newer field: older models reject the whole request
-    // with a 400 rather than ignoring it. Since the model is free text in the
-    // console precisely so it can change when Google retires one, a rejected
-    // knob should cost thinking control, not the answer.
-    if (!(err instanceof ProviderHttpError) || err.status !== 400) throw err;
-    const { thinkingConfig: _dropped, ...generationConfig } = body.generationConfig;
-    data = await postJson(url, { "x-goog-api-key": apiKey }, { ...body, generationConfig });
+  for (const [index, attempt] of attempts.entries()) {
+    try {
+      data = await postJson(url, { "x-goog-api-key": apiKey }, attempt);
+      break;
+    } catch (err) {
+      // Only an argument the model refuses is worth retrying differently. A
+      // spent quota or a bad key fails the same way whatever is asked of it.
+      const last = index === attempts.length - 1;
+      if (last || !(err instanceof ProviderHttpError) || err.status !== 400) throw err;
+    }
   }
 
   const candidate = data?.candidates?.[0];
