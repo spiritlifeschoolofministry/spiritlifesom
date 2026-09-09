@@ -52,6 +52,15 @@ export interface AiFlags {
    * database and charged nothing.
    */
   limits: { admin: number; student: number; chat: number };
+  /**
+   * How many questions one practice round serves.
+   *
+   * A round takes this many at random from the course's approved pool, or the
+   * whole pool where it holds fewer. Worth a setting rather than a constant
+   * because the right number depends on how full the pool is: ten out of a
+   * pool of ten is the same round every time.
+   */
+  practiceRoundSize: number;
   /** True for a feature only when the master switch is on as well. */
   on: (feature: AiFeature) => boolean;
 }
@@ -80,7 +89,13 @@ const SETTING_KEYS = [
   'ai_daily_limit_admin',
   'ai_daily_limit_student',
   'ai_daily_limit_chat',
+  'ai_practice_round_size',
 ];
+
+/** What a practice round serves when nobody has said otherwise. */
+export const DEFAULT_PRACTICE_ROUND_SIZE = 10;
+export const PRACTICE_ROUND_MIN = 3;
+export const PRACTICE_ROUND_MAX = 30;
 
 export const fetchAiFlags = async (): Promise<AiFlags> => {
   const { data } = await supabase
@@ -110,6 +125,13 @@ export const fetchAiFlags = async (): Promise<AiFlags> => {
       student: asNumber(map.get('ai_daily_limit_student'), 20),
       chat: asNumber(map.get('ai_daily_limit_chat'), 40),
     },
+    practiceRoundSize: Math.min(
+      PRACTICE_ROUND_MAX,
+      Math.max(
+        PRACTICE_ROUND_MIN,
+        asNumber(map.get('ai_practice_round_size'), DEFAULT_PRACTICE_ROUND_SIZE),
+      ),
+    ),
     on: (feature: AiFeature) => enabled && features[feature],
   };
 };

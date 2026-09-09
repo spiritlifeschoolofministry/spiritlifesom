@@ -33,6 +33,7 @@ const flagsWith = (enabled: AiFeature[], masterSwitch = true): AiFlags => {
     assistantName: 'Barnabas',
     features,
     limits: { admin: 200, student: 20, chat: 40 },
+    practiceRoundSize: 10,
     on: (feature: AiFeature) => masterSwitch && features[feature],
   };
 };

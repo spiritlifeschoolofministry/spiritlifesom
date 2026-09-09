@@ -13,7 +13,15 @@ import {
   saveAiProvider,
   testAiProvider,
 } from '@/lib/ai-providers';
-import { AI_FEATURES, DEFAULT_ASSISTANT_NAME, fetchAiFlags, type AiFeature } from '@/lib/ai-flags';
+import {
+  AI_FEATURES,
+  DEFAULT_ASSISTANT_NAME,
+  DEFAULT_PRACTICE_ROUND_SIZE,
+  fetchAiFlags,
+  PRACTICE_ROUND_MAX,
+  PRACTICE_ROUND_MIN,
+  type AiFeature,
+} from '@/lib/ai-flags';
 import {
   DEFAULT_RULES,
   LIMITS as RULE_LIMITS,
@@ -95,7 +103,7 @@ const FEATURE_COPY: Record<AiFeature, { title: string; blurb: string; audience: 
   ai_practice_quizzes: {
     title: 'Practice questions',
     blurb:
-      'Lets a student test themselves on approved bank questions for their own course, with the explanation shown after each answer. Never counted towards a grade.',
+      'Lets a student test themselves on their course’s approved practice questions, with the explanation shown after each answer. A separate pool from the exam bank, and never counted towards a grade.',
     audience: 'Students',
   },
   ai_progress_summary: {
@@ -145,6 +153,7 @@ export default function AiSettings() {
   const [masterOn, setMasterOn] = useState(false);
   const [flags, setFlags] = useState<Record<string, boolean>>({});
   const [limits, setLimits] = useState({ admin: 200, student: 20, chat: 40 });
+  const [roundSize, setRoundSize] = useState(DEFAULT_PRACTICE_ROUND_SIZE);
   const [modelUsage, setModelUsage] = useState<AiModelUsage[]>([]);
   const [answerRules, setAnswerRules] = useState<ChatAnswerRules>(DEFAULT_RULES);
   const [assistantName, setAssistantName] = useState(DEFAULT_ASSISTANT_NAME);
@@ -169,6 +178,7 @@ export default function AiSettings() {
       setMasterOn(ai.enabled);
       setFlags(ai.features);
       setLimits(ai.limits);
+      setRoundSize(ai.practiceRoundSize);
       // Best-effort: the console is still usable if the counts do not load,
       // and a provider list held back by a usage query would be the wrong
       // trade on the screen an admin opens when the AI has stopped working.
@@ -216,6 +226,15 @@ export default function AiSettings() {
     setFlags((prev) => ({ ...prev, [feature]: on }));
     if (!(await writeSetting(feature, on))) {
       setFlags((prev) => ({ ...prev, [feature]: !on }));
+    }
+  };
+
+  const saveRoundSize = async (value: number) => {
+    const next = Math.min(PRACTICE_ROUND_MAX, Math.max(PRACTICE_ROUND_MIN, Math.floor(value)));
+    if (!Number.isFinite(next)) return;
+    setRoundSize(next);
+    if (await writeSetting('ai_practice_round_size', next)) {
+      toast.success(`Practice rounds now ask ${next} questions`);
     }
   };
 
@@ -766,6 +785,42 @@ export default function AiSettings() {
           ))}
         </CardContent>
       </Card>
+
+      {/* Only shown when practice exists; a number governing a switched-off
+          feature is just something to wonder about. */}
+      {flags.ai_practice_quizzes && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Practice rounds</CardTitle>
+            <CardDescription>
+              How many questions a student is asked in one round. They are drawn at random from
+              that course’s approved practice questions, so a pool much larger than this number is
+              what makes two rounds feel different.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-1.5 sm:max-w-64">
+            <Label htmlFor="practice-round-size" className="text-xs">
+              Questions per round
+            </Label>
+            <Input
+              id="practice-round-size"
+              type="number"
+              min={PRACTICE_ROUND_MIN}
+              max={PRACTICE_ROUND_MAX}
+              defaultValue={roundSize}
+              onBlur={(e) => {
+                const value = Number(e.target.value);
+                if (value !== roundSize) saveRoundSize(value);
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Between {PRACTICE_ROUND_MIN} and {PRACTICE_ROUND_MAX}. A course with fewer approved
+              questions than this simply serves all of them, so a short pool is a short round
+              rather than an error.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

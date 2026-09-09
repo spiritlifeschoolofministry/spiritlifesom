@@ -325,8 +325,9 @@ export default function Study() {
                   <CardHeader>
                     <CardTitle className="text-base">Practise a course</CardTitle>
                     <CardDescription>
-                      Ten questions drawn from the same bank your exams come from, with the
-                      explanation shown after each one.
+                      Practice questions for this course, drawn at random, with the explanation
+                      shown after each one. These are written for practice — they are not the
+                      questions from your exams.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">

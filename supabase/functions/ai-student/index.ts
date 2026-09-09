@@ -20,13 +20,39 @@
  *   cannot reach any of these, including the practice questions — which would
  *   otherwise be a way to have the bank read to you mid-paper.
  */
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { chainFailureResponse, corsHeaders, guard, json } from "../_shared/ai-guard.ts";
 import { runChain } from "../_shared/ai-chain.ts";
 import { line } from "../_shared/ai-text.ts";
 import { standingOf, tallyAttendance } from "../_shared/attendance.ts";
 
-/** How many questions one practice round serves. */
-const PRACTICE_SIZE = 10;
+/**
+ * How many questions one practice round serves, when nobody has set otherwise.
+ *
+ * Read from `ai_practice_round_size` at the start of each round rather than
+ * fixed here, because the right number depends on how full the course's pool
+ * is — ten drawn from a pool of ten is the same round every time. Clamped
+ * server-side: this decides how much of the pool one round reveals, so it is
+ * not something a client gets to choose.
+ */
+const PRACTICE_SIZE_DEFAULT = 10;
+const PRACTICE_SIZE_MIN = 3;
+const PRACTICE_SIZE_MAX = 30;
+
+const practiceRoundSize = async (service: SupabaseClient): Promise<number> => {
+  const { data } = await service
+    .from("system_settings")
+    .select("value")
+    .eq("key", "ai_practice_round_size")
+    .maybeSingle();
+
+  // jsonb, so this arrives as a real number, or as a string from anything that
+  // wrote it through JSON.stringify. Both shapes are in this table already.
+  const raw = (data as { value?: unknown } | null)?.value;
+  const parsed = Number(String(raw ?? "").trim().replace(/^"(.*)"$/, "$1"));
+  if (!Number.isFinite(parsed) || parsed <= 0) return PRACTICE_SIZE_DEFAULT;
+  return Math.min(PRACTICE_SIZE_MAX, Math.max(PRACTICE_SIZE_MIN, Math.floor(parsed)));
+};
 
 const PROGRESS_RULES =
   `You are writing a short progress note for one student at Spirit Life School of Ministry, a Christian Bible school. They are reading it about themselves, on their own dashboard.
@@ -356,7 +382,7 @@ Deno.serve(async (req) => {
         const j = Math.floor(Math.random() * (i + 1));
         [picked[i], picked[j]] = [picked[j], picked[i]];
       }
-      picked.length = Math.min(picked.length, PRACTICE_SIZE);
+      picked.length = Math.min(picked.length, await practiceRoundSize(service));
 
       const { data: session, error } = await service
         .from("practice_sessions")
