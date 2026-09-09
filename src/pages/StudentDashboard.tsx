@@ -21,6 +21,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import ProgressSummary from "@/components/student/ProgressSummary";
+import AssistantCard from "@/components/student/AssistantCard";
+import { useAiFlags } from "@/lib/ai-flags";
+import { preloadPath } from "@/routes/lazy-pages";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Loader2, AlertCircle, TrendingUp, ChevronRight, Sparkles, GraduationCap, Award, FileText, Zap } from "lucide-react";
@@ -74,6 +77,7 @@ const EMPTY_DATA: DashboardData = {
 const StudentDashboard = () => {
   const navigate = useNavigate();
   const { student, user, profile, isProfileResolved, refreshProfile } = useAuth();
+  const { data: aiFlags } = useAiFlags();
 
   // Identity comes from the auth context, which is the one place that reads and
   // caches these rows. The dashboard used to re-query profiles/students itself,
@@ -344,6 +348,29 @@ const StudentDashboard = () => {
   const isPending = statusUpper === "PENDING";
   const isAdmitted = statusUpper === "ADMITTED" || statusUpper === "APPROVED";
 
+  /**
+   * The quick actions, which now depend on what the school has switched on.
+   *
+   * Study is listed only when a study feature is actually live: the page itself
+   * renders an empty shell when both flags are off, so a permanent tile would
+   * be a button to nowhere. Exams and Calendar were reachable only through the
+   * sidebar, which on a phone is behind a drawer — they are the two pages a
+   * student most often wants next from here.
+   */
+  const studyOn = !!aiFlags?.on("ai_study_assistant") || !!aiFlags?.on("ai_practice_quizzes");
+
+  const QUICK_ACTIONS = [
+    { label: "Submit Task", icon: ClipboardList, path: "/student/assignments", color: "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400" },
+    { label: "Exams", icon: FileText, path: "/student/exams", color: "bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400" },
+    { label: "View Grades", icon: Award, path: "/student/grades", color: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400" },
+    { label: "Materials", icon: FileText, path: "/student/materials", color: "bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400" },
+    ...(studyOn
+      ? [{ label: "Study", icon: Sparkles, path: "/student/study", color: "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400" }]
+      : []),
+    { label: "Transcript", icon: GraduationCap, path: "/student/transcript", color: "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" },
+    { label: "Calendar", icon: Calendar, path: "/student/calendar", color: "bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400" },
+  ];
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good morning";
@@ -485,6 +512,11 @@ const StudentDashboard = () => {
             them, so it should not sit where it looks like the record itself. */}
         <Reveal>
           <ProgressSummary />
+        </Reveal>
+
+        {/* Renders nothing while the study features are switched off. */}
+        <Reveal delay={40}>
+          <AssistantCard />
         </Reveal>
 
         {/* Summary Cards */}
@@ -643,16 +675,13 @@ const StudentDashboard = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {[
-                  { label: "Submit Task", icon: ClipboardList, path: "/student/assignments", color: "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400" },
-                  { label: "View Grades", icon: Award, path: "/student/grades", color: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400" },
-                  { label: "Materials", icon: FileText, path: "/student/materials", color: "bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400" },
-                  { label: "Transcript", icon: GraduationCap, path: "/student/transcript", color: "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" },
-                ].map((action) => (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                {QUICK_ACTIONS.map((action) => (
                   <button
                     key={action.label}
                     onClick={() => navigate(action.path)}
+                    onMouseEnter={() => preloadPath(action.path)}
+                    onFocus={() => preloadPath(action.path)}
                     className="flex flex-col items-center gap-2 p-4 rounded-xl bg-muted/50 hover:bg-muted transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
                   >
                     <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${action.color}`}>
@@ -722,13 +751,24 @@ const StudentDashboard = () => {
           {/* Announcements */}
           <Reveal delay={180}>
             <Card className="border-0 shadow-md h-full">
-              <CardHeader className="pb-3">
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <CardTitle className="flex items-center gap-2 text-base font-semibold">
                   <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
                     <Megaphone className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   </div>
                   Announcements
                 </CardTitle>
+                {/* Matches the Upcoming Events card next to it, which had one
+                    while this did not — the only way through was to click an
+                    individual announcement. */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs gap-1 text-primary hover:text-primary"
+                  onClick={() => navigate("/student/announcements")}
+                >
+                  View All <ChevronRight className="h-3 w-3" />
+                </Button>
               </CardHeader>
               <CardContent>
                 {loading ? (

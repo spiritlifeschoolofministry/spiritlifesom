@@ -6,7 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Users, Clock, BookOpen, Calendar, UserPlus, CheckCircle, XCircle } from "lucide-react";
+import {
+  Users, Clock, BookOpen, Calendar, UserPlus, CheckCircle, XCircle,
+  BadgeDollarSign, Award, GraduationCap, ChevronRight, CalendarCheck,
+  ClipboardCheck, Megaphone, BarChart3, Folder,
+} from "lucide-react";
+import ActionCentre, { type ActionQueue } from "@/components/admin/ActionCentre";
+import PortalPulse from "@/components/admin/PortalPulse";
+import { Link } from "react-router-dom";
+import { preloadPath } from "@/routes/lazy-pages";
 import { toast } from "sonner";
 
 interface PendingStudent {
@@ -58,6 +66,8 @@ interface DashboardStats {
   pendingStudents: PendingStudent[];
   learningModeRequests: LearningModeRequest[];
   certificateNameRequests: CertificateNameRequest[];
+  /** Receipts filed and awaiting a verify/reject decision. */
+  pendingPayments: number;
 }
 
 const AdminDashboard = () => {
@@ -67,7 +77,7 @@ const AdminDashboard = () => {
 
   const loadStats = async () => {
     try {
-      const [studentsRes, pendingCountRes, coursesRes, cohortRes, recentRes, pendingRes, learningModeRequestsRes, certRequestsRes] = await Promise.all([
+      const [studentsRes, pendingCountRes, coursesRes, cohortRes, recentRes, pendingRes, learningModeRequestsRes, certRequestsRes, pendingPaymentsRes] = await Promise.all([
         supabase.from("students").select("id", { count: "exact", head: true }).eq("is_staff_preview", false),
         supabase
           .from("students")
@@ -103,6 +113,13 @@ const AdminDashboard = () => {
           .not("pending_name_change", "is", null)
           .order("created_at", { ascending: false })
           .limit(10),
+        // Receipts waiting on staff. Counted here because an unverified payment
+        // is work outstanding in exactly the same way a pending admission is,
+        // and it was the one queue the dashboard never mentioned.
+        supabase
+          .from("payments")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "PENDING"),
       ]);
 
       setStats({
@@ -114,6 +131,7 @@ const AdminDashboard = () => {
         pendingStudents: (pendingRes.data) || [],
         learningModeRequests: (learningModeRequestsRes.data) || [],
         certificateNameRequests: (certRequestsRes.data) || [],
+        pendingPayments: pendingPaymentsRes.count || 0,
       });
     } catch (err) {
       console.error("Dashboard load error:", err);
@@ -246,6 +264,64 @@ const AdminDashboard = () => {
 
   if (!stats) return null;
 
+  const learningModeCount = stats.learningModeRequests?.length || 0;
+  const certificateNameCount = stats.certificateNameRequests?.length || 0;
+  const pendingTotal =
+    stats.pendingCount + learningModeCount + certificateNameCount + stats.pendingPayments;
+
+  // Each queue names the page that actually does the work, so the dashboard
+  // stays a way in rather than a second place to approve things.
+  const QUEUES: ActionQueue[] = [
+    {
+      label: "Admission applications",
+      noun: "application",
+      count: stats.pendingCount,
+      icon: UserPlus,
+      path: "/admin/admissions",
+      tone: "amber",
+    },
+    {
+      label: "Payments to verify",
+      noun: "receipt",
+      count: stats.pendingPayments,
+      icon: BadgeDollarSign,
+      path: "/admin/payments",
+      tone: "emerald",
+    },
+    {
+      label: "Learning mode changes",
+      noun: "request",
+      count: learningModeCount,
+      icon: BookOpen,
+      path: "/admin/admissions",
+      tone: "sky",
+    },
+    {
+      // Previously counted into the dashboard's totals but shown nowhere, so
+      // the only way to find these was to already know they were under
+      // Admissions.
+      label: "Certificate name changes",
+      noun: "request",
+      count: certificateNameCount,
+      icon: Award,
+      path: "/admin/admissions",
+      tone: "violet",
+    },
+  ];
+
+  // A short path to the pages staff open every day. The sidebar has all of
+  // them, but on a phone it is behind a drawer.
+  const SHORTCUTS = [
+    { label: "Students", icon: Users, path: "/admin/students" },
+    { label: "Attendance", icon: CalendarCheck, path: "/admin/attendance" },
+    { label: "Tasks", icon: ClipboardCheck, path: "/admin/assignments" },
+    { label: "Materials", icon: Folder, path: "/admin/materials" },
+    { label: "Fees", icon: BadgeDollarSign, path: "/admin/fees" },
+    { label: "Announce", icon: Megaphone, path: "/admin/announcements" },
+    { label: "Calendar", icon: Calendar, path: "/admin/calendar" },
+    { label: "Analytics", icon: BarChart3, path: "/admin/analytics" },
+  ];
+
   const CARDS = [
     {
       title: "Total Students",
@@ -256,9 +332,11 @@ const AdminDashboard = () => {
       bg: "bg-secondary",
     },
     {
-      title: "Admissions/Requests",
-      value: String(stats.pendingCount + (stats.learningModeRequests?.length || 0) + (stats.certificateNameRequests?.length || 0)),
-      subtitle: "Awaiting approval or requests",
+      // The queues that used to be added together into one opaque figure are
+      // now itemised, each with its own link, in the action centre below.
+      title: "Awaiting a decision",
+      value: String(pendingTotal),
+      subtitle: "Admissions, requests and receipts",
       icon: Clock,
       color: "text-amber-600",
       bg: "bg-amber-50",
@@ -308,6 +386,40 @@ const AdminDashboard = () => {
           </Card>
         ))}
       </div>
+
+      {/* What is waiting, and how the portal is being used. Both are reasons
+          to open a different page, so they sit above the record listings. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <ActionCentre queues={QUEUES} loading={loading} />
+        <PortalPulse />
+      </div>
+
+      {/* Quick navigation */}
+      <Card className="shadow-[var(--shadow-card)] border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Jump to</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
+            {SHORTCUTS.map((shortcut) => (
+              <Link
+                key={shortcut.path}
+                to={shortcut.path}
+                onMouseEnter={() => preloadPath(shortcut.path)}
+                onFocus={() => preloadPath(shortcut.path)}
+                className="flex flex-col items-center gap-2 rounded-xl bg-muted/50 p-3 transition-all hover:-translate-y-0.5 hover:bg-muted hover:shadow-sm"
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                  <shortcut.icon className="h-4 w-4 text-primary" />
+                </div>
+                <span className="text-center text-[11px] font-medium text-foreground">
+                  {shortcut.label}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Two Column: Recent + Pending */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -401,6 +513,16 @@ const AdminDashboard = () => {
                 </div>
               ))
             )}
+            {/* The card shows the first ten; the rest are on the admissions
+                page, which is also where an application can be read in full. */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2 w-full"
+              onClick={() => navigate("/admin/admissions")}
+            >
+              Review admissions <ChevronRight className="ml-1 h-3 w-3" />
+            </Button>
           </CardContent>
         </Card>
 
@@ -453,6 +575,53 @@ const AdminDashboard = () => {
                   </div>
                 </div>
               ))
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Certificate Name Requests. These were being fetched and counted into
+            the dashboard's totals while appearing nowhere on the page, so a
+            waiting request was invisible unless staff already knew to look
+            under Admissions. Approving one needs the certificate in front of
+            you, so this lists them and links there rather than deciding here. */}
+        <Card className="shadow-[var(--shadow-card)] border-border">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <GraduationCap className="w-4 h-4 text-violet-600" /> Certificate Name Requests
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {stats.certificateNameRequests.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No pending certificate name changes.</p>
+            ) : (
+              <>
+                {stats.certificateNameRequests.map((s) => (
+                  <div key={s.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
+                    <Avatar className="h-8 w-8">
+                      {s.profile?.avatar_url && <AvatarImage src={s.profile.avatar_url} />}
+                      <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                        {(s.profile?.first_name?.[0] || "")}{(s.profile?.last_name?.[0] || "")}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {s.profile?.first_name || "Unknown"} {s.profile?.last_name || "User"}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        Wants: {s.pending_name_change}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 w-full"
+                  onClick={() => navigate("/admin/admissions")}
+                >
+                  Review name changes <ChevronRight className="ml-1 h-3 w-3" />
+                </Button>
+              </>
             )}
           </CardContent>
         </Card>
