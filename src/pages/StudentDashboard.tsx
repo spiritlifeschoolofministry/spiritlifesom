@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import ProgressSummary from "@/components/student/ProgressSummary";
 import AssistantCard from "@/components/student/AssistantCard";
+import AssistantChat from "@/components/portal/AssistantChat";
 import { useAssistantContext } from "@/lib/assistant-places";
 import { preloadPath } from "@/routes/lazy-pages";
 import { Badge } from "@/components/ui/badge";
@@ -520,6 +521,12 @@ const StudentDashboard = () => {
             Renders nothing while every student-facing AI feature is off. */}
         <Reveal delay={40}>
           <AssistantCard />
+        </Reveal>
+
+        {/* Directly under the introduction, so the name has been explained
+            before the box asking for a question appears. */}
+        <Reveal delay={60}>
+          <AssistantChat audience="student" />
         </Reveal>
 
         {/* Summary Cards */}

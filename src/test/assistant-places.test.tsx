@@ -32,7 +32,7 @@ const flagsWith = (enabled: AiFeature[], masterSwitch = true): AiFlags => {
     enabled: masterSwitch,
     assistantName: 'Barnabas',
     features,
-    limits: { admin: 200, student: 20 },
+    limits: { admin: 200, student: 20, chat: 40 },
     on: (feature: AiFeature) => masterSwitch && features[feature],
   };
 };

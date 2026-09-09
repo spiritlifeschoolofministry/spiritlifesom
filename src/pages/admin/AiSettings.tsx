@@ -103,6 +103,12 @@ const FEATURE_COPY: Record<AiFeature, { title: string; blurb: string; audience: 
       'Answers a student’s questions from their own cohort’s materials, citing the material, and refusing when it isn’t covered there. Unavailable to anyone with an exam in progress.',
     audience: 'Students',
   },
+  ai_chat: {
+    title: 'Ask-anything chatbox',
+    blurb:
+      'A chatbox on both dashboards. Almost every question is answered straight from the records — where a page is, what a student owes, who has not paid — which reaches no model and costs nothing. Only an unrecognised question spends a call, against its own daily limit below. It can read, never act.',
+    audience: 'Everyone',
+  },
 };
 
 const RELATIVE = new Intl.RelativeTimeFormat('en-GB', { numeric: 'auto' });
@@ -189,7 +195,7 @@ export default function AiSettings() {
     }
   };
 
-  const saveLimit = async (which: 'admin' | 'student', value: number) => {
+  const saveLimit = async (which: 'admin' | 'student' | 'chat', value: number) => {
     if (!Number.isFinite(value) || value < 1) return;
     setLimits((prev) => ({ ...prev, [which]: value }));
     if (await writeSetting(`ai_daily_limit_${which}`, value)) {
@@ -635,10 +641,10 @@ export default function AiSettings() {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          {(['admin', 'student'] as const).map((which) => (
+          {(['admin', 'student', 'chat'] as const).map((which) => (
             <div key={which} className="space-y-1.5">
               <Label className="text-xs capitalize">
-                {which === 'admin' ? 'Staff' : 'Students'}
+                {which === 'admin' ? 'Staff' : which === 'chat' ? 'Chatbox' : 'Students'}
               </Label>
               <Input
                 type="number"

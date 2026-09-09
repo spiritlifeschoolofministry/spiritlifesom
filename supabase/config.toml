@@ -116,3 +116,8 @@ entrypoint = "./functions/ai-student/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/ai-study/index.ts"
+
+[functions.ai-chat]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/ai-chat/index.ts"

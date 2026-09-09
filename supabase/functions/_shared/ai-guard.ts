@@ -33,8 +33,17 @@ export const json = (payload: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-/** Who may call a feature at all. */
-export type Audience = "admin" | "student";
+/**
+ * Who may call a feature at all.
+ *
+ * "any" is for a feature both portals share — the chatbox is the only one so
+ * far. It is deliberately not the default and deliberately not a way to skip
+ * the gate: the switch, the exam lock and the quota all still apply, and a
+ * function using it must decide for itself what the caller's role entitles
+ * them to see. "admin" and "student" stay the right answer everywhere else,
+ * because they fail closed and this one cannot.
+ */
+export type Audience = "admin" | "student" | "any";
 
 export interface GuardSpec {
   /**
@@ -175,6 +184,9 @@ export const guard = async (req: Request, spec: GuardSpec): Promise<GuardResult>
   const studentRow = student as { id?: string; is_staff_preview?: boolean } | null;
   const studentId = studentRow?.id ?? null;
 
+  // Staff have no student record unless they hold a preview one, so this check
+  // is what keeps a student-only feature student-only. It is skipped for "any",
+  // where `studentId` being null is the normal state of a member of staff.
   if (spec.audience === "student" && !studentId) {
     return { ok: false, response: json({ error: "No student record for this account." }, 403) };
   }

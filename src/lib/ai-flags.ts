@@ -24,6 +24,7 @@ export const AI_FEATURES = [
   'ai_progress_summary',
   'ai_result_guidance',
   'ai_study_assistant',
+  'ai_chat',
 ] as const;
 
 export type AiFeature = (typeof AI_FEATURES)[number];
@@ -44,7 +45,13 @@ export interface AiFlags {
   /** The name students and staff see. Never a model or provider name. */
   assistantName: string;
   features: Record<AiFeature, boolean>;
-  limits: { admin: number; student: number };
+  /**
+   * `chat` is its own number rather than reusing `student`, because the guard
+   * picks a cap by role and a chatbox invites far more messages than a button
+   * does. It is rarely spent: a recognised question is answered from the
+   * database and charged nothing.
+   */
+  limits: { admin: number; student: number; chat: number };
   /** True for a feature only when the master switch is on as well. */
   on: (feature: AiFeature) => boolean;
 }
@@ -72,6 +79,7 @@ const SETTING_KEYS = [
   ...AI_FEATURES,
   'ai_daily_limit_admin',
   'ai_daily_limit_student',
+  'ai_daily_limit_chat',
 ];
 
 export const fetchAiFlags = async (): Promise<AiFlags> => {
@@ -100,6 +108,7 @@ export const fetchAiFlags = async (): Promise<AiFlags> => {
     limits: {
       admin: asNumber(map.get('ai_daily_limit_admin'), 200),
       student: asNumber(map.get('ai_daily_limit_student'), 20),
+      chat: asNumber(map.get('ai_daily_limit_chat'), 40),
     },
     on: (feature: AiFeature) => enabled && features[feature],
   };

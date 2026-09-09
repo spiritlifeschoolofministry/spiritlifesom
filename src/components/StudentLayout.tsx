@@ -119,6 +119,14 @@ const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((group) => group.items);
 
 const NAV_PATHS = NAV_ITEMS.map((item) => item.path);
 
+/**
+ * Exported for `portal-map.test.ts`, which asserts every page a student can
+ * navigate to has a description in `portal-map.ts` and vice versa. That is what
+ * keeps the assistant's navigational answers true without a second list to
+ * maintain by hand.
+ */
+export const STUDENT_NAV_PATHS = NAV_PATHS;
+
 /** The four paths pinned to the mobile bottom bar, in order. */
 const MOBILE_PRIMARY_PATHS = [
   "/student/dashboard",

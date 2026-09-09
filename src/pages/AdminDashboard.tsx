@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import ActionCentre, { type ActionQueue } from "@/components/admin/ActionCentre";
 import PortalPulse from "@/components/admin/PortalPulse";
+import AssistantChat from "@/components/portal/AssistantChat";
 import { Link } from "react-router-dom";
 import { preloadPath } from "@/routes/lazy-pages";
 import { toast } from "sonner";
@@ -393,6 +394,10 @@ const AdminDashboard = () => {
         <ActionCentre queues={QUEUES} loading={loading} />
         <PortalPulse />
       </div>
+
+      {/* Above the listings: a question is usually faster than finding the
+          page that answers it, and most of these cost no model call at all. */}
+      <AssistantChat audience="admin" />
 
       {/* Quick navigation */}
       <Card className="shadow-[var(--shadow-card)] border-border">

@@ -130,6 +130,9 @@ const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((group) => group.items);
 
 const NAV_PATHS = NAV_ITEMS.map((item) => item.path);
 
+/** Exported for `portal-map.test.ts`. See STUDENT_NAV_PATHS for why. */
+export const ADMIN_NAV_PATHS = NAV_PATHS;
+
 /** The four paths pinned to the mobile bottom bar, in order. */
 const MOBILE_PRIMARY_PATHS = [
   "/admin/dashboard",
