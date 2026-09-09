@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Upload, Pin, PinOff, Trash2, ExternalLink, Share2, Search, Sparkles } from 'lucide-react';
+import { Loader2, Upload, Pin, PinOff, Trash2, ExternalLink, Share2, Search, Sparkles, BookOpenText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
@@ -43,6 +43,7 @@ const AdminMaterials = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
   const [isPinningId, setIsPinningId] = useState<string | null>(null);
+  const [isCapturingId, setIsCapturingId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [cohortFilter, setCohortFilter] = useState('all');
   // The opening words of the chosen file, read once when it is picked. Every AI
@@ -103,6 +104,63 @@ const AdminMaterials = () => {
       }
     } catch (err) {
       toast.error("Failed to get download link");
+    }
+  };
+
+  /**
+   * Capturing the text of a material that was uploaded before this existed.
+   *
+   * Text is normally read in the browser that holds the file at upload time,
+   * which leaves every material uploaded before that day unreadable — and an
+   * unreadable material is one the study assistant cannot offer at all, so the
+   * student's picker sits empty however many materials the school has. This
+   * fetches the stored file back, reads the same opening the uploader would
+   * have, and stores it on the row. Nothing about the file itself changes.
+   */
+  const captureText = async (m: Tables<'course_materials'>) => {
+    setIsCapturingId(m.id);
+    try {
+      const path = m.storage_path || m.file_url;
+      const url = m.storage_provider === 'r2' ? await r2Storage.getDownloadUrl(path) : m.file_url;
+      if (!url) throw new Error('This material has no file to read.');
+
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`The file could not be fetched (${response.status}).`);
+      const blob = await response.blob();
+      const name = path.split('/').pop() || m.title;
+      const file = new File([blob], name, { type: blob.type || 'application/pdf' });
+
+      if (!canRead(file)) {
+        toast.error('Only PDFs and text files can be read.');
+        return;
+      }
+
+      const text = await extractExcerpt(file);
+      // A scanned PDF has no text layer, and reports itself as empty rather
+      // than as an error. Saying so is more use than saving an empty string.
+      if (!text.trim()) {
+        toast.error(`No text could be read — this is likely a scan, so ${assistantName} cannot answer from it.`);
+        return;
+      }
+
+      const { error } = await supabase
+        .from('course_materials')
+        // Cast: `ai_excerpt` post-dates the generated types. See ai-db.ts.
+        .update({ ai_excerpt: text } as Record<string, unknown>)
+        .eq('id', m.id);
+      if (error) throw error;
+
+      setMaterials((prev) =>
+        prev.map((row) =>
+          row.id === m.id
+            ? ({ ...row, ai_excerpt: text } as Tables<'course_materials'>)
+            : row));
+      toast.success(`${assistantName} can now answer from “${m.title}”.`);
+    } catch (e) {
+      console.error(e);
+      toast.error(e instanceof Error ? e.message : 'Could not read that file');
+    } finally {
+      setIsCapturingId(null);
     }
   };
 
@@ -563,6 +621,19 @@ const AdminMaterials = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-2 justify-end">
+                          {!(m as { ai_excerpt?: string | null }).ai_excerpt && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => captureText(m)}
+                              disabled={isCapturingId === m.id}
+                              title={`Read this file's text so ${assistantName} can answer from it`}
+                            >
+                              {isCapturingId === m.id
+                                ? <Loader2 className="h-4 w-4 animate-spin" />
+                                : <BookOpenText className="h-4 w-4" />}
+                            </Button>
+                          )}
                           <Button size="sm" variant="outline" onClick={() => openShareModal(m)} title="Share to another cohort">
                             <Share2 className="h-4 w-4" />
                           </Button>

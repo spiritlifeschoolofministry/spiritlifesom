@@ -87,17 +87,33 @@ export default function Study() {
       setLoading(false);
       return;
     }
-    // The student's own courses, through their cohort — the same join the
-    // courses page uses, so this page can never offer one they are not on.
-    const { data } = await supabase
-      .from('course_cohorts')
-      .select('courses(id, title)')
-      .eq('cohort_id', student.cohort_id);
+    // The student's own courses, from both places a course can belong to a
+    // cohort: the course's own `cohort_id`, which is what the courses page
+    // reads and what creating a course sets, and `course_cohorts`, which only
+    // ever holds the extra cohorts a course was later shared with. Reading the
+    // join table alone missed every course that was never shared — which is
+    // most of them — so this page offered a cohort's courses to nobody.
+    const [ownRes, sharedRes] = await Promise.all([
+      supabase
+        .from('courses')
+        .select('id, title')
+        .eq('cohort_id', student.cohort_id),
+      supabase
+        .from('course_cohorts')
+        .select('courses(id, title)')
+        .eq('cohort_id', student.cohort_id),
+    ]);
 
-    const list = (data ?? [])
+    const shared = (sharedRes.data ?? [])
       .map((row) => row.courses as CourseOption | null)
       .filter((course): course is CourseOption => !!course);
-    setCourses(list);
+
+    // De-duplicated: a course can legitimately appear in both.
+    const byId = new Map<string, CourseOption>();
+    for (const course of [...((ownRes.data ?? []) as CourseOption[]), ...shared]) {
+      byId.set(course.id, course);
+    }
+    setCourses([...byId.values()].sort((a, b) => a.title.localeCompare(b.title)));
     setLoading(false);
   }, [student?.cohort_id]);
 
