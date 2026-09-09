@@ -67,6 +67,26 @@ export const OPENAI_COMPATIBLE: Record<
     baseUrl: "https://opencode.ai/zen/v1",
     modelsUrl: "https://opencode.ai/docs/zen/",
   },
+  sambanova: {
+    label: "SambaNova",
+    baseUrl: "https://api.sambanova.ai/v1",
+    modelsUrl: "https://cloud.sambanova.ai/",
+  },
+  chutes: {
+    label: "Chutes",
+    baseUrl: "https://llm.chutes.ai/v1",
+    modelsUrl: "https://chutes.ai/app",
+  },
+  deepinfra: {
+    label: "DeepInfra",
+    baseUrl: "https://api.deepinfra.com/v1/openai",
+    modelsUrl: "https://deepinfra.com/models/text-generation",
+  },
+  mistral: {
+    label: "Mistral",
+    baseUrl: "https://api.mistral.ai/v1",
+    modelsUrl: "https://docs.mistral.ai/getting-started/models/models_overview/",
+  },
   openai_compatible: { label: "Other (OpenAI-compatible)", baseUrl: "", modelsUrl: "" },
 };
 
