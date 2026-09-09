@@ -230,6 +230,74 @@ export const guard = async (req: Request, spec: GuardSpec): Promise<GuardResult>
     }
   }
 
+  /**
+   * The assignment lock.
+   *
+   * Same principle as the exam lock, over work a student takes away rather than
+   * sits: an assignment that is published, not yet due, and not yet submitted
+   * by this student is work in progress, and the study assistant is not to be
+   * part of it.
+   *
+   * Three conditions narrow it deliberately. A due date is required — an
+   * assignment with no deadline never closes, and a lock that never lifts would
+   * take the study assistant away for good rather than for the duration of a
+   * piece of work. Manual records are excluded because they are gradebook
+   * entries for work done elsewhere, not something a student is sitting down
+   * to. And assignments mirroring an exam are excluded because the exam lock
+   * above already covers those, more precisely.
+   */
+  if (spec.examLock !== false && studentId && !studentRow?.is_staff_preview) {
+    const { data: student } = await service
+      .from("students")
+      .select("cohort_id")
+      .eq("id", studentId)
+      .maybeSingle();
+    const cohortId = (student as { cohort_id?: string | null } | null)?.cohort_id;
+
+    if (cohortId) {
+      const { data: openWork } = await service
+        .from("assignments")
+        .select("id, title, due_date")
+        .eq("cohort_id", cohortId)
+        .eq("is_manual_record", false)
+        .is("exam_id", null)
+        .not("due_date", "is", null)
+        .gt("due_date", new Date().toISOString())
+        .limit(50);
+
+      const pending = (openWork ?? []) as { id: string; title: string; due_date: string }[];
+      if (pending.length > 0) {
+        const { data: handedIn } = await service
+          .from("assignment_submissions")
+          .select("assignment_id")
+          .eq("student_id", studentId)
+          .in("assignment_id", pending.map((a) => a.id))
+          .not("submitted_at", "is", null);
+
+        const done = new Set(
+          ((handedIn ?? []) as { assignment_id: string }[]).map((row) => row.assignment_id),
+        );
+        const outstanding = pending.filter((a) => !done.has(a.id));
+        if (outstanding.length > 0) {
+          // Named, and with its deadline, because "AI is unavailable" with no
+          // reason reads as a fault. A student who knows which assignment is
+          // holding it can hand that one in and carry on.
+          const next = outstanding
+            .sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
+          return {
+            ok: false,
+            response: json({
+              error:
+                `AI help is unavailable while you have an assignment outstanding — “${next.title}”, ` +
+                `due ${new Date(next.due_date).toLocaleDateString("en-GB", { dateStyle: "medium" })}. ` +
+                `Hand it in and it comes back.`,
+            }, 403),
+          };
+        }
+      }
+    }
+  }
+
   const assistantName = String(await setting(service, "ai_assistant_name", "Barnabas"));
 
   if (spec.countsQuota === false) {
