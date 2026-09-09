@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/integrations/supabase/client', () => ({ supabase: {} }));
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: { functions: { invoke: async () => ({ data: null, error: null }) } },
+}));
 
 const { NON_NEGOTIABLE_RULES, LIMITS, clampWords, DEFAULT_RULES } = await import(
   '@/lib/chat-answer-rules'
@@ -140,5 +142,72 @@ describe('audience resolution in the edge function', () => {
 
   it('takes the audience from the portal once the role has been checked', () => {
     expect(source).toMatch(/const audience: "admin" \| "student" = fromPortal;/);
+  });
+});
+
+/**
+ * These settings used to sit in `system_settings`, whose SELECT policy grants
+ * `anon` USING (true) — so the school's own guidance, which may name an office
+ * and a phone number, was readable by anyone holding the publishable key that
+ * ships in the frontend bundle. They now live in `ai_private_settings`: RLS
+ * on, no policies, reachable only through an admin-gated function.
+ */
+describe('where the answer rules are stored', () => {
+  const migration = readFileSync(
+    'supabase/migrations/20260909220000_ai_chat_rules_private.sql',
+    'utf8',
+  );
+  const settingsFn = readFileSync('supabase/functions/ai-settings/index.ts', 'utf8');
+
+  it('creates the private table with RLS on', () => {
+    expect(migration).toMatch(/CREATE TABLE IF NOT EXISTS public\.ai_private_settings/);
+    expect(migration).toMatch(/ALTER TABLE public\.ai_private_settings ENABLE ROW LEVEL SECURITY/);
+  });
+
+  it('grants it no policy at all, so no browser session can read it', () => {
+    expect(migration).not.toMatch(/CREATE POLICY[\s\S]*ai_private_settings/);
+  });
+
+  it('carries existing values across before deleting the public copies', () => {
+    const copyAt = migration.indexOf('INSERT INTO public.ai_private_settings (key, value)');
+    const deleteAt = migration.indexOf('DELETE FROM public.system_settings');
+    expect(copyAt).toBeGreaterThan(-1);
+    expect(deleteAt).toBeGreaterThan(copyAt);
+  });
+
+  it('removes every moved key from the world-readable table', () => {
+    const deleted = migration.slice(migration.indexOf('DELETE FROM public.system_settings'));
+    [
+      'ai_chat_voice',
+      'ai_chat_max_words',
+      'ai_chat_decline',
+      'ai_chat_escalation',
+      'ai_chat_model_fallback',
+    ].forEach((key) => expect(deleted).toContain(key));
+  });
+
+  it('leaves the feature switch public, since both portals need it before rendering', () => {
+    const deleted = migration.slice(migration.indexOf('DELETE FROM public.system_settings'));
+    expect(deleted).not.toMatch(/'ai_chat'/);
+  });
+
+  it('reads them from the private table in the chatbox function', () => {
+    const load = source.slice(source.indexOf('const loadAnswerRules'), source.indexOf('const loadAnswerRules') + 900);
+    // Checked on the actual query rather than on any mention of the table,
+    // since the comment there explains why the public one is not used.
+    expect(load).toMatch(/\.from\("ai_private_settings"\)/);
+    expect(load).not.toMatch(/\.from\("system_settings"\)/);
+  });
+
+  it('gates the admin actions on a full admin, not merely on staff', () => {
+    expect(settingsFn).toMatch(/action === "chat_rules_get"/);
+    expect(settingsFn).toMatch(/action === "chat_rules_set"/);
+    expect(settingsFn).toMatch(/!== "admin"[\s\S]{0,200}403/);
+  });
+
+  it('writes only the five known keys, so it cannot become a way to insert rows', () => {
+    const setter = settingsFn.slice(settingsFn.indexOf('action === "chat_rules_set"'));
+    expect(setter).toMatch(/if \(writes\.length === 0\) return json/);
+    expect(setter.slice(0, 2000)).toMatch(/"voice" in patch/);
   });
 });

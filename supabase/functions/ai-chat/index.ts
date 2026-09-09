@@ -145,8 +145,12 @@ const composePrompt = (
 
 /** The editable half, read once per request. */
 const loadAnswerRules = async (service: SupabaseClient): Promise<AnswerRules> => {
+  // `ai_private_settings`, not `system_settings`. The latter is readable by
+  // `anon` on purpose, and the school's own guidance — which may name an
+  // office and a phone number — has no reason to be public. This table has
+  // RLS on and no policies, so only the service role reaches it.
   const { data } = await service
-    .from("system_settings")
+    .from("ai_private_settings")
     .select("key, value")
     .in("key", [
       "ai_chat_voice",

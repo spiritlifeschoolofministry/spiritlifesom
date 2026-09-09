@@ -18,6 +18,7 @@ import {
   NON_NEGOTIABLE_RULES,
   clampWords,
   fetchChatAnswerRules,
+  saveChatAnswerRules,
   type ChatAnswerRules,
 } from '@/lib/chat-answer-rules';
 import { Button } from '@/components/ui/button';
@@ -230,15 +231,21 @@ export default function AiSettings() {
   const saveRule = async <K extends keyof ChatAnswerRules>(
     key: K,
     value: ChatAnswerRules[K],
-    settingKey: string,
   ) => {
     const previous = answerRules[key];
     setAnswerRules((prev) => ({ ...prev, [key]: value }));
-    if (!(await writeSetting(settingKey, value as boolean | number | string))) {
+    try {
+      // Sent as a one-field patch, so two admins editing different boxes
+      // cannot overwrite each other. The stored result comes back and is
+      // adopted, so the screen shows what the database actually holds rather
+      // than what was typed — these are instructions to a model, and a box
+      // disagreeing with what is being sent is the worst kind of wrong here.
+      setAnswerRules(await saveChatAnswerRules({ [key]: value } as Partial<ChatAnswerRules>));
+      toast.success('Answer rules saved');
+    } catch (err) {
       setAnswerRules((prev) => ({ ...prev, [key]: previous }));
-      return;
+      toast.error(err instanceof Error ? err.message : 'Could not save');
     }
-    toast.success('Answer rules saved');
   };
 
   const patchRow = async (id: string | null, patch: Parameters<typeof saveAiProvider>[1]) => {
@@ -728,7 +735,7 @@ export default function AiSettings() {
               <Switch
                 id="chat-fallback"
                 checked={answerRules.modelFallback}
-                onCheckedChange={(on) => saveRule('modelFallback', on, 'ai_chat_model_fallback')}
+                onCheckedChange={(on) => saveRule('modelFallback', on)}
               />
             </div>
 
@@ -744,7 +751,7 @@ export default function AiSettings() {
                 defaultValue={answerRules.voice}
                 onBlur={(e) => {
                   const next = e.target.value.trim();
-                  if (next !== answerRules.voice) saveRule('voice', next, 'ai_chat_voice');
+                  if (next !== answerRules.voice) saveRule('voice', next);
                 }}
               />
               <p className="text-xs text-muted-foreground">
@@ -769,7 +776,7 @@ export default function AiSettings() {
                     const next = clampWords(Number(e.target.value));
                     e.target.value = String(next);
                     if (next !== answerRules.maxWords) {
-                      saveRule('maxWords', next, 'ai_chat_max_words');
+                      saveRule('maxWords', next);
                     }
                   }}
                 />
@@ -792,7 +799,7 @@ export default function AiSettings() {
                   onBlur={(e) => {
                     const next = e.target.value.trim();
                     if (next !== answerRules.escalation) {
-                      saveRule('escalation', next, 'ai_chat_escalation');
+                      saveRule('escalation', next);
                     }
                   }}
                 />
@@ -814,7 +821,7 @@ export default function AiSettings() {
                 defaultValue={answerRules.decline}
                 onBlur={(e) => {
                   const next = e.target.value.trim();
-                  if (next !== answerRules.decline) saveRule('decline', next, 'ai_chat_decline');
+                  if (next !== answerRules.decline) saveRule('decline', next);
                 }}
               />
             </div>

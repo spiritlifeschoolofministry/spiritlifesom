@@ -90,6 +90,53 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
   );
 
+  /** A string setting, trimmed and capped. */
+  const text = (raw: unknown, max: number): string =>
+    String(raw ?? "").trim().slice(0, max);
+
+  /**
+   * The five answer rules, with defaults for anything unwritten.
+   *
+   * Returned in the client's own shape rather than as rows, so the console
+   * does not need to know the key names or cope with jsonb arriving as three
+   * different types.
+   */
+  const readChatRules = async () => {
+    const { data, error } = await service
+      .from("ai_private_settings")
+      .select("key, value")
+      .in("key", [
+        "ai_chat_voice",
+        "ai_chat_max_words",
+        "ai_chat_decline",
+        "ai_chat_escalation",
+        "ai_chat_model_fallback",
+      ]);
+    if (error) throw new Error(error.message);
+
+    const map = new Map(
+      ((data ?? []) as { key: string; value: unknown }[]).map((row) => [row.key, row.value]),
+    );
+    const asText = (key: string) =>
+      String(map.get(key) ?? "").trim().replace(/^"(.*)"$/, "$1");
+    const words = Number(asText("ai_chat_max_words"));
+    const raw = map.get("ai_chat_model_fallback");
+
+    return {
+      voice: asText("ai_chat_voice"),
+      maxWords: Number.isFinite(words) && words > 0
+        ? Math.min(Math.max(Math.round(words), 20), 200)
+        : 70,
+      decline: asText("ai_chat_decline"),
+      escalation: asText("ai_chat_escalation"),
+      modelFallback: typeof raw === "boolean"
+        ? raw
+        : raw === undefined || raw === null || raw === ""
+        ? true
+        : /^(true|1|yes|on)$/i.test(String(raw).replace(/^"(.*)"$/, "$1")),
+    };
+  };
+
   const listAll = async () => {
     const { data, error } = await service
       .from("ai_providers")
@@ -122,6 +169,60 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "");
+
+    // ----------------------------------------------------- chat answer rules
+    //
+    // These live in `ai_private_settings` rather than `system_settings`
+    // because that table is readable by `anon` on purpose, and the school's
+    // own guidance — including an office and a phone number it may name — has
+    // no reason to be public. Same one-way discipline as the provider keys:
+    // reachable only here, and only by a full admin.
+    if (action === "chat_rules_get") {
+      return json({ rules: await readChatRules() });
+    }
+
+    if (action === "chat_rules_set") {
+      const patch = (body?.rules ?? {}) as Record<string, unknown>;
+      const writes: { key: string; value: unknown }[] = [];
+
+      // Only the five known keys, each clamped to what a prompt can sensibly
+      // carry. A value arriving from anywhere else is ignored rather than
+      // written, so this cannot become a way to put arbitrary rows in the
+      // table.
+      if ("voice" in patch) {
+        writes.push({ key: "ai_chat_voice", value: text(patch.voice, 1500) });
+      }
+      if ("decline" in patch) {
+        writes.push({ key: "ai_chat_decline", value: text(patch.decline, 600) });
+      }
+      if ("escalation" in patch) {
+        writes.push({ key: "ai_chat_escalation", value: text(patch.escalation, 200) });
+      }
+      if ("maxWords" in patch) {
+        const words = Number(patch.maxWords);
+        writes.push({
+          key: "ai_chat_max_words",
+          value: Number.isFinite(words) && words > 0
+            ? Math.min(Math.max(Math.round(words), 20), 200)
+            : 70,
+        });
+      }
+      if ("modelFallback" in patch) {
+        writes.push({ key: "ai_chat_model_fallback", value: patch.modelFallback === true });
+      }
+
+      if (writes.length === 0) return json({ error: "Nothing to save." }, 400);
+
+      const { error } = await service
+        .from("ai_private_settings")
+        .upsert(
+          writes.map((row) => ({ ...row, updated_at: new Date().toISOString() })),
+          { onConflict: "key" },
+        );
+      if (error) return json({ error: error.message }, 500);
+
+      return json({ rules: await readChatRules() });
+    }
 
     if (action === "list") {
       return json({

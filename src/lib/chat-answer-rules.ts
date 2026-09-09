@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { edgeErrorMessage } from '@/lib/edge-error';
 
 /**
  * The chatbox's answer rules, as the admin screen sees them.
@@ -57,45 +58,56 @@ export const DEFAULT_RULES: ChatAnswerRules = {
   modelFallback: true,
 };
 
-const SETTING_KEYS = [
-  'ai_chat_voice',
-  'ai_chat_max_words',
-  'ai_chat_decline',
-  'ai_chat_escalation',
-  'ai_chat_model_fallback',
-];
-
-/** `value` is jsonb, so it arrives as a real string, number or boolean. */
-const asText = (raw: unknown): string =>
-  String(raw ?? '').trim().replace(/^"(.*)"$/, '$1');
-
-const asBool = (raw: unknown, fallback: boolean): boolean => {
-  if (typeof raw === 'boolean') return raw;
-  if (raw === undefined || raw === null || raw === '') return fallback;
-  return /^(true|1|yes|on)$/i.test(asText(raw));
-};
-
 /** Keeps a value inside the range the prompt can sensibly ask for. */
 export const clampWords = (value: number): number =>
   Number.isFinite(value) && value > 0
     ? Math.min(Math.max(Math.round(value), LIMITS.minWords), LIMITS.maxWords)
     : DEFAULT_RULES.maxWords;
 
+/**
+ * Reads the rules.
+ *
+ * Through `ai-settings` rather than from a table, because these live in
+ * `ai_private_settings` — RLS on, no policies — for the same reason the
+ * provider keys do. `system_settings`, where they used to sit, is readable by
+ * `anon` on purpose, so the school's own guidance was public to anyone who
+ * opened devtools on the site. None of it was a credential and none of it was
+ * holding the security line, but there was no reason for it to be public.
+ */
 export const fetchChatAnswerRules = async (): Promise<ChatAnswerRules> => {
-  const { data } = await supabase
-    .from('system_settings')
-    .select('key, value')
-    .in('key', SETTING_KEYS);
+  const { data, error } = await supabase.functions.invoke('ai-settings', {
+    body: { action: 'chat_rules_get' },
+  });
+  if (error) throw new Error(await edgeErrorMessage(error, data, 'Could not read the answer rules.'));
+  return normalise(data?.rules);
+};
 
-  const map = new Map<string, unknown>(
-    (data ?? []).map((row) => [row.key as string, row.value as unknown]),
-  );
+/**
+ * Saves whichever rules are passed, and returns the stored result.
+ *
+ * A patch rather than the whole object, so two admins editing different boxes
+ * cannot overwrite each other's field. The function clamps every value again
+ * on its side; the clamps here are for the editor's benefit, not the
+ * database's.
+ */
+export const saveChatAnswerRules = async (
+  patch: Partial<ChatAnswerRules>,
+): Promise<ChatAnswerRules> => {
+  const { data, error } = await supabase.functions.invoke('ai-settings', {
+    body: { action: 'chat_rules_set', rules: patch },
+  });
+  if (error) throw new Error(await edgeErrorMessage(error, data, 'Could not save the answer rules.'));
+  return normalise(data?.rules);
+};
 
+/** Whatever the function returned, in the shape the editor expects. */
+const normalise = (raw: unknown): ChatAnswerRules => {
+  const rules = (raw ?? {}) as Partial<Record<keyof ChatAnswerRules, unknown>>;
   return {
-    voice: asText(map.get('ai_chat_voice')).slice(0, LIMITS.voice),
-    maxWords: clampWords(Number(asText(map.get('ai_chat_max_words')))),
-    decline: asText(map.get('ai_chat_decline')).slice(0, LIMITS.decline),
-    escalation: asText(map.get('ai_chat_escalation')).slice(0, LIMITS.escalation),
-    modelFallback: asBool(map.get('ai_chat_model_fallback'), true),
+    voice: String(rules.voice ?? '').slice(0, LIMITS.voice),
+    maxWords: clampWords(Number(rules.maxWords)),
+    decline: String(rules.decline ?? '').slice(0, LIMITS.decline),
+    escalation: String(rules.escalation ?? '').slice(0, LIMITS.escalation),
+    modelFallback: rules.modelFallback !== false,
   };
 };
