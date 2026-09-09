@@ -71,6 +71,7 @@ import {
   AdminExamBuilder,
   AdminExamMonitor,
   AdminQuestionBank,
+  AdminPracticeQuestions,
   AdminStorage,
   AdminAiSettings,
   StudentStudy,
@@ -185,6 +186,7 @@ const App = () => {
             <Route path="/admin/ai" element={<ProtectedRoute requiredRole="superadmin"><AdminAiSettings /></ProtectedRoute>} />
             <Route path="/admin/exams" element={<ProtectedRoute requiredRole="admin"><AdminExamsList /></ProtectedRoute>} />
             <Route path="/admin/exams/questions" element={<ProtectedRoute requiredRole="admin"><AdminQuestionBank /></ProtectedRoute>} />
+            <Route path="/admin/exams/practice" element={<ProtectedRoute requiredRole="admin"><AdminPracticeQuestions /></ProtectedRoute>} />
             <Route path="/admin/exams/new" element={<ProtectedRoute requiredRole="admin"><AdminExamBuilder /></ProtectedRoute>} />
             <Route path="/admin/exams/:id/edit" element={<ProtectedRoute requiredRole="admin"><AdminExamBuilder /></ProtectedRoute>} />
             <Route path="/admin/exams/:id/monitor" element={<ProtectedRoute requiredRole="admin"><AdminExamMonitor /></ProtectedRoute>} />

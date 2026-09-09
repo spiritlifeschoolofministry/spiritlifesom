@@ -46,6 +46,31 @@ export interface QuestionRow {
   created_at: string;
 }
 
+/**
+ * A `practice_questions` row.
+ *
+ * Deliberately not a `QuestionRow`. The two tables hold different things — real
+ * exam questions and questions students may practise against — and giving them
+ * one type in the client is the first step towards giving them one query.
+ */
+export interface PracticeQuestionRow {
+  id: string;
+  course_id: string;
+  cohort_id: string | null;
+  question_type: string;
+  question_text: string;
+  options: unknown;
+  correct_answer: unknown;
+  explanation: string | null;
+  points: number;
+  archived: boolean;
+  /** 'approved' before a student may practise it; 'draft' until someone reads it. */
+  status: string;
+  source_material_id: string | null;
+  ai_generated: boolean;
+  created_at: string;
+}
+
 /** A `course_materials` row, as much of it as the AI features need. */
 export interface MaterialRow {
   id: string;

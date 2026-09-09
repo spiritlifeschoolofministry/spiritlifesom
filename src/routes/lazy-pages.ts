@@ -89,6 +89,7 @@ export const AdminExamsList = lazyPage(() => import("@/pages/admin/exams/ExamsLi
 export const AdminExamBuilder = lazyPage(() => import("@/pages/admin/exams/ExamBuilder"));
 export const AdminExamMonitor = lazyPage(() => import("@/pages/admin/exams/ExamMonitor"));
 export const AdminQuestionBank = lazyPage(() => import("@/pages/admin/exams/QuestionBank"));
+export const AdminPracticeQuestions = lazyPage(() => import("@/pages/admin/exams/PracticeQuestions"));
 export const AdminStorage = lazyPage(() => import("@/pages/admin/StorageManagement"));
 export const AdminAiSettings = lazyPage(() => import("@/pages/admin/AiSettings"));
 export const StudentStudy = lazyPage(() => import("@/pages/student/Study"));

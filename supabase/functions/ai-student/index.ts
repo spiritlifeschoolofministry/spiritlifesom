@@ -266,15 +266,17 @@ Deno.serve(async (req) => {
       const courseId = String(body?.course_id ?? "");
       if (!courseId) return json({ error: "Pick a course to practise." }, 400);
 
+      // `practice_questions`, never `question_bank`. The bank holds the real
+      // exam and test questions, and practice shows the correct answer after
+      // every one — drawing from it would hand a student their own paper in
+      // advance. The two pools are separate tables so that no filter here can
+      // ever be the only thing standing between them.
       const { data: bank } = await service
-        .from("question_bank")
+        .from("practice_questions")
         .select("id, question_text, question_type, options, points")
         .eq("course_id", courseId)
         .eq("archived", false)
         .eq("status", "approved")
-        // An essay has nothing to check an answer against here, so practice
-        // sticks to the types that can tell a student whether they were right.
-        .neq("question_type", "essay")
         .limit(200);
 
       const pool = (bank ?? []) as Record<string, unknown>[];
@@ -337,7 +339,7 @@ Deno.serve(async (req) => {
       }
 
       const { data: question } = await service
-        .from("question_bank")
+        .from("practice_questions")
         .select("id, question_type, correct_answer, explanation, points")
         .eq("id", questionId)
         .maybeSingle();

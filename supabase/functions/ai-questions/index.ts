@@ -147,9 +147,35 @@ Deno.serve(async (req) => {
 
     const materialId = String(body?.material_id ?? "");
     const count = Math.min(Math.max(Number(body?.count) || 10, 1), MAX_QUESTIONS);
-    const requested = (Array.isArray(body?.types) ? body.types.map(String) : [...DRAFTABLE])
-      .filter((type): type is Draftable => (DRAFTABLE as readonly string[]).includes(type));
-    if (requested.length === 0) return json({ error: "Pick at least one question type." }, 400);
+
+    /**
+     * Which pool this draft is for.
+     *
+     * `exam` is `question_bank` — the real thing, used in tests and exams.
+     * `practice` is `practice_questions`, which students may practise against
+     * and which shows them the answer afterwards. They are different tables so
+     * that a question written for one can never turn up in the other, and the
+     * target is stated by the caller rather than inferred from anything.
+     */
+    const target = String(body?.target ?? "exam") === "practice" ? "practice" : "exam";
+    const table = target === "practice" ? "practice_questions" : "question_bank";
+
+    const asked: string[] = Array.isArray(body?.types)
+      ? body.types.map((type: unknown) => String(type))
+      : [...DRAFTABLE];
+    const requested = asked
+      .filter((type): type is Draftable => (DRAFTABLE as readonly string[]).includes(type))
+      // Practice marks an answer and tells the student whether it was right,
+      // which an essay cannot do — so an essay drafted for practice would be a
+      // question its own page could never answer.
+      .filter((type: Draftable) => target !== "practice" || type !== "essay");
+    if (requested.length === 0) {
+      return json({
+        error: target === "practice"
+          ? "Pick at least one question type. Essays cannot be practised, since practice has to be able to mark the answer."
+          : "Pick at least one question type.",
+      }, 400);
+    }
 
     const { data: material } = await service
       .from("course_materials")
@@ -222,7 +248,9 @@ Deno.serve(async (req) => {
         source_material_id: row.id,
         ai_generated: true,
         status: "draft",
-        tags: [],
+        // `practice_questions` has no tags column: tagging exists so an exam
+        // can be assembled by topic, and practice assembles nothing.
+        ...(target === "practice" ? {} : { tags: [] }),
       }];
     });
 
@@ -234,7 +262,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: inserted, error } = await service
-      .from("question_bank")
+      .from(table)
       .insert(rows)
       .select("id");
     if (error) return json({ error: error.message }, 400);

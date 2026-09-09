@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import {
   Activity, AlertCircle, BookOpen, Camera, Edit, Eye, FileQuestion, Keyboard, Loader2,
   Lock, LogIn, Maximize, Mic, Plus, RotateCcw, Search, Send, Shuffle, Smartphone,
-  Square, Trash2, Users, Archive,
+  Square, Trash2, Users, Archive, Sparkles,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -382,6 +382,12 @@ export default function ExamsList() {
         <div className="flex gap-2">
           <Button variant="outline" asChild>
             <Link to="/admin/exams/questions"><BookOpen className="w-4 h-4 mr-1.5" /> Question Bank</Link>
+          </Button>
+          {/* Next to the bank because that is where someone looks for it, and
+              labelled apart from it because they must never be confused: one
+              holds real papers, the other what students may practise against. */}
+          <Button variant="outline" asChild>
+            <Link to="/admin/exams/practice"><Sparkles className="w-4 h-4 mr-1.5" /> Practice</Link>
           </Button>
           <Button asChild>
             <Link to="/admin/exams/new"><Plus className="w-4 h-4 mr-1.5" /> New Exam</Link>

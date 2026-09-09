@@ -20,6 +20,19 @@ export const DRAFTABLE_TYPES = [
 
 export type DraftableType = (typeof DRAFTABLE_TYPES)[number];
 
+/**
+ * The types practice can actually use.
+ *
+ * Practice marks the answer and tells the student whether they were right, so
+ * an essay has no place in it — there is nothing to mark against.
+ */
+export const PRACTISABLE_TYPES = [
+  'mcq_single',
+  'mcq_multi',
+  'true_false',
+  'short_answer',
+] as const;
+
 export const DRAFTABLE_LABELS: Record<DraftableType, string> = {
   mcq_single: 'Multiple choice (one answer)',
   mcq_multi: 'Multiple choice (several answers)',
@@ -56,12 +69,20 @@ export const draftQuestions = async (args: {
   materialId: string;
   count: number;
   types: DraftableType[];
+  /**
+   * Which pool to draft into. 'exam' is the question bank, used in real tests;
+   * 'practice' is the separate pool students may practise against. Stated
+   * rather than defaulted at the call site so neither is ever reached by
+   * accident.
+   */
+  target?: 'exam' | 'practice';
 }): Promise<DraftResult> => {
   const data = await call({
     action: 'draft',
     material_id: args.materialId,
     count: args.count,
     types: args.types,
+    target: args.target ?? 'exam',
   });
   return {
     drafted: Number(data?.drafted ?? 0),
