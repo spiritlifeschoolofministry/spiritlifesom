@@ -339,9 +339,24 @@ Deno.serve(async (req) => {
         }, 404);
       }
 
-      // Shuffled here rather than ordered randomly in SQL so the same pool can
-      // be drawn from repeatedly without a scan of the whole table each time.
-      const picked = [...pool].sort(() => Math.random() - 0.5).slice(0, PRACTICE_SIZE);
+      /**
+       * A fresh draw every round.
+       *
+       * Shuffled here rather than ordered randomly in SQL so the same pool can
+       * be drawn from repeatedly without a scan of the whole table each time.
+       *
+       * Fisher-Yates, not `sort(() => Math.random() - 0.5)`. That idiom is not
+       * a shuffle: the comparator is inconsistent, so the result depends on the
+       * sort implementation and leaves items near where they started. On a pool
+       * of twelve questions and a round of ten it would keep serving much the
+       * same ten in much the same order, which is the opposite of the point.
+       */
+      const picked = [...pool];
+      for (let i = picked.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [picked[i], picked[j]] = [picked[j], picked[i]];
+      }
+      picked.length = Math.min(picked.length, PRACTICE_SIZE);
 
       const { data: session, error } = await service
         .from("practice_sessions")

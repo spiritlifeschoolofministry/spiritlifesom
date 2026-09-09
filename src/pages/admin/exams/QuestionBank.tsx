@@ -138,7 +138,10 @@ export default function QuestionBank() {
       await load();
       toast.success(
         `${assistantName} drafted ${result.drafted} question${result.drafted === 1 ? "" : "s"} — read them before approving.` +
-          (result.discarded ? ` ${result.discarded} were malformed and discarded.` : ""),
+          (result.discarded ? ` ${result.discarded} were malformed and discarded.` : "") +
+          (result.duplicates
+            ? ` ${result.duplicates} repeated questions this course already has and were dropped.`
+            : ""),
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not draft questions");

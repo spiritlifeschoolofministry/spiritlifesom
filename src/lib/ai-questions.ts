@@ -43,6 +43,8 @@ export const DRAFTABLE_LABELS: Record<DraftableType, string> = {
 
 export interface DraftResult {
   drafted: number;
+  /** How many were dropped for repeating a question this course already has. */
+  duplicates: number;
   /** How many came back malformed and were dropped rather than saved. */
   discarded: number;
   /** Why each was dropped, for the rare case that all of them were. */
@@ -86,6 +88,7 @@ export const draftQuestions = async (args: {
   });
   return {
     drafted: Number(data?.drafted ?? 0),
+    duplicates: Number(data?.duplicates ?? 0),
     discarded: Number(data?.discarded ?? 0),
     rejected: Array.isArray(data?.rejected) ? data.rejected.map(String) : [],
     provider: data?.provider,

@@ -23,6 +23,7 @@
 import { chainFailureResponse, corsHeaders, guard, json } from "../_shared/ai-guard.ts";
 import { runChain } from "../_shared/ai-chain.ts";
 import { clampExcerpt, extractJson, line, tidy } from "../_shared/ai-text.ts";
+import { meaningfulWords, SAME_QUESTION, similarity } from "../_shared/question-dedupe.ts";
 import {
   DRAFTABLE,
   type Draftable,
@@ -71,21 +72,38 @@ Answer with a JSON array and nothing else — no prose, no code fence. Each elem
   "points": a number; 1 for recall, 2 to 5 for short answers, 5 to 15 for an essay
 }`;
 
+/** How many previous questions to show the model. Past this the prompt is
+    mostly a list of what not to do, at the cost of the material itself. */
+const MAX_SHOWN_EXISTING = 60;
+
 const draftPrompt = (
   count: number,
   types: string[],
   meta: { title?: string; courseName?: string },
   excerpt: string,
+  existing: string[],
 ) =>
   `${RULES}
 
 Draft up to ${count} questions. Use only these types: ${types.join(", ")}.
+${
+    existing.length
+      ? `
+These questions already exist for this course. Do not ask any of them again, and do not ask a reworded version of one — a question that tests the same point in different words is a repeat.
 
+${existing.map((text, i) => `${i + 1}. ${text}`).join("\n")}
+
+Ask about parts of the material these have not covered. If the material has nothing left worth asking that is not already covered above, return fewer questions, or an empty array. An empty array is a correct answer here.
+`
+      : ""
+  }
 The material:
 ${line("Title", meta.title)}${line("Course", meta.courseName)}
 """
 ${clampExcerpt(excerpt, MAX_EXCERPT_CHARS)}
 """`;
+
+
 
 const explainPrompt = (question: {
   question_text: string;
@@ -206,6 +224,27 @@ Deno.serve(async (req) => {
       .eq("id", row.course_id)
       .maybeSingle();
 
+    /**
+     * What has already been asked on this course, in this pool.
+     *
+     * Scoped to the course rather than to the material: two materials on one
+     * course overlap, and a student practising the course meets both sets
+     * together. Drafts count as much as approved ones — a draft waiting to be
+     * read is still a question somebody will approve.
+     */
+    const { data: alreadyAsked } = await service
+      .from(table)
+      .select("question_text")
+      .eq("course_id", row.course_id)
+      .eq("archived", false)
+      .order("created_at", { ascending: false })
+      .limit(300);
+
+    const existingTexts = ((alreadyAsked ?? []) as { question_text: string }[])
+      .map((q) => String(q.question_text ?? "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim())
+      .filter(Boolean);
+    const existingWords = existingTexts.map(meaningfulWords);
+
     const allowed = new Set<string>(requested);
     const parse = (text: string) => {
       const parsed = extractJson<DraftedQuestion[]>(text);
@@ -219,6 +258,11 @@ Deno.serve(async (req) => {
         requested,
         { title: row.title, courseName: (course as { title?: string } | null)?.title },
         row.ai_excerpt,
+        // Newest first, trimmed: the model needs to recognise them, not read
+        // them in full.
+        existingTexts.slice(0, MAX_SHOWN_EXISTING).map((text) =>
+          text.length > 160 ? `${text.slice(0, 160)}…` : text
+        ),
       ),
       {
         // At least one usable question, or this provider has not answered.
@@ -234,12 +278,28 @@ Deno.serve(async (req) => {
 
     const drafted = parse(result.text) ?? [];
     const rejected: string[] = [];
+    // Repeats are counted apart from malformed ones. They are not a failure of
+    // the model in the same way — a second batch from one excerpt has less left
+    // to ask about each time — and an admin reading "8 discarded" deserves to
+    // know which kind of discarding happened.
+    const duplicates: string[] = [];
+    // Grows as the batch is checked, so the model repeating itself inside one
+    // answer is caught as well as it repeating what is already stored.
+    const seen = [...existingWords];
+
     const rows = drafted.slice(0, count).flatMap((raw) => {
       const checked = validate(raw, allowed);
       if (isRejected(checked)) {
         rejected.push(checked.why);
         return [];
       }
+
+      const words = meaningfulWords(checked.row.question_text);
+      if (seen.some((previous) => similarity(words, previous) >= SAME_QUESTION)) {
+        duplicates.push(checked.row.question_text.slice(0, 120));
+        return [];
+      }
+      seen.push(words);
       // A rubric is the standard a person marks an answer against, and every
       // practice answer is marked by `autograde` instead — so the practice
       // table has no such column, and sending one is an error rather than a
@@ -261,9 +321,15 @@ Deno.serve(async (req) => {
     });
 
     if (rows.length === 0) {
+      // Two quite different outcomes, said differently. "Everything was a
+      // repeat" means the material is used up, and the answer to that is
+      // another material, not another attempt.
       return json({
-        error: "Nothing usable came back — every drafted question was malformed.",
+        error: duplicates.length > 0 && rejected.length === 0
+          ? `Every question drafted was one this course already has. This material has little left to ask that is not already covered — try another material, or a different mix of question types.`
+          : "Nothing usable came back — every drafted question was malformed.",
         rejected,
+        duplicates: duplicates.length,
       }, 422);
     }
 
@@ -276,6 +342,7 @@ Deno.serve(async (req) => {
     return json({
       drafted: inserted?.length ?? 0,
       discarded: rejected.length,
+      duplicates: duplicates.length,
       rejected,
       provider: result.provider,
       model: result.model,
