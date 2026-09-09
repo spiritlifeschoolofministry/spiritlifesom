@@ -11,6 +11,7 @@ import NotificationsBell from "@/components/NotificationsBell";
 import { Badge } from "@/components/ui/badge";
 import { usePendingAdmissionsCount } from "@/hooks/use-pending-admissions";
 import { preloadPath, preloadPortal } from "@/routes/lazy-pages";
+import { trackView } from "@/lib/activity";
 import { isNavActive, normalizePortalPath } from "@/lib/nav";
 import NavSection from "@/components/portal/NavSection";
 import CommandPalette, { CommandPaletteTrigger } from "@/components/portal/CommandPalette";
@@ -175,6 +176,12 @@ const AdminLayout = () => {
   // Warm the other admin pages' chunks while the browser is idle so switching
   // pages doesn't wait on a download.
   useEffect(() => { preloadPortal("/admin"); }, []);
+
+  // Count the page view. Fire-and-forget, keyed on the path so a re-render
+  // does not count a second visit — see src/lib/activity.ts.
+  useEffect(() => {
+    trackView(location.pathname, "admin", null);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (role && role.toLowerCase() !== "admin" && role.toLowerCase() !== "teacher") {

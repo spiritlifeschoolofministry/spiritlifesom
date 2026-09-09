@@ -39,6 +39,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_events: {
+        Row: {
+          actor_id: string | null
+          actor_role: string | null
+          cohort_id: string | null
+          created_at: string
+          day: string
+          id: string
+          kind: string
+          portal: string | null
+          subject: string
+          subject_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_role?: string | null
+          cohort_id?: string | null
+          created_at?: string
+          day?: string
+          id?: string
+          kind: string
+          portal?: string | null
+          subject: string
+          subject_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_role?: string | null
+          cohort_id?: string | null
+          created_at?: string
+          day?: string
+          id?: string
+          kind?: string
+          portal?: string | null
+          subject?: string
+          subject_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_events_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       announcements: {
         Row: {
           body: string
@@ -2319,6 +2373,46 @@ export type Database = {
       }
     }
     Functions: {
+      activity_daily: {
+        Args: { p_cohort_id?: string; p_days?: number }
+        Returns: {
+          active_users: number
+          ai_calls: number
+          day: string
+          downloads: number
+          views: number
+        }[]
+      }
+      activity_pulse: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          active_today: number
+          active_week: number
+          downloads_today: number
+          downloads_week: number
+          first_event_day: string | null
+          views_today: number
+          views_week: number
+        }[]
+      }
+      activity_top_subjects: {
+        Args: { p_cohort_id?: string; p_days?: number; p_kind: string; p_limit?: number }
+        Returns: {
+          events: number
+          people: number
+          subject: string
+          subject_id: string | null
+        }[]
+      }
+      ai_usage_daily: {
+        Args: { p_days?: number }
+        Returns: {
+          calls: number
+          day: string
+          feature: string
+          people: number
+        }[]
+      }
       adjust_fee_amount_paid: {
         Args: { p_delta: number; p_fee_id: string }
         Returns: undefined

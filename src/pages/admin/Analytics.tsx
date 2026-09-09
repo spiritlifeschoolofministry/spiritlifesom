@@ -15,8 +15,10 @@ import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
-import { Users, TrendingUp, CalendarCheck, ClipboardList, Download, Folder, BookOpen, GraduationCap, CreditCard, AlertCircle, Inbox, RefreshCw } from "lucide-react";
+import { Users, TrendingUp, CalendarCheck, ClipboardList, Download, Folder, BookOpen, GraduationCap, CreditCard, AlertCircle, Inbox, RefreshCw, BarChart3, Activity } from "lucide-react";
 import { downloadCSV } from "@/lib/csv-export";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import EngagementPanel from "@/components/admin/EngagementPanel";
 
 interface Cohort { id: string; name: string; }
 
@@ -621,240 +623,261 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
         </CardContent>
       </Card>
 
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Enrollment Trend */}
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Enrollment Trends</CardTitle></CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={enrollmentData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
-                <YAxis tick={{ fontSize: 12 }} className="fill-muted-foreground" />
-                <Tooltip contentStyle={TOOLTIP_STYLE} />
-                <Legend />
-                <Bar dataKey="admitted" name="Admitted" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="pending" name="Pending" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="rejected" name="Rejected" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+      {/* The page grew past the point where one column of charts could be
+          scanned. Splitting it means the school-record figures and the
+          usage figures stop competing for the same screen — they answer
+          different questions and are read on different occasions. */}
+      <Tabs defaultValue="records" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 sm:w-auto sm:inline-grid">
+          <TabsTrigger value="records" className="gap-1.5">
+            <BarChart3 className="h-3.5 w-3.5" /> Records
+          </TabsTrigger>
+          <TabsTrigger value="engagement" className="gap-1.5">
+            <Activity className="h-3.5 w-3.5" /> Engagement
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Student Status Pie */}
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Student Status Breakdown</CardTitle></CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie data={enrollmentPie} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={3} dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                  {enrollmentPie.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <Tooltip contentStyle={TOOLTIP_STYLE} />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Gender Distribution */}
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Gender Distribution</CardTitle></CardHeader>
-          <CardContent>
-            {genderData.length === 0 ? (
-              <EmptyState message="No gender distribution data available" />
-            ) : (
+        <TabsContent value="records" className="mt-6 space-y-6">
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Enrollment Trend */}
+          <Card className="shadow-[var(--shadow-card)] border-border">
+            <CardHeader className="pb-2"><CardTitle className="text-base">Enrollment Trends</CardTitle></CardHeader>
+            <CardContent>
               <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie data={genderData} cx="50%" cy="50%" outerRadius={100} paddingAngle={3} dataKey="value" nameKey="name"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                    {genderData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Learning Mode */}
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Learning Mode Distribution</CardTitle></CardHeader>
-          <CardContent>
-            {learningModeData.length === 0 ? (
-              <EmptyState message="No learning mode data available" />
-            ) : (
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie data={learningModeData} cx="50%" cy="50%" outerRadius={100} paddingAngle={3} dataKey="value" nameKey="name"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                    {learningModeData.map((_, i) => <Cell key={i} fill={COLORS[(i + 3) % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Revenue by Fee Type */}
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Revenue by Fee Type</CardTitle></CardHeader>
-          <CardContent>
-            {revenueData.length === 0 ? (
-              <EmptyState message="No revenue data found for this period" />
-            ) : (
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={revenueData} layout="vertical">
+                <BarChart data={enrollmentData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis type="number" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
-                  <YAxis dataKey="type" type="category" width={100} tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                  <Tooltip formatter={(value: number) => `₦${value.toLocaleString()}`} contentStyle={TOOLTIP_STYLE} />
-                  <Legend />
-                  <Bar dataKey="collected" name="Collected" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} />
-                  <Bar dataKey="outstanding" name="Outstanding" fill="hsl(var(--chart-5))" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Attendance Distribution */}
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Attendance Distribution</CardTitle></CardHeader>
-          <CardContent>
-            {attendanceData.length === 0 ? (
-              <EmptyState message="No attendance records found" />
-            ) : (
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie data={attendanceData} cx="50%" cy="50%" outerRadius={100} paddingAngle={3} dataKey="count" nameKey="status"
-                    label={({ status, percentage }) => `${status} ${percentage}%`}>
-                    {attendanceData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Materials by Course */}
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Materials by Course</CardTitle></CardHeader>
-          <CardContent>
-            {materialsData.length === 0 ? (
-              <EmptyState message="No course materials uploaded yet" />
-            ) : (
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={materialsData.slice(0, 8)} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis type="number" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
-                  <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                  <Legend />
-                  <Bar dataKey="free" name="Free" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} stackId="a" />
-                  <Bar dataKey="paid" name="Paid" fill="hsl(var(--chart-4))" radius={[0, 4, 4, 0]} stackId="a" />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Materials by Type */}
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Materials by File Type</CardTitle></CardHeader>
-          <CardContent>
-            {materialsByType.length === 0 ? (
-              <EmptyState message="No materials data available" />
-            ) : (
-              <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
-                  <Pie data={materialsByType} cx="50%" cy="50%" outerRadius={100} paddingAngle={3} dataKey="value" nameKey="name"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                    {materialsByType.map((_, i) => <Cell key={i} fill={COLORS[(i + 2) % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip contentStyle={TOOLTIP_STYLE} />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Task Performance */}
-        <Card className="shadow-[var(--shadow-card)] border-border lg:col-span-2">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Task Performance (Top 10)</CardTitle></CardHeader>
-          <CardContent>
-            {assignmentData.length === 0 ? (
-              <EmptyState message="No tasks or submissions found" />
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={assignmentData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                  <XAxis dataKey="title" tick={{ fontSize: 11 }} className="fill-muted-foreground" angle={-20} textAnchor="end" height={60} />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
                   <YAxis tick={{ fontSize: 12 }} className="fill-muted-foreground" />
                   <Tooltip contentStyle={TOOLTIP_STYLE} />
                   <Legend />
-                  <Bar dataKey="submissions" name="Submissions" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="avgGrade" name="Avg Grade" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="admitted" name="Admitted" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="pending" name="Pending" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="rejected" name="Rejected" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Course Performance Table */}
-        <Card className="shadow-[var(--shadow-card)] border-border lg:col-span-2">
-          <CardHeader className="pb-2"><CardTitle className="text-base">Course Performance Overview</CardTitle></CardHeader>
-          <CardContent>
-            {coursePerformance.length === 0 ? (
-              <EmptyState message="No course performance data recorded" />
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="hidden sm:table-cell">Code</TableHead>
-                      <TableHead>Course</TableHead>
-                      <TableHead className="hidden text-center md:table-cell">Tasks</TableHead>
-                      <TableHead className="hidden text-center md:table-cell">Submissions</TableHead>
-                      <TableHead className="text-center">Avg Grade</TableHead>
-                      <TableHead className="text-center">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {coursePerformance.map((c) => (
-                      <TableRow key={c.code}>
-                        <TableCell className="hidden font-mono text-xs sm:table-cell">{c.code}</TableCell>
-                        <TableCell className="font-medium text-sm">
-                          {c.title}
-                          <span className="mt-0.5 block text-xs font-normal text-muted-foreground md:hidden">
-                            <span className="sm:hidden">{c.code} · </span>
-                            {c.assignments} tasks · {c.submissions} submissions
-                          </span>
-                        </TableCell>
-                        <TableCell className="hidden text-center md:table-cell">{c.assignments}</TableCell>
-                        <TableCell className="hidden text-center md:table-cell">{c.submissions}</TableCell>
-                        <TableCell className="text-center">
-                          <span className={c.avgGrade >= 70 ? "text-emerald-600 font-semibold" : c.avgGrade >= 50 ? "text-amber-600" : "text-destructive"}>
-                            {c.avgGrade}%
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant={c.completed ? "default" : "secondary"} className="text-[10px]">
-                            {c.completed ? "Completed" : "Ongoing"}
-                          </Badge>
-                        </TableCell>
+          {/* Student Status Pie */}
+          <Card className="shadow-[var(--shadow-card)] border-border">
+            <CardHeader className="pb-2"><CardTitle className="text-base">Student Status Breakdown</CardTitle></CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie data={enrollmentPie} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={3} dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                    {enrollmentPie.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip contentStyle={TOOLTIP_STYLE} />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* Gender Distribution */}
+          <Card className="shadow-[var(--shadow-card)] border-border">
+            <CardHeader className="pb-2"><CardTitle className="text-base">Gender Distribution</CardTitle></CardHeader>
+            <CardContent>
+              {genderData.length === 0 ? (
+                <EmptyState message="No gender distribution data available" />
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie data={genderData} cx="50%" cy="50%" outerRadius={100} paddingAngle={3} dataKey="value" nameKey="name"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                      {genderData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Learning Mode */}
+          <Card className="shadow-[var(--shadow-card)] border-border">
+            <CardHeader className="pb-2"><CardTitle className="text-base">Learning Mode Distribution</CardTitle></CardHeader>
+            <CardContent>
+              {learningModeData.length === 0 ? (
+                <EmptyState message="No learning mode data available" />
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie data={learningModeData} cx="50%" cy="50%" outerRadius={100} paddingAngle={3} dataKey="value" nameKey="name"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                      {learningModeData.map((_, i) => <Cell key={i} fill={COLORS[(i + 3) % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Revenue by Fee Type */}
+          <Card className="shadow-[var(--shadow-card)] border-border">
+            <CardHeader className="pb-2"><CardTitle className="text-base">Revenue by Fee Type</CardTitle></CardHeader>
+            <CardContent>
+              {revenueData.length === 0 ? (
+                <EmptyState message="No revenue data found for this period" />
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={revenueData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis type="number" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
+                    <YAxis dataKey="type" type="category" width={100} tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+                    <Tooltip formatter={(value: number) => `₦${value.toLocaleString()}`} contentStyle={TOOLTIP_STYLE} />
+                    <Legend />
+                    <Bar dataKey="collected" name="Collected" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} />
+                    <Bar dataKey="outstanding" name="Outstanding" fill="hsl(var(--chart-5))" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Attendance Distribution */}
+          <Card className="shadow-[var(--shadow-card)] border-border">
+            <CardHeader className="pb-2"><CardTitle className="text-base">Attendance Distribution</CardTitle></CardHeader>
+            <CardContent>
+              {attendanceData.length === 0 ? (
+                <EmptyState message="No attendance records found" />
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie data={attendanceData} cx="50%" cy="50%" outerRadius={100} paddingAngle={3} dataKey="count" nameKey="status"
+                      label={({ status, percentage }) => `${status} ${percentage}%`}>
+                      {attendanceData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Materials by Course */}
+          <Card className="shadow-[var(--shadow-card)] border-border">
+            <CardHeader className="pb-2"><CardTitle className="text-base">Materials by Course</CardTitle></CardHeader>
+            <CardContent>
+              {materialsData.length === 0 ? (
+                <EmptyState message="No course materials uploaded yet" />
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={materialsData.slice(0, 8)} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis type="number" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
+                    <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Legend />
+                    <Bar dataKey="free" name="Free" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} stackId="a" />
+                    <Bar dataKey="paid" name="Paid" fill="hsl(var(--chart-4))" radius={[0, 4, 4, 0]} stackId="a" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Materials by Type */}
+          <Card className="shadow-[var(--shadow-card)] border-border">
+            <CardHeader className="pb-2"><CardTitle className="text-base">Materials by File Type</CardTitle></CardHeader>
+            <CardContent>
+              {materialsByType.length === 0 ? (
+                <EmptyState message="No materials data available" />
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie data={materialsByType} cx="50%" cy="50%" outerRadius={100} paddingAngle={3} dataKey="value" nameKey="name"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                      {materialsByType.map((_, i) => <Cell key={i} fill={COLORS[(i + 2) % COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Task Performance */}
+          <Card className="shadow-[var(--shadow-card)] border-border lg:col-span-2">
+            <CardHeader className="pb-2"><CardTitle className="text-base">Task Performance (Top 10)</CardTitle></CardHeader>
+            <CardContent>
+              {assignmentData.length === 0 ? (
+                <EmptyState message="No tasks or submissions found" />
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={assignmentData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="title" tick={{ fontSize: 11 }} className="fill-muted-foreground" angle={-20} textAnchor="end" height={60} />
+                    <YAxis tick={{ fontSize: 12 }} className="fill-muted-foreground" />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Legend />
+                    <Bar dataKey="submissions" name="Submissions" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="avgGrade" name="Avg Grade" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Course Performance Table */}
+          <Card className="shadow-[var(--shadow-card)] border-border lg:col-span-2">
+            <CardHeader className="pb-2"><CardTitle className="text-base">Course Performance Overview</CardTitle></CardHeader>
+            <CardContent>
+              {coursePerformance.length === 0 ? (
+                <EmptyState message="No course performance data recorded" />
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="hidden sm:table-cell">Code</TableHead>
+                        <TableHead>Course</TableHead>
+                        <TableHead className="hidden text-center md:table-cell">Tasks</TableHead>
+                        <TableHead className="hidden text-center md:table-cell">Submissions</TableHead>
+                        <TableHead className="text-center">Avg Grade</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                    </TableHeader>
+                    <TableBody>
+                      {coursePerformance.map((c) => (
+                        <TableRow key={c.code}>
+                          <TableCell className="hidden font-mono text-xs sm:table-cell">{c.code}</TableCell>
+                          <TableCell className="font-medium text-sm">
+                            {c.title}
+                            <span className="mt-0.5 block text-xs font-normal text-muted-foreground md:hidden">
+                              <span className="sm:hidden">{c.code} · </span>
+                              {c.assignments} tasks · {c.submissions} submissions
+                            </span>
+                          </TableCell>
+                          <TableCell className="hidden text-center md:table-cell">{c.assignments}</TableCell>
+                          <TableCell className="hidden text-center md:table-cell">{c.submissions}</TableCell>
+                          <TableCell className="text-center">
+                            <span className={c.avgGrade >= 70 ? "text-emerald-600 font-semibold" : c.avgGrade >= 50 ? "text-amber-600" : "text-destructive"}>
+                              {c.avgGrade}%
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={c.completed ? "default" : "secondary"} className="text-[10px]">
+                              {c.completed ? "Completed" : "Ongoing"}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+        </TabsContent>
+
+        <TabsContent value="engagement" className="mt-6">
+          <EngagementPanel cohortId={cohortFilter} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

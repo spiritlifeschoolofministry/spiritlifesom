@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Pin, PinOff, FileText, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { resolveMaterialUrl } from "@/lib/material-url";
+import { trackDownload } from "@/lib/activity";
 
 interface Material {
   id: string;
@@ -155,6 +156,13 @@ const AdminMaterials = () => {
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                            onClick={() =>
+                              trackDownload({
+                                subject: m.title,
+                                subjectId: m.id,
+                                portal: "admin",
+                              })
+                            }
                           >
                             <LinkIcon className="w-3 h-3" />
                             Open

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileText, Link as LinkIcon, Star, Search, X } from "lucide-react";
 import { resolveMaterialUrl } from "@/lib/material-url";
+import { trackDownload } from "@/lib/activity";
 
 interface Material {
   id: string;
@@ -22,6 +23,7 @@ interface Material {
   file_type: string | null;
   storage_path: string | null;
   storage_provider: string | null;
+  cohort_id: string | null;
 }
 
 const mapStudentLearningMode = (learningMode?: string | null) => {
@@ -234,7 +236,18 @@ const StudentMaterials = () => {
                         variant="outline"
                         className="h-7 px-2 text-xs"
                       >
-                        <a href={resolveMaterialUrl(m) as string} download>
+                        <a
+                          href={resolveMaterialUrl(m) as string}
+                          download
+                          onClick={() =>
+                            trackDownload({
+                              subject: m.title,
+                              subjectId: m.id,
+                              portal: "student",
+                              cohortId: m.cohort_id ?? null,
+                            })
+                          }
+                        >
                           <LinkIcon className="w-3 h-3 mr-1" />
                           Download
                         </a>

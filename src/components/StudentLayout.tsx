@@ -5,6 +5,7 @@ import SEO from "@/components/SEO";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
 import { preloadPath, preloadPortal } from "@/routes/lazy-pages";
+import { trackView } from "@/lib/activity";
 import { isNavActive, normalizePortalPath } from "@/lib/nav";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
 
@@ -131,6 +132,8 @@ const StudentLayout = () => {
   const navigate = useNavigate();
   const { signOut, profile: authProfile, student, role } = useAuth();
   const effectiveAdmissionStatus = student?.admission_status ?? null;
+  // Stamped on this student's page views so engagement can be read per cohort.
+  const cohortId = student?.cohort_id ?? null;
   const statusUpper = useMemo(
     () => (effectiveAdmissionStatus ?? "").toString().toUpperCase(),
     [effectiveAdmissionStatus]
@@ -165,6 +168,12 @@ const StudentLayout = () => {
   // Warm the other portal pages' chunks while the browser is idle so switching
   // pages doesn't wait on a download.
   useEffect(() => { preloadPortal("/student"); }, []);
+
+  // Count the page view. Fire-and-forget, keyed on the path so a re-render
+  // does not count a second visit — see src/lib/activity.ts.
+  useEffect(() => {
+    trackView(location.pathname, "student", cohortId);
+  }, [location.pathname, cohortId]);
 
   const handleLogout = async () => {
     await signOut();
