@@ -205,6 +205,42 @@ Deno.serve(async (req) => {
       return json({ url: signed.url });
     }
 
+    // --- READ THE BYTES, THROUGH HERE ---
+    //
+    // A signed download URL points at R2's S3 endpoint, which serves no CORS
+    // headers, so the browser may navigate to it but may not `fetch` it. That
+    // is fine for a download link and fatal for anything that needs to read the
+    // file's contents — extracting a PDF's text, which only a browser can do.
+    //
+    // So the bytes come back through this function, which does send them. The
+    // body is streamed rather than buffered: a course material can be tens of
+    // megabytes, and holding one in the edge runtime's memory to hand it
+    // straight on would be the one shape of this that falls over.
+    if (action === "bytes") {
+      if (!path) return json({ error: "Missing path" }, 400);
+      // Staff only, like delete. Reading a file's contents through a signed
+      // request is not something a student session needs to do — the materials
+      // page links them to the file itself.
+      if (!role || !DELETE_ROLES.includes(role)) {
+        return json({ error: "Only staff may read a file through here" }, 403);
+      }
+
+      const res = await client.fetch(`${bucketUrl}/${encodeKey(path)}`, { method: "GET" });
+      if (!res.ok) {
+        return json({ error: `R2 refused the read (${res.status})` }, res.status === 404 ? 404 : 502);
+      }
+
+      return new Response(res.body, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": res.headers.get("content-type") ?? "application/octet-stream",
+          ...(res.headers.get("content-length")
+            ? { "Content-Length": res.headers.get("content-length")! }
+            : {}),
+        },
+      });
+    }
+
     // --- DELETE ---
     if (action === "delete") {
       if (!path) return json({ error: "Missing path" }, 400);

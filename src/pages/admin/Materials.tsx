@@ -121,12 +121,18 @@ const AdminMaterials = () => {
     setIsCapturingId(m.id);
     try {
       const path = m.storage_path || m.file_url;
-      const url = m.storage_provider === 'r2' ? await r2Storage.getDownloadUrl(path) : m.file_url;
-      if (!url) throw new Error('This material has no file to read.');
+      if (!path) throw new Error('This material has no file to read.');
 
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`The file could not be fetched (${response.status}).`);
-      const blob = await response.blob();
+      // Through the edge function rather than from the file's own URL: R2's
+      // signed endpoint sends no CORS headers, so the browser will not let the
+      // page read the bytes however public the bucket is.
+      const blob = m.storage_provider === 'r2'
+        ? await r2Storage.getFileBlob(path)
+        : await (async () => {
+          const response = await fetch(m.file_url);
+          if (!response.ok) throw new Error(`The file could not be fetched (${response.status}).`);
+          return response.blob();
+        })();
       const name = path.split('/').pop() || m.title;
       const file = new File([blob], name, { type: blob.type || 'application/pdf' });
 

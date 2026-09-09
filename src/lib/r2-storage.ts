@@ -32,6 +32,24 @@ export const r2Storage = {
     return data.url as string;
   },
 
+  /**
+   * The file's own bytes, fetched through the edge function.
+   *
+   * Not from the signed URL: that points at R2's S3 endpoint, which sends no
+   * CORS headers, so the browser will happily navigate to it and refuse to
+   * `fetch` it. Anything that needs to read a stored file's contents rather
+   * than hand it to the user has to come this way. Staff only, server-side.
+   */
+  async getFileBlob(path: string): Promise<Blob> {
+    const { data, error } = await supabase.functions.invoke('r2-storage', {
+      body: { action: 'bytes', path },
+    });
+    if (error || !(data instanceof Blob)) {
+      await unwrap(error, data, 'Failed to read that file');
+    }
+    return data as Blob;
+  },
+
   async deleteFile(path: string): Promise<void> {
     const { data, error } = await supabase.functions.invoke('r2-storage', {
       body: { action: 'delete', path },
