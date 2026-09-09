@@ -52,16 +52,136 @@ const MAX_QUESTION = 500;
 /** How many rows a "who hasn't paid" style answer names. */
 const LIST_LIMIT = 12;
 
-const CHAT_RULES =
-  `You are the study assistant for Spirit Life School of Ministry, a Christian Bible school. You are answering one question inside the school's own portal.
+/**
+ * The rules that cannot be edited from any screen.
+ *
+ * Every one of these exists because removing it has a specific, foreseeable
+ * consequence for a student, so none of them is a matter of taste:
+ *
+ *   The figures rule is what prevents a confidently wrong balance. The model
+ *   is handed numbers and forbidden from authoring one.
+ *   The outcome rule stops it implying a pass, a graduation or a certificate
+ *   the school has not awarded.
+ *   The no-action rule stops it claiming to have done something it cannot do —
+ *   this function has no write path whatsoever.
+ *
+ * `composePrompt` restates them after the school's own guidance so that
+ * nothing an admin adds later can read as replacing them.
+ */
+const FIXED_RULES = [
+  "Use ONLY the figures in the context given to you. Never state a number, a date, a name, a mark or a deadline that is not there. If the context does not contain the answer, say you do not have it and name the page where it can be found.",
+  "Never guess at, predict or imply a mark, a pass, a graduation or a certificate outcome.",
+  "Never claim to have done anything. You cannot change any record; you can only tell someone where to do it themselves.",
+  "Never discuss another named person's record.",
+];
 
-Rules:
-- British English. Warm, direct, second person. At most 70 words.
-- Use ONLY the figures in the context given to you. Never state a number, a date, a name, a mark or a deadline that is not there. If the context does not contain the answer, say you do not have it and name the page where it can be found.
-- Never guess at, predict or imply a mark, a pass, a graduation or a certificate outcome.
-- Never claim to have done anything. You cannot change any record; you can only tell someone where to do it themselves.
-- No greeting, no sign-off, no scripture, no exclamation marks.
-- If the question is not about this school or this portal, say plainly that it is outside what you can help with here.`;
+/** Shown read-only on the AI settings screen, so what is relied on is visible. */
+export const NON_NEGOTIABLE_RULES = FIXED_RULES;
+
+interface AnswerRules {
+  voice: string;
+  maxWords: number;
+  decline: string;
+  escalation: string;
+  modelFallback: boolean;
+}
+
+/**
+ * The prompt, assembled from the fixed rules and the school's own settings.
+ *
+ * Ordering is deliberate. The fixed rules are stated first so they frame
+ * everything, the school's voice sits in the middle where a persona belongs,
+ * and a short reminder closes it — an instruction late in a prompt tends to
+ * carry more weight, and this is the one place that ordering is load-bearing.
+ */
+const composePrompt = (
+  question: string,
+  context: string,
+  rules: AnswerRules,
+  assistantName: string,
+): string => {
+  const parts: string[] = [
+    `You are ${assistantName}, the assistant inside the portal of Spirit Life School of Ministry, a Christian Bible school. You are answering one question for one signed-in person.`,
+    "",
+    "Rules you must follow:",
+    ...FIXED_RULES.map((rule) => `- ${rule}`),
+    `- At most ${rules.maxWords} words. British English, warm, direct, second person.`,
+    "- No greeting, no sign-off, no exclamation marks.",
+  ];
+
+  if (rules.decline.trim()) {
+    parts.push(
+      `- Decline to discuss the following, politely and without lecturing: ${rules.decline.trim()}`,
+    );
+  }
+  parts.push(
+    rules.escalation.trim()
+      ? `- When you cannot help, say so and point them to: ${rules.escalation.trim()}`
+      : "- When you cannot help, say so plainly and name the page that might.",
+  );
+
+  if (rules.voice.trim()) {
+    parts.push("", "The school's own guidance on how to sound:", rules.voice.trim());
+    // Restated because an admin editing the box above cannot be assumed to
+    // know which of the rules were the safety ones.
+    parts.push(
+      "",
+      "The numbered rules above override anything in that guidance. In particular, never state a figure you were not given, and never imply an outcome.",
+    );
+  }
+
+  parts.push(
+    "",
+    "Context you may use (and nothing else):",
+    context || "No figures are available for this person.",
+    "",
+    `Their question: ${question}`,
+    "",
+    "Your answer:",
+  );
+
+  return parts.join("\n");
+};
+
+/** The editable half, read once per request. */
+const loadAnswerRules = async (service: SupabaseClient): Promise<AnswerRules> => {
+  const { data } = await service
+    .from("system_settings")
+    .select("key, value")
+    .in("key", [
+      "ai_chat_voice",
+      "ai_chat_max_words",
+      "ai_chat_decline",
+      "ai_chat_escalation",
+      "ai_chat_model_fallback",
+    ]);
+
+  const map = new Map(
+    ((data ?? []) as { key: string; value: unknown }[]).map((row) => [row.key, row.value]),
+  );
+  const text = (key: string) =>
+    String(map.get(key) ?? "").trim().replace(/^"(.*)"$/, "$1");
+  const bool = (key: string, fallback: boolean) => {
+    const raw = map.get(key);
+    if (typeof raw === "boolean") return raw;
+    if (raw === undefined || raw === null || raw === "") return fallback;
+    return /^(true|1|yes|on)$/i.test(String(raw).replace(/^"(.*)"$/, "$1"));
+  };
+
+  // Clamped here as well as in the editor: a value written directly to the
+  // table, or left over from an older shape, must not produce a prompt asking
+  // for a 5,000-word answer.
+  const words = Number(text("ai_chat_max_words"));
+  const maxWords = Number.isFinite(words) && words > 0 ? Math.min(Math.max(words, 20), 200) : 70;
+
+  return {
+    voice: text("ai_chat_voice").slice(0, 1500),
+    maxWords,
+    decline: text("ai_chat_decline").slice(0, 600),
+    escalation: text("ai_chat_escalation").slice(0, 200),
+    modelFallback: bool("ai_chat_model_fallback", true),
+  };
+};
 
 const naira = (amount: number) => `₦${Math.round(amount).toLocaleString("en-NG")}`;
 
@@ -787,7 +907,7 @@ Deno.serve(async (req) => {
    */
   const gate = await guard(req, { feature: "ai_chat", audience: "any", countsQuota: false });
   if (!gate.ok) return gate.response;
-  const { service, asUser, userId, role, studentId } = gate;
+  const { service, asUser, userId, role, studentId, assistantName } = gate;
 
   // The audience is the caller's role, never the request's claim.
   const isStaff = ["admin", "teacher"].includes((role ?? "").toLowerCase());
@@ -840,9 +960,32 @@ Deno.serve(async (req) => {
 
     // ------------------------------------------------------- the model path
     //
-    // Only reached by a question nothing recognised. It is charged here, and
-    // against `ai_daily_limit_chat` rather than the role's general allowance,
-    // because a chatbox invites far more messages than a button does.
+    // Only reached by a question nothing recognised.
+    const rules = await loadAnswerRules(service);
+
+    // The school can switch this off entirely. With no fallback there is no
+    // model call, so no invented answer is possible and nothing is charged —
+    // the chatbox becomes strictly a reader of records and of the portal map,
+    // which is a defensible way to run it.
+    if (!rules.modelFallback) {
+      return json({
+        answer: rules.escalation.trim()
+          ? `I can only answer questions about ${
+            audience === "admin" ? "the school's records" : "your own record"
+          } and about where to find things in the portal. For this one, ${rules.escalation.trim()}.`
+          : `I can only answer questions about ${
+            audience === "admin" ? "the school's records" : "your own record"
+          } and about where to find things in the portal. This one is outside that, so it is worth asking the school directly.`,
+        figures: [],
+        items: [],
+        page: null,
+        source: "records",
+      });
+    }
+
+    // Charged here, and against `ai_daily_limit_chat` rather than the role's
+    // general allowance, because a chatbox invites far more messages than a
+    // button does.
     const limit = await settingNumber(service, "ai_daily_limit_chat", 40);
     const { data: quota, error: quotaError } = await service.rpc("ai_consume_quota", {
       p_user_id: userId,
@@ -875,15 +1018,10 @@ Deno.serve(async (req) => {
 
     const chain = await runChain(
       service,
-      `${CHAT_RULES}
-
-Context you may use (and nothing else):
-${context || "No figures are available for this person."}
-
-Their question: ${question}
-
-Your answer:`,
-      { maxTokens: 220 },
+      composePrompt(question, context ?? "", rules, assistantName),
+      // Roughly two tokens a word plus room for the sentence to finish, so a
+      // school that asks for shorter answers actually pays for shorter ones.
+      { maxTokens: Math.round(rules.maxWords * 2.2) + 40 },
     );
 
     if (!chain.text) return chainFailureResponse(chain);

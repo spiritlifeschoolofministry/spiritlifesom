@@ -12,10 +12,19 @@ import {
   testAiProvider,
 } from '@/lib/ai-providers';
 import { AI_FEATURES, DEFAULT_ASSISTANT_NAME, fetchAiFlags, type AiFeature } from '@/lib/ai-flags';
+import {
+  DEFAULT_RULES,
+  LIMITS as RULE_LIMITS,
+  NON_NEGOTIABLE_RULES,
+  clampWords,
+  fetchChatAnswerRules,
+  type ChatAnswerRules,
+} from '@/lib/chat-answer-rules';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -34,6 +43,7 @@ import {
   ExternalLink,
   KeyRound,
   Loader2,
+  Lock,
   Plus,
   RefreshCw,
   Sparkles,
@@ -131,7 +141,8 @@ export default function AiSettings() {
 
   const [masterOn, setMasterOn] = useState(false);
   const [flags, setFlags] = useState<Record<string, boolean>>({});
-  const [limits, setLimits] = useState({ admin: 200, student: 20 });
+  const [limits, setLimits] = useState({ admin: 200, student: 20, chat: 40 });
+  const [answerRules, setAnswerRules] = useState<ChatAnswerRules>(DEFAULT_RULES);
   const [assistantName, setAssistantName] = useState(DEFAULT_ASSISTANT_NAME);
 
   const [busyRow, setBusyRow] = useState<string | null>(null);
@@ -143,7 +154,11 @@ export default function AiSettings() {
 
   const load = useCallback(async () => {
     try {
-      const [chain, ai] = await Promise.all([listAiProviders(), fetchAiFlags()]);
+      const [chain, ai, rules] = await Promise.all([
+        listAiProviders(),
+        fetchAiFlags(),
+        fetchChatAnswerRules(),
+      ]);
       setProviders(chain.providers);
       setSupported(chain.supported);
       setCompatible(chain.compatible);
@@ -151,6 +166,7 @@ export default function AiSettings() {
       setFlags(ai.features);
       setLimits(ai.limits);
       setAssistantName(ai.assistantName);
+      setAnswerRules(rules);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not load AI settings');
     } finally {
@@ -201,6 +217,28 @@ export default function AiSettings() {
     if (await writeSetting(`ai_daily_limit_${which}`, value)) {
       toast.success('Daily limit saved');
     }
+  };
+
+  /**
+   * Saves one answer rule.
+   *
+   * Optimistic, and reverted on failure, so the box never shows a value the
+   * database does not hold — these are instructions to a model, and a screen
+   * disagreeing with what is actually being sent would be the worst kind of
+   * wrong here.
+   */
+  const saveRule = async <K extends keyof ChatAnswerRules>(
+    key: K,
+    value: ChatAnswerRules[K],
+    settingKey: string,
+  ) => {
+    const previous = answerRules[key];
+    setAnswerRules((prev) => ({ ...prev, [key]: value }));
+    if (!(await writeSetting(settingKey, value as boolean | number | string))) {
+      setAnswerRules((prev) => ({ ...prev, [key]: previous }));
+      return;
+    }
+    toast.success('Answer rules saved');
   };
 
   const patchRow = async (id: string | null, patch: Parameters<typeof saveAiProvider>[1]) => {
@@ -659,6 +697,160 @@ export default function AiSettings() {
           ))}
         </CardContent>
       </Card>
+
+      {/* Only rendered when the chatbox exists; these settings steer nothing
+          else, and a card of instructions for a switched-off feature is just
+          something to misread. */}
+      {flags.ai_chat && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">How the chatbox answers</CardTitle>
+            <CardDescription>
+              Most questions never reach a model at all — where a page is, what a student owes, who
+              has not paid, all come straight from the records. These settings shape the answer to
+              the ones that do.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {/* The strongest control here, so it goes first. */}
+            <div className="flex items-start justify-between gap-4 rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="chat-fallback" className="text-sm">
+                  Let it answer questions it does not recognise
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Off is the safest setting available on this screen. An unrecognised question is
+                  then never sent to a model — {assistantName} answers everything he can from the
+                  records and the portal's own pages, and says plainly that the rest is outside what
+                  he can help with. Nothing invented, and nothing spent.
+                </p>
+              </div>
+              <Switch
+                id="chat-fallback"
+                checked={answerRules.modelFallback}
+                onCheckedChange={(on) => saveRule('modelFallback', on, 'ai_chat_model_fallback')}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="chat-voice" className="text-xs">
+                How {assistantName} should sound, and anything school-specific
+              </Label>
+              <Textarea
+                id="chat-voice"
+                rows={4}
+                maxLength={RULE_LIMITS.voice}
+                placeholder={`e.g. Speak plainly and pastorally. Refer to lecturers as "your lecturer". If someone sounds distressed, encourage them to speak to the school office rather than trying to help further.`}
+                defaultValue={answerRules.voice}
+                onBlur={(e) => {
+                  const next = e.target.value.trim();
+                  if (next !== answerRules.voice) saveRule('voice', next, 'ai_chat_voice');
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Guidance on voice and school policy. It sits underneath the rules below, which it
+                cannot override. Leave it empty and those rules alone are already a complete
+                instruction.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="chat-words" className="text-xs">
+                  Longest answer, in words
+                </Label>
+                <Input
+                  id="chat-words"
+                  type="number"
+                  min={RULE_LIMITS.minWords}
+                  max={RULE_LIMITS.maxWords}
+                  defaultValue={answerRules.maxWords}
+                  onBlur={(e) => {
+                    const next = clampWords(Number(e.target.value));
+                    e.target.value = String(next);
+                    if (next !== answerRules.maxWords) {
+                      saveRule('maxWords', next, 'ai_chat_max_words');
+                    }
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Between {RULE_LIMITS.minWords} and {RULE_LIMITS.maxWords}. This also lowers the
+                  ceiling on the call itself, so a shorter answer is genuinely cheaper rather than
+                  merely requested.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="chat-escalation" className="text-xs">
+                  Where to send someone he cannot help
+                </Label>
+                <Input
+                  id="chat-escalation"
+                  maxLength={RULE_LIMITS.escalation}
+                  placeholder="e.g. the school office on 0800 000 0000"
+                  defaultValue={answerRules.escalation}
+                  onBlur={(e) => {
+                    const next = e.target.value.trim();
+                    if (next !== answerRules.escalation) {
+                      saveRule('escalation', next, 'ai_chat_escalation');
+                    }
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  A named office beats “contact the school”, and only you know what to put here.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="chat-decline" className="text-xs">
+                Subjects to decline
+              </Label>
+              <Textarea
+                id="chat-decline"
+                rows={2}
+                maxLength={RULE_LIMITS.decline}
+                placeholder="e.g. doctrinal rulings, disciplinary matters, anything about another student"
+                defaultValue={answerRules.decline}
+                onBlur={(e) => {
+                  const next = e.target.value.trim();
+                  if (next !== answerRules.decline) saveRule('decline', next, 'ai_chat_decline');
+                }}
+              />
+            </div>
+
+            {/* Shown so it is clear what is being relied on — and shown
+                read-only, because these are the lines that removing would
+                quietly break. */}
+            <div className="rounded-lg border border-dashed bg-muted/30 p-3">
+              <p className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                <Lock className="h-3 w-3" /> Always applied, and not editable
+              </p>
+              <ul className="mt-2 space-y-1.5">
+                {NON_NEGOTIABLE_RULES.map((rule) => (
+                  <li key={rule} className="text-xs leading-relaxed text-muted-foreground">
+                    • {rule}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-muted-foreground">
+                These are in the code rather than on this screen on purpose. The first is the only
+                thing standing between a student and a confidently wrong balance, and an editable
+                prompt is also a way to delete it by accident. They are restated after your guidance
+                above so nothing added there can read as replacing them.
+              </p>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              What he can do is bounded by more than wording: every read goes through the asker's
+              own permissions, every figure comes from the database rather than from the model, and
+              the chatbox has no way to change any record — it can tell someone where to do
+              something, never do it for them. Exam marks are not read at all, so “did I pass?”
+              cannot be answered before you release results.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <Alert>
         <CheckCircle2 className="h-4 w-4" />
