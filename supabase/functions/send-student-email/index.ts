@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { type AttendanceRow, tallyAttendance } from "../_shared/attendance.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,6 +41,90 @@ Deno.serve(async (req) => {
 
     const { recipients, subject, body } = await req.json();
 
+    /**
+     * Per-recipient figures, filled here rather than written by anyone.
+     *
+     * A letter about attendance that quotes the cohort average tells the
+     * student nothing about themselves, and thirty separately drafted letters
+     * would mean thirty model calls and thirty individual records in prompts.
+     * So one letter is written with tokens in it and each recipient's own true
+     * figures are substituted at send time, from the same tally the student
+     * sees on their own attendance page.
+     *
+     * Only recipients carrying a student id get figures. Anyone else keeps the
+     * letter as written, which is what a token in a message to a non-student
+     * should do — nothing.
+     */
+    const merged = new Map<string, Record<string, string>>();
+    const withIds = (recipients as { student_id?: string }[])
+      .map((r) => r.student_id)
+      .filter((id): id is string => !!id);
+
+    if (withIds.length > 0 && /\{\{\s*(classes_|attendance)/.test(String(body))) {
+      const { data: studentRows } = await supabase
+        .from("students")
+        .select("id, cohort_id")
+        .in("id", withIds);
+
+      const cohortIds = [
+        ...new Set(
+          ((studentRows ?? []) as { cohort_id: string | null }[])
+            .map((r) => r.cohort_id)
+            .filter((id): id is string => !!id),
+        ),
+      ];
+
+      const [{ data: sessions }, { data: marks }] = await Promise.all([
+        supabase
+          .from("schedule")
+          .select("id, cohort_id")
+          .in("cohort_id", cohortIds)
+          .eq("counts_for_attendance", true)
+          .lte("date", new Date().toISOString().slice(0, 10)),
+        supabase
+          .from("attendance")
+          .select("student_id, status, schedule_id, is_verified")
+          .in("student_id", withIds)
+          .limit(20000),
+      ]);
+
+      const sessionsByCohort = new Map<string, Set<string>>();
+      for (const row of (sessions ?? []) as { id: string; cohort_id: string }[]) {
+        if (!sessionsByCohort.has(row.cohort_id)) sessionsByCohort.set(row.cohort_id, new Set());
+        sessionsByCohort.get(row.cohort_id)!.add(row.id);
+      }
+
+      const marksByStudent = new Map<string, AttendanceRow[]>();
+      for (
+        const row of (marks ?? []) as unknown as (AttendanceRow & { student_id: string })[]
+      ) {
+        if (!marksByStudent.has(row.student_id)) marksByStudent.set(row.student_id, []);
+        marksByStudent.get(row.student_id)!.push(row);
+      }
+
+      for (const student of (studentRows ?? []) as { id: string; cohort_id: string | null }[]) {
+        const ids = student.cohort_id ? sessionsByCohort.get(student.cohort_id) : undefined;
+        if (!ids || ids.size === 0) continue;
+        const tally = tallyAttendance(ids, marksByStudent.get(student.id) ?? []);
+        merged.set(student.id, {
+          classes_attended: String(tally.present + tally.late),
+          classes_held: String(tally.total),
+          classes_missed: String(tally.absent),
+          attendance_rate: tally.rate === null ? "—" : `${tally.rate}%`,
+        });
+      }
+    }
+
+    /** Replaces the tokens this recipient has values for, and leaves the rest. */
+    const fill = (text: string, recipient: { student_id?: string; name?: string }): string => {
+      const values: Record<string, string> = {
+        first_name: String(recipient.name ?? "").trim().split(/\s+/)[0] || "Student",
+        ...(recipient.student_id ? merged.get(recipient.student_id) ?? {} : {}),
+      };
+      return text.replace(/\{\{\s*(\w+)\s*\}\}/g, (whole, token: string) =>
+        token in values ? values[token] : whole);
+    };
+
     if (!Array.isArray(recipients) || recipients.length === 0) {
       return new Response(JSON.stringify({ error: "Recipients must be a non-empty array" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -71,12 +156,12 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             from: "Spirit Life SOM <onboarding@resend.dev>",
             to: recipient.email,
-            subject,
+            subject: fill(subject, recipient),
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <p>Dear ${recipient.name || "Student"},</p>
                 <div style="margin: 20px 0; line-height: 1.6;">
-                  ${body.replace(/\n/g, "<br/>")}
+                  ${fill(body, recipient).replace(/\n/g, "<br/>")}
                 </div>
                 <p>God bless you,<br/><strong>Spirit Life School of Ministry</strong></p>
               </div>

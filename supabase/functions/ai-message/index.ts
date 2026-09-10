@@ -22,6 +22,7 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0
 import { chainFailureResponse, corsHeaders, guard, json } from "../_shared/ai-guard.ts";
 import { runChain } from "../_shared/ai-chain.ts";
 import { line, tidy } from "../_shared/ai-text.ts";
+import { tallyAttendance } from "../_shared/attendance.ts";
 
 /** What may be drafted, and what each one is for. */
 const KINDS = {
@@ -54,6 +55,19 @@ const prompt = (
   `${RULES}
 
 You are writing ${KINDS[kind]}.
+${
+    kind === "attendance_nudge"
+      ? `
+This letter goes to each student separately, and their own figures are filled in when it is sent. Write these tokens exactly where the figure belongs, and never write a number in their place:
+  {{first_name}}          their first name
+  {{classes_attended}}    classes they attended
+  {{classes_held}}        classes held so far
+  {{classes_missed}}      classes they missed
+  {{attendance_rate}}     their own attendance, e.g. 23%
+Use at most three of them. The cohort figures below are context for you, not for the letter — never quote a cohort average to a student as though it were theirs.
+`
+      : ""
+  }
 
 ${
     wantsSubject
@@ -140,16 +154,75 @@ const gatherFacts = async (
   }
 
   if (kind === "attendance_nudge") {
-    // attendance has no cohort of its own, so it is reached through the student.
-    let query = service.from("attendance").select("status, students!inner(cohort_id)");
-    if (cohortId) query = query.eq("students.cohort_id", cohortId);
-    const { data } = await query.limit(5000);
+    /**
+     * Counted against the classes the cohort held, not against the rows that
+     * exist.
+     *
+     * An absence is a missing row, so counting rows scores every cohort at or
+     * near 100% — this drafted a letter telling students their attendance had
+     * slipped and then quoted 96% as the figure, which is the one way to make
+     * such a letter worse than not sending it.
+     *
+     * Tallied per student and then averaged. The shared tally credits a session
+     * once, so pooling every student's rows would count a class as attended
+     * because somebody attended it, and hand back nearly 100% again by a
+     * different route.
+     */
+    if (cohortId) {
+      const [{ data: sessions }, { data: marks }] = await Promise.all([
+        service
+          .from("schedule")
+          .select("id")
+          .eq("cohort_id", cohortId)
+          .eq("counts_for_attendance", true)
+          .lte("date", new Date().toISOString().slice(0, 10)),
+        service
+          .from("attendance")
+          .select("student_id, status, schedule_id, is_verified, students!inner(cohort_id)")
+          .eq("students.cohort_id", cohortId)
+          .limit(20000),
+      ]);
 
-    const rows = (data ?? []) as { status: string | null }[];
-    const present = rows.filter((row) => /present|late/i.test(String(row.status ?? ""))).length;
-    if (rows.length) {
-      parts.push(line("Attendance records counted", rows.length));
-      parts.push(line("Overall attendance rate", `${Math.round((present / rows.length) * 100)}%`));
+      const sessionIds = new Set(((sessions ?? []) as { id: string }[]).map((r) => r.id));
+      const rows = (marks ?? []) as unknown as {
+        student_id: string;
+        status: string | null;
+        schedule_id: string | null;
+        is_verified: boolean | null;
+      }[];
+
+      if (sessionIds.size > 0) {
+        const { count: enrolled } = await service
+          .from("students")
+          .select("id", { count: "exact", head: true })
+          .eq("cohort_id", cohortId)
+          .eq("is_staff_preview", false);
+
+        const byStudent = new Map<string, typeof rows>();
+        for (const row of rows) {
+          if (!byStudent.has(row.student_id)) byStudent.set(row.student_id, []);
+          byStudent.get(row.student_id)!.push(row);
+        }
+
+        const rates: number[] = [];
+        for (const own of byStudent.values()) {
+          const tally = tallyAttendance(sessionIds, own);
+          if (tally.rate !== null) rates.push(tally.rate);
+        }
+        // A student with no rows at all has attended nothing, and leaving them
+        // out would flatter the average by exactly the students the letter is
+        // being written about.
+        const missing = Math.max(0, (enrolled ?? byStudent.size) - byStudent.size);
+        for (let i = 0; i < missing; i += 1) rates.push(0);
+
+        parts.push(line("Classes held so far", sessionIds.size));
+        if (rates.length) {
+          const average = Math.round(rates.reduce((sum, r) => sum + r, 0) / rates.length);
+          const below = rates.filter((r) => r < 75).length;
+          parts.push(line("Average attendance across the cohort", `${average}%`));
+          parts.push(line("Students below 75%", `${below} of ${rates.length}`));
+        }
+      }
     }
   }
 

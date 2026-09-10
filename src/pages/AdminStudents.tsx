@@ -518,7 +518,13 @@ const AdminStudents = () => {
     if (!emailSubject.trim() || !emailBody.trim()) { toast.error("Subject and body required"); return; }
     try {
       setSendingEmail(true);
-      const recipients = emailTargets.map((s) => ({ email: s.profile.email, name: `${s.profile.first_name} ${s.profile.last_name}`.trim() }));
+      // The id travels with the address so the sender can fill this student's
+      // own figures into any {{token}} the body carries.
+      const recipients = emailTargets.map((s) => ({
+        student_id: s.id,
+        email: s.profile.email,
+        name: `${s.profile.first_name} ${s.profile.last_name}`.trim(),
+      }));
       const { data, error } = await supabase.functions.invoke("send-student-email", { body: { recipients, subject: emailSubject, body: emailBody } });
       if (error) throw error;
       if (data.failCount > 0) toast.warning(`${data.successCount} sent, ${data.failCount} failed`);
@@ -1148,6 +1154,15 @@ const AdminStudents = () => {
             <div>
               <Label htmlFor="email-body">Message</Label>
               <Textarea id="email-body" value={emailBody} onChange={(e) => setEmailBody(e.target.value)} placeholder="Write your message here..." rows={6} className="mt-1" />
+              {/* Named here because a token nobody knows about is a token
+                  nobody uses, and a letter about attendance quoting the
+                  cohort's average tells a student nothing about themselves. */}
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Each recipient gets their own figures where you write{" "}
+                <code>{"{{first_name}}"}</code>, <code>{"{{classes_attended}}"}</code>,{" "}
+                <code>{"{{classes_held}}"}</code>, <code>{"{{classes_missed}}"}</code> or{" "}
+                <code>{"{{attendance_rate}}"}</code>. Anything else in braces is left alone.
+              </p>
             </div>
           </div>
           <div className="flex gap-2 justify-end pt-4 border-t border-border">
