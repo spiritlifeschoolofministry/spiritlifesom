@@ -553,7 +553,7 @@ export default function ExamMonitor() {
     <div className="space-y-4">
       <PageHeader
         title={exam.title}
-        description={`${exam.courses?.code} · ${exam.cohorts?.name}`}
+        description={`${exam.courses?.code ?? "All courses"} · ${exam.cohorts?.name}`}
         breadcrumbs={[{ label: "Exams", to: "/admin/exams" }, { label: "Monitor" }]}
         backTo="/admin/exams"
         backLabel="Back to exams"

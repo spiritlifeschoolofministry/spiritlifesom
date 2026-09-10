@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import {
   Activity, AlertCircle, BookOpen, Camera, Edit, Eye, FileQuestion, Keyboard, Loader2,
   Lock, LogIn, Maximize, Mic, Plus, RotateCcw, Search, Send, Shuffle, Smartphone,
-  Square, Trash2, Users, Archive, Sparkles,
+  Square, Trash2, Users, Archive,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -21,7 +21,7 @@ type Exam = {
   title: string;
   assessment_type: string;
   status: string;
-  course_id: string;
+  course_id: string | null;
   cohort_id: string;
   start_at: string;
   end_at: string;
@@ -220,10 +220,14 @@ export default function ExamsList() {
 
     setExams(
       (examRes.data ?? []).map((e) => {
-        const course = courseById.get(e.course_id);
+        const course = e.course_id ? courseById.get(e.course_id) : null;
         return {
           ...e,
-          courseLabel: course ? `${course.code} — ${course.title}` : "Unknown course",
+          // A null course_id is a deliberate combined paper, not a lost course,
+          // so it must not read as "Unknown course".
+          courseLabel: course
+            ? `${course.code} — ${course.title}`
+            : e.course_id ? "Unknown course" : "All courses",
           cohortLabel: cohortById.get(e.cohort_id)?.name ?? "Unknown cohort",
           questionCount: questionCounts.get(e.id) ?? 0,
           attemptCount: attemptCounts.get(e.id) ?? 0,
@@ -382,12 +386,6 @@ export default function ExamsList() {
         <div className="flex gap-2">
           <Button variant="outline" asChild>
             <Link to="/admin/exams/questions"><BookOpen className="w-4 h-4 mr-1.5" /> Question Bank</Link>
-          </Button>
-          {/* Next to the bank because that is where someone looks for it, and
-              labelled apart from it because they must never be confused: one
-              holds real papers, the other what students may practise against. */}
-          <Button variant="outline" asChild>
-            <Link to="/admin/exams/practice"><Sparkles className="w-4 h-4 mr-1.5" /> Practice</Link>
           </Button>
           <Button asChild>
             <Link to="/admin/exams/new"><Plus className="w-4 h-4 mr-1.5" /> New Exam</Link>

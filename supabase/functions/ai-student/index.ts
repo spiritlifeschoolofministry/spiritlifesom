@@ -39,6 +39,16 @@ const PRACTICE_SIZE_DEFAULT = 10;
 const PRACTICE_SIZE_MIN = 3;
 const PRACTICE_SIZE_MAX = 30;
 
+/**
+ * The ceiling on a round the student sized themselves.
+ *
+ * Higher than PRACTICE_SIZE_MAX, which caps the school-wide default: a round
+ * across every course has a far bigger pool behind it, and asking for fifty
+ * questions off the whole syllabus is a reasonable thing to want before a
+ * combined paper. Still a server-side clamp — the number arrives from a client.
+ */
+const PRACTICE_PICK_MAX = 50;
+
 const practiceRoundSize = async (service: SupabaseClient): Promise<number> => {
   const { data } = await service
     .from("system_settings")
@@ -342,8 +352,59 @@ Deno.serve(async (req) => {
      * is the difference between practising and reading the answers.
      */
     if (action === "practice_start") {
-      const courseId = String(body?.course_id ?? "");
-      if (!courseId) return json({ error: "Pick a course to practise." }, 400);
+      /**
+       * One course, several, or every course the student takes.
+       *
+       * `course_ids` is the shape now; `course_id` is still accepted because a
+       * client cached from before this change sends it. An empty list means
+       * "all of mine" rather than "none".
+       */
+      const requested = Array.isArray(body?.course_ids)
+        ? [...new Set(body.course_ids.map((c: unknown) => String(c)).filter(Boolean))]
+        : String(body?.course_id ?? "")
+          ? [String(body.course_id)]
+          : [];
+
+      /**
+       * Which courses this student may practise, worked out here rather than
+       * trusted from the request.
+       *
+       * Practice used to serve whatever course id it was handed, which was
+       * survivable while a round meant naming one course from a list the page
+       * had already filtered. "All courses" makes the list itself a parameter,
+       * and a parameter a client chooses is a parameter a client can widen —
+       * so the allowed set comes from the student's own cohort, both ways a
+       * course can belong to one: the course's own cohort_id, and the
+       * course_cohorts rows for courses later shared with it.
+       */
+      const { data: studentRow } = await service
+        .from("students")
+        .select("cohort_id")
+        .eq("id", studentId)
+        .maybeSingle();
+      const cohortId = (studentRow as { cohort_id: string | null } | null)?.cohort_id ?? null;
+      if (!cohortId) {
+        return json({ error: "You are not in a cohort yet, so there is nothing to practise." }, 400);
+      }
+
+      const [ownRes, sharedRes] = await Promise.all([
+        service.from("courses").select("id").eq("cohort_id", cohortId),
+        service.from("course_cohorts").select("course_id").eq("cohort_id", cohortId),
+      ]);
+      const allowed = new Set<string>([
+        ...((ownRes.data ?? []) as { id: string }[]).map((c) => c.id),
+        ...((sharedRes.data ?? []) as { course_id: string }[]).map((c) => c.course_id),
+      ]);
+      if (allowed.size === 0) {
+        return json({ error: "Your cohort has no courses yet." }, 404);
+      }
+
+      const courseIds = requested.length > 0
+        ? requested.filter((id) => allowed.has(id))
+        : [...allowed];
+      if (courseIds.length === 0) {
+        return json({ error: "That is not one of your courses." }, 403);
+      }
 
       // `practice_questions`, never `question_bank`. The bank holds the real
       // exam and test questions, and practice shows the correct answer after
@@ -352,16 +413,19 @@ Deno.serve(async (req) => {
       // ever be the only thing standing between them.
       const { data: bank } = await service
         .from("practice_questions")
-        .select("id, question_text, question_type, options, points")
-        .eq("course_id", courseId)
+        .select("id, course_id, question_text, question_type, options, points, courses(code, title)")
+        .in("course_id", courseIds)
         .eq("archived", false)
         .eq("status", "approved")
-        .limit(200);
+        // Room for a round drawn from every course, not just one.
+        .limit(1000);
 
       const pool = (bank ?? []) as Record<string, unknown>[];
       if (pool.length === 0) {
         return json({
-          error: "There are no practice questions for this course yet.",
+          error: courseIds.length === 1
+            ? "There are no practice questions for this course yet."
+            : "There are no practice questions for any of those courses yet.",
         }, 404);
       }
 
@@ -382,13 +446,26 @@ Deno.serve(async (req) => {
         const j = Math.floor(Math.random() * (i + 1));
         [picked[i], picked[j]] = [picked[j], picked[i]];
       }
-      picked.length = Math.min(picked.length, await practiceRoundSize(service));
+      /**
+       * How long the round is: what the student asked for, or the school's
+       * default when they asked for nothing. Clamped either way — the number
+       * decides how much of the pool one round reveals, and it arrives from a
+       * client.
+       */
+      const asked = Number(body?.count);
+      const size = Number.isFinite(asked) && asked > 0
+        ? Math.min(PRACTICE_PICK_MAX, Math.max(PRACTICE_SIZE_MIN, Math.floor(asked)))
+        : await practiceRoundSize(service);
+      picked.length = Math.min(picked.length, size);
 
       const { data: session, error } = await service
         .from("practice_sessions")
         .insert({
           student_id: studentId,
-          course_id: courseId,
+          // NULL for a round spanning several courses: the column records the
+          // one course practised, and there is no honest single answer here.
+          // question_ids is the record of what was actually served.
+          course_id: courseIds.length === 1 ? courseIds[0] : null,
           question_ids: picked.map((q) => q.id),
         })
         .select("id")
@@ -397,13 +474,21 @@ Deno.serve(async (req) => {
 
       return json({
         session_id: (session as { id: string }).id,
-        questions: picked.map((q) => ({
-          id: q.id,
-          question_text: q.question_text,
-          question_type: q.question_type,
-          options: q.options,
-          points: q.points,
-        })),
+        // The course travels with each question so a mixed round can say which
+        // course the one on screen came from. Still no answer key.
+        questions: picked.map((q) => {
+          const course = q.courses as { code: string | null; title: string | null } | null;
+          return {
+            id: q.id,
+            question_text: q.question_text,
+            question_type: q.question_type,
+            options: q.options,
+            points: q.points,
+            course_id: q.course_id,
+            course_code: course?.code ?? null,
+            course_title: course?.title ?? null,
+          };
+        }),
       });
     }
 

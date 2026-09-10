@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       activity_events: {
@@ -81,6 +56,13 @@ export type Database = {
             foreignKeyName: "activity_events_actor_id_fkey"
             columns: ["actor_id"]
             isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "activity_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -89,6 +71,215 @@ export type Database = {
             columns: ["cohort_id"]
             isOneToOne: false
             referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_insights: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          model: string | null
+          provider: string | null
+          scope: string
+          scope_key: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          model?: string | null
+          provider?: string | null
+          scope: string
+          scope_key: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          model?: string | null
+          provider?: string | null
+          scope?: string
+          scope_key?: string
+        }
+        Relationships: []
+      }
+      ai_model_usage: {
+        Row: {
+          calls: number
+          day: string
+          failures: number
+          provider_id: string
+        }
+        Insert: {
+          calls?: number
+          day: string
+          failures?: number
+          provider_id: string
+        }
+        Update: {
+          calls?: number
+          day?: string
+          failures?: number
+          provider_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_model_usage_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "ai_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_private_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      ai_providers: {
+        Row: {
+          api_key: string | null
+          base_url: string | null
+          created_at: string
+          daily_limit: number | null
+          enabled: boolean
+          id: string
+          last_error: string | null
+          last_used_at: string | null
+          model: string
+          position: number
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          api_key?: string | null
+          base_url?: string | null
+          created_at?: string
+          daily_limit?: number | null
+          enabled?: boolean
+          id?: string
+          last_error?: string | null
+          last_used_at?: string | null
+          model?: string
+          position?: number
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string | null
+          base_url?: string | null
+          created_at?: string
+          daily_limit?: number | null
+          enabled?: boolean
+          id?: string
+          last_error?: string | null
+          last_used_at?: string | null
+          model?: string
+          position?: number
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_summaries: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          model: string | null
+          provider: string | null
+          scope: string
+          scope_key: string
+          student_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          model?: string | null
+          provider?: string | null
+          scope: string
+          scope_key: string
+          student_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          model?: string | null
+          provider?: string | null
+          scope?: string
+          scope_key?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_summaries_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "graduate_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_summaries_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_usage: {
+        Row: {
+          calls: number
+          day: string
+          feature: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          calls?: number
+          day?: string
+          feature: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          calls?: number
+          day?: string
+          feature?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "ai_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -653,6 +844,8 @@ export type Database = {
       }
       course_materials: {
         Row: {
+          ai_description_written_at: string | null
+          ai_excerpt: string | null
           cohort_id: string
           course_id: string
           created_at: string | null
@@ -666,10 +859,13 @@ export type Database = {
           material_type: string | null
           storage_path: string | null
           storage_provider: string | null
+          tags: string[]
           title: string
           uploaded_by: string | null
         }
         Insert: {
+          ai_description_written_at?: string | null
+          ai_excerpt?: string | null
           cohort_id: string
           course_id: string
           created_at?: string | null
@@ -683,10 +879,13 @@ export type Database = {
           material_type?: string | null
           storage_path?: string | null
           storage_provider?: string | null
+          tags?: string[]
           title: string
           uploaded_by?: string | null
         }
         Update: {
+          ai_description_written_at?: string | null
+          ai_excerpt?: string | null
           cohort_id?: string
           course_id?: string
           created_at?: string | null
@@ -700,6 +899,7 @@ export type Database = {
           material_type?: string | null
           storage_path?: string | null
           storage_provider?: string | null
+          tags?: string[]
           title?: string
           uploaded_by?: string | null
         }
@@ -858,6 +1058,9 @@ export type Database = {
       }
       exam_answers: {
         Row: {
+          ai_marked_at: string | null
+          ai_suggested_feedback: string | null
+          ai_suggested_points: number | null
           answer: Json | null
           attempt_id: string
           autosaved_at: string
@@ -869,6 +1072,9 @@ export type Database = {
           time_spent_seconds: number
         }
         Insert: {
+          ai_marked_at?: string | null
+          ai_suggested_feedback?: string | null
+          ai_suggested_points?: number | null
           answer?: Json | null
           attempt_id: string
           autosaved_at?: string
@@ -880,6 +1086,9 @@ export type Database = {
           time_spent_seconds?: number
         }
         Update: {
+          ai_marked_at?: string | null
+          ai_suggested_feedback?: string | null
+          ai_suggested_points?: number | null
           answer?: Json | null
           attempt_id?: string
           autosaved_at?: string
@@ -918,6 +1127,7 @@ export type Database = {
         Row: {
           active_session_id: string | null
           auto_submitted: boolean
+          browser_install_id: string | null
           created_at: string
           device_fingerprint: string | null
           duration_used_seconds: number
@@ -948,6 +1158,7 @@ export type Database = {
         Insert: {
           active_session_id?: string | null
           auto_submitted?: boolean
+          browser_install_id?: string | null
           created_at?: string
           device_fingerprint?: string | null
           duration_used_seconds?: number
@@ -978,6 +1189,7 @@ export type Database = {
         Update: {
           active_session_id?: string | null
           auto_submitted?: boolean
+          browser_install_id?: string | null
           created_at?: string
           device_fingerprint?: string | null
           duration_used_seconds?: number
@@ -1259,7 +1471,7 @@ export type Database = {
           block_shortcuts: boolean
           cohort_id: string
           count_best_n: number | null
-          course_id: string
+          course_id: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -1300,7 +1512,7 @@ export type Database = {
           block_shortcuts?: boolean
           cohort_id: string
           count_best_n?: number | null
-          course_id: string
+          course_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -1341,7 +1553,7 @@ export type Database = {
           block_shortcuts?: boolean
           cohort_id?: string
           count_best_n?: number | null
-          course_id?: string
+          course_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -1691,6 +1903,130 @@ export type Database = {
           },
         ]
       }
+      practice_questions: {
+        Row: {
+          ai_generated: boolean
+          archived: boolean
+          cohort_id: string | null
+          correct_answer: Json | null
+          course_id: string
+          created_at: string
+          created_by: string | null
+          explanation: string | null
+          id: string
+          options: Json | null
+          points: number
+          question_text: string
+          question_type: string
+          source_material_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          ai_generated?: boolean
+          archived?: boolean
+          cohort_id?: string | null
+          correct_answer?: Json | null
+          course_id: string
+          created_at?: string
+          created_by?: string | null
+          explanation?: string | null
+          id?: string
+          options?: Json | null
+          points?: number
+          question_text: string
+          question_type: string
+          source_material_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_generated?: boolean
+          archived?: boolean
+          cohort_id?: string | null
+          correct_answer?: Json | null
+          course_id?: string
+          created_at?: string
+          created_by?: string | null
+          explanation?: string | null
+          id?: string
+          options?: Json | null
+          points?: number
+          question_text?: string
+          question_type?: string
+          source_material_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_questions_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_questions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_questions_source_material_id_fkey"
+            columns: ["source_material_id"]
+            isOneToOne: false
+            referencedRelation: "course_materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practice_sessions: {
+        Row: {
+          answers: Json
+          completed_at: string | null
+          course_id: string | null
+          created_at: string
+          id: string
+          question_ids: Json
+          student_id: string
+        }
+        Insert: {
+          answers?: Json
+          completed_at?: string | null
+          course_id?: string | null
+          created_at?: string
+          id?: string
+          question_ids?: Json
+          student_id: string
+        }
+        Update: {
+          answers?: Json
+          completed_at?: string | null
+          course_id?: string | null
+          created_at?: string
+          id?: string
+          question_ids?: Json
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_sessions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "graduate_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_sessions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1756,6 +2092,7 @@ export type Database = {
       }
       question_bank: {
         Row: {
+          ai_generated: boolean
           archived: boolean
           code_language: string | null
           code_snippet: string | null
@@ -1771,10 +2108,14 @@ export type Database = {
           points: number
           question_text: string
           question_type: string
+          rubric: string | null
+          source_material_id: string | null
+          status: string
           tags: string[] | null
           updated_at: string
         }
         Insert: {
+          ai_generated?: boolean
           archived?: boolean
           code_language?: string | null
           code_snippet?: string | null
@@ -1790,10 +2131,14 @@ export type Database = {
           points?: number
           question_text: string
           question_type: string
+          rubric?: string | null
+          source_material_id?: string | null
+          status?: string
           tags?: string[] | null
           updated_at?: string
         }
         Update: {
+          ai_generated?: boolean
           archived?: boolean
           code_language?: string | null
           code_snippet?: string | null
@@ -1809,6 +2154,9 @@ export type Database = {
           points?: number
           question_text?: string
           question_type?: string
+          rubric?: string | null
+          source_material_id?: string | null
+          status?: string
           tags?: string[] | null
           updated_at?: string
         }
@@ -1825,6 +2173,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_bank_source_material_id_fkey"
+            columns: ["source_material_id"]
+            isOneToOne: false
+            referencedRelation: "course_materials"
             referencedColumns: ["id"]
           },
         ]
@@ -2384,33 +2739,29 @@ export type Database = {
         }[]
       }
       activity_pulse: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           active_today: number
           active_week: number
           downloads_today: number
           downloads_week: number
-          first_event_day: string | null
+          first_event_day: string
           views_today: number
           views_week: number
         }[]
       }
       activity_top_subjects: {
-        Args: { p_cohort_id?: string; p_days?: number; p_kind: string; p_limit?: number }
+        Args: {
+          p_cohort_id?: string
+          p_days?: number
+          p_kind: string
+          p_limit?: number
+        }
         Returns: {
           events: number
           people: number
           subject: string
-          subject_id: string | null
-        }[]
-      }
-      ai_usage_daily: {
-        Args: { p_days?: number }
-        Returns: {
-          calls: number
-          day: string
-          feature: string
-          people: number
+          subject_id: string
         }[]
       }
       adjust_fee_amount_paid: {
@@ -2447,6 +2798,27 @@ export type Database = {
       admin_update_fee_structure: {
         Args: { p_amount: number; p_id: string; p_learning_modes: string[] }
         Returns: Json
+      }
+      ai_consume_quota: {
+        Args: { p_feature: string; p_limit: number; p_user_id: string }
+        Returns: {
+          allowed: boolean
+          quota: number
+          used: number
+        }[]
+      }
+      ai_record_model_call: {
+        Args: { p_ok: boolean; p_provider_id: string }
+        Returns: number
+      }
+      ai_usage_daily: {
+        Args: { p_days?: number }
+        Returns: {
+          calls: number
+          day: string
+          feature: string
+          people: number
+        }[]
       }
       approve_student_by_token: { Args: { token: string }; Returns: Json }
       approve_student_payment: {
@@ -2688,9 +3060,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

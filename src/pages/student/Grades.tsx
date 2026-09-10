@@ -147,7 +147,7 @@ const StudentGrades = () => {
       // dialog promised it went "into Grades".
       const { data: examAttempts } = await supabase
         .from("exam_attempts")
-        .select("id, score, manual_score_override, status, submitted_at, max_points, exams(id, title, assessment_type, total_points, results_released, cohort_id, courses(title))")
+        .select("id, score, manual_score_override, status, submitted_at, max_points, exams(id, title, assessment_type, total_points, results_released, cohort_id, course_id, courses(title))")
         .eq("student_id", student.id)
         .in("status", ["submitted", "graded"]);
 
@@ -169,7 +169,8 @@ const StudentGrades = () => {
           grade: released ? Number(a.manual_score_override ?? a.score ?? 0) : null,
           feedback: null,
           reviewed_at: a.submitted_at ?? null,
-          course_title: a.exams!.courses?.title || "—",
+          // A combined paper carries no course, deliberately.
+          course_title: a.exams!.courses?.title || (a.exams!.course_id ? "—" : "All courses"),
           state: released ? "graded" as const : "awaiting" as const,
           attemptId: a.id,
         };

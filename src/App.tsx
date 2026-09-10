@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import PublicLayout from "./components/PublicLayout";
@@ -186,7 +186,11 @@ const App = () => {
             <Route path="/admin/ai" element={<ProtectedRoute requiredRole="superadmin"><AdminAiSettings /></ProtectedRoute>} />
             <Route path="/admin/exams" element={<ProtectedRoute requiredRole="admin"><AdminExamsList /></ProtectedRoute>} />
             <Route path="/admin/exams/questions" element={<ProtectedRoute requiredRole="admin"><AdminQuestionBank /></ProtectedRoute>} />
-            <Route path="/admin/exams/practice" element={<ProtectedRoute requiredRole="admin"><AdminPracticeQuestions /></ProtectedRoute>} />
+            {/* Practice questions are their own thing under Academics, not part of
+                an exam. The old path stays as a redirect so a bookmark or a link
+                sent round before the move still lands somewhere. */}
+            <Route path="/admin/practice" element={<ProtectedRoute requiredRole="admin"><AdminPracticeQuestions /></ProtectedRoute>} />
+            <Route path="/admin/exams/practice" element={<Navigate to="/admin/practice" replace />} />
             <Route path="/admin/exams/new" element={<ProtectedRoute requiredRole="admin"><AdminExamBuilder /></ProtectedRoute>} />
             <Route path="/admin/exams/:id/edit" element={<ProtectedRoute requiredRole="admin"><AdminExamBuilder /></ProtectedRoute>} />
             <Route path="/admin/exams/:id/monitor" element={<ProtectedRoute requiredRole="admin"><AdminExamMonitor /></ProtectedRoute>} />

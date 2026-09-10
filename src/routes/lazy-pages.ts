@@ -121,7 +121,7 @@ export const AdminExamsList = lazyPage(() => import("@/pages/admin/exams/ExamsLi
 export const AdminExamBuilder = lazyPage(() => import("@/pages/admin/exams/ExamBuilder"));
 export const AdminExamMonitor = lazyPage(() => import("@/pages/admin/exams/ExamMonitor"));
 export const AdminQuestionBank = lazyPage(() => import("@/pages/admin/exams/QuestionBank"));
-export const AdminPracticeQuestions = lazyPage(() => import("@/pages/admin/exams/PracticeQuestions"));
+export const AdminPracticeQuestions = lazyPage(() => import("@/pages/admin/PracticeQuestions"));
 export const AdminStorage = lazyPage(() => import("@/pages/admin/StorageManagement"));
 export const AdminAiSettings = lazyPage(() => import("@/pages/admin/AiSettings"));
 export const StudentStudy = lazyPage(() => import("@/pages/student/Study"));
@@ -161,6 +161,7 @@ const PAGE_BY_PATH: Record<string, LazyPage> = {
   "/admin/attendance": AdminAttendance,
   "/admin/assignments": AdminAssignments,
   "/admin/exams": AdminExamsList,
+  "/admin/practice": AdminPracticeQuestions,
   "/admin/materials": AdminMaterials,
   "/admin/fees": AdminFees,
   "/admin/payments": AdminPayments,

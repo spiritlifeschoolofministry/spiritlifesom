@@ -177,7 +177,7 @@ export default function StudentExamsList() {
                             be announced to a student as an exam. */}
                         <Badge variant="secondary" className="text-xs">{e.assessment_type || "Exam"}</Badge>
                       </div>
-                      <p className="text-xs text-muted-foreground">{e.courses?.code} · {e.duration_minutes} min · {e.total_points} pts</p>
+                      <p className="text-xs text-muted-foreground">{e.courses?.code ?? "All courses"} · {e.duration_minutes} min · {e.total_points} pts</p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {format(start, "PPp")} → {format(end, "PPp")}
                       </p>

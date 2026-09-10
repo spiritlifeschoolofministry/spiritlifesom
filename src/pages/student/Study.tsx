@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -62,7 +63,13 @@ export default function Study() {
   const [loading, setLoading] = useState(true);
 
   // Practice
-  const [practiceCourse, setPracticeCourse] = useState('');
+  /**
+   * The courses this round draws from. Empty means every course the student
+   * takes — the server resolves that, and refuses any course that is not
+   * theirs, so this list is a convenience rather than the boundary.
+   */
+  const [practiceCourses, setPracticeCourses] = useState<string[]>([]);
+  const [practiceCount, setPracticeCount] = useState(10);
   const [sessionId, setSessionId] = useState('');
   const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
   const [index, setIndex] = useState(0);
@@ -129,12 +136,16 @@ export default function Study() {
   }, [assistantOn]);
 
   const current = questions[index];
+  /** True when this round's questions come from more than one course. */
+  const mixedRound = new Set(questions.map((q) => q.course_id ?? '')).size > 1;
 
   const begin = async () => {
-    if (!practiceCourse) return;
     setStarting(true);
     try {
-      const session = await startPractice(practiceCourse);
+      const session = await startPractice({
+        courseIds: practiceCourses,
+        count: practiceCount,
+      });
       setSessionId(session.session_id);
       setQuestions(session.questions);
       setIndex(0);
@@ -323,26 +334,77 @@ export default function Study() {
               ? (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Practise a course</CardTitle>
+                    <CardTitle className="text-base">Set up a practice round</CardTitle>
                     <CardDescription>
-                      Practice questions for this course, drawn at random, with the explanation
-                      shown after each one. These are written for practice — they are not the
-                      questions from your exams.
+                      Pick one course, several, or leave them all and practise across everything you
+                      take. Questions are drawn at random, with the explanation shown after each
+                      one. These are written for practice — they are not the questions from your
+                      exams.
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div>
-                      <Label>Course</Label>
-                      <Select value={practiceCourse} onValueChange={setPracticeCourse}>
-                        <SelectTrigger><SelectValue placeholder="Pick a course" /></SelectTrigger>
-                        <SelectContent>
-                          {courses.map((course) => (
-                            <SelectItem key={course.id} value={course.id}>{course.title}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <Label>Courses</Label>
+                        {/* Selecting nothing already means everything, so this
+                            button clears rather than ticking every box — the two
+                            are the same round, and one of them is one click. */}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={practiceCourses.length === 0}
+                          onClick={() => setPracticeCourses([])}
+                        >
+                          Use all my courses
+                        </Button>
+                      </div>
+                      <div className="space-y-1.5 rounded-md border border-border p-3">
+                        {courses.map((course) => (
+                          <label key={course.id} className="flex items-center gap-2.5 text-sm">
+                            <Checkbox
+                              checked={practiceCourses.includes(course.id)}
+                              onCheckedChange={(v) =>
+                                setPracticeCourses((prev) =>
+                                  v
+                                    ? [...prev, course.id]
+                                    : prev.filter((id) => id !== course.id),
+                                )}
+                            />
+                            <span>{course.title}</span>
+                          </label>
+                        ))}
+                        {courses.length === 0 && (
+                          <p className="text-sm text-muted-foreground">
+                            No courses on your cohort yet.
+                          </p>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {practiceCourses.length === 0
+                          ? `Nothing ticked, so this round draws from all ${courses.length} of your courses mixed together.`
+                          : `${practiceCourses.length} course${practiceCourses.length === 1 ? '' : 's'} ticked.`}
+                      </p>
                     </div>
-                    <Button disabled={!practiceCourse || starting} onClick={begin}>
+
+                    <div>
+                      <Label htmlFor="practice-count">Number of questions</Label>
+                      <Input
+                        id="practice-count"
+                        type="number"
+                        min={3}
+                        max={50}
+                        value={practiceCount}
+                        onChange={(e) => setPracticeCount(Number(e.target.value))}
+                        className="max-w-[8rem]"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Between 3 and 50. You will get fewer if the courses you picked do not have
+                        that many questions between them.
+                      </p>
+                    </div>
+
+                    <Button disabled={starting || courses.length === 0} onClick={begin}>
                       {starting
                         ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Setting up…</>
                         : <><BookOpen className="mr-1.5 h-4 w-4" /> Start practising</>}
@@ -371,6 +433,11 @@ export default function Study() {
                       <div className="flex items-center justify-between gap-2">
                         <CardTitle className="text-sm text-muted-foreground font-normal">
                           Question {index + 1} of {questions.length}
+                          {/* Only on a mixed round: on a single-course one the
+                              student already knows what they picked. */}
+                          {mixedRound && current.course_title && (
+                            <span className="block text-xs">{current.course_title}</span>
+                          )}
                         </CardTitle>
                         <Badge variant="secondary">{score.right}/{score.done} right</Badge>
                       </div>

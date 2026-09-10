@@ -90,6 +90,16 @@ const DEFAULT: ExamDraft = {
   audio_clip_seconds: 60,
 };
 
+/**
+ * The course select's value for a paper that spans every course.
+ *
+ * A sentinel rather than an empty string, because empty already means "not
+ * chosen yet" and validate() refuses to save on it. The column itself stores
+ * NULL for this; the two are translated at the load and save boundaries so
+ * nothing in between has to know about either representation.
+ */
+const ALL_COURSES = "__all__";
+
 const FieldError = ({ message }: { message?: string }) =>
   message ? <p className="text-xs text-destructive mt-1">{message}</p> : null;
 
@@ -132,6 +142,9 @@ export default function ExamBuilder() {
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState(params.get("tab") || "settings");
   const [previewIdx, setPreviewIdx] = useState(0);
+  // Narrows the picker on an all-courses paper. Purely a way to find questions
+  // in a bank that is now every course's at once — it is not saved anywhere.
+  const [bankCourse, setBankCourse] = useState<string>("all");
   const [importOpen, setImportOpen] = useState(false);
   const [otherExams, setOtherExams] = useState<ExamOption[]>([]);
   const [importExamId, setImportExamId] = useState<string>("");
@@ -225,6 +238,10 @@ export default function ExamBuilder() {
         if (data) {
           setExam({
             ...data,
+            // NULL in the column is a deliberate all-courses paper, not a
+            // missing course, so it comes back as the sentinel rather than as
+            // an empty select that validate() would then refuse.
+            course_id: data.course_id ?? ALL_COURSES,
             start_at: data.start_at ? toLocal(data.start_at) : "",
             end_at: data.end_at ? toLocal(data.end_at) : "",
           });
@@ -249,6 +266,9 @@ export default function ExamBuilder() {
   // What a student can actually reach when only the best few answers count:
   // the highest-valued questions on the paper, which is the same ceiling
   // exam-start records on each attempt.
+  /** True for a paper that draws from every course rather than one. */
+  const allCourses = exam.course_id === ALL_COURSES;
+
   const countedBest = Number(exam.count_best_n) || 0;
   const totalPoints = picked.reduce((sum, qid) => {
     const q = bank.find((b) => b.id === qid);
@@ -351,6 +371,7 @@ export default function ExamBuilder() {
         ...exam,
         start_at: new Date(exam.start_at).toISOString(),
         end_at: new Date(exam.end_at).toISOString(),
+        course_id: exam.course_id === ALL_COURSES ? null : exam.course_id,
         total_points: totalPoints,
         count_best_n: exam.count_best_n || null,
         status: newStatus ?? exam.status,
@@ -395,6 +416,21 @@ export default function ExamBuilder() {
   if (loading) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
 
   const pickedQuestions = picked.map((id) => bank.find((q) => q.id === id)).filter(Boolean);
+  const codeOf = (courseId: string | null) => courses.find((c) => c.id === courseId)?.code ?? "—";
+  /**
+   * The questions the picker offers.
+   *
+   * A single-course paper sees only that course's questions, as before. An
+   * all-courses paper sees every course's, sorted by course code so they read
+   * as groups rather than as one undifferentiated list, with the code on each
+   * row and a filter above for finding one course's questions in it.
+   */
+  const visibleBank = (allCourses
+    ? bank.filter((q) => bankCourse === "all" || q.course_id === bankCourse)
+    : bank.filter((q) => !exam.course_id || q.course_id === exam.course_id)
+  ).slice().sort((a, b) =>
+    allCourses ? codeOf(a.course_id).localeCompare(codeOf(b.course_id)) : 0,
+  );
   const previewQ = pickedQuestions[previewIdx];
   const windowMinutes =
     exam.start_at && exam.end_at ? minutesBetween(exam.start_at, exam.end_at) : null;
@@ -500,11 +536,21 @@ export default function ExamBuilder() {
             <div><Label>Instructions (shown on rules page)</Label><Textarea value={exam.instructions ?? ""} onChange={(e) => update({ instructions: e.target.value })} rows={4} /></div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div><Label>Course *</Label>
-                <Select value={exam.course_id} onValueChange={(v) => update({ course_id: v })}>
+                <Select value={exam.course_id ?? ""} onValueChange={(v) => update({ course_id: v })}>
                   <SelectTrigger aria-invalid={!!errors.course_id}><SelectValue placeholder="Pick course" /></SelectTrigger>
-                  <SelectContent>{courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.code} — {c.title}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    <SelectItem value={ALL_COURSES}>All courses (combined paper)</SelectItem>
+                    {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.code} — {c.title}</SelectItem>)}
+                  </SelectContent>
                 </Select>
                 <FieldError message={errors.course_id} />
+                {allCourses && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    The question tab will offer every course's bank, so one paper can mix them. It
+                    shows on the student's grades as a combined paper and is left out of the
+                    per-course averages on the transcript, which have no single course to sit under.
+                  </p>
+                )}
               </div>
               <div><Label>Cohort *</Label>
                 <Select value={exam.cohort_id} onValueChange={(v) => update({ cohort_id: v })}>
@@ -745,6 +791,22 @@ export default function ExamBuilder() {
                 </p>
               )}
             </div>
+            {allCourses && (
+              <div className="mb-3">
+                <Label>Show questions from</Label>
+                <Select value={bankCourse} onValueChange={setBankCourse}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Every course</SelectItem>
+                    {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.code} — {c.title}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Only narrows what is listed. Questions already picked from another course stay
+                  picked — this is how one paper is built out of several banks.
+                </p>
+              </div>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <p className="text-sm">
                 Select questions from the bank ({picked.length} selected,{" "}
@@ -839,8 +901,7 @@ export default function ExamBuilder() {
               </Dialog>
             </div>
             <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-              {bank
-                .filter((q) => !exam.course_id || q.course_id === exam.course_id)
+              {visibleBank
                 .map((q) => {
                   const checked = picked.includes(q.id);
                   return (
@@ -853,6 +914,7 @@ export default function ExamBuilder() {
                         <div className="flex flex-wrap gap-1.5 mb-1">
                           <Badge variant="secondary" className="text-[10px]">{QUESTION_TYPE_LABELS[q.question_type as QuestionType]}</Badge>
                           <Badge variant="outline" className="text-[10px]">{q.points} pt</Badge>
+                          {allCourses && <Badge variant="outline" className="text-[10px]">{codeOf(q.course_id)}</Badge>}
                         </div>
                         <div className="prose prose-sm dark:prose-invert max-w-none line-clamp-2 text-sm"
                           dangerouslySetInnerHTML={{ __html: sanitizeHtml(q.question_text) }} />
@@ -860,9 +922,9 @@ export default function ExamBuilder() {
                     </div>
                   );
                 })}
-              {bank.filter((q) => !exam.course_id || q.course_id === exam.course_id).length === 0 && (
+              {visibleBank.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-6">
-                  No questions available for this course. Add some in the Question Bank.
+                  No questions available {allCourses && bankCourse !== "all" ? "for that course" : allCourses ? "in any course" : "for this course"}. Add some in the Question Bank.
                 </p>
               )}
             </div>

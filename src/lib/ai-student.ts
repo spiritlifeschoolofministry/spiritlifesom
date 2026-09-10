@@ -64,6 +64,10 @@ export interface PracticeQuestion {
   /** Present for the multiple-choice types. Never includes which one is right. */
   options: string[] | null;
   points: number;
+  /** Which course the question came from, so a mixed round can say. */
+  course_id?: string | null;
+  course_code?: string | null;
+  course_title?: string | null;
 }
 
 export interface PracticeSession {
@@ -78,8 +82,17 @@ export interface PracticeSession {
  * the whole reason practice goes through a function rather than reading the
  * bank directly, which RLS would refuse anyway.
  */
-export const startPractice = async (courseId: string): Promise<PracticeSession> => {
-  const data = await call('ai-student', { action: 'practice_start', course_id: courseId });
+export const startPractice = async (args: {
+  /** Empty means every course the student takes. */
+  courseIds: string[];
+  /** How many questions to serve. The server clamps this and has its own default. */
+  count?: number;
+}): Promise<PracticeSession> => {
+  const data = await call('ai-student', {
+    action: 'practice_start',
+    course_ids: args.courseIds,
+    ...(args.count ? { count: args.count } : {}),
+  });
   return {
     session_id: String(data?.session_id ?? ''),
     questions: (data?.questions ?? []) as PracticeQuestion[],

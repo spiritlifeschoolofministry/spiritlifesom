@@ -176,7 +176,7 @@ export default function ExamLobby() {
     <>
       <div className="max-w-3xl mx-auto space-y-4">
         <Card className="p-6">
-          <Badge variant="outline" className="mb-2">{exam.courses?.code} · {exam.courses?.title}</Badge>
+          <Badge variant="outline" className="mb-2">{exam.courses ? `${exam.courses.code} · ${exam.courses.title}` : "All courses"}</Badge>
           <h1 className="text-2xl font-bold">{exam.title}</h1>
           {exam.description && <p className="text-sm text-muted-foreground mt-2">{exam.description}</p>}
 

@@ -200,6 +200,13 @@ export const ADMIN_PAGES: PortalPage[] = [
     aliases: ['exam', 'paper', 'question bank', 'release results', 'monitor'],
   },
   {
+    path: '/admin/practice',
+    label: 'Practice Questions',
+    group: 'Academics',
+    what: 'write, draft and approve the questions students practise against — never exam questions',
+    aliases: ['practice', 'practise', 'practice questions', 'quiz', 'quizzes', 'revision questions'],
+  },
+  {
     path: '/admin/materials',
     label: 'Materials',
     group: 'Academics',

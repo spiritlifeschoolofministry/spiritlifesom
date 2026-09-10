@@ -115,6 +115,9 @@ const StudentTranscript = () => {
       for (const att of (examsRes.data || [])) {
         if (!att.exam?.results_released) continue;
         const courseId = att.exam.course_id;
+        // A combined paper has no course to sit under, so it stays off the
+        // per-course records and their averages. It is still on the student's
+        // grades page, which lists results rather than grouping them.
         if (!courseId) continue;
         if (!examsByCourse.has(courseId)) examsByCourse.set(courseId, []);
         examsByCourse.get(courseId)!.push({

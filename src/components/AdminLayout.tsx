@@ -86,6 +86,10 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "Attendance", icon: CalendarCheck, path: "/admin/attendance" },
       { label: "Tasks", icon: FileText, path: "/admin/assignments" },
       { label: "Exams", icon: ClipboardCheck, path: "/admin/exams" },
+      // Its own item, not a corner of the exams page: these questions are never
+      // on a paper, and somebody looking for them was looking under Exams for a
+      // thing that is not an exam.
+      { label: "Practice Questions", shortLabel: "Practice", icon: Sparkles, path: "/admin/practice" },
       { label: "Materials", icon: Folder, path: "/admin/materials" },
     ],
   },
