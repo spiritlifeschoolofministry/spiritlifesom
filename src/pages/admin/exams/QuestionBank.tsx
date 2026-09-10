@@ -46,6 +46,7 @@ import { draftQuestions, DRAFTABLE_LABELS, DRAFTABLE_TYPES, type DraftableType, 
 import { useAiFeature, useAssistantName } from "@/lib/ai-flags";
 import { aiDb, type MaterialRow } from "@/lib/ai-db";
 import PageHeader from "@/components/portal/PageHeader";
+import { QuestionHealthPanel } from "@/components/admin/QuestionHealthPanel";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export default function QuestionBank() {
@@ -319,6 +320,26 @@ export default function QuestionBank() {
             </Button>
           </>
         }
+      />
+
+      {/* Before the filters, because a fault in the bank is worth seeing before
+          building an exam out of it. */}
+      <QuestionHealthPanel
+        questions={questions.map((q) => ({
+          id: q.id,
+          course_id: q.course_id,
+          question_type: q.question_type,
+          question_text: q.question_text,
+          options: q.options,
+          correct_answer: q.correct_answer,
+          explanation: q.explanation,
+          status: statusOf(q),
+          archived: !!q.archived,
+        }))}
+        onOpen={(id) => {
+          const found = questions.find((row) => row.id === id);
+          if (found) { setEditing(toDraft(found)); setOpenEditor(true); }
+        }}
       />
 
       <Card className="p-3 flex flex-wrap items-center gap-3">

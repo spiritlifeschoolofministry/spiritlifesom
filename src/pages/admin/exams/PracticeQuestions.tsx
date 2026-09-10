@@ -29,6 +29,7 @@ import PageHeader from '@/components/portal/PageHeader';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useAiFeature, useAssistantName } from '@/lib/ai-flags';
 import { draftQuestions, DRAFTABLE_LABELS, PRACTISABLE_TYPES } from '@/lib/ai-questions';
+import { QuestionHealthPanel } from '@/components/admin/QuestionHealthPanel';
 
 type PractisableType = (typeof PRACTISABLE_TYPES)[number];
 
@@ -260,6 +261,16 @@ export default function PracticeQuestions() {
           and nothing in the bank can be practised.
         </AlertDescription>
       </Alert>
+
+      {/* Before the list, because a fault worth fixing is worth seeing before
+          approving fifty more questions on top of it. */}
+      <QuestionHealthPanel
+        questions={questions}
+        onOpen={(id) => {
+          const found = questions.find((row) => row.id === id);
+          if (found) openEditor(found);
+        }}
+      />
 
       <Card>
         <CardHeader className="gap-3">
