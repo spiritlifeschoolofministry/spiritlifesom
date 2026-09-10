@@ -35,8 +35,9 @@ import { runChain } from "../_shared/ai-chain.ts";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 /** Mirrors STUDENT_INTENTS / ADMIN_INTENTS in src/lib/chat-intents.ts. */
-const STUDENT_INTENTS = ["fees", "tasks", "exams", "attendance", "grades", "week"];
+const STUDENT_INTENTS = ["school", "fees", "tasks", "exams", "attendance", "grades", "week"];
 const ADMIN_INTENTS = [
+  "school",
   "unpaid",
   "pending_admissions",
   "pending_payments",
@@ -223,6 +224,117 @@ interface Resolved {
   /** Anything the model would need if this had to fall through to one. */
   digest?: string;
 }
+
+// ---------------------------------------------------------------------------
+// The school itself
+// ---------------------------------------------------------------------------
+
+/** Long enough to answer, short enough that a chat bubble stays readable. */
+const MAX_SECTION_CHARS = 700;
+
+/**
+ * What the school says about itself, quoted rather than described.
+ *
+ * The text comes from `site_content`, which is what the public About, Contact
+ * and Courses pages already show and what an administrator already edits. That
+ * matters more than convenience: this is a Bible school, and a chatbox that
+ * paraphrased its mission or improvised its history would be putting words in
+ * the school's mouth. Everything here is returned as written.
+ *
+ * No model is involved, so this works with the model fallback switched off —
+ * which is how the school runs it today — and costs nothing.
+ */
+const schoolFacts = async (service: SupabaseClient, question: string): Promise<Resolved> => {
+  const [{ data: content }, { data: faculty }] = await Promise.all([
+    service.from("site_content").select("page, section_key, label, content"),
+    service
+      .from("faculty_members")
+      .select("name, title, is_active, display_order")
+      .eq("is_active", true)
+      .order("display_order", { ascending: true })
+      .limit(20),
+  ]);
+
+  const rows = ((content ?? []) as {
+    page: string;
+    section_key: string;
+    label: string | null;
+    content: string | null;
+  }[]).filter((r) => (r.content ?? "").trim());
+
+  const find = (page: string, key: string) =>
+    rows.find((r) => r.page === page && r.section_key === key)?.content?.trim() ?? "";
+  const clean = (text: string) =>
+    text.replace(/^"(.*)"$/s, "$1").replace(/\s+/g, " ").trim().slice(0, MAX_SECTION_CHARS);
+
+  const asked = question.toLowerCase();
+  const wants = (...words: string[]) => words.some((w) => asked.includes(w));
+
+  const items: { label: string; detail?: string }[] = [];
+
+  // Contact details first when they were what was asked for — somebody asking
+  // for the address wants the address, not the mission statement above it.
+  const address = clean(find("contact", "address"));
+  const phone = clean(find("contact", "phone"));
+  const email = clean(find("contact", "email"));
+  const contactAsked = wants("address", "where", "contact", "phone", "email", "reach", "located");
+
+  if (contactAsked) {
+    if (address) items.push({ label: "Address", detail: address });
+    if (phone) items.push({ label: "Phone", detail: phone });
+    if (email) items.push({ label: "Email", detail: email });
+  }
+
+  if (wants("module", "course", "programme", "program", "cost", "how much", "tuition")) {
+    for (const key of ["basic", "advanced"]) {
+      const title = clean(find("courses", `${key}_title`));
+      const desc = clean(find("courses", `${key}_desc`));
+      if (title || desc) items.push({ label: title || key, detail: desc });
+    }
+  }
+
+  if (wants("faculty", "lecturer", "teacher", "director", "founder", "who is", "who are")) {
+    for (const person of (faculty ?? []) as { name: string; title: string | null }[]) {
+      items.push({ label: person.name, detail: person.title ?? undefined });
+    }
+  }
+
+  if (wants("mission", "vision", "believe", "motto")) {
+    const mission = clean(find("about", "mission_text"));
+    if (mission) items.push({ label: clean(find("about", "mission_title")) || "Our Mission", detail: mission });
+  }
+
+  if (wants("story", "history", "founded", "established", "started", "about")) {
+    const story = clean(find("about", "story_text"));
+    if (story) items.push({ label: clean(find("about", "story_title")) || "Our Story", detail: story });
+  }
+
+  // Nothing matched the wording, so fall back to the school's own summary
+  // rather than to nothing at all.
+  if (items.length === 0) {
+    const story = clean(find("about", "story_text"));
+    const mission = clean(find("about", "mission_text"));
+    if (story) items.push({ label: "Our Story", detail: story });
+    if (mission) items.push({ label: "Our Mission", detail: mission });
+    if (address) items.push({ label: "Address", detail: address });
+  }
+
+  if (items.length === 0) {
+    return {
+      answer:
+        "I do not have anything written down about that. The school office will know — the About and Contact pages on the website are where this normally lives.",
+    };
+  }
+
+  return {
+    answer: contactAsked
+      ? "Here is how to reach the school."
+      : "Here is what the school says about itself, in its own words.",
+    items: items.slice(0, 6),
+    page: { path: "/about", label: "About the school" },
+    digest: items.map((i) => `${i.label}: ${i.detail ?? ""}`).join("\n").slice(0, 2000),
+  };
+};
 
 // ---------------------------------------------------------------------------
 // Student answers
@@ -956,7 +1068,11 @@ Deno.serve(async (req) => {
   try {
     let resolved: Resolved | null = null;
 
-    if (intent && audience === "student" && studentId) {
+    // Shared by both audiences: a question about the school is the same
+    // question whoever asks it, and needs no student record to answer.
+    if (intent === "school") {
+      resolved = await schoolFacts(service, question);
+    } else if (intent && audience === "student" && studentId) {
       const { data: studentRow } = await service
         .from("students")
         .select("cohort_id")
@@ -1062,7 +1178,11 @@ Deno.serve(async (req) => {
       { maxTokens: Math.round(rules.maxWords * 2.2) + 40 },
     );
 
-    if (!chain.text) return chainFailureResponse(chain);
+    // The whole result was being passed where the failure list belongs, so a
+    // chatbox with every provider down told the reader "No AI provider is set
+    // up yet" — the one message that sends an admin to fix something that is
+    // not broken — and listed no failures at all.
+    if (!chain.text) return chainFailureResponse(chain.failures, chain.configured);
 
     return json({
       answer: chain.text.trim(),

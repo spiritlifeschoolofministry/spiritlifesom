@@ -131,6 +131,39 @@ describe('SUGGESTIONS', () => {
  * model call — a feature that looks like it works while quietly costing a call
  * per question. Failing the build is much easier to notice.
  */
+describe('questions about the school itself', () => {
+  it('recognises them from either portal', () => {
+    const asked = [
+      'Tell me about the school',
+      'When was the school founded?',
+      'Who is the director?',
+      'What is the mission?',
+      'What is the address of the school?',
+      'How do I contact the office?',
+      'What is the difference between the basic and advanced module?',
+      'Where are the classes held?',
+    ];
+    for (const question of asked) {
+      expect(classifyIntent(question, 'student'), question).toBe('school');
+      expect(classifyIntent(question, 'admin'), question).toBe('school');
+    }
+  });
+
+  /**
+   * The school rule is tried first, so these are the ones that prove it did not
+   * swallow the questions people actually ask most. "How is my attendance" must
+   * stay an attendance question however many times the word school appears
+   * elsewhere in the rules.
+   */
+  it('does not swallow questions about the person asking', () => {
+    expect(classifyIntent('How is my attendance?', 'student')).toBe('attendance');
+    expect(classifyIntent('What do I owe?', 'student')).toBe('fees');
+    expect(classifyIntent('When is my next exam?', 'student')).toBe('exams');
+    expect(classifyIntent('What do I need to do this week?', 'student')).toBe('week');
+    expect(classifyIntent('Who has not paid?', 'admin')).toBe('unpaid');
+  });
+});
+
 describe('the edge function\'s copy of the intent lists', () => {
   const source = readFileSync('supabase/functions/ai-chat/index.ts', 'utf8');
 

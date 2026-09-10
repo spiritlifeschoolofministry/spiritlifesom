@@ -17,7 +17,18 @@ import type { Audience } from '@/lib/portal-map';
  * network call at all.
  */
 
+/**
+ * Questions about the school itself rather than about the asker.
+ *
+ * Shared by both audiences, because "what is the address" and "who is the
+ * Director" are the same question whoever asks. Answered from `site_content`,
+ * which is the same text the public pages show — so the chatbox quotes what
+ * the school has published and cannot improvise a history for it.
+ */
+export const SHARED_INTENTS = ['school'] as const;
+
 export const STUDENT_INTENTS = [
+  'school',
   'fees',
   'tasks',
   'exams',
@@ -27,6 +38,7 @@ export const STUDENT_INTENTS = [
 ] as const;
 
 export const ADMIN_INTENTS = [
+  'school',
   'unpaid',
   'pending_admissions',
   'pending_payments',
@@ -55,6 +67,29 @@ interface Rule {
  * need to do this week" mentions tasks and exams and would otherwise be
  * answered as a narrower question than it is.
  */
+/**
+ * Tried before everything else, and deliberately narrow.
+ *
+ * "Where is the school" must not be caught by the attendance rule, and "what
+ * does the course cost" is a question about the school's fees rather than
+ * about this person's balance — so it is anchored on words that name the
+ * institution rather than the asker.
+ */
+const SCHOOL_RULE: Rule = {
+  intent: 'school',
+  patterns: [
+    /\b(about|history|story|founded|established|started)\b.*\bschool\b/i,
+    /\bschool\b.*\b(about|history|story|founded|established|address|located|location|motto|mission|vision)\b/i,
+    /\b(who|what) (is|are|was)\b.*\b(director|founder|faculty|lecturers?|teachers?|principal)\b/i,
+    /\b(mission|vision|motto|statement of faith|what we believe)\b/i,
+    /\b(contact|address|phone|telephone|email|reach)\b.*\b(school|office|you|us)\b/i,
+    /\bwhere (is|are) (the )?(school|campus|office|class(es)?) (located|situated|held)\b/i,
+    /\b(basic|advanced) module\b/i,
+    /\bwhat (course|courses|module|modules|programme|programs?) (do|does|are)\b/i,
+    /\bhow much (is|does)\b.*\b(the )?(course|programme|school|module|tuition)\b/i,
+  ],
+};
+
 const STUDENT_RULES: Rule[] = [
   {
     intent: 'week',
@@ -179,7 +214,9 @@ const ADMIN_RULES: Rule[] = [
 ];
 
 const rulesFor = (audience: Audience): Rule[] =>
-  audience === 'admin' ? ADMIN_RULES : STUDENT_RULES;
+  // The school rule first: it is the most specific, and a question naming the
+  // institution should never be answered as a question about the asker.
+  [SCHOOL_RULE, ...(audience === 'admin' ? ADMIN_RULES : STUDENT_RULES)];
 
 /**
  * The intent behind a question, or null when none is recognised.
@@ -213,6 +250,7 @@ export const SUGGESTIONS: Record<Audience, string[]> = {
     'What do I owe?',
     'When is my next exam?',
     'How is my attendance?',
+    'Tell me about the school',
   ],
   admin: [
     'What needs my attention?',
