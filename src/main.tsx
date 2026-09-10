@@ -1,6 +1,8 @@
 import { createRoot } from "react-dom/client";
 import { HelmetProvider } from "react-helmet-async";
 import App from "./App.tsx";
+import { AppErrorBoundary } from "./components/AppErrorBoundary";
+import { isChunkLoadError, recoverFromStaleBuild } from "./lib/chunk-recovery";
 import "./index.css";
 import posthog from 'posthog-js';
 
@@ -23,10 +25,19 @@ if (import.meta.env.PROD) {
   // console.error is intentionally kept for critical runtime errors
 }
 
+// A chunk load can also fail outside React's render — a nav link warming the
+// next page's chunk on hover, for instance. Those rejections never reach the
+// error boundary, but they mean the same thing: this tab's build is gone.
+window.addEventListener("unhandledrejection", (event) => {
+  if (isChunkLoadError(event.reason)) recoverFromStaleBuild();
+});
+
 createRoot(document.getElementById("root")!).render(
-  <HelmetProvider>
-    <App />
-  </HelmetProvider>,
+  <AppErrorBoundary>
+    <HelmetProvider>
+      <App />
+    </HelmetProvider>
+  </AppErrorBoundary>,
 );
 
 requestAnimationFrame(() => {

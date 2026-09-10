@@ -1,9 +1,40 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from "react";
+import { isChunkLoadError, recoverFromStaleBuild } from "@/lib/chunk-recovery";
 
 type Loader = () => Promise<{ default: ComponentType<unknown> }>;
 
 export type LazyPage = LazyExoticComponent<ComponentType<unknown>> & {
   preload: () => Promise<unknown>;
+};
+
+/**
+ * One import attempt, then a retry, then a reload.
+ *
+ * A chunk request fails for two very different reasons: a flaky network, where
+ * retrying is enough, or a chunk URL this build no longer has — after a deploy,
+ * or after the service worker activated a new build and dropped the old
+ * precache — where only reloading onto the current index.html helps. Left
+ * unhandled the rejection escapes through Suspense and unmounts the app, which
+ * is the blank screen that "goes away when I reload".
+ */
+const loadWithRetry = async (loader: Loader) => {
+  try {
+    return await loader();
+  } catch (error) {
+    if (!isChunkLoadError(error)) throw error;
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    try {
+      return await loader();
+    } catch (retryError) {
+      if (isChunkLoadError(retryError) && recoverFromStaleBuild()) {
+        // The reload is already in flight. Never resolving keeps the loading
+        // state on screen for the frames before it lands, rather than handing
+        // Suspense an error it would turn into a blank page.
+        return await new Promise<never>(() => {});
+      }
+      throw retryError;
+    }
+  }
 };
 
 /**
@@ -16,8 +47,9 @@ export type LazyPage = LazyExoticComponent<ComponentType<unknown>> & {
  */
 export const lazyPage = (loader: Loader): LazyPage => {
   let started: Promise<unknown> | null = null;
+  const load = () => loadWithRetry(loader);
   const preload = () => {
-    if (!started) started = loader();
+    if (!started) started = load();
     return started;
   };
   // lazy() goes through preload() so an already-warmed chunk resolves instantly.
