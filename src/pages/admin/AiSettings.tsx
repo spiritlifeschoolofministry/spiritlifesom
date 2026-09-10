@@ -112,6 +112,12 @@ const FEATURE_COPY: Record<AiFeature, { title: string; blurb: string; audience: 
       'After an exam, ranks the attempts worth looking at by hand — tab switches, unusual timing, a shared device, identical answers. The ranking is arithmetic, not judgement; the AI only puts it in a sentence, and never says a student cheated. Nothing is flagged or recorded: a person opens the footage and decides.',
     audience: 'Staff',
   },
+  ai_analytics_note: {
+    title: 'Analytics in a paragraph',
+    blurb:
+      'Reads the analytics page and says what changed — attendance up or down against earlier in the term, collection rate, what is unmarked. Asked for rather than automatic, and written once a day, so opening the page ten times costs one call. Every figure is computed from the records; the model only puts them in sentences.',
+    audience: 'Staff',
+  },
   ai_progress_summary: {
     title: 'Progress summary',
     blurb:

@@ -15,10 +15,13 @@ import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
-import { Users, TrendingUp, CalendarCheck, ClipboardList, Download, Folder, BookOpen, GraduationCap, CreditCard, AlertCircle, Inbox, RefreshCw, BarChart3, Activity } from "lucide-react";
+import { Users, TrendingUp, CalendarCheck, ClipboardList, Download, Folder, BookOpen, GraduationCap, CreditCard, AlertCircle, Inbox, RefreshCw, BarChart3, Activity, Loader2 } from "lucide-react";
 import { downloadCSV } from "@/lib/csv-export";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import EngagementPanel from "@/components/admin/EngagementPanel";
+import { fetchAnalyticsNote } from "@/lib/ai-insight";
+import { useAiFeature, useAssistantName } from "@/lib/ai-flags";
+import { toast } from "sonner";
 
 interface Cohort { id: string; name: string; }
 
@@ -64,6 +67,30 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
   const [cohortFilter, setCohortFilter] = useState("all");
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+  const analyticsNoteOn = useAiFeature("ai_analytics_note");
+  const assistantName = useAssistantName();
+  const [note, setNote] = useState<{ body: string; cached: boolean } | null>(null);
+  const [readingFigures, setReadingFigures] = useState(false);
+
+  /**
+   * Asked for, never automatic.
+   *
+   * A paragraph written because a page loaded is one nobody asked for and
+   * everybody scrolls past, and it would spend a model call on every glance.
+   */
+  const readFigures = async (refresh = false) => {
+    setReadingFigures(true);
+    try {
+      setNote(await fetchAnalyticsNote({
+        cohortId: cohortFilter === "all" ? null : cohortFilter,
+        refresh,
+      }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not read the figures");
+    } finally {
+      setReadingFigures(false);
+    }
+  };
 
   const [enrollmentData, setEnrollmentData] = useState<EnrollmentPoint[]>([]);
   const [enrollmentPie, setEnrollmentPie] = useState<NameValuePoint[]>([]);
@@ -586,6 +613,58 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      )}
+
+      {/* Above the charts: it says which of them changed, which is the thing a
+          page of twelve charts cannot say about itself. */}
+      {analyticsNoteOn && (
+        <Card className="shadow-[var(--shadow-card)] border-border">
+          <CardContent className="p-4 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium">What changed</p>
+              <div className="flex items-center gap-2">
+                {note && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8"
+                    disabled={readingFigures}
+                    onClick={() => readFigures(true)}
+                  >
+                    Rewrite
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5"
+                  disabled={readingFigures}
+                  onClick={() => readFigures(false)}
+                >
+                  {readingFigures
+                    ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Reading…</>
+                    : <>{note ? "Read again" : `Ask ${assistantName} to read the figures`}</>}
+                </Button>
+              </div>
+            </div>
+            {note
+              ? (
+                <>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{note.body}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {note.cached
+                      ? "Written earlier today. Rewrite to read the figures again."
+                      : "Written just now from the figures on this page."}
+                  </p>
+                </>
+              )
+              : (
+                <p className="text-sm text-muted-foreground">
+                  The charts below show where the school stands. This says which of them moved.
+                </p>
+              )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Summary Cards */}
