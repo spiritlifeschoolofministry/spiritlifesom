@@ -32,6 +32,7 @@
  */
 import { chainFailureResponse, corsHeaders, guard, json } from "../_shared/ai-guard.ts";
 import { runChain } from "../_shared/ai-chain.ts";
+import { type AttendanceRow, tallyAttendance } from "../_shared/attendance.ts";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 /** Mirrors STUDENT_INTENTS / ADMIN_INTENTS in src/lib/chat-intents.ts. */
@@ -521,9 +522,16 @@ const studentAttendance = async (
     };
   }
 
-  // Measured the way the Attendance page and Analytics measure it: against
-  // the counted sessions the cohort has actually held. An absence is a missing
-  // row, so counting rows alone always came out near 100%.
+  /**
+   * Measured the way the Attendance page measures it, through the shared tally.
+   *
+   * The denominator was already right — counted sessions the cohort has held —
+   * but the numerator was every verified present or late row this student had,
+   * whichever session it belonged to. A row against a session that does not
+   * count, or two rows against one session, both added to the total the same
+   * way, so the figure could exceed the number of classes held. The tally
+   * credits each counted session once and ignores rows outside the set.
+   */
   const [{ data: sessions }, { data: marks }] = await Promise.all([
     service
       .from("schedule")
@@ -533,15 +541,16 @@ const studentAttendance = async (
       .lte("date", todayIso()),
     service
       .from("attendance")
-      .select("status, is_verified")
-      .eq("student_id", studentId)
-      .eq("is_verified", true),
+      .select("status, schedule_id, is_verified")
+      .eq("student_id", studentId),
   ]);
 
-  const held = (sessions ?? []).length;
-  const counted = ((marks ?? []) as { status: string | null }[]).filter((row) =>
-    /present|late/i.test(String(row.status ?? ""))
-  ).length;
+  const tally = tallyAttendance(
+    new Set(((sessions ?? []) as { id: string }[]).map((row) => row.id)),
+    (marks ?? []) as AttendanceRow[],
+  );
+  const held = tally.total;
+  const counted = tally.present + tally.late;
 
   if (held === 0) {
     return {
@@ -551,7 +560,7 @@ const studentAttendance = async (
     };
   }
 
-  const rate = Math.round((counted / held) * 100);
+  const rate = tally.rate ?? 0;
   return {
     answer: rate >= 75
       ? `You have attended ${counted} of ${held} classes — ${rate}%, which is good standing.`
