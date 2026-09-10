@@ -147,4 +147,4 @@ export const providerLabel = (
   compatible: Record<string, CompatibleProvider>,
 ): string =>
   compatible[name]?.label ??
-    ({ gemini: 'Google Gemini', anthropic: 'Anthropic Claude' }[name] ?? name);
+    ({ gemini: 'Google Gemini', anthropic: 'Anthropic Claude', deepseek: 'DeepSeek' }[name] ?? name);

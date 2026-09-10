@@ -82,6 +82,11 @@ export const OPENAI_COMPATIBLE: Record<
     baseUrl: "https://api.deepinfra.com/v1/openai",
     modelsUrl: "https://deepinfra.com/models/text-generation",
   },
+  deepseek: {
+    label: "DeepSeek",
+    baseUrl: "https://api.deepseek.com/v1",
+    modelsUrl: "https://api-docs.deepseek.com/quick_start/pricing",
+  },
   mistral: {
     label: "Mistral",
     baseUrl: "https://api.mistral.ai/v1",
