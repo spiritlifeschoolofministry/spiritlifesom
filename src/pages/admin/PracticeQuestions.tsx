@@ -30,6 +30,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useAiFeature, useAssistantName } from '@/lib/ai-flags';
 import { draftQuestions, DRAFTABLE_LABELS, PRACTISABLE_TYPES } from '@/lib/ai-questions';
 import { QuestionHealthPanel } from '@/components/admin/QuestionHealthPanel';
+import { PracticeActivityPanel } from '@/components/admin/PracticeActivityPanel';
 
 type PractisableType = (typeof PRACTISABLE_TYPES)[number];
 
@@ -271,6 +272,11 @@ export default function PracticeQuestions() {
           if (found) openEditor(found);
         }}
       />
+
+      {/* After health, before the questions themselves: what was written is the
+          thing being judged, and how it went is how you judge it. Collapsed
+          until asked for — it is the only part of this page that queries. */}
+      <PracticeActivityPanel questions={questions} courses={courses} />
 
       <Card>
         <CardHeader className="gap-3">
