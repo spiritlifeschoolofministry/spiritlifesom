@@ -10,13 +10,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { BarChart3, Loader2 } from 'lucide-react';
+import { BarChart3, Loader2, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import {
   asPercent,
   summarisePractice,
   type PracticeSessionRecord,
 } from '@/lib/practice-activity';
+import { questionSnippet } from '@/lib/question-snippet';
 
 /** As much of a practice question as this panel needs to name one. */
 interface QuestionRef {
@@ -65,9 +66,12 @@ const ROW_LIMIT = 1000;
 export const PracticeActivityPanel = ({
   questions,
   courses,
+  onOpen,
 }: {
   questions: QuestionRef[];
   courses: CourseRef[];
+  /** Called with a question id when the reader wants to go and read one. */
+  onOpen?: (id: string) => void;
 }) => {
   const [open, setOpen] = useState(false);
   const [days, setDays] = useState('30');
@@ -132,14 +136,25 @@ export const PracticeActivityPanel = ({
     return name || row?.student_code || 'Unknown student';
   };
 
+  /**
+   * The course, named once.
+   *
+   * Some titles already begin with the course code, and prefixing those gave
+   * "SLM104 — SLM104 – The Concept of Ministry". The code is a prefix for
+   * finding the course in a list, not something to say twice.
+   */
   const courseName = (id: string | null) => {
     if (!id) return 'Unknown course';
     const course = courses.find((c) => c.id === id);
-    return course ? `${course.code} — ${course.title}` : 'Unknown course';
+    if (!course) return 'Unknown course';
+    const title = course.title.trim();
+    return title.toLowerCase().startsWith(course.code.toLowerCase())
+      ? title
+      : `${course.code} — ${title}`;
   };
 
   const textOf = (id: string) =>
-    questions.find((q) => q.id === id)?.question_text.replace(/<[^>]*>/g, ' ').trim() ?? '';
+    questionSnippet(questions.find((q) => q.id === id)?.question_text);
 
   const stat = (label: string, value: string) => (
     <div key={label} className="rounded-md border border-border p-3">
@@ -215,18 +230,30 @@ export const PracticeActivityPanel = ({
 
               <div className="space-y-1.5">
                 <p className="text-xs font-medium">By course</p>
-                <ul className="space-y-1">
+                <ul className="space-y-2">
                   {activity.byCourse.map((row) => (
-                    <li
-                      key={row.courseId ?? 'unknown'}
-                      className="flex flex-wrap items-center justify-between gap-2 text-xs"
-                    >
-                      <span>{courseName(row.courseId)}</span>
-                      <span className="text-muted-foreground">
-                        {row.students} student{row.students === 1 ? '' : 's'} · {row.answered}{' '}
-                        answer{row.answered === 1 ? '' : 's'} ·{' '}
-                        <span className="text-foreground">{asPercent(row.accuracy)} right</span>
-                      </span>
+                    <li key={row.courseId ?? 'unknown'} className="space-y-1">
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-2 text-xs">
+                        <span className="min-w-0 truncate">{courseName(row.courseId)}</span>
+                        <span className="shrink-0 text-muted-foreground">
+                          {row.students} student{row.students === 1 ? '' : 's'} · {row.answered}{' '}
+                          answer{row.answered === 1 ? '' : 's'} ·{' '}
+                          <span className="font-medium text-foreground">
+                            {asPercent(row.accuracy)} right
+                          </span>
+                        </span>
+                      </div>
+                      {/* A bar, because comparing 55% with 78% across five
+                          rows of prose is work the reader should not be doing. */}
+                      <div
+                        className="h-1 w-full overflow-hidden rounded-full bg-muted"
+                        role="presentation"
+                      >
+                        <div
+                          className="h-full rounded-full bg-foreground/50"
+                          style={{ width: `${Math.round((row.accuracy ?? 0) * 100)}%` }}
+                        />
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -236,16 +263,36 @@ export const PracticeActivityPanel = ({
                 <div className="space-y-1.5">
                   <p className="text-xs font-medium">Most often got wrong</p>
                   <ul className="space-y-1">
-                    {activity.hardest.map((row) => (
-                      <li key={row.questionId} className="text-xs text-muted-foreground">
-                        <span className="text-foreground">
-                          {textOf(row.questionId).slice(0, 90) || 'A question since deleted'}
-                        </span>
-                        <span className="block">
-                          {row.wrong} of {row.attempts} got it wrong ({asPercent(row.wrongRate)})
-                        </span>
-                      </li>
-                    ))}
+                    {activity.hardest.map((row) => {
+                      const text = textOf(row.questionId);
+                      // Under five attempts a rate is arithmetic rather than
+                      // evidence, and "100%" off three answers reads far
+                      // stronger than it is. Say the count instead.
+                      const thin = row.attempts < 5;
+                      return (
+                        <li
+                          key={row.questionId}
+                          className="rounded-md border border-border/60 px-2.5 py-2 text-xs text-muted-foreground"
+                        >
+                          <button
+                            type="button"
+                            disabled={!text || !onOpen}
+                            className="group flex w-full items-start gap-1.5 text-left text-foreground enabled:hover:underline"
+                            onClick={() => onOpen?.(row.questionId)}
+                          >
+                            {text && onOpen && (
+                              <Pencil className="mt-0.5 h-3 w-3 shrink-0 opacity-40 group-hover:opacity-100" />
+                            )}
+                            <span>{text || 'A question since deleted'}</span>
+                          </button>
+                          <span className="mt-0.5 block pl-[1.125rem]">
+                            {row.wrong} of {row.attempts} got it wrong
+                            {!thin && ` (${asPercent(row.wrongRate)})`}
+                            {thin && ' — too few tries yet to read much into'}
+                          </span>
+                        </li>
+                      );
+                    })}
                   </ul>
                   <p className="text-xs text-muted-foreground italic">
                     A question most people get wrong is sometimes a hard one and sometimes a badly

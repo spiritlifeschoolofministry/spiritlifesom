@@ -322,7 +322,14 @@ export default function PracticeQuestions() {
       {/* After health, before the questions themselves: what was written is the
           thing being judged, and how it went is how you judge it. Collapsed
           until asked for — it is the only part of this page that queries. */}
-      <PracticeActivityPanel questions={questions} courses={courses} />
+      <PracticeActivityPanel
+        questions={questions}
+        courses={courses}
+        onOpen={(id) => {
+          const found = questions.find((row) => row.id === id);
+          if (found) openEditor(found);
+        }}
+      />
 
       <Card>
         <CardHeader className="gap-3">
