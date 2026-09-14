@@ -75,6 +75,27 @@ export interface PracticeSession {
   questions: PracticeQuestion[];
 }
 
+/** One course a student may practise, with how much is in it. */
+export interface PracticeOption {
+  id: string;
+  code: string;
+  title: string;
+  /** Approved questions available. Zero means there is nothing to practise. */
+  available: number;
+}
+
+/**
+ * The courses this student may practise, and how many questions each has.
+ *
+ * Counts only — never the questions. Asked before the student chooses, so a
+ * course with nothing in it can be shown as empty rather than discovered by
+ * picking it and being refused.
+ */
+export const fetchPracticeOptions = async (): Promise<PracticeOption[]> => {
+  const data = await call('ai-student', { action: 'practice_options' });
+  return (data?.courses ?? []) as PracticeOption[];
+};
+
 /**
  * Starts a practice round.
  *

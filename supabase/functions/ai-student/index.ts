@@ -64,6 +64,41 @@ const practiceRoundSize = async (service: SupabaseClient): Promise<number> => {
   return Math.min(PRACTICE_SIZE_MAX, Math.max(PRACTICE_SIZE_MIN, Math.floor(parsed)));
 };
 
+/**
+ * The courses a student may practise, worked out server-side.
+ *
+ * Both places a course can belong to a cohort: the course's own cohort_id,
+ * which is what creating a course sets, and course_cohorts, which holds the
+ * extra cohorts a course was later shared with. Reading one alone misses most
+ * of them.
+ *
+ * Shared by practice_start and practice_options deliberately. The list a
+ * student is offered and the list the server will actually serve must be the
+ * same list, or the page offers a course that then refuses.
+ */
+const allowedCourses = async (
+  service: SupabaseClient,
+  studentId: string,
+): Promise<{ cohortId: string | null; ids: string[] }> => {
+  const { data: studentRow } = await service
+    .from("students")
+    .select("cohort_id")
+    .eq("id", studentId)
+    .maybeSingle();
+  const cohortId = (studentRow as { cohort_id: string | null } | null)?.cohort_id ?? null;
+  if (!cohortId) return { cohortId: null, ids: [] };
+
+  const [ownRes, sharedRes] = await Promise.all([
+    service.from("courses").select("id").eq("cohort_id", cohortId),
+    service.from("course_cohorts").select("course_id").eq("cohort_id", cohortId),
+  ]);
+  const ids = new Set<string>([
+    ...((ownRes.data ?? []) as { id: string }[]).map((c) => c.id),
+    ...((sharedRes.data ?? []) as { course_id: string }[]).map((c) => c.course_id),
+  ]);
+  return { cohortId, ids: [...ids] };
+};
+
 const PROGRESS_RULES =
   `You are writing a short progress note for one student at Spirit Life School of Ministry, a Christian Bible school. They are reading it about themselves, on their own dashboard.
 
@@ -344,6 +379,46 @@ Deno.serve(async (req) => {
 
     // ------------------------------------------------------------- practice
     /**
+     * What the student can practise, before they choose anything.
+     *
+     * Counts only — no question text, no answers. The page used to offer every
+     * course on the cohort and find out whether any of them had questions by
+     * starting a round and being refused, which is a poor way to learn that a
+     * course has nothing in it yet. Now the courses with nothing are shown as
+     * having nothing, and cannot be picked.
+     */
+    if (action === "practice_options") {
+      const { cohortId, ids } = await allowedCourses(service, studentId);
+      if (!cohortId || ids.length === 0) return json({ courses: [] });
+
+      const [coursesRes, poolRes] = await Promise.all([
+        service.from("courses").select("id, code, title").in("id", ids).order("code"),
+        service
+          .from("practice_questions")
+          .select("course_id")
+          .in("course_id", ids)
+          .eq("archived", false)
+          .eq("status", "approved")
+          .limit(5000),
+      ]);
+
+      const available = new Map<string, number>();
+      for (const row of (poolRes.data ?? []) as { course_id: string }[]) {
+        available.set(row.course_id, (available.get(row.course_id) ?? 0) + 1);
+      }
+
+      return json({
+        courses: ((coursesRes.data ?? []) as { id: string; code: string; title: string }[])
+          .map((c) => ({
+            id: c.id,
+            code: c.code,
+            title: c.title,
+            available: available.get(c.id) ?? 0,
+          })),
+      });
+    }
+
+    /**
      * Serves practice questions without their answers.
      *
      * `question_bank` is staff-only under RLS, and it stays that way — this is
@@ -373,28 +448,13 @@ Deno.serve(async (req) => {
        * survivable while a round meant naming one course from a list the page
        * had already filtered. "All courses" makes the list itself a parameter,
        * and a parameter a client chooses is a parameter a client can widen —
-       * so the allowed set comes from the student's own cohort, both ways a
-       * course can belong to one: the course's own cohort_id, and the
-       * course_cohorts rows for courses later shared with it.
+       * so the allowed set comes from the student's own cohort.
        */
-      const { data: studentRow } = await service
-        .from("students")
-        .select("cohort_id")
-        .eq("id", studentId)
-        .maybeSingle();
-      const cohortId = (studentRow as { cohort_id: string | null } | null)?.cohort_id ?? null;
+      const { cohortId, ids: allowedIds } = await allowedCourses(service, studentId);
       if (!cohortId) {
         return json({ error: "You are not in a cohort yet, so there is nothing to practise." }, 400);
       }
-
-      const [ownRes, sharedRes] = await Promise.all([
-        service.from("courses").select("id").eq("cohort_id", cohortId),
-        service.from("course_cohorts").select("course_id").eq("cohort_id", cohortId),
-      ]);
-      const allowed = new Set<string>([
-        ...((ownRes.data ?? []) as { id: string }[]).map((c) => c.id),
-        ...((sharedRes.data ?? []) as { course_id: string }[]).map((c) => c.course_id),
-      ]);
+      const allowed = new Set(allowedIds);
       if (allowed.size === 0) {
         return json({ error: "Your cohort has no courses yet." }, 404);
       }

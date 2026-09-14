@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,7 +31,9 @@ import { useAiFlags, useAssistantName } from '@/lib/ai-flags';
 import {
   answerPractice,
   askAboutMaterial,
+  fetchPracticeOptions,
   listStudyMaterials,
+  type PracticeOption,
   type PracticeQuestion,
   type PracticeVerdict,
   startPractice,
@@ -49,17 +49,11 @@ import {
  * who suspects practice might affect their grade will not practise.
  */
 
-interface CourseOption {
-  id: string;
-  title: string;
-}
-
 export default function Study() {
-  const { student } = useAuth();
   const { data: flags } = useAiFlags();
   const name = useAssistantName();
 
-  const [courses, setCourses] = useState<CourseOption[]>([]);
+  const [courses, setCourses] = useState<PracticeOption[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Practice
@@ -89,40 +83,28 @@ export default function Study() {
   const practiceOn = !!flags?.on('ai_practice_quizzes');
   const assistantOn = !!flags?.on('ai_study_assistant');
 
+  /**
+   * What this student may practise, and how full each course is.
+   *
+   * Asked of the server rather than worked out here. It is the same question
+   * the server answers when a round starts, so the courses offered and the
+   * courses that will actually serve questions are one list — a page that
+   * offers a course and is then refused it is a page lying to the student.
+   */
   const load = useCallback(async () => {
-    if (!student?.cohort_id) {
+    if (!practiceOn) {
+      setCourses([]);
       setLoading(false);
       return;
     }
-    // The student's own courses, from both places a course can belong to a
-    // cohort: the course's own `cohort_id`, which is what the courses page
-    // reads and what creating a course sets, and `course_cohorts`, which only
-    // ever holds the extra cohorts a course was later shared with. Reading the
-    // join table alone missed every course that was never shared — which is
-    // most of them — so this page offered a cohort's courses to nobody.
-    const [ownRes, sharedRes] = await Promise.all([
-      supabase
-        .from('courses')
-        .select('id, title')
-        .eq('cohort_id', student.cohort_id),
-      supabase
-        .from('course_cohorts')
-        .select('courses(id, title)')
-        .eq('cohort_id', student.cohort_id),
-    ]);
-
-    const shared = (sharedRes.data ?? [])
-      .map((row) => row.courses as CourseOption | null)
-      .filter((course): course is CourseOption => !!course);
-
-    // De-duplicated: a course can legitimately appear in both.
-    const byId = new Map<string, CourseOption>();
-    for (const course of [...((ownRes.data ?? []) as CourseOption[]), ...shared]) {
-      byId.set(course.id, course);
+    try {
+      setCourses(await fetchPracticeOptions());
+    } catch {
+      setCourses([]);
+    } finally {
+      setLoading(false);
     }
-    setCourses([...byId.values()].sort((a, b) => a.title.localeCompare(b.title)));
-    setLoading(false);
-  }, [student?.cohort_id]);
+  }, [practiceOn]);
 
   useEffect(() => {
     load();
@@ -134,6 +116,27 @@ export default function Study() {
       .then(setMaterials)
       .catch(() => setMaterials([]));
   }, [assistantOn]);
+
+  /** Courses that actually have something in them. */
+  const stocked = useMemo(() => courses.filter((c) => c.available > 0), [courses]);
+
+  /**
+   * The courses this round will draw from: what they ticked, or everything
+   * with questions in it when they ticked nothing. Worked out here so the
+   * summary can say it back to them in the same terms the server will use.
+   */
+  const chosen = useMemo(
+    () => (practiceCourses.length > 0
+      ? stocked.filter((c) => practiceCourses.includes(c.id))
+      : stocked),
+    [stocked, practiceCourses],
+  );
+
+  /** How many questions exist across those courses. */
+  const available = useMemo(
+    () => chosen.reduce((sum, c) => sum + c.available, 0),
+    [chosen],
+  );
 
   const current = questions[index];
   /** True when this round's questions come from more than one course. */
@@ -336,75 +339,159 @@ export default function Study() {
                   <CardHeader>
                     <CardTitle className="text-base">Set up a practice round</CardTitle>
                     <CardDescription>
-                      Pick one course, several, or leave them all and practise across everything you
-                      take. Questions are drawn at random, with the explanation shown after each
-                      one. These are written for practice — they are not the questions from your
-                      exams.
+                      Two choices and you are practising: which courses, and how many questions.
+                      You will get one question at a time, and after each answer you are told
+                      whether you were right and why. Stop whenever you like — nothing is saved
+                      against you.
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-5">
+                    {/* Numbered, because "pick courses, set a number, press the
+                        button" is the whole thing and a student should be able
+                        to see that it is the whole thing. */}
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <Label>Courses</Label>
-                        {/* Selecting nothing already means everything, so this
-                            button clears rather than ticking every box — the two
-                            are the same round, and one of them is one click. */}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          disabled={practiceCourses.length === 0}
-                          onClick={() => setPracticeCourses([])}
-                        >
-                          Use all my courses
-                        </Button>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <Label className="text-sm font-medium">1. Choose your courses</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Tick as many as you like. Tick none and you practise everything you
+                            take, mixed together.
+                          </p>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={practiceCourses.length === stocked.length || stocked.length === 0}
+                            onClick={() => setPracticeCourses(stocked.map((c) => c.id))}
+                          >
+                            Select all
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={practiceCourses.length === 0}
+                            onClick={() => setPracticeCourses([])}
+                          >
+                            Clear
+                          </Button>
+                        </div>
                       </div>
-                      <div className="space-y-1.5 rounded-md border border-border p-3">
-                        {courses.map((course) => (
-                          <label key={course.id} className="flex items-center gap-2.5 text-sm">
-                            <Checkbox
-                              checked={practiceCourses.includes(course.id)}
-                              onCheckedChange={(v) =>
-                                setPracticeCourses((prev) =>
-                                  v
-                                    ? [...prev, course.id]
-                                    : prev.filter((id) => id !== course.id),
-                                )}
-                            />
-                            <span>{course.title}</span>
-                          </label>
-                        ))}
+                      <div className="space-y-1 rounded-md border border-border p-3">
+                        {courses.map((course) => {
+                          // A course with no questions in it cannot be
+                          // practised, so it is shown and disabled rather than
+                          // hidden: a student looking for it should find out
+                          // why it is not there, not wonder where it went.
+                          const empty = course.available === 0;
+                          return (
+                            <label
+                              key={course.id}
+                              className={`flex items-center justify-between gap-3 rounded-sm px-1 py-1.5 text-sm ${
+                                empty ? 'opacity-60' : 'cursor-pointer hover:bg-muted/50'
+                              }`}
+                            >
+                              <span className="flex items-center gap-2.5">
+                                <Checkbox
+                                  disabled={empty}
+                                  checked={practiceCourses.includes(course.id)}
+                                  onCheckedChange={(v) =>
+                                    setPracticeCourses((prev) =>
+                                      v
+                                        ? [...prev, course.id]
+                                        : prev.filter((id) => id !== course.id),
+                                    )}
+                                />
+                                <span>{course.title}</span>
+                              </span>
+                              <span className="shrink-0 text-xs text-muted-foreground">
+                                {empty
+                                  ? 'none yet'
+                                  : `${course.available} question${course.available === 1 ? '' : 's'}`}
+                              </span>
+                            </label>
+                          );
+                        })}
                         {courses.length === 0 && (
                           <p className="text-sm text-muted-foreground">
-                            No courses on your cohort yet.
+                            There is nothing to practise yet. Your school adds these as each course
+                            goes on.
                           </p>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {practiceCourses.length === 0
-                          ? `Nothing ticked, so this round draws from all ${courses.length} of your courses mixed together.`
-                          : `${practiceCourses.length} course${practiceCourses.length === 1 ? '' : 's'} ticked.`}
-                      </p>
                     </div>
 
-                    <div>
-                      <Label htmlFor="practice-count">Number of questions</Label>
-                      <Input
-                        id="practice-count"
-                        type="number"
-                        min={3}
-                        max={50}
-                        value={practiceCount}
-                        onChange={(e) => setPracticeCount(Number(e.target.value))}
-                        className="max-w-[8rem]"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Between 3 and 50. You will get fewer if the courses you picked do not have
-                        that many questions between them.
-                      </p>
+                    <div className="space-y-2">
+                      <div>
+                        <Label htmlFor="practice-count" className="text-sm font-medium">
+                          2. How many questions
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Anywhere from 3 to 50. A short round is easier to finish than a long one
+                          you abandon.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {[5, 10, 20].map((n) => (
+                          <Button
+                            key={n}
+                            type="button"
+                            size="sm"
+                            variant={practiceCount === n ? 'default' : 'outline'}
+                            onClick={() => setPracticeCount(n)}
+                          >
+                            {n}
+                          </Button>
+                        ))}
+                        <Input
+                          id="practice-count"
+                          type="number"
+                          min={3}
+                          max={50}
+                          value={practiceCount}
+                          // Clamped here as well as on the server, so the
+                          // summary below cannot promise a number the round
+                          // will not honour.
+                          onChange={(e) =>
+                            setPracticeCount(Math.min(50, Math.max(3, Number(e.target.value) || 3)))}
+                          className="w-[5.5rem]"
+                          aria-label="Number of questions"
+                        />
+                      </div>
                     </div>
 
-                    <Button disabled={starting || courses.length === 0} onClick={begin}>
+                    {/* Said back to them in a sentence before they commit, so
+                        nobody starts a round expecting something else. */}
+                    <div className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+                      {available === 0
+                        ? 'Nothing to practise in what you have chosen.'
+                        : (
+                          <>
+                            You will get{' '}
+                            <strong>
+                              {Math.min(practiceCount, available)} question
+                              {Math.min(practiceCount, available) === 1 ? '' : 's'}
+                            </strong>{' '}
+                            from{' '}
+                            <strong>
+                              {chosen.length === 1
+                                ? chosen[0].title
+                                : `${chosen.length} courses`}
+                            </strong>
+                            {available < practiceCount && (
+                              <>
+                                {' '}— that is everything there is in{' '}
+                                {chosen.length === 1 ? 'it' : 'them'} so far
+                              </>
+                            )}
+                            .
+                          </>
+                        )}
+                    </div>
+
+                    <Button disabled={starting || available === 0} onClick={begin}>
                       {starting
                         ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Setting up…</>
                         : <><BookOpen className="mr-1.5 h-4 w-4" /> Start practising</>}
@@ -420,11 +507,19 @@ export default function Study() {
                       {score.right} out of {score.done} right
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      That is the end of this round, and it counts towards nothing.
+                      That is the end of this round, and it counts towards nothing. The questions
+                      are drawn fresh each time, so going again is not the same round twice.
                     </p>
-                    <Button variant="outline" onClick={() => setQuestions([])}>
-                      Practise again
-                    </Button>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <Button onClick={begin} disabled={starting}>
+                        {starting
+                          ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Setting up…</>
+                          : 'Same again'}
+                      </Button>
+                      <Button variant="outline" onClick={() => setQuestions([])}>
+                        Change what I practise
+                      </Button>
+                    </div>
                   </Card>
                 )
                 : (

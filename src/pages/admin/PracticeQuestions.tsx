@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Dialog,
@@ -72,7 +73,16 @@ export default function PracticeQuestions() {
   const [showDrafts, setShowDrafts] = useState(true);
 
   const [draftOpen, setDraftOpen] = useState(false);
-  const [draftMaterial, setDraftMaterial] = useState('');
+  /**
+   * The materials to draft from, not the material.
+   *
+   * Topping up every course used to mean opening this dialog once per course
+   * and waiting for each in turn. The work is the same either way — one model
+   * call per material — but a person had to be present for all of it.
+   */
+  const [draftMaterials, setDraftMaterials] = useState<string[]>([]);
+  /** Which material is being drafted right now, for a run of several. */
+  const [draftProgress, setDraftProgress] = useState<{ done: number; total: number } | null>(null);
   const [draftCount, setDraftCount] = useState(10);
   const [draftTypes, setDraftTypes] = useState<PractisableType[]>([
     'mcq_single',
@@ -129,32 +139,68 @@ export default function PracticeQuestions() {
     return counts;
   }, [questions]);
 
+  /**
+   * Drafts from every material picked, one after another.
+   *
+   * Sequential on purpose. Each call is a model call against the school's
+   * daily allowance, and firing seven at once at a provider is how you find
+   * out what its rate limit is. One at a time also means a failure part way
+   * through leaves the drafts already written in place rather than an
+   * all-or-nothing run that has to be started again from the top.
+   */
   const runDraft = async () => {
-    if (!draftMaterial) return toast.error('Pick a material to draft from');
+    if (draftMaterials.length === 0) return toast.error('Pick at least one material to draft from');
     if (draftTypes.length === 0) return toast.error('Pick at least one question type');
+
     setDrafting(true);
-    try {
-      const result = await draftQuestions({
-        materialId: draftMaterial,
-        count: draftCount,
-        types: draftTypes,
-        // The whole point of this screen. Never 'exam' from here.
-        target: 'practice',
-      });
-      setDraftOpen(false);
-      setShowDrafts(true);
-      await load();
+    setDraftProgress({ done: 0, total: draftMaterials.length });
+
+    let drafted = 0;
+    let duplicates = 0;
+    let discarded = 0;
+    const failed: string[] = [];
+
+    for (const [i, materialId] of draftMaterials.entries()) {
+      setDraftProgress({ done: i, total: draftMaterials.length });
+      try {
+        const result = await draftQuestions({
+          materialId,
+          count: draftCount,
+          types: draftTypes,
+          // The whole point of this screen. Never 'exam' from here.
+          target: 'practice',
+        });
+        drafted += result.drafted;
+        duplicates += result.duplicates;
+        discarded += result.discarded;
+      } catch (err) {
+        failed.push(
+          `${materials.find((m) => m.id === materialId)?.title ?? 'A material'}: ` +
+            (err instanceof Error ? err.message : 'failed'),
+        );
+      }
+    }
+
+    setDraftProgress(null);
+    setDrafting(false);
+    setDraftOpen(false);
+    setShowDrafts(true);
+    await load();
+
+    if (drafted > 0) {
       toast.success(
-        `${assistantName} drafted ${result.drafted} question${result.drafted === 1 ? '' : 's'} — read them before approving.` +
-          (result.discarded ? ` ${result.discarded} were malformed and discarded.` : '') +
-          (result.duplicates
-            ? ` ${result.duplicates} repeated questions this course already has and were dropped.`
+        `${assistantName} drafted ${drafted} question${drafted === 1 ? '' : 's'} — read them before approving.` +
+          (discarded ? ` ${discarded} were malformed and discarded.` : '') +
+          (duplicates
+            ? ` ${duplicates} repeated questions a course already has and were dropped.`
             : ''),
       );
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not draft questions');
-    } finally {
-      setDrafting(false);
+    }
+    // Reported separately from the successes, and never swallowed by them: a
+    // run that half worked is a run somebody has to finish.
+    for (const message of failed) toast.error(message);
+    if (drafted === 0 && failed.length === 0) {
+      toast.error('Nothing was drafted — every question came back a repeat or malformed.');
     }
   };
 
@@ -411,25 +457,54 @@ export default function PracticeQuestions() {
           </DialogHeader>
 
           <div className="space-y-3">
-            <div>
-              <Label>Material</Label>
-              <Select value={draftMaterial} onValueChange={setDraftMaterial}>
-                <SelectTrigger><SelectValue placeholder="Pick a material" /></SelectTrigger>
-                <SelectContent>
-                  {materials.map((material) => (
-                    <SelectItem key={material.id} value={material.id}>{material.title}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label>Materials</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={materials.length === 0}
+                  onClick={() =>
+                    setDraftMaterials(
+                      draftMaterials.length === materials.length ? [] : materials.map((m) => m.id),
+                    )}
+                >
+                  {draftMaterials.length === materials.length ? 'Clear all' : 'Every course'}
+                </Button>
+              </div>
+              <div className="max-h-[14rem] space-y-1 overflow-y-auto rounded-md border border-border p-2">
+                {materials.map((material) => (
+                  <label
+                    key={material.id}
+                    className="flex cursor-pointer items-center justify-between gap-3 rounded-sm px-1 py-1 text-sm hover:bg-muted/50"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <Checkbox
+                        checked={draftMaterials.includes(material.id)}
+                        onCheckedChange={(v) =>
+                          setDraftMaterials((prev) =>
+                            v ? [...prev, material.id] : prev.filter((id) => id !== material.id))}
+                      />
+                      <span className="truncate">{material.title}</span>
+                    </span>
+                    {/* How full that course already is, because the question
+                        worth asking before drafting more is how many it has. */}
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {approvedPerCourse.get(material.course_id) ?? 0} approved
+                    </span>
+                  </label>
+                ))}
+              </div>
               {materials.length === 0 && (
-                <p className="mt-1.5 text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   No material has readable text yet. Capture it on the materials page first.
                 </p>
               )}
             </div>
 
             <div>
-              <Label>How many</Label>
+              <Label>How many from each</Label>
               <Input
                 type="number"
                 min={1}
@@ -438,6 +513,15 @@ export default function PracticeQuestions() {
                 onChange={(e) =>
                   setDraftCount(Math.min(20, Math.max(1, Number(e.target.value) || 1)))}
               />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Up to 20 per material — past that the same excerpt is being stretched and the
+                questions get thin. {draftMaterials.length > 1 && (
+                  <>
+                    That is up to {draftCount * draftMaterials.length} across the{' '}
+                    {draftMaterials.length} materials picked, drafted one after another.
+                  </>
+                )}
+              </p>
             </div>
 
             <div>
@@ -465,9 +549,16 @@ export default function PracticeQuestions() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setDraftOpen(false)}>Cancel</Button>
-            <Button disabled={drafting || !draftMaterial} onClick={runDraft}>
+            <Button disabled={drafting || draftMaterials.length === 0} onClick={runDraft}>
               {drafting
-                ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Drafting…</>
+                ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    {draftProgress && draftProgress.total > 1
+                      ? `Drafting ${draftProgress.done + 1} of ${draftProgress.total}…`
+                      : 'Drafting…'}
+                  </>
+                )
                 : <>Draft</>}
             </Button>
           </DialogFooter>
