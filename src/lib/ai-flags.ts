@@ -20,6 +20,7 @@ export const AI_FEATURES = [
   'ai_question_drafting',
   'ai_message_drafting',
   'ai_essay_marking',
+  'ai_marking_guide',
   'ai_practice_quizzes',
   'ai_progress_summary',
   'ai_result_guidance',

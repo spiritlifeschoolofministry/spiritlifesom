@@ -37,6 +37,17 @@ export default function ExamLobby() {
     (async () => {
       const { data } = await supabase.from("exams").select("*, courses(code, title)").eq("id", id).maybeSingle();
       setExam(data);
+      // Reaching this page is the last thing a student does before pressing
+      // Start, so it is the moment worth recording: everything after it is
+      // already logged by exam-start, and everything before it was invisible.
+      if (data) {
+        void supabase.rpc("log_exam_access", {
+          p_event: "opened",
+          p_exam_id: id!,
+          p_detail: null,
+          p_user_agent: navigator.userAgent,
+        });
+      }
       // What this paper is actually marked out of. exams.total_points is every
       // question on it, which overstates the mark available whenever only the
       // best few count — a student told to answer two of three would be

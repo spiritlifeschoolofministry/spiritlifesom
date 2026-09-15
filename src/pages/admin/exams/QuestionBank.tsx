@@ -711,9 +711,10 @@ export default function QuestionBank() {
                     placeholder="What a full-marks answer must contain."
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Write this yourself. It is the standard a suggested mark is judged against, so
-                    a rubric written by {assistantName} would just be it marking its own work —
-                    without one, suggestions are deliberately generous and say so.
+                    This is the standard a mark is judged against, so it has to be yours. Write it
+                    here, or have {assistantName} draft one from the course material under “Marking
+                    guide” on the exam and adopt it once you have read it — without a rubric,
+                    suggested marks are deliberately generous and say so.
                   </p>
                 </div>
               )}

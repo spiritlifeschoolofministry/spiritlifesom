@@ -107,6 +107,11 @@ enabled = true
 verify_jwt = true
 entrypoint = "./functions/ai-mark/index.ts"
 
+[functions.ai-guide]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/ai-guide/index.ts"
+
 [functions.ai-student]
 enabled = true
 verify_jwt = true

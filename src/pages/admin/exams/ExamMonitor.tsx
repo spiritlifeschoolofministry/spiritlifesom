@@ -45,7 +45,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Download, AlertTriangle, CheckCircle2, Send, Camera, Mic, Trash2, Loader2, LockKeyhole, ShieldAlert, ScanEye } from "lucide-react";
+import { ClipboardCheck, Download, AlertTriangle, CheckCircle2, Send, Camera, Mic, Trash2, Loader2, LockKeyhole, ShieldAlert, ScanEye } from "lucide-react";
 import PageHeader from "@/components/portal/PageHeader";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
@@ -55,6 +55,7 @@ import { AUTO_GRADED_TYPES, formatAnswer, isBreachReason, sanitizeHtml, submissi
 import { r2Storage } from "@/lib/r2-storage";
 import { reviewExam, SIGNAL_LABELS, type ProctorReview } from "@/lib/ai-proctor";
 import { edgeErrorMessage } from "@/lib/edge-error";
+import MarkingGuideDialog from "./MarkingGuideDialog";
 
 export default function ExamMonitor() {
   const { id } = useParams();
@@ -64,6 +65,10 @@ export default function ExamMonitor() {
   // real results on the same exam, so this screen shows one list rather than
   // sending staff to the coursework page to find half the cohort.
   const [onsite, setOnsite] = useState<{ id: string; name: string; code: string; grade: number | null; max: number; recorded: string | null }[]>([]);
+  // Students who came to this exam and never got an attempt out of it. Without
+  // this the only students on the screen are the ones who succeeded, so
+  // "I couldn't get in" had nothing to check it against.
+  const [turnedAway, setTurnedAway] = useState<{ id: string; name: string; code: string; at: string; event: string; detail: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [grading, setGrading] = useState<MonitoredAttempt | null>(null);
   const [gradeData, setGradeData] = useState<{ answers: GradableAnswer[]; questions: Tables<'question_bank'>[]; override: string }>({ answers: [], questions: [], override: "" });
@@ -73,6 +78,8 @@ export default function ExamMonitor() {
   // that has been given, and keeping them apart makes that structural.
   const aiMarking = useAiFeature("ai_essay_marking");
   const aiReview = useAiFeature("ai_proctor_review");
+  const aiGuide = useAiFeature("ai_marking_guide");
+  const [guideOpen, setGuideOpen] = useState(false);
   const assistantName = useAssistantName();
   const [suggestions, setSuggestions] = useState<Record<string, MarkSuggestion>>({});
   const [suggestingMarks, setSuggestingMarks] = useState(false);
@@ -107,6 +114,30 @@ export default function ExamMonitor() {
     const rows = (a ?? []).map((att) => ({ ...att, isRehearsal: previewIds.has(att.student_id) }));
     setHiddenRehearsals(rows.filter((r) => r.isRehearsal).length);
     setAttempts(showRehearsals ? rows : rows.filter((r) => !r.isRehearsal));
+
+    // Everyone who reached this exam without starting it. Anyone who did start
+    // appears in the attempts table above, so listing them here twice would
+    // only bury the students this is for.
+    const { data: access } = await supabase
+      .from("exam_access_events")
+      .select("id, occurred_at, event, detail, source, students(id, student_code, profiles(first_name, last_name))")
+      .eq("exam_id", id!)
+      .in("event", ["opened", "refused"])
+      .order("occurred_at", { ascending: false });
+    const startedIds = new Set((a ?? []).map((att) => att.student_id));
+    setTurnedAway(
+      (access ?? [])
+        .filter((r) => r.students && !startedIds.has(r.students.id))
+        .map((r) => ({
+          id: r.id,
+          name: [r.students?.profiles?.first_name, r.students?.profiles?.last_name].filter(Boolean).join(" ").trim()
+            || (r.students?.student_code ?? "Unknown"),
+          code: r.students?.student_code ?? "",
+          at: r.occurred_at,
+          event: r.event,
+          detail: r.detail,
+        })),
+    );
 
     // Offline records filed against this exam, with the marks entered for them.
     const { data: offline } = await supabase
@@ -560,6 +591,13 @@ export default function ExamMonitor() {
         actions={
           <>
             <Button variant="outline" onClick={exportCSV}><Download className="w-4 h-4 mr-1.5" /> CSV</Button>
+            {/* Before Release Results, because the standard belongs to the
+                marking and the marking happens before anyone sees a grade. */}
+            {aiGuide && !exam.results_released && (
+              <Button variant="outline" onClick={() => setGuideOpen(true)}>
+                <ClipboardCheck className="w-4 h-4 mr-1.5" /> Marking guide
+              </Button>
+            )}
             {!exam.results_released && (
               <Button onClick={releaseResults}><Send className="w-4 h-4 mr-1.5" /> Release Results</Button>
             )}
@@ -705,6 +743,29 @@ export default function ExamMonitor() {
             </tr>
           </thead>
           <tbody>
+            {/* Came to the exam and left without an attempt. The row a student
+                is pointing at when they say they could not get in. */}
+            {turnedAway.map((t) => (
+              <tr key={t.id} className="border-b border-border/50">
+                <td className="py-2 pr-3">
+                  <p className="font-medium">{t.name}</p>
+                  <p className="text-xs text-muted-foreground">{t.code}</p>
+                </td>
+                <td className="py-2 pr-3">
+                  <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+                    {t.event === "refused" ? "Turned away" : "Opened, never started"}
+                  </Badge>
+                </td>
+                <td className="py-2 pr-3 text-xs text-muted-foreground" colSpan={2}>
+                  {t.detail ?? "Reached the exam page and did not start"}
+                </td>
+                <td className="py-2 pr-3 text-xs text-muted-foreground">
+                  {format(new Date(t.at), "PPp")}
+                </td>
+                <td className="py-2 pr-3"></td>
+              </tr>
+            ))}
+
             {/* Sat on site, entered by hand. Listed with the online sittings
                 because they are results on the same paper — the proctoring
                 columns are simply blank, since nobody was being watched by a
@@ -1004,8 +1065,11 @@ export default function ExamMonitor() {
                         <p className="text-xs text-muted-foreground">{suggestion.feedback}</p>
                         {!(q as unknown as { rubric?: string | null }).rubric && (
                           <p className="text-xs text-amber-600">
-                            No rubric is set for this question, so this was marked generously on
-                            coherence alone. Add one to the question for a mark worth trusting.
+                            No marking guide is set for this question, so this was marked generously
+                            on coherence alone.{" "}
+                            {aiGuide
+                              ? "Set one from “Marking guide” on this exam for a mark worth trusting."
+                              : "Add one to the question for a mark worth trusting."}
                           </p>
                         )}
                       </div>
@@ -1098,6 +1162,15 @@ export default function ExamMonitor() {
           {snapshotViewer && <img src={snapshotViewer.url} alt="snapshot" className="w-full rounded" />}
         </DialogContent>
       </Dialog>
+
+      {aiGuide && id && (
+        <MarkingGuideDialog
+          examId={id}
+          open={guideOpen}
+          onOpenChange={setGuideOpen}
+          assistantName={assistantName}
+        />
+      )}
     </div>
   );
 }

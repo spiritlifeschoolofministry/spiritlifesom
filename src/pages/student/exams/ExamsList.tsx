@@ -49,6 +49,17 @@ export default function StudentExamsList() {
         // list cannot promise a paper the runner will refuse.
         .order("start_at", { ascending: false });
       setExams(ex ?? []);
+      // Note that this student came looking. A student who opens this page and
+      // never starts anything is otherwise indistinguishable from one who never
+      // opened it — and after the September sitting that was exactly the
+      // question nobody could answer. Fire-and-forget: the record is worth
+      // having, never at the cost of the page.
+      void supabase.rpc("log_exam_access", {
+        p_event: "listed",
+        p_exam_id: null,
+        p_detail: `${(ex ?? []).length} exams listed`,
+        p_user_agent: navigator.userAgent,
+      });
       const { data: at } = await supabase
         .from("exam_attempts")
         .select("*")

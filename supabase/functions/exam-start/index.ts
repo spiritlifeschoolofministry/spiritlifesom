@@ -48,6 +48,35 @@ Deno.serve(async (req) => {
       { auth: { persistSession: false } },
     );
 
+    /**
+     * Note that this student came to this exam, and what happened.
+     *
+     * Every refusal below used to leave nothing behind: a student turned away
+     * looked identical to one who never opened the page, which is precisely
+     * backwards — the turned-away student is the one who will be asking why.
+     * Deliberately never awaited and never able to throw; the record is worth
+     * having, but not at the cost of a sitting.
+     */
+    const noteAccess = (
+      studentId: string | null,
+      event: "refused" | "started" | "resumed",
+      detail?: string,
+    ) => {
+      if (!studentId) return;
+      admin
+        .from("exam_access_events")
+        .insert({
+          student_id: studentId,
+          exam_id: exam_id ?? null,
+          event,
+          detail: detail ?? null,
+          user_agent: (req.headers.get("user-agent") ?? "").slice(0, 400),
+        })
+        .then(({ error }) => {
+          if (error) console.error("Access log write failed:", error.message);
+        });
+    };
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return new Response(JSON.stringify({ error: "Invalid token" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -170,6 +199,7 @@ Deno.serve(async (req) => {
         activeAttempt.device_fingerprint !== device_fingerprint
       ) {
         return new Response(
+        noteAccess(student.id, "refused", "Attempt already open on another device");
           JSON.stringify({
             error: "This exam was started on another device. Continue on that device, or ask your lecturer to reset your attempt.",
           }),
@@ -194,6 +224,7 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "Failed to resume your exam attempt" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
+      noteAccess(student.id, "resumed");
       return new Response(
         JSON.stringify({ attempt: resumed, resumed: true, server_now: new Date().toISOString() }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -204,6 +235,7 @@ Deno.serve(async (req) => {
     // could submit and immediately sit the paper again for a second score.
     // Staff rehearsals are exempt so a dry run can be repeated.
     if (submittedAttempt && !student.is_staff_preview) {
+      noteAccess(student.id, "refused", "Already submitted this exam");
       return new Response(
         JSON.stringify({ error: "You have already submitted this exam" }),
         { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -252,6 +284,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Could not check whether this exam is for you" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     if (!isTargeted) {
+      noteAccess(student.id, "refused", "Not in this exam's audience");
       return new Response(
         JSON.stringify({ error: "This exam has not been set for you. Ask your lecturer if you think it should have been." }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -275,6 +308,7 @@ Deno.serve(async (req) => {
 
     const linkedIds = (links ?? []).map((l) => l.question_id).filter(Boolean);
     if (linkedIds.length === 0) {
+      noteAccess(student.id, "refused", "Exam has no questions");
       return new Response(JSON.stringify({ error: "Exam has no questions" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -288,6 +322,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Failed to load exam questions" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     if (!questions || questions.length === 0) {
+      noteAccess(student.id, "refused", "Exam has no questions");
       return new Response(JSON.stringify({ error: "Exam has no questions" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -334,9 +369,11 @@ Deno.serve(async (req) => {
     const endMs = new Date(exam.end_at).getTime();
 
     if (nowMs < startMs) {
+      noteAccess(student.id, "refused", "Arrived before the exam opened");
       return new Response(JSON.stringify({ error: "This exam has not opened yet" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     if (nowMs > endMs) {
+      noteAccess(student.id, "refused", "Arrived after the exam closed");
       return new Response(JSON.stringify({ error: "This exam has closed" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     // Late entry off used to refuse from the instant after start_at, which made
@@ -353,6 +390,7 @@ Deno.serve(async (req) => {
 
     if (nowMs > entryClosesMs) {
       const minutes = Math.round((entryClosesMs - startMs) / 60000);
+      noteAccess(student.id, "refused", `Entry closed ${minutes} minutes after the exam opened`);
       return new Response(
         JSON.stringify({
           error: exam.allow_late_entry
@@ -418,6 +456,7 @@ Deno.serve(async (req) => {
       );
     }
 
+    noteAccess(student.id, "started");
     return new Response(
       JSON.stringify({ attempt, server_now: new Date().toISOString() }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },

@@ -100,6 +100,12 @@ const FEATURE_COPY: Record<AiFeature, { title: string; blurb: string; audience: 
       'Proposes a mark and a reason for essay and short-answer questions against the rubric. Suggestions sit beside the real mark until someone accepts them one at a time.',
     audience: 'Staff',
   },
+  ai_marking_guide: {
+    title: 'Draft a marking guide for a paper',
+    blurb:
+      'Drafts what a full-marks answer to each written question contains, from the course’s own materials and nothing else. Drafts are inert — a mark is judged against a guide only once a lecturer has read it and adopted it, and their name is recorded against it.',
+    audience: 'Staff',
+  },
   ai_practice_quizzes: {
     title: 'Practice questions',
     blurb:

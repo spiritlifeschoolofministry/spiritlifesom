@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activity_events: {
@@ -1055,6 +1080,61 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      exam_access_events: {
+        Row: {
+          detail: string | null
+          event: string
+          exam_id: string | null
+          id: string
+          occurred_at: string
+          source: string
+          student_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          detail?: string | null
+          event: string
+          exam_id?: string | null
+          id?: string
+          occurred_at?: string
+          source?: string
+          student_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          detail?: string | null
+          event?: string
+          exam_id?: string | null
+          id?: string
+          occurred_at?: string
+          source?: string
+          student_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_access_events_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_access_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "graduate_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_access_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       exam_answers: {
         Row: {
@@ -2109,6 +2189,10 @@ export type Database = {
           question_text: string
           question_type: string
           rubric: string | null
+          rubric_approved_at: string | null
+          rubric_approved_by: string | null
+          rubric_draft: string | null
+          rubric_source: string | null
           source_material_id: string | null
           status: string
           tags: string[] | null
@@ -2132,6 +2216,10 @@ export type Database = {
           question_text: string
           question_type: string
           rubric?: string | null
+          rubric_approved_at?: string | null
+          rubric_approved_by?: string | null
+          rubric_draft?: string | null
+          rubric_source?: string | null
           source_material_id?: string | null
           status?: string
           tags?: string[] | null
@@ -2155,6 +2243,10 @@ export type Database = {
           question_text?: string
           question_type?: string
           rubric?: string | null
+          rubric_approved_at?: string | null
+          rubric_approved_by?: string | null
+          rubric_draft?: string | null
+          rubric_source?: string | null
           source_material_id?: string | null
           status?: string
           tags?: string[] | null
@@ -2173,6 +2265,20 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_bank_rubric_approved_by_fkey"
+            columns: ["rubric_approved_by"]
+            isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "question_bank_rubric_approved_by_fkey"
+            columns: ["rubric_approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -2877,6 +2983,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      log_exam_access: {
+        Args: {
+          p_detail?: string
+          p_event: string
+          p_exam_id?: string
+          p_user_agent?: string
+        }
+        Returns: undefined
+      }
       log_manual_admission_email: {
         Args: {
           p_email_type: string
@@ -3060,6 +3175,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },
