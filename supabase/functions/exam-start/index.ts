@@ -198,8 +198,8 @@ Deno.serve(async (req) => {
         device_fingerprint &&
         activeAttempt.device_fingerprint !== device_fingerprint
       ) {
-        return new Response(
         noteAccess(student.id, "refused", "Attempt already open on another device");
+        return new Response(
           JSON.stringify({
             error: "This exam was started on another device. Continue on that device, or ask your lecturer to reset your attempt.",
           }),
