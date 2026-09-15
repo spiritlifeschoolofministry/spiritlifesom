@@ -26,13 +26,11 @@
  */
 import { chainFailureResponse, corsHeaders, guard, json } from "../_shared/ai-guard.ts";
 import { runChain } from "../_shared/ai-chain.ts";
-import { clampExcerpt, extractJson, line } from "../_shared/ai-text.ts";
+import { clampExcerpt, line } from "../_shared/ai-text.ts";
+import { parseGuide } from "../_shared/guide-shapes.ts";
 
 /** Per question. Enough for a guide; far short of a whole book. */
 const MAX_EXCERPT_CHARS = 10_000;
-
-/** A guide long enough to be a standard, short enough to be read while marking. */
-const MAX_GUIDE_CHARS = 1200;
 
 /** Past this the material is a reading list, not a source for one question. */
 const MAX_MATERIALS = 4;
@@ -205,16 +203,6 @@ Deno.serve(async (req) => {
         .map((m) => `--- ${m.title} ---\n${m.ai_excerpt ?? ""}`)
         .join("\n\n");
 
-      const parse = (raw: string): { guide: string | null } | null => {
-        const parsed = extractJson<{ guide?: unknown }>(raw);
-        if (!parsed || !("guide" in parsed)) return null;
-        if (parsed.guide === null) return { guide: null };
-        const text = String(parsed.guide ?? "").trim();
-        // Anything shorter is a sentence of throat-clearing, not a standard.
-        if (text.length < 60) return null;
-        return { guide: text.slice(0, MAX_GUIDE_CHARS) };
-      };
-
       const result = await runChain(
         service,
         prompt({
@@ -224,7 +212,7 @@ Deno.serve(async (req) => {
           courseName,
           excerpt,
         }),
-        { accept: (raw) => parse(raw) !== null, maxTokens: 900 },
+        { accept: (raw) => parseGuide(raw) !== null, maxTokens: 900 },
       );
 
       if (!result.text) {
@@ -233,7 +221,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const parsed = parse(result.text)!;
+      const parsed = parseGuide(result.text)!;
       if (parsed.guide === null) {
         guides[question.id] = {
           guide: null,
