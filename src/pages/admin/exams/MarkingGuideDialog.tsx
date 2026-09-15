@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Pencil, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { sanitizeHtml } from "@/lib/exam-utils";
 import {
@@ -14,6 +14,7 @@ import {
   draftMarkingGuides,
   fetchGuidedQuestions,
   type GuidedQuestion,
+  reviseGuide,
 } from "@/lib/ai-guide";
 
 /**
@@ -49,6 +50,33 @@ export default function MarkingGuideDialog({
   /** Why a question came back without a guide, from the last draft run. */
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
+  /**
+   * Which adopted guides are open for editing.
+   *
+   * Separate from `edits`, which holds drafted text waiting to be adopted. A
+   * guide already in force and a guide not yet in force are different states,
+   * and one map holding both would make "is this the standard?" a question the
+   * screen could get wrong.
+   */
+  const [revising, setRevising] = useState<Set<string>>(new Set());
+
+  const startRevising = (question: GuidedQuestion) => {
+    setEdits((current) => ({ ...current, [question.id]: question.rubric ?? "" }));
+    setRevising((current) => new Set(current).add(question.id));
+  };
+
+  const stopRevising = (questionId: string) => {
+    setEdits((current) => {
+      const next = { ...current };
+      delete next[questionId];
+      return next;
+    });
+    setRevising((current) => {
+      const next = new Set(current);
+      next.delete(questionId);
+      return next;
+    });
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -122,6 +150,23 @@ export default function MarkingGuideDialog({
       toast.success("Adopted. Marks on this question are now judged against it.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not adopt that guide.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const saveRevision = async (question: GuidedQuestion) => {
+    setBusy(question.id);
+    try {
+      await reviseGuide(examId, question.id, edits[question.id] ?? "");
+      stopRevising(question.id);
+      await load();
+      toast.success("Guide updated.");
+    } catch (err) {
+      // Most likely someone started marking while this was open, in which case
+      // reviseGuide refuses and says how many answers are already marked.
+      toast.error(err instanceof Error ? err.message : "Could not save that change.");
+      await load();
     } finally {
       setBusy(null);
     }
@@ -221,11 +266,71 @@ export default function MarkingGuideDialog({
                       dangerouslySetInnerHTML={{ __html: sanitizeHtml(q.question_text) }}
                     />
 
-                    {adopted
+                    {adopted && revising.has(q.id)
                       ? (
-                        <p className="whitespace-pre-wrap rounded-md bg-muted/40 p-2.5 text-xs text-muted-foreground">
-                          {q.rubric}
-                        </p>
+                        <div className="space-y-2">
+                          <Textarea
+                            value={edits[q.id] ?? q.rubric ?? ""}
+                            rows={7}
+                            className="text-xs"
+                            onChange={(e) =>
+                              setEdits((current) => ({ ...current, [q.id]: e.target.value }))}
+                          />
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="h-7 text-xs"
+                              disabled={busy === q.id || !(edits[q.id] ?? "").trim()}
+                              onClick={() => saveRevision(q)}
+                            >
+                              {busy === q.id
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                : "Save changes"}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-xs"
+                              disabled={busy === q.id}
+                              onClick={() => stopRevising(q.id)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                      : adopted
+                      ? (
+                        <div className="space-y-1.5">
+                          <p className="whitespace-pre-wrap rounded-md bg-muted/40 p-2.5 text-xs text-muted-foreground">
+                            {q.rubric}
+                          </p>
+                          {q.marked_count === 0
+                            ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => startRevising(q)}
+                              >
+                                <Pencil className="mr-1.5 h-3 w-3" /> Edit
+                              </Button>
+                            )
+                            : (
+                              /* Not a disabled button. A control that cannot be
+                                 used says nothing about why, and the why here is
+                                 the whole reason it is closed. */
+                              <p className="text-xs text-muted-foreground">
+                                {q.marked_count} answer{q.marked_count === 1 ? "" : "s"}{" "}
+                                {q.marked_count === 1 ? "has" : "have"} been marked against this, so
+                                it is fixed now — changing it would leave the rest of the paper
+                                judged by a different standard.
+                              </p>
+                            )}
+                        </div>
                       )
                       : draft !== undefined
                       ? (
