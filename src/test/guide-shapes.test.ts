@@ -98,7 +98,34 @@ describe('parseGuide', () => {
     const result = parseGuide(JSON.stringify({ guide: long }));
     // A model that over-explains has still read the material; the ceiling is
     // about what a marker can read, so it is trimmed rather than thrown away.
-    expect(result?.guide).toHaveLength(MAX_GUIDE_CHARS);
+    expect(result?.guide).toBeTruthy();
+    expect(result!.guide!.length).toBeLessThanOrEqual(MAX_GUIDE_CHARS);
+  });
+
+  /**
+   * The regression. The ceiling was 1200, and every guide drafted for the first
+   * six papers came back at exactly that — cut mid-word, four of five losing
+   * the "Do not penalise" line that stops a marker docking a student for a
+   * devotional tone. A standard that ends "...or merely offers personal opini"
+   * is not a standard.
+   */
+  it('never ends a clamped guide mid-word', () => {
+    const long = 'A specific requirement drawn from the material. '.repeat(200);
+    const guide = parseGuide(JSON.stringify({ guide: long }))!.guide!;
+    expect(guide).toMatch(/[.?\n]$/);
+  });
+
+  it('leaves a guide of realistic length completely alone', () => {
+    // The four-section shape runs to roughly 1500-1800 characters on a 15-mark
+    // essay. All of it must survive, tail included.
+    const full = [
+      REAL_GUIDE,
+      'Partial — an answer covering only one of the two required points.',
+      'No marks — an answer about translation rather than canonisation.',
+      'Do not penalise — a devotional tone, or shaky grammar from a second-language writer.',
+    ].join('\n\n');
+    expect(full.length).toBeGreaterThan(400);
+    expect(parseGuide(JSON.stringify({ guide: full }))?.guide).toBe(full);
   });
 
   it('refuses prose that is not JSON at all', () => {

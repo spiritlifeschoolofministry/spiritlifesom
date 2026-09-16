@@ -23,7 +23,23 @@ import { extractJson } from "./ai-text.ts";
  * wrong, where a missing rubric at least makes the screen say so.
  */
 export const MIN_GUIDE_CHARS = 60;
-export const MAX_GUIDE_CHARS = 1200;
+
+/**
+ * The ceiling, and why it is not 1200.
+ *
+ * It was, and every guide drafted for the first six papers came back at
+ * exactly 1200 characters — cut mid-word, and four of the five lost the "Do
+ * not penalise" line, which is the section that stops a marker docking a
+ * student for a devotional tone or shaky grammar. A clamp that silently eats
+ * the most forgiving part of a standard is worse than one that refuses.
+ *
+ * The four-section shape this asks for runs to roughly 1500-1800 characters on
+ * a 15-mark essay, so the ceiling is set well clear of it. It is still a
+ * ceiling — a guide past this is no longer something read in under a minute
+ * while marking — but it is now a bound on the pathological case rather than
+ * on the normal one.
+ */
+export const MAX_GUIDE_CHARS = 2600;
 
 export interface ParsedGuide {
   /** The guide, or null where the material could not ground one. */
@@ -56,5 +72,26 @@ export const parseGuide = (raw: string): ParsedGuide | null => {
   const text = String(parsed.guide ?? "").trim();
   if (text.length < MIN_GUIDE_CHARS) return null;
 
-  return { guide: text.slice(0, MAX_GUIDE_CHARS) };
+  return { guide: clampWhole(text) };
+};
+
+/**
+ * Trims to the ceiling without cutting a sentence in half.
+ *
+ * A guide is read as prose by someone deciding a mark, and one ending
+ * "...or merely offers personal opini" reads as a fault in the system rather
+ * than as a standard. Falling back to a hard cut only when there is no break
+ * to be found keeps one enormous unpunctuated block from being trimmed away
+ * to nothing.
+ */
+const clampWhole = (text: string): string => {
+  if (text.length <= MAX_GUIDE_CHARS) return text;
+
+  const clipped = text.slice(0, MAX_GUIDE_CHARS);
+  const breakAt = Math.max(
+    clipped.lastIndexOf("\n"),
+    clipped.lastIndexOf(". "),
+    clipped.lastIndexOf("? "),
+  );
+  return (breakAt > MAX_GUIDE_CHARS * 0.6 ? clipped.slice(0, breakAt + 1) : clipped).trim();
 };

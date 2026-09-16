@@ -146,14 +146,31 @@ const countMarkedAgainst = async (examId: string, questionId: string): Promise<n
   const attemptIds = ((attempts ?? []) as { id: string }[]).map((a) => a.id);
   if (attemptIds.length === 0) return 0;
 
-  const { count } = await aiDb
+  const { data } = await aiDb
     .from('exam_answers')
-    .select('id', { count: 'exact', head: true })
+    .select('answer')
     .eq('question_id', questionId)
     .in('attempt_id', attemptIds)
     .not('points_awarded', 'is', null);
 
-  return count ?? 0;
+  return ((data ?? []) as { answer: unknown }[]).filter((row) => hasAnswer(row.answer)).length;
+};
+
+/**
+ * Whether an answer says anything.
+ *
+ * A blank answer is a zero nobody needed a standard to arrive at, so marking
+ * the blanks — which is how most examiners start, because it is the quick
+ * part — must not close the guide. The first six papers made the case: SLM 106
+ * had 22 marks on record and every one of them was an unanswered question,
+ * which under a plain count would have locked all three of its guides before a
+ * single real answer had been judged.
+ */
+const hasAnswer = (answer: unknown): boolean => {
+  if (answer === null || answer === undefined) return false;
+  if (typeof answer === 'string') return answer.trim().length > 0;
+  if (Array.isArray(answer)) return answer.length > 0;
+  return String(answer).trim().length > 0;
 };
 
 /** Throws a drafted guide away, leaving the question as it was. */
@@ -222,13 +239,15 @@ export const fetchGuidedQuestions = async (examId: string): Promise<GuidedQuesti
   const { data: marked } = attemptIds.length
     ? await aiDb
       .from('exam_answers')
-      .select('question_id')
+      .select('question_id, answer')
       .in('attempt_id', attemptIds)
       .not('points_awarded', 'is', null)
     : { data: [] };
 
   const markedCounts = new Map<string, number>();
-  for (const row of (marked ?? []) as { question_id: string }[]) {
+  for (const row of (marked ?? []) as { question_id: string; answer: unknown }[]) {
+    // Blanks do not count — see hasAnswer.
+    if (!hasAnswer(row.answer)) continue;
     markedCounts.set(row.question_id, (markedCounts.get(row.question_id) ?? 0) + 1);
   }
 
