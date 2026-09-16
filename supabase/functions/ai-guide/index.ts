@@ -49,13 +49,16 @@ Hard rules:
 - Where the material does not cover enough of the question to support a guide, answer with {"guide": null}. That is a correct answer and a useful one.
 - This is a school of ministry. Do not require a particular denominational position, a particular vocabulary, or an academic rather than devotional tone. Require understanding.
 - Do not require length, structure, or a set number of points. A short answer containing the substance is a full-marks answer.
+- Never require a named verse. A student may support a point from any Scripture, or from the material's own reasoning, and an answer is not weaker for citing a different passage than the material does.
+- Where the question invites a judgement — a scenario, a case study, "in your own words" — the guide must reward the reasoning, not one conclusion. A student who argues a defensible position from the material earns full marks even where they land somewhere the material does not.
+- The "No marks" band is for an answer that does not engage the question: a blank, an answer to a different question, or assertion with no reasoning at all. It is never for an answer that engages seriously and concludes differently. Do not list conclusions there.
 - Mark bands must add up to exactly ${args.maxPoints}.
 
 Write the guide as plain prose a marker reads in under a minute, in British English, in this shape:
 
 Full marks (${args.maxPoints}) — what an answer must contain, as two or three specific points drawn from the material.
 Partial — what a half-marks answer typically has and is missing.
-No marks — what is not an answer to this question.
+No marks — what is not an answer to this question at all. Not a wrong conclusion; an absent one.
 Do not penalise — what a marker should let pass.
 
 Answer with JSON and nothing else: {"guide": "<the guide, or null>"}
