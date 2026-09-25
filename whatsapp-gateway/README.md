@@ -16,6 +16,7 @@ else does.
 | GET | `/healthz` | none | Liveness for Render. 200 whenever the process is up — says nothing about WhatsApp. |
 | GET | `/status` | secret | What the socket is actually doing. Also refreshes the heartbeat. |
 | GET | `/qr` | secret **or** pairing token | Scannable pairing page, when a pairing is in progress. |
+| GET | `/groups` | secret | Lists the groups this number is in, with their JIDs. Read-only. |
 | POST | `/send` | secret | `{ to, text, idempotency_key?, student_id? }` |
 
 Auth is the `x-gateway-secret` header, compared in constant time.

@@ -115,6 +115,42 @@ app.get("/qr", (req, res) => {
 });
 
 /**
+ * The groups this number belongs to.
+ *
+ * WhatsApp shows a group's name everywhere and its id nowhere, so there is no
+ * way to copy a JID off a phone. Without this, wiring the official group up
+ * means guessing, and a wrong guess sends school announcements to whichever
+ * chat the id happened to belong to.
+ *
+ * Authenticated, and read-only: it lists what the number is already in. It
+ * cannot join, leave or post.
+ */
+app.get("/groups", requireSecret, async (_req, res) => {
+  if (!canSend()) {
+    res.status(503).json({ error: "gateway not connected", connection: state.connection });
+    return;
+  }
+  try {
+    const groups = await state.sock!.groupFetchAllParticipating();
+    const rows = Object.values(groups).map((group) => ({
+      jid: group.id,
+      subject: group.subject,
+      participants: group.participants?.length ?? 0,
+      // Announcement groups are the ones where only admins may post, which is
+      // usually exactly what an "official" school group is.
+      announceOnly: group.announce ?? false,
+    }));
+    rows.sort((a, b) => b.participants - a.participants);
+    res.json({ count: rows.length, groups: rows });
+  } catch (err) {
+    res.status(502).json({
+      error: "could not list groups",
+      detail: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
+
+/**
  * Recent idempotency keys.
  *
  * Every caller that retries -- pg_cron re-firing, an Edge Function retried
