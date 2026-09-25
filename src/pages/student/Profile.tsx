@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
 import { fetchStudentHistory } from '@/lib/student-sessions';
+import WhatsAppPreference from '@/components/student/WhatsAppPreference';
 
 interface PersonalFormData {
   first_name: string;
@@ -674,6 +675,8 @@ const StudentProfile = () => {
                 </form>
               </CardContent>
             </Card>
+
+            {user?.id && <WhatsAppPreference userId={user.id} />}
 
             {/* Change Password Section */}
             <Card>

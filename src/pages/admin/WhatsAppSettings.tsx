@@ -34,6 +34,12 @@ type Settings = {
   alert_exam_published: boolean;
   alert_exam_starting_soon: boolean;
   alert_material_uploaded: boolean;
+  notify_payment_verified: boolean;
+  notify_payment_rejected: boolean;
+  notify_assignment_graded: boolean;
+  notify_results_released: boolean;
+  notify_admission_decision: boolean;
+  notify_certificate_issued: boolean;
   grading_backlog_days: number;
   quota_warn_percent: number;
   exam_reminder_minutes: number;
@@ -61,7 +67,19 @@ const GROUP_ALERTS: { key: keyof Settings; label: string; help: string }[] = [
   { key: 'alert_material_uploaded', label: 'New course material', help: 'A batch upload is announced once, not once per file.' },
 ];
 
+const STUDENT_ALERTS: { key: keyof Settings; label: string; help: string }[] = [
+  { key: 'notify_payment_rejected', label: 'Payment not accepted', help: 'Tells the student why, so they can resubmit. Without it the reason sits in the portal unread and the money stays stuck.' },
+  { key: 'notify_payment_verified', label: 'Payment confirmed', help: 'Confirms the amount and what is still outstanding on that fee.' },
+  { key: 'notify_assignment_graded', label: 'Assignment graded', help: 'Score and feedback. A regrade sends again.' },
+  { key: 'notify_results_released', label: 'Exam result released', help: 'Only when results are released, not when they are scored.' },
+  { key: 'notify_admission_decision', label: 'Admission decision', help: 'Approved or not. A rejection is kept brief and carries no reason.' },
+  { key: 'notify_certificate_issued', label: 'Certificate issued', help: 'Serial number and the verification link.' },
+];
+
+type Coverage = { total: number; reachable: number; optedOut: number };
+
 export default function WhatsAppSettings() {
+  const [coverage, setCoverage] = useState<Coverage | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -84,6 +102,28 @@ export default function WhatsAppSettings() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  // How many students can actually be reached, counted live. A switch that
+  // claims to message students is worth little without the number of students
+  // it would reach -- and an unreadable phone number fails silently, so this is
+  // the only place it becomes visible.
+  useEffect(() => {
+    void (async () => {
+      const { data } = await supabase
+        .from('students')
+        .select('profile:profiles!inner(whatsapp_jid, whatsapp_opted_out_at)')
+        .eq('is_staff_preview', false);
+      if (!data) return;
+      const rows = data as unknown as {
+        profile: { whatsapp_jid: string | null; whatsapp_opted_out_at: string | null } | null;
+      }[];
+      setCoverage({
+        total: rows.length,
+        reachable: rows.filter((r) => r.profile?.whatsapp_jid && !r.profile.whatsapp_opted_out_at).length,
+        optedOut: rows.filter((r) => r.profile?.whatsapp_opted_out_at).length,
+      });
+    })();
+  }, []);
 
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) =>
     setSettings((s) => (s ? { ...s, [key]: value } : s));
@@ -235,6 +275,24 @@ export default function WhatsAppSettings() {
           <CardDescription>Seen by everyone in the official group.</CardDescription>
         </CardHeader>
         <CardContent className="py-0">{GROUP_ALERTS.map(rowFor)}</CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Messages to students</CardTitle>
+          <CardDescription>
+            Sent privately to each student&rsquo;s own number.
+            {coverage && (
+              <span className="block mt-1.5 text-foreground">
+                {coverage.reachable} of {coverage.total} students reachable
+                {coverage.optedOut > 0 && ` · ${coverage.optedOut} opted out`}
+                {coverage.total - coverage.reachable - coverage.optedOut > 0 &&
+                  ` · ${coverage.total - coverage.reachable - coverage.optedOut} with an unusable number`}
+              </span>
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="py-0">{STUDENT_ALERTS.map(rowFor)}</CardContent>
       </Card>
 
       <Card>

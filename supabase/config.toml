@@ -155,3 +155,12 @@ enabled = true
 # has since been unpublished or already sent.
 verify_jwt = false
 entrypoint = "./functions/whatsapp-group-post/index.ts"
+
+[functions.whatsapp-student-notify]
+enabled = true
+# Called by table triggers through pg_net, which cannot sign a JWT. Safe for
+# the same reason as the other two senders: the caller names a row, never a
+# message and never a recipient. The recipient is resolved from that row
+# through whatsapp_target_for_student, which honours the opt-out.
+verify_jwt = false
+entrypoint = "./functions/whatsapp-student-notify/index.ts"
