@@ -24,7 +24,9 @@ type Kind =
   | "payment_submitted"
   | "admissions_digest"
   | "exam_integrity_stop"
-  | "exam_device_conflict";
+  | "exam_device_conflict"
+  | "exam_close_digest"
+  | "grading_backlog";
 
 type Alert = {
   /** Lines of the message, joined with newlines. */
@@ -401,6 +403,163 @@ async function buildExamDeviceConflict(
   };
 }
 
+/**
+ * What happened in the exams that closed today.
+ *
+ * A paper filed by the student is unremarkable. Everything else is a sitting
+ * that ended on the system's terms rather than the student's -- a clock running
+ * out, a network dropping, a proctoring rule tripping -- and each of those is a
+ * student who may have lost time they should have had. Individually they are
+ * invisible; together, the morning after, they are a pattern worth seeing.
+ *
+ * Deliberately a digest rather than an alert. There is nothing to do about a
+ * timeout while it is happening, so interrupting someone would only train them
+ * to ignore the interruptions that do matter.
+ */
+async function buildExamCloseDigest(
+  admin: ReturnType<typeof createClient>,
+): Promise<Alert | null> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: exams, error: examError } = await admin
+    .from("exams")
+    .select("id, title, end_at")
+    .gte("end_at", since)
+    .lte("end_at", new Date().toISOString())
+    .order("end_at", { ascending: true });
+
+  if (examError) throw new Error(`exam lookup failed: ${examError.message}`);
+  if (!exams || exams.length === 0) return null;
+
+  const lines: string[] = [];
+
+  for (const exam of exams) {
+    const { data: attempts } = await admin
+      .from("exam_attempts")
+      .select("id, student_id, submission_reason, status")
+      .eq("exam_id", exam.id);
+
+    const all = attempts ?? [];
+    if (all.length === 0) continue;
+
+    // 'manual' is the student filing their own paper. Everything else ended
+    // some other way, and null means it never ended at all.
+    const notManual = all.filter((a) => a.submission_reason !== "manual");
+    if (notManual.length === 0) continue;
+
+    const counts = new Map<string, number>();
+    for (const a of notManual) {
+      const reason = String(a.submission_reason ?? "never submitted");
+      counts.set(reason, (counts.get(reason) ?? 0) + 1);
+    }
+
+    lines.push("", `*${exam.title}*`, `${all.length} sat, ${notManual.length} did not file their own paper`);
+    for (const [reason, count] of [...counts].sort((a, b) => b[1] - a[1])) {
+      lines.push(`• ${reason}: ${count}`);
+    }
+
+    // The ones worth a second look: a dropped network or a clock that ran out
+    // may mean the student never got the time the exam promised them.
+    const cutOff = notManual.filter(
+      (a) => a.submission_reason === "disconnect" || a.submission_reason === null,
+    );
+    if (cutOff.length > 0) {
+      const names = await Promise.all(
+        cutOff.slice(0, 5).map((a) => describeStudent(admin, a.student_id as string | null)),
+      );
+      lines.push(
+        `Cut off mid-paper: ${names.join(", ")}${cutOff.length > 5 ? ` and ${cutOff.length - 5} more` : ""}`,
+      );
+    }
+  }
+
+  if (lines.length === 0) return null;
+
+  const appUrl = (Deno.env.get("APP_URL") ?? "").replace(/\/$/, "");
+  const out = ["*Exams closed in the last 24 hours*", ...lines];
+  if (appUrl) out.push("", `${appUrl}/admin/exams`);
+
+  return {
+    lines: out,
+    studentId: null,
+    idempotencyKey: `exam_close_digest-${new Date().toISOString().slice(0, 10)}`,
+  };
+}
+
+/**
+ * Papers sat but not given back.
+ *
+ * "Graded" is not the finish line -- `released` is. An attempt can carry a
+ * score for weeks with the student still seeing nothing, because scoring and
+ * releasing are separate acts and only the first happens by itself. The gap is
+ * invisible from the admin side, where the exam looks marked, and total from
+ * the student side, where it looks ignored.
+ *
+ * So the question this asks is not "has it been marked" but "has the student
+ * had it back", which is the one they are actually asking.
+ */
+async function buildGradingBacklog(
+  admin: ReturnType<typeof createClient>,
+): Promise<Alert | null> {
+  const days = Number(Deno.env.get("GRADING_BACKLOG_DAYS") ?? 3);
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: stale, error } = await admin
+    .from("exam_attempts")
+    .select("id, exam_id, score, status, submitted_at")
+    .not("submitted_at", "is", null)
+    .lt("submitted_at", cutoff)
+    .neq("status", "released")
+    .order("submitted_at", { ascending: true });
+
+  if (error) throw new Error(`backlog lookup failed: ${error.message}`);
+  if (!stale || stale.length === 0) return null;
+
+  // Grouped by exam, because releasing is done per exam -- a list of 120
+  // attempt ids tells nobody which button to press.
+  const byExam = new Map<string, { total: number; scored: number; oldest: string }>();
+  for (const attempt of stale) {
+    const key = String(attempt.exam_id);
+    const entry = byExam.get(key) ?? { total: 0, scored: 0, oldest: attempt.submitted_at as string };
+    entry.total += 1;
+    if (attempt.score !== null) entry.scored += 1;
+    if ((attempt.submitted_at as string) < entry.oldest) entry.oldest = attempt.submitted_at as string;
+    byExam.set(key, entry);
+  }
+
+  const { data: exams } = await admin
+    .from("exams")
+    .select("id, title")
+    .in("id", [...byExam.keys()]);
+  const titles = new Map((exams ?? []).map((e) => [e.id as string, e.title as string]));
+
+  const lines = [
+    `*Results not released — ${stale.length} papers*`,
+    `Sat more than ${days} day${days === 1 ? "" : "s"} ago and the students still cannot see them.`,
+  ];
+
+  const rows = [...byExam.entries()].sort((a, b) => b[1].total - a[1].total);
+  for (const [examId, entry] of rows.slice(0, 8)) {
+    lines.push(
+      "",
+      `*${titles.get(examId) ?? "Unknown exam"}*`,
+      `${entry.total} papers, ${entry.scored} already scored — oldest ${waited(entry.oldest)}`,
+    );
+  }
+  if (rows.length > 8) lines.push("", `_…and ${rows.length - 8} more exams_`);
+
+  const appUrl = (Deno.env.get("APP_URL") ?? "").replace(/\/$/, "");
+  if (appUrl) lines.push("", `${appUrl}/admin/exams`);
+
+  return {
+    lines,
+    studentId: null,
+    // Weekly cadence, so keyed to the day it runs rather than to the contents:
+    // the same backlog reported next week is news again.
+    idempotencyKey: `grading_backlog-${new Date().toISOString().slice(0, 10)}`,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -463,6 +622,12 @@ Deno.serve(async (req) => {
           });
         }
         alert = await buildExamIntegrityStop(admin, attempt_id);
+        break;
+      case "exam_close_digest":
+        alert = await buildExamCloseDigest(admin);
+        break;
+      case "grading_backlog":
+        alert = await buildGradingBacklog(admin);
         break;
       case "exam_device_conflict":
         if (!event_id) {
