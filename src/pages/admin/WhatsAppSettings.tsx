@@ -45,6 +45,10 @@ type Settings = {
   alert_assignment_published: boolean;
   alert_exam_missed: boolean;
   alert_certificate_revoked: boolean;
+  notify_profile_incomplete: boolean;
+  alert_email_failures: boolean;
+  alert_audit_retention: boolean;
+  audit_retention_months: number;
   grading_backlog_days: number;
   quota_warn_percent: number;
   exam_reminder_minutes: number;
@@ -65,6 +69,8 @@ const DIRECT_ALERTS: { key: keyof Settings; label: string; help: string }[] = [
   { key: 'alert_ops_check', label: 'Storage and system check', help: 'Daily, 06:00 — only when a quota is filling up or AI calls are failing.' },
   { key: 'alert_exam_missed', label: 'Did not sit', help: 'After an exam closes, who has no attempt on record — worth checking whether they were blocked rather than absent.' },
   { key: 'alert_certificate_revoked', label: 'Certificate revoked', help: 'When a certificate already in circulation is marked invalid.' },
+  { key: 'alert_email_failures', label: 'Email failures', help: 'Daily. Emails that did not send — the student simply never hears otherwise.' },
+  { key: 'alert_audit_retention', label: 'Audit log retention', help: 'Monthly. Counts rows past the retention age. Never deletes anything.' },
 ];
 
 const GROUP_ALERTS: { key: keyof Settings; label: string; help: string }[] = [
@@ -83,6 +89,7 @@ const STUDENT_ALERTS: { key: keyof Settings; label: string; help: string }[] = [
   { key: 'notify_results_released', label: 'Exam result released', help: 'Only when results are released, not when they are scored.' },
   { key: 'notify_admission_decision', label: 'Admission decision', help: 'Approved or not. A rejection is kept brief and carries no reason.' },
   { key: 'notify_certificate_issued', label: 'Certificate issued', help: 'Serial number and the verification link.' },
+  { key: 'notify_profile_incomplete', label: 'Unfinished profile', help: 'Weekly. Students who never finished signing up, asked at most once a fortnight.' },
   { key: 'notify_number_fix', label: 'Ask about unusable numbers', help: 'Weekly. Where a profile lists two numbers, asks the student which to use; where none can be read, tells the admins instead.' },
 ];
 
@@ -344,6 +351,12 @@ export default function WhatsAppSettings() {
             <Input id="quota" type="number" min={10} max={99}
               value={settings.quota_warn_percent}
               onChange={(e) => set('quota_warn_percent', Number(e.target.value))} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="audit">Audit retention (months)</Label>
+            <Input id="audit" type="number" min={1} max={120}
+              value={settings.audit_retention_months}
+              onChange={(e) => set('audit_retention_months', Number(e.target.value))} />
           </div>
           <div className="space-y-1">
             <Label htmlFor="reminder">Exam reminder (minutes)</Label>

@@ -29,7 +29,8 @@ type Kind =
   | "assignment_graded"
   | "results_released"
   | "admission_decision"
-  | "certificate_issued";
+  | "certificate_issued"
+  | "profile_incomplete_sweep";
 
 const SETTING_FOR_KIND: Record<Kind, string> = {
   payment_verified: "notify_payment_verified",
@@ -38,6 +39,7 @@ const SETTING_FOR_KIND: Record<Kind, string> = {
   results_released: "notify_results_released",
   admission_decision: "notify_admission_decision",
   certificate_issued: "notify_certificate_issued",
+  profile_incomplete_sweep: "notify_profile_incomplete",
 };
 
 function naira(amount: number | string | null): string {
@@ -60,7 +62,9 @@ Deno.serve(async (req) => {
 
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   const { kind, id } = body as { kind?: Kind; id?: string };
-  if (!kind || !id) {
+  // The sweep finds its own recipients; everything else is told which row to
+  // read.
+  if (!kind || (kind !== "profile_incomplete_sweep" && !id)) {
     return new Response(JSON.stringify({ error: "kind and id are required" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -89,6 +93,98 @@ Deno.serve(async (req) => {
   }
 
   const appUrl = (Deno.env.get("APP_URL") ?? "").replace(/\/$/, "");
+
+  const sendTo = async (to: string, text: string, key: string, studentId: string) => {
+    const response = await fetch(`${gatewayUrl.replace(/\/$/, "")}/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-gateway-secret": gatewaySecret },
+      body: JSON.stringify({ to, text, student_id: studentId, idempotency_key: key }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    return response.ok;
+  };
+
+  /**
+   * Students who never finished signing up.
+   *
+   * An incomplete profile is a student the school cannot fully serve, who does
+   * not know it, and -- unlike most problems here -- can fix it themselves in
+   * about a minute. The only thing missing was somebody telling them.
+   *
+   * A fortnight between asks per person. This is a chore, not news, and a
+   * reminder that arrives weekly is one people stop reading.
+   */
+  if (kind === "profile_incomplete_sweep") {
+    const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: students, error } = await admin
+      .from("students")
+      .select("id, profile_id, is_staff_preview")
+      .eq("is_staff_preview", false)
+      .eq("is_approved", true);
+
+    if (error) {
+      return new Response(JSON.stringify({ error: `lookup failed: ${error.message}` }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let nudged = 0;
+    for (const student of students ?? []) {
+      const { data: complete } = await admin.rpc("is_profile_complete", {
+        _user_id: student.profile_id,
+      });
+      if (complete !== false) continue;
+
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("first_name, profile_nudged_at")
+        .eq("id", student.profile_id)
+        .maybeSingle();
+
+      if (profile?.profile_nudged_at && String(profile.profile_nudged_at) > cutoff) continue;
+
+      const { data: target } = await admin.rpc("whatsapp_target_for_student", {
+        p_student_id: student.id,
+      });
+      if (!target) continue;
+
+      const text = [
+        "*Your profile is not finished*",
+        "",
+        `Hello ${profile?.first_name?.trim() || "there"},`,
+        "",
+        "Some details are still missing from your student profile. Until they are",
+        "filled in, parts of the portal stay closed to you.",
+        "",
+        "It takes about a minute.",
+        appUrl ? `${appUrl}/student/profile` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const ok = await sendTo(
+        String(target),
+        text,
+        // Keyed to the fortnight, so a retry inside the window is refused but
+        // the next sweep after it can ask again.
+        `profile_incomplete-${student.id}-${new Date().toISOString().slice(0, 10)}`,
+        String(student.id),
+      );
+      if (ok) {
+        await admin
+          .from("profiles")
+          .update({ profile_nudged_at: new Date().toISOString() })
+          .eq("id", student.profile_id);
+        nudged += 1;
+      }
+    }
+
+    return new Response(JSON.stringify({ sent: nudged }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   /** The outstanding balance on one fee, after whatever has just been applied. */
   async function feeLine(feeId: string | null): Promise<string[]> {

@@ -34,6 +34,8 @@ const SETTING_FOR_KIND: Record<string, string> = {
   ops_check: "alert_ops_check",
   exam_missed: "alert_exam_missed",
   certificate_revoked: "alert_certificate_revoked",
+  email_failures: "alert_email_failures",
+  audit_retention: "alert_audit_retention",
 };
 
 type Settings = Record<string, unknown> | null;
@@ -63,7 +65,9 @@ type Kind =
   | "revenue_digest"
   | "ops_check"
   | "exam_missed"
-  | "certificate_revoked";
+  | "certificate_revoked"
+  | "email_failures"
+  | "audit_retention";
 
 type Alert = {
   /** Lines of the message, joined with newlines. */
@@ -931,6 +935,107 @@ async function buildCertificateRevoked(
   };
 }
 
+/**
+ * Email that did not arrive.
+ *
+ * Every admission decision, welcome and receipt goes out by email, and a
+ * failure is written to email_send_history and read by nobody. The student
+ * simply never hears, and the first anyone knows is when they ask why they were
+ * ignored.
+ */
+async function buildEmailFailures(
+  admin: ReturnType<typeof createClient>,
+): Promise<Alert | null> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: recent, error } = await admin
+    .from("email_send_history")
+    .select("id, recipient_email, email_type, status, error_message, attempts, created_at")
+    .gte("created_at", since);
+
+  if (error) throw new Error(`email history lookup failed: ${error.message}`);
+
+  const rows = recent ?? [];
+  // 'sent' is the only status that means it arrived. Anything else -- failed,
+  // queued and stuck, whatever a future version adds -- has not.
+  const failed = rows.filter((r) => String(r.status ?? "").toLowerCase() !== "sent");
+  if (failed.length === 0) return null;
+
+  const byType = new Map<string, number>();
+  for (const row of failed) {
+    const key = String(row.email_type ?? "unknown");
+    byType.set(key, (byType.get(key) ?? 0) + 1);
+  }
+
+  const lines = [
+    `*${failed.length} email${failed.length === 1 ? "" : "s"} did not send*`,
+    `Out of ${rows.length} attempted in the last 24 hours.`,
+    "",
+  ];
+  for (const [type, count] of [...byType].sort((a, b) => b[1] - a[1])) {
+    lines.push(`• ${type}: ${count}`);
+  }
+
+  // The first distinct error, because the cause is usually one thing and the
+  // message is more use than the count.
+  const reason = failed.find((r) => r.error_message)?.error_message;
+  if (reason) lines.push("", `First error: ${String(reason).slice(0, 180)}`);
+
+  const appUrl = (Deno.env.get("APP_URL") ?? "").replace(/\/$/, "");
+  if (appUrl) lines.push("", `${appUrl}/admin/email-history`);
+
+  return {
+    lines,
+    studentId: null,
+    idempotencyKey: `email_failures-${new Date().toISOString().slice(0, 10)}`,
+  };
+}
+
+/**
+ * Audit rows older than the retention period.
+ *
+ * Reports only. Audit logs are the record of who changed what and the first
+ * thing wanted when something is disputed, and there is no database backup
+ * anywhere -- so a scheduled job quietly destroying them is the one automation
+ * this system should not have. Deletion can be added deliberately once there is
+ * an export to delete *into*.
+ */
+async function buildAuditRetention(
+  admin: ReturnType<typeof createClient>,
+  settings: Settings,
+): Promise<Alert | null> {
+  const months = Number(settings?.audit_retention_months ?? 12);
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - months);
+
+  const { count: stale, error } = await admin
+    .from("audit_logs")
+    .select("id", { count: "exact", head: true })
+    .lt("created_at", cutoff.toISOString());
+
+  if (error) throw new Error(`audit lookup failed: ${error.message}`);
+  if (!stale || stale === 0) return null;
+
+  const { count: total } = await admin
+    .from("audit_logs")
+    .select("id", { count: "exact", head: true });
+
+  const lines = [
+    "*Audit log retention*",
+    "",
+    `${stale} of ${total ?? "?"} audit rows are older than ${months} months.`,
+    "",
+    "Nothing has been deleted. Export them before clearing anything — they are",
+    "the record of who changed what, and there is no database backup.",
+  ];
+
+  return {
+    lines,
+    studentId: null,
+    idempotencyKey: `audit_retention-${new Date().toISOString().slice(0, 7)}`,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -1038,6 +1143,12 @@ Deno.serve(async (req) => {
           });
         }
         alert = await buildCertificateRevoked(admin, certificate_id);
+        break;
+      case "email_failures":
+        alert = await buildEmailFailures(admin);
+        break;
+      case "audit_retention":
+        alert = await buildAuditRetention(admin, settings);
         break;
       case "ops_check":
         alert = await buildOpsCheck(admin, settings);

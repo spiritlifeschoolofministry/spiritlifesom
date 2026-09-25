@@ -2140,6 +2140,7 @@ export type Database = {
           middle_name: string | null
           phone: string | null
           phone_number: string | null
+          profile_nudged_at: string | null
           promoted_at: string | null
           promoted_by: string | null
           role: string
@@ -2160,6 +2161,7 @@ export type Database = {
           middle_name?: string | null
           phone?: string | null
           phone_number?: string | null
+          profile_nudged_at?: string | null
           promoted_at?: string | null
           promoted_by?: string | null
           role?: string
@@ -2180,6 +2182,7 @@ export type Database = {
           middle_name?: string | null
           phone?: string | null
           phone_number?: string | null
+          profile_nudged_at?: string | null
           promoted_at?: string | null
           promoted_by?: string | null
           role?: string
@@ -2809,8 +2812,10 @@ export type Database = {
           admin_jids: string[]
           alert_admissions_digest: boolean
           alert_assignment_published: boolean
+          alert_audit_retention: boolean
           alert_certificate_revoked: boolean
           alert_device_conflict: boolean
+          alert_email_failures: boolean
           alert_event_reminder: boolean
           alert_exam_close_digest: boolean
           alert_exam_integrity: boolean
@@ -2822,6 +2827,7 @@ export type Database = {
           alert_ops_check: boolean
           alert_payment_receipt: boolean
           alert_revenue_digest: boolean
+          audit_retention_months: number
           enabled: boolean
           exam_reminder_minutes: number
           grading_backlog_days: number
@@ -2834,6 +2840,7 @@ export type Database = {
           notify_number_fix: boolean
           notify_payment_rejected: boolean
           notify_payment_verified: boolean
+          notify_profile_incomplete: boolean
           notify_results_released: boolean
           official_group_jid: string | null
           quota_warn_percent: number
@@ -2844,8 +2851,10 @@ export type Database = {
           admin_jids?: string[]
           alert_admissions_digest?: boolean
           alert_assignment_published?: boolean
+          alert_audit_retention?: boolean
           alert_certificate_revoked?: boolean
           alert_device_conflict?: boolean
+          alert_email_failures?: boolean
           alert_event_reminder?: boolean
           alert_exam_close_digest?: boolean
           alert_exam_integrity?: boolean
@@ -2857,6 +2866,7 @@ export type Database = {
           alert_ops_check?: boolean
           alert_payment_receipt?: boolean
           alert_revenue_digest?: boolean
+          audit_retention_months?: number
           enabled?: boolean
           exam_reminder_minutes?: number
           grading_backlog_days?: number
@@ -2869,6 +2879,7 @@ export type Database = {
           notify_number_fix?: boolean
           notify_payment_rejected?: boolean
           notify_payment_verified?: boolean
+          notify_profile_incomplete?: boolean
           notify_results_released?: boolean
           official_group_jid?: string | null
           quota_warn_percent?: number
@@ -2879,8 +2890,10 @@ export type Database = {
           admin_jids?: string[]
           alert_admissions_digest?: boolean
           alert_assignment_published?: boolean
+          alert_audit_retention?: boolean
           alert_certificate_revoked?: boolean
           alert_device_conflict?: boolean
+          alert_email_failures?: boolean
           alert_event_reminder?: boolean
           alert_exam_close_digest?: boolean
           alert_exam_integrity?: boolean
@@ -2892,6 +2905,7 @@ export type Database = {
           alert_ops_check?: boolean
           alert_payment_receipt?: boolean
           alert_revenue_digest?: boolean
+          audit_retention_months?: number
           enabled?: boolean
           exam_reminder_minutes?: number
           grading_backlog_days?: number
@@ -2904,6 +2918,7 @@ export type Database = {
           notify_number_fix?: boolean
           notify_payment_rejected?: boolean
           notify_payment_verified?: boolean
+          notify_profile_incomplete?: boolean
           notify_results_released?: boolean
           official_group_jid?: string | null
           quota_warn_percent?: number
