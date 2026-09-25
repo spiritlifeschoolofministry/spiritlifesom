@@ -125,6 +125,7 @@ export const AdminPracticeQuestions = lazyPage(() => import("@/pages/admin/Pract
 export const AdminStorage = lazyPage(() => import("@/pages/admin/StorageManagement"));
 export const AdminAiSettings = lazyPage(() => import("@/pages/admin/AiSettings"));
 export const AdminWhatsAppSettings = lazyPage(() => import("@/pages/admin/WhatsAppSettings"));
+export const AdminWhatsAppLog = lazyPage(() => import("@/pages/admin/WhatsAppLog"));
 export const StudentStudy = lazyPage(() => import("@/pages/student/Study"));
 export const ComingSoon = lazyPage(() => import("@/pages/ComingSoon"));
 export const AdminComingSoon = lazyPage(() => import("@/pages/AdminComingSoon"));

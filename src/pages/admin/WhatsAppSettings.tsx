@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, Loader2, MessageCircle, Save, Users } from 'lucide-react';
+import { AlertTriangle, Loader2, MessageCircle, MessageSquare, Save, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 /**
@@ -339,6 +340,17 @@ export default function WhatsAppSettings() {
             <Input id="rate" type="number" min={1} max={200}
               value={settings.inbound_replies_per_hour}
               onChange={(e) => set('inbound_replies_per_hour', Number(e.target.value))} />
+          </div>
+          <div className="pt-1">
+            <Button asChild variant="outline" size="sm">
+              <Link to="/admin/whatsapp/log">
+                <MessageSquare className="h-4 w-4 mr-2" /> See what people have asked
+              </Link>
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2">
+              Both halves of every conversation, including the replies an AI wrote.
+              Worth reading for the first few weeks.
+            </p>
           </div>
         </CardContent>
       </Card>
