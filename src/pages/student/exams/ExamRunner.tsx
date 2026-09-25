@@ -15,8 +15,23 @@ import { edgeErrorMessage } from "@/lib/edge-error";
 import { AlertTriangle, ChevronLeft, ChevronRight, Send, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
-/** How long a student has to restore a lost camera or microphone. */
-const GRACE_SECONDS = 10;
+/**
+ * How long a student has to restore a lost camera or microphone.
+ *
+ * Ten seconds was written for a desktop, where losing a device means another
+ * application grabbed it and the student is sitting right there. On a phone it
+ * is not a grace period at all: iOS ends the camera and microphone tracks
+ * outright when the screen locks, a call arrives, or the student switches app,
+ * and an iPhone locks itself after thirty seconds by default. A student pausing
+ * to think could lose the paper before noticing anything had happened — which
+ * is how Yetunde Sansa's September sitting ended, submitted as
+ * microphone_blocked with nothing saved.
+ *
+ * A minute is long enough to answer a call, dismiss it, and come back. The
+ * device is retried throughout, so a sitting that recovers never reaches the
+ * end of the window at all.
+ */
+const GRACE_SECONDS = 60;
 
 export default function ExamRunner() {
   const { id } = useParams();
