@@ -134,3 +134,14 @@ enabled = true
 # unauthorised caller could make it do, and no JWT is required.
 verify_jwt = false
 entrypoint = "./functions/whatsapp-health/index.ts"
+
+[functions.whatsapp-admin-alert]
+enabled = true
+# Called by a table trigger through pg_net, which cannot hold a secret or sign
+# a JWT. Safe to leave open because the caller names an *event*, never a
+# message or a recipient: the text is composed here from the row, and the
+# destination comes from ADMIN_WHATSAPP_JIDS. The worst an unauthorised caller
+# achieves is making the school's own admins hear again about a payment that
+# really was submitted -- and the gateway deduplicates that.
+verify_jwt = false
+entrypoint = "./functions/whatsapp-admin-alert/index.ts"
