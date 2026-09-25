@@ -497,6 +497,7 @@ export type Database = {
           max_points: number
           passing_score: number | null
           title: string
+          whatsapp_sent_at: string | null
         }
         Insert: {
           category?: string
@@ -512,6 +513,7 @@ export type Database = {
           max_points?: number
           passing_score?: number | null
           title: string
+          whatsapp_sent_at?: string | null
         }
         Update: {
           category?: string
@@ -527,6 +529,7 @@ export type Database = {
           max_points?: number
           passing_score?: number | null
           title?: string
+          whatsapp_sent_at?: string | null
         }
         Relationships: [
           {
@@ -1591,6 +1594,7 @@ export type Database = {
           title: string
           total_points: number
           updated_at: string
+          whatsapp_missed_swept_at: string | null
           whatsapp_published_at: string | null
           whatsapp_reminded_at: string | null
         }
@@ -1634,6 +1638,7 @@ export type Database = {
           title: string
           total_points?: number
           updated_at?: string
+          whatsapp_missed_swept_at?: string | null
           whatsapp_published_at?: string | null
           whatsapp_reminded_at?: string | null
         }
@@ -1677,6 +1682,7 @@ export type Database = {
           title?: string
           total_points?: number
           updated_at?: string
+          whatsapp_missed_swept_at?: string | null
           whatsapp_published_at?: string | null
           whatsapp_reminded_at?: string | null
         }
@@ -2387,6 +2393,7 @@ export type Database = {
           start_date: string
           target_cohort_id: string | null
           title: string
+          whatsapp_reminded_at: string | null
         }
         Insert: {
           category?: string | null
@@ -2397,6 +2404,7 @@ export type Database = {
           start_date: string
           target_cohort_id?: string | null
           title: string
+          whatsapp_reminded_at?: string | null
         }
         Update: {
           category?: string | null
@@ -2407,6 +2415,7 @@ export type Database = {
           start_date?: string
           target_cohort_id?: string | null
           title?: string
+          whatsapp_reminded_at?: string | null
         }
         Relationships: [
           {
@@ -2799,9 +2808,13 @@ export type Database = {
         Row: {
           admin_jids: string[]
           alert_admissions_digest: boolean
+          alert_assignment_published: boolean
+          alert_certificate_revoked: boolean
           alert_device_conflict: boolean
+          alert_event_reminder: boolean
           alert_exam_close_digest: boolean
           alert_exam_integrity: boolean
+          alert_exam_missed: boolean
           alert_exam_published: boolean
           alert_exam_starting_soon: boolean
           alert_grading_backlog: boolean
@@ -2830,9 +2843,13 @@ export type Database = {
         Insert: {
           admin_jids?: string[]
           alert_admissions_digest?: boolean
+          alert_assignment_published?: boolean
+          alert_certificate_revoked?: boolean
           alert_device_conflict?: boolean
+          alert_event_reminder?: boolean
           alert_exam_close_digest?: boolean
           alert_exam_integrity?: boolean
+          alert_exam_missed?: boolean
           alert_exam_published?: boolean
           alert_exam_starting_soon?: boolean
           alert_grading_backlog?: boolean
@@ -2861,9 +2878,13 @@ export type Database = {
         Update: {
           admin_jids?: string[]
           alert_admissions_digest?: boolean
+          alert_assignment_published?: boolean
+          alert_certificate_revoked?: boolean
           alert_device_conflict?: boolean
+          alert_event_reminder?: boolean
           alert_exam_close_digest?: boolean
           alert_exam_integrity?: boolean
+          alert_exam_missed?: boolean
           alert_exam_published?: boolean
           alert_exam_starting_soon?: boolean
           alert_grading_backlog?: boolean
@@ -3239,7 +3260,10 @@ export type Database = {
       }
       verify_certificate: { Args: { p_serial: string }; Returns: Json }
       whatsapp_msisdn_candidates: { Args: { raw: string }; Returns: string[] }
+      whatsapp_sweep_event_reminders: { Args: never; Returns: undefined }
       whatsapp_sweep_exam_reminders: { Args: never; Returns: undefined }
+      whatsapp_sweep_missed_exams: { Args: never; Returns: undefined }
+      whatsapp_sweep_new_assignments: { Args: never; Returns: undefined }
       whatsapp_sweep_new_materials: { Args: never; Returns: undefined }
       whatsapp_target_for_student: {
         Args: { p_student_id: string }

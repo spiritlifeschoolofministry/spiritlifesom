@@ -32,6 +32,8 @@ const SETTING_FOR_KIND: Record<string, string> = {
   grading_backlog: "alert_grading_backlog",
   revenue_digest: "alert_revenue_digest",
   ops_check: "alert_ops_check",
+  exam_missed: "alert_exam_missed",
+  certificate_revoked: "alert_certificate_revoked",
 };
 
 type Settings = Record<string, unknown> | null;
@@ -59,7 +61,9 @@ type Kind =
   | "exam_close_digest"
   | "grading_backlog"
   | "revenue_digest"
-  | "ops_check";
+  | "ops_check"
+  | "exam_missed"
+  | "certificate_revoked";
 
 type Alert = {
   /** Lines of the message, joined with newlines. */
@@ -810,6 +814,123 @@ async function buildOpsCheck(
   };
 }
 
+/**
+ * Who did not sit a paper that has now closed.
+ *
+ * A student with no attempt row leaves no trace at all. They are not late, not
+ * failed, not flagged -- simply absent from the results, which looks identical
+ * whether they forgot, were locked out by a device conflict, or never managed
+ * to get in. Only a person can tell those apart, and only while it is recent
+ * enough to do something about.
+ */
+async function buildExamMissed(
+  admin: ReturnType<typeof createClient>,
+  examId: string,
+): Promise<Alert | null> {
+  const { data: exam, error } = await admin
+    .from("exams")
+    .select("id, title, cohort_id, end_at, whatsapp_missed_swept_at")
+    .eq("id", examId)
+    .maybeSingle();
+
+  if (error) throw new Error(`exam lookup failed: ${error.message}`);
+  if (!exam || exam.whatsapp_missed_swept_at) return null;
+
+  // Mark first. This sweep runs hourly over a 24-hour window, so a slow compose
+  // could otherwise be started twice and report the same absences twice.
+  await admin
+    .from("exams")
+    .update({ whatsapp_missed_swept_at: new Date().toISOString() })
+    .eq("id", exam.id);
+
+  const { data: expected } = await admin
+    .from("students")
+    .select("id, student_code, profile_id")
+    .eq("cohort_id", exam.cohort_id)
+    .eq("is_staff_preview", false)
+    .eq("is_approved", true);
+
+  if (!expected || expected.length === 0) return null;
+
+  const { data: attempts } = await admin
+    .from("exam_attempts")
+    .select("student_id")
+    .eq("exam_id", exam.id);
+
+  const sat = new Set((attempts ?? []).map((a) => String(a.student_id)));
+  const missed = expected.filter((s) => !sat.has(String(s.id)));
+
+  // Everybody sat it. Worth nothing to say so.
+  if (missed.length === 0) return null;
+
+  const names = await Promise.all(
+    missed.slice(0, 15).map((s) => describeStudent(admin, s.id as string)),
+  );
+
+  const appUrl = (Deno.env.get("APP_URL") ?? "").replace(/\/$/, "");
+  const lines = [
+    `*${missed.length} did not sit — ${exam.title}*`,
+    "",
+    `${sat.size} of ${expected.length} students have an attempt on record.`,
+    "",
+    ...names.map((n) => `• ${n}`),
+    ...(missed.length > 15 ? [`_…and ${missed.length - 15} more_`] : []),
+    "",
+    "Worth checking whether they were blocked rather than absent.",
+  ];
+  if (appUrl) lines.push(`${appUrl}/admin/exams`);
+
+  return {
+    lines,
+    // The alert is about the exam, not one student, so no student_id -- and it
+    // therefore names several people, which is exactly why it goes only to
+    // ADMIN_WHATSAPP_JIDS and never to a group.
+    studentId: null,
+    idempotencyKey: `exam_missed-${exam.id}`,
+  };
+}
+
+/**
+ * A certificate was revoked.
+ *
+ * Issuing is announced to the graduate; revoking is the opposite act and had no
+ * trace anywhere. It is also the more serious of the two -- it says a
+ * certificate already in circulation is no longer valid -- and the school
+ * should be able to say when that was decided and on what grounds.
+ *
+ * Admins only. A revocation is a conversation somebody needs to have, not a
+ * message that lands on the graduate's phone unannounced.
+ */
+async function buildCertificateRevoked(
+  admin: ReturnType<typeof createClient>,
+  certificateId: string,
+): Promise<Alert | null> {
+  const { data: certificate, error } = await admin
+    .from("certificates")
+    .select("id, student_id, serial, revoked_at, revoke_reason, student_code_at_issue")
+    .eq("id", certificateId)
+    .maybeSingle();
+
+  if (error) throw new Error(`certificate lookup failed: ${error.message}`);
+  if (!certificate || !certificate.revoked_at) return null;
+
+  const lines = [
+    "*Certificate revoked*",
+    "",
+    await describeStudent(admin, certificate.student_id as string | null),
+    `Serial: ${certificate.serial}`,
+    `Reason: ${certificate.revoke_reason ?? "none recorded"}`,
+    "",
+    "This certificate will now fail public verification.",
+  ];
+
+  return {
+    lines,
+    studentId: certificate.student_id as string | null,
+    idempotencyKey: `certificate_revoked-${certificate.id}`,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -825,11 +946,13 @@ Deno.serve(async (req) => {
     );
   }
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-  const { kind, payment_id, attempt_id, event_id } = body as {
+  const { kind, payment_id, attempt_id, event_id, exam_id, certificate_id } = body as {
     kind?: Kind;
     payment_id?: string;
     attempt_id?: string;
     event_id?: string;
+    exam_id?: string;
+    certificate_id?: string;
   };
 
   const serviceKey =
@@ -897,6 +1020,24 @@ Deno.serve(async (req) => {
         break;
       case "exam_close_digest":
         alert = await buildExamCloseDigest(admin);
+        break;
+      case "exam_missed":
+        if (!exam_id) {
+          return new Response(JSON.stringify({ error: "exam_id is required" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        alert = await buildExamMissed(admin, exam_id);
+        break;
+      case "certificate_revoked":
+        if (!certificate_id) {
+          return new Response(JSON.stringify({ error: "certificate_id is required" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        alert = await buildCertificateRevoked(admin, certificate_id);
         break;
       case "ops_check":
         alert = await buildOpsCheck(admin, settings);

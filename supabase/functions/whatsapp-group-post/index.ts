@@ -34,10 +34,17 @@ Deno.serve(async (req) => {
     );
   }
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-  const { kind = "announcement", announcement_id, exam_id } = body as {
-    kind?: "announcement" | "exam_published" | "exam_starting_soon" | "materials_added";
+  const { kind = "announcement", announcement_id, exam_id, event_id } = body as {
+    kind?:
+      | "announcement"
+      | "exam_published"
+      | "exam_starting_soon"
+      | "materials_added"
+      | "assignments_added"
+      | "event_reminder";
     announcement_id?: string;
     exam_id?: string;
+    event_id?: string;
   };
 
   const serviceKey =
@@ -52,7 +59,8 @@ Deno.serve(async (req) => {
     .from("whatsapp_settings")
     .select(
       "enabled, mirror_announcements, alert_exam_published, alert_exam_starting_soon, " +
-        "alert_material_uploaded, official_group_jid, exam_reminder_minutes",
+        "alert_material_uploaded, alert_assignment_published, alert_event_reminder, " +
+        "official_group_jid, exam_reminder_minutes",
     )
     .eq("id", true)
     .maybeSingle();
@@ -62,6 +70,8 @@ Deno.serve(async (req) => {
     exam_published: "alert_exam_published",
     exam_starting_soon: "alert_exam_starting_soon",
     materials_added: "alert_material_uploaded",
+    assignments_added: "alert_assignment_published",
+    event_reminder: "alert_event_reminder",
   };
   const switchName = SWITCH[kind];
 
@@ -168,6 +178,92 @@ Deno.serve(async (req) => {
         .from("announcements")
         .update({ whatsapp_sent_at: new Date().toISOString() })
         .eq("id", announcement.id);
+    };
+  } else if (kind === "event_reminder") {
+    if (!event_id) {
+      return new Response(JSON.stringify({ error: "event_id is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { data: event } = await admin
+      .from("school_events")
+      .select("id, title, description, start_date, end_date, category, target_cohort_id, whatsapp_reminded_at")
+      .eq("id", event_id)
+      .maybeSingle();
+
+    if (!event || event.whatsapp_reminded_at) {
+      return new Response(JSON.stringify({ sent: 0, reason: "nothing to post" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!(await targetsThisGroup(event.target_cohort_id as string | null))) {
+      return new Response(
+        JSON.stringify({ sent: 0, reason: "event targets a cohort that is not the active one" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const lines = ["*Reminder — tomorrow*", "", String(event.title ?? "School event")];
+    if (event.start_date) lines.push(lagos(event.start_date as string));
+    if (event.description) lines.push("", String(event.description).trim());
+    if (appUrl) lines.push("", `${appUrl}/student/calendar`);
+
+    text = lines.join("\n");
+    idempotencyKey = `event_reminder-${event.id}`;
+    markSent = async () => {
+      await admin
+        .from("school_events")
+        .update({ whatsapp_reminded_at: new Date().toISOString() })
+        .eq("id", event.id);
+    };
+  } else if (kind === "assignments_added") {
+    // Batched for the same reason as materials: assignments are set several at
+    // a time at the start of a module, and one message per row would train the
+    // group to mute the number.
+    const settled = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data: rows, error } = await admin
+      .from("assignments")
+      .select("id, title, due_date, max_points, cohort_id, course_id, created_at, is_manual_record")
+      .is("whatsapp_sent_at", null)
+      .lt("created_at", settled)
+      .order("due_date", { ascending: true });
+
+    if (error) {
+      return new Response(JSON.stringify({ error: `lookup failed: ${error.message}` }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const mine: NonNullable<typeof rows> = [];
+    for (const row of rows ?? []) {
+      if (row.is_manual_record) continue;
+      if (await targetsThisGroup(row.cohort_id as string | null)) mine.push(row);
+    }
+
+    if (mine.length === 0) {
+      return new Response(JSON.stringify({ sent: 0, reason: "nothing to post" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const lines =
+      mine.length === 1 ? ["*New assignment*", ""] : [`*${mine.length} new assignments*`, ""];
+    for (const row of mine.slice(0, 10)) {
+      const due = row.due_date ? ` — due ${lagos(row.due_date as string)}` : "";
+      lines.push(`• ${row.title}${due}`);
+    }
+    if (mine.length > 10) lines.push(`_…and ${mine.length - 10} more_`);
+    if (appUrl) lines.push("", `${appUrl}/student/assignments`);
+
+    text = lines.join("\n");
+    idempotencyKey = `assignments_added-${mine.map((m) => m.id).join(",").slice(0, 80)}`;
+    markSent = async () => {
+      await admin
+        .from("assignments")
+        .update({ whatsapp_sent_at: new Date().toISOString() })
+        .in("id", mine.map((m) => m.id as string));
     };
   } else if (kind === "materials_added") {
     // The sweep decides there is something to say; this decides what. Reading

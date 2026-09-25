@@ -41,6 +41,10 @@ type Settings = {
   notify_admission_decision: boolean;
   notify_certificate_issued: boolean;
   notify_number_fix: boolean;
+  alert_event_reminder: boolean;
+  alert_assignment_published: boolean;
+  alert_exam_missed: boolean;
+  alert_certificate_revoked: boolean;
   grading_backlog_days: number;
   quota_warn_percent: number;
   exam_reminder_minutes: number;
@@ -59,6 +63,8 @@ const DIRECT_ALERTS: { key: keyof Settings; label: string; help: string }[] = [
   { key: 'alert_grading_backlog', label: 'Results not released', help: 'Mondays, 07:30 — papers sat but never given back to students.' },
   { key: 'alert_revenue_digest', label: 'Fees digest', help: 'Mondays, 08:00 — collected, outstanding and anything that does not reconcile.' },
   { key: 'alert_ops_check', label: 'Storage and system check', help: 'Daily, 06:00 — only when a quota is filling up or AI calls are failing.' },
+  { key: 'alert_exam_missed', label: 'Did not sit', help: 'After an exam closes, who has no attempt on record — worth checking whether they were blocked rather than absent.' },
+  { key: 'alert_certificate_revoked', label: 'Certificate revoked', help: 'When a certificate already in circulation is marked invalid.' },
 ];
 
 const GROUP_ALERTS: { key: keyof Settings; label: string; help: string }[] = [
@@ -66,6 +72,8 @@ const GROUP_ALERTS: { key: keyof Settings; label: string; help: string }[] = [
   { key: 'alert_exam_published', label: 'Exam published', help: 'Tell the group when a new exam opens.' },
   { key: 'alert_exam_starting_soon', label: 'Exam starting soon', help: 'Remind the group before an exam begins.' },
   { key: 'alert_material_uploaded', label: 'New course material', help: 'A batch upload is announced once, not once per file.' },
+  { key: 'alert_assignment_published', label: 'New assignment', help: 'Announced with its due date. Batched like materials.' },
+  { key: 'alert_event_reminder', label: 'Event reminder', help: 'The evening before, so there is still an evening left to plan around it.' },
 ];
 
 const STUDENT_ALERTS: { key: keyof Settings; label: string; help: string }[] = [
