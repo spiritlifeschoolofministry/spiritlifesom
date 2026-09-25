@@ -1,8 +1,53 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { timingSafeEqual } from "node:crypto";
+import { createClient } from "@supabase/supabase-js";
 import { env } from "./env.js";
 import { state, canSend, reportStatus } from "./socket.js";
+
+const supabase = createClient(env.supabaseUrl, env.supabaseServiceKey, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+/**
+ * The line appended to everything this gateway sends.
+ *
+ * Applied here rather than in each caller, because "every message says who sent
+ * it" is only true if it is impossible to forget -- and a rule enforced at the
+ * last point before the wire cannot be forgotten by whatever is written next.
+ *
+ * A message from the school's own number is indistinguishable from one a person
+ * typed. Students should know nobody is reading the reply they are about to
+ * send, and the school should not appear to have personally written a fee
+ * reminder at seven on a Monday morning.
+ *
+ * Cached for a minute: this is read on every send, and the wording changes
+ * about once a year.
+ */
+let signature: string | null = null;
+let signatureFetchedAt = 0;
+const SIGNATURE_TTL_MS = 60_000;
+
+async function currentSignature(): Promise<string> {
+  if (signature !== null && Date.now() - signatureFetchedAt < SIGNATURE_TTL_MS) {
+    return signature;
+  }
+  try {
+    const { data } = await supabase
+      .from("whatsapp_settings")
+      .select("message_signature")
+      .eq("id", true)
+      .maybeSingle();
+    signature = data?.message_signature ?? "";
+    signatureFetchedAt = Date.now();
+  } catch {
+    // An unreachable database must not stop an alert going out. Falling back to
+    // the last known value -- or to nothing on a cold start -- is better than
+    // failing the send.
+    signature ??= "";
+  }
+  return signature ?? "";
+}
 
 export const app = express();
 app.use(express.json({ limit: "256kb" }));
@@ -259,7 +304,11 @@ app.post("/send", requireSecret, async (req, res) => {
   }
 
   try {
-    const result = await state.sock!.sendMessage(to, { text });
+    // Appended unless the caller already ended with it, so a retry that passes
+    // back a previously-signed body does not sign it twice.
+    const suffix = await currentSignature();
+    const body = suffix && !text.trimEnd().endsWith(suffix.trim()) ? `${text}${suffix}` : text;
+    const result = await state.sock!.sendMessage(to, { text: body });
     res.json({ ok: true, id: result?.key?.id ?? null });
   } catch (err) {
     res.status(502).json({

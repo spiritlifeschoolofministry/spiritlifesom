@@ -20,6 +20,37 @@ const corsHeaders = {
  * open relay for sending WhatsApp messages as the school.
  */
 
+/** Which settings column governs each kind. A kind with no switch cannot be
+ *  turned off, so every one of them has an entry -- including any added later,
+ *  or the switch panel quietly stops covering everything it claims to. */
+const SETTING_FOR_KIND: Record<string, string> = {
+  payment_submitted: "alert_payment_receipt",
+  admissions_digest: "alert_admissions_digest",
+  exam_integrity_stop: "alert_exam_integrity",
+  exam_device_conflict: "alert_device_conflict",
+  exam_close_digest: "alert_exam_close_digest",
+  grading_backlog: "alert_grading_backlog",
+  revenue_digest: "alert_revenue_digest",
+  ops_check: "alert_ops_check",
+};
+
+type Settings = Record<string, unknown> | null;
+
+/** Settings win over environment variables, which remain as the fallback for a
+ *  project where the table has not been seeded yet. */
+async function loadSettings(admin: ReturnType<typeof createClient>): Promise<Settings> {
+  const { data, error } = await admin
+    .from("whatsapp_settings")
+    .select("*")
+    .eq("id", true)
+    .maybeSingle();
+  if (error) {
+    console.error("settings lookup failed, falling back to environment", error.message);
+    return null;
+  }
+  return data ?? null;
+}
+
 type Kind =
   | "payment_submitted"
   | "admissions_digest"
@@ -502,8 +533,9 @@ async function buildExamCloseDigest(
  */
 async function buildGradingBacklog(
   admin: ReturnType<typeof createClient>,
+  settings: Settings,
 ): Promise<Alert | null> {
-  const days = Number(Deno.env.get("GRADING_BACKLOG_DAYS") ?? 3);
+  const days = Number(settings?.grading_backlog_days ?? Deno.env.get("GRADING_BACKLOG_DAYS") ?? 3);
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
   const { data: stale, error } = await admin
@@ -714,13 +746,14 @@ function bytes(value: number): string {
  */
 async function buildOpsCheck(
   admin: ReturnType<typeof createClient>,
+  settings: Settings,
 ): Promise<Alert | null> {
   // Free tier: 1 GB storage, 500 MB database. Override both when the plan
   // changes -- a limit that is wrong in the generous direction is a warning
   // that never arrives.
   const storageLimit = Number(Deno.env.get("STORAGE_LIMIT_BYTES") ?? 1024 ** 3);
   const databaseLimit = Number(Deno.env.get("DATABASE_LIMIT_BYTES") ?? 500 * 1024 ** 2);
-  const warnAt = Number(Deno.env.get("QUOTA_WARN_PERCENT") ?? 70);
+  const warnAt = Number(settings?.quota_warn_percent ?? Deno.env.get("QUOTA_WARN_PERCENT") ?? 70);
 
   const { data: usage, error } = await admin.rpc("ops_usage_snapshot");
   if (error) throw new Error(`usage snapshot failed: ${error.message}`);
@@ -784,10 +817,6 @@ Deno.serve(async (req) => {
 
   const gatewayUrl = Deno.env.get("GATEWAY_URL");
   const gatewaySecret = Deno.env.get("GATEWAY_SECRET");
-  const recipients = (Deno.env.get("ADMIN_WHATSAPP_JIDS") ?? "")
-    .split(",")
-    .map((jid) => jid.trim())
-    .filter(Boolean);
 
   if (!gatewayUrl || !gatewaySecret) {
     return new Response(
@@ -795,15 +824,6 @@ Deno.serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
-  if (recipients.length === 0) {
-    // Not a failure of the caller, and not worth retrying. Logged loudly so a
-    // silent "nobody is being told anything" is visible in the function logs.
-    console.error("ADMIN_WHATSAPP_JIDS is empty -- no admin alerts will be sent");
-    return new Response(JSON.stringify({ sent: 0, reason: "no recipients configured" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   const { kind, payment_id, attempt_id, event_id } = body as {
     kind?: Kind;
@@ -815,6 +835,41 @@ Deno.serve(async (req) => {
   const serviceKey =
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY")!;
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
+
+  const settings = await loadSettings(admin);
+
+  // The master switch, checked before anything is composed. Off means off,
+  // whatever the individual toggles say.
+  if (settings && settings.enabled === false) {
+    return new Response(JSON.stringify({ sent: 0, reason: "WhatsApp alerts are switched off" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const switchName = kind ? SETTING_FOR_KIND[kind] : undefined;
+  if (settings && switchName && settings[switchName] === false) {
+    return new Response(
+      JSON.stringify({ sent: 0, reason: `${kind} alerts are switched off` }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  const recipients = (
+    Array.isArray(settings?.admin_jids) && settings.admin_jids.length > 0
+      ? (settings.admin_jids as string[])
+      : (Deno.env.get("ADMIN_WHATSAPP_JIDS") ?? "").split(",")
+  )
+    .map((jid) => String(jid).trim())
+    .filter(Boolean);
+
+  if (recipients.length === 0) {
+    // Not a failure of the caller, and not worth retrying. Logged loudly so a
+    // silent "nobody is being told anything" is visible in the function logs.
+    console.error("no admin recipients configured -- no alerts will be sent");
+    return new Response(JSON.stringify({ sent: 0, reason: "no recipients configured" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   let alert: Alert | null = null;
   try {
@@ -844,13 +899,13 @@ Deno.serve(async (req) => {
         alert = await buildExamCloseDigest(admin);
         break;
       case "ops_check":
-        alert = await buildOpsCheck(admin);
+        alert = await buildOpsCheck(admin, settings);
         break;
       case "revenue_digest":
         alert = await buildRevenueDigest(admin);
         break;
       case "grading_backlog":
-        alert = await buildGradingBacklog(admin);
+        alert = await buildGradingBacklog(admin, settings);
         break;
       case "exam_device_conflict":
         if (!event_id) {

@@ -26,7 +26,6 @@ Deno.serve(async (req) => {
 
   const gatewayUrl = Deno.env.get("GATEWAY_URL");
   const gatewaySecret = Deno.env.get("GATEWAY_SECRET");
-  const groupJid = Deno.env.get("OFFICIAL_GROUP_JID");
 
   if (!gatewayUrl || !gatewaySecret) {
     return new Response(
@@ -34,13 +33,6 @@ Deno.serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
-  if (!groupJid) {
-    console.error("OFFICIAL_GROUP_JID is not set -- nothing will be posted");
-    return new Response(JSON.stringify({ sent: 0, reason: "no group configured" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   const { announcement_id } = body as { announcement_id?: string };
   if (!announcement_id) {
@@ -53,6 +45,31 @@ Deno.serve(async (req) => {
   const serviceKey =
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY")!;
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
+
+  // Settings first: both switches are checked before the announcement is even
+  // read, so a silenced mirror costs nothing and leaves whatsapp_sent_at unset
+  // -- the notice can still be mirrored later by turning the switch back on and
+  // re-saving it.
+  const { data: settings } = await admin
+    .from("whatsapp_settings")
+    .select("enabled, mirror_announcements, official_group_jid")
+    .eq("id", true)
+    .maybeSingle();
+
+  if (settings && (settings.enabled === false || settings.mirror_announcements === false)) {
+    return new Response(
+      JSON.stringify({ sent: 0, reason: "announcement mirroring is switched off" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  const groupJid = settings?.official_group_jid ?? Deno.env.get("OFFICIAL_GROUP_JID");
+  if (!groupJid) {
+    console.error("no official group configured -- nothing will be posted");
+    return new Response(JSON.stringify({ sent: 0, reason: "no group configured" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   const { data: announcement, error } = await admin
     .from("announcements")
