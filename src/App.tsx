@@ -74,6 +74,7 @@ import {
   AdminPracticeQuestions,
   AdminStorage,
   AdminAiSettings,
+  AdminWhatsAppSettings,
   StudentStudy,
 } from "@/routes/lazy-pages";
 
@@ -184,6 +185,7 @@ const App = () => {
             <Route path="/admin/settings" element={<ProtectedRoute requiredRole="superadmin"><AdminSettings /></ProtectedRoute>} />
             <Route path="/admin/storage" element={<ProtectedRoute requiredRole="superadmin"><AdminStorage /></ProtectedRoute>} />
             <Route path="/admin/ai" element={<ProtectedRoute requiredRole="superadmin"><AdminAiSettings /></ProtectedRoute>} />
+            <Route path="/admin/whatsapp" element={<ProtectedRoute requiredRole="superadmin"><AdminWhatsAppSettings /></ProtectedRoute>} />
             <Route path="/admin/exams" element={<ProtectedRoute requiredRole="admin"><AdminExamsList /></ProtectedRoute>} />
             <Route path="/admin/exams/questions" element={<ProtectedRoute requiredRole="admin"><AdminQuestionBank /></ProtectedRoute>} />
             {/* Practice questions are their own thing under Academics, not part of

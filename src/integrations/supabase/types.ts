@@ -2771,6 +2771,93 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_settings: {
+        Row: {
+          admin_jids: string[]
+          alert_admissions_digest: boolean
+          alert_device_conflict: boolean
+          alert_exam_close_digest: boolean
+          alert_exam_integrity: boolean
+          alert_exam_published: boolean
+          alert_exam_starting_soon: boolean
+          alert_grading_backlog: boolean
+          alert_ops_check: boolean
+          alert_payment_receipt: boolean
+          alert_revenue_digest: boolean
+          enabled: boolean
+          exam_reminder_minutes: number
+          grading_backlog_days: number
+          id: boolean
+          message_signature: string
+          mirror_announcements: boolean
+          official_group_jid: string | null
+          quota_warn_percent: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          admin_jids?: string[]
+          alert_admissions_digest?: boolean
+          alert_device_conflict?: boolean
+          alert_exam_close_digest?: boolean
+          alert_exam_integrity?: boolean
+          alert_exam_published?: boolean
+          alert_exam_starting_soon?: boolean
+          alert_grading_backlog?: boolean
+          alert_ops_check?: boolean
+          alert_payment_receipt?: boolean
+          alert_revenue_digest?: boolean
+          enabled?: boolean
+          exam_reminder_minutes?: number
+          grading_backlog_days?: number
+          id?: boolean
+          message_signature?: string
+          mirror_announcements?: boolean
+          official_group_jid?: string | null
+          quota_warn_percent?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          admin_jids?: string[]
+          alert_admissions_digest?: boolean
+          alert_device_conflict?: boolean
+          alert_exam_close_digest?: boolean
+          alert_exam_integrity?: boolean
+          alert_exam_published?: boolean
+          alert_exam_starting_soon?: boolean
+          alert_grading_backlog?: boolean
+          alert_ops_check?: boolean
+          alert_payment_receipt?: boolean
+          alert_revenue_digest?: boolean
+          enabled?: boolean
+          exam_reminder_minutes?: number
+          grading_backlog_days?: number
+          id?: boolean
+          message_signature?: string
+          mirror_announcements?: boolean
+          official_group_jid?: string | null
+          quota_warn_percent?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       classmate_directory: {

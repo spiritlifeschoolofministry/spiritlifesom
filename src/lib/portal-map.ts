@@ -277,6 +277,13 @@ export const ADMIN_PAGES: PortalPage[] = [
     aliases: ['assistant', 'barnabas', 'model', 'provider', 'openai', 'gemini', 'api key'],
   },
   {
+    path: '/admin/whatsapp',
+    label: 'WhatsApp',
+    group: 'System',
+    what: 'choose which alerts go out over WhatsApp, who receives them, and the wording signed onto every message',
+    aliases: ['whatsapp', 'alerts', 'notifications', 'group', 'reminders', 'bot', 'messages'],
+  },
+  {
     path: '/admin/settings',
     label: 'Settings',
     group: 'System',

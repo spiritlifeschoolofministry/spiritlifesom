@@ -36,6 +36,7 @@ type Settings = {
   grading_backlog_days: number;
   quota_warn_percent: number;
   exam_reminder_minutes: number;
+  message_signature: string;
 };
 
 /** Grouped by who receives them, because that is the distinction that matters:
@@ -232,6 +233,28 @@ export default function WhatsAppSettings() {
           <CardDescription>Seen by everyone in the official group.</CardDescription>
         </CardHeader>
         <CardContent className="py-0">{GROUP_ALERTS.map(rowFor)}</CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Signature</CardTitle>
+          <CardDescription>
+            Added to the end of every message the system sends. A message from the
+            school&rsquo;s number looks the same whether a person or the system wrote
+            it, and nobody reads the replies.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <textarea
+            value={settings.message_signature ?? ''}
+            onChange={(e) => set('message_signature', e.target.value)}
+            rows={2}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          />
+          <p className="text-xs text-muted-foreground mt-2">
+            Underscores make text italic in WhatsApp. Leave blank to send nothing.
+          </p>
+        </CardContent>
       </Card>
 
       <Card>

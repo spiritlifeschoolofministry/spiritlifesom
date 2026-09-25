@@ -43,6 +43,7 @@ import {
   HardDrive,
   Sparkles,
   BadgeDollarSign,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -124,6 +125,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Storage", icon: HardDrive, path: "/admin/storage" },
       { label: "AI", icon: Sparkles, path: "/admin/ai" },
+      { label: "WhatsApp", icon: MessageCircle, path: "/admin/whatsapp" },
       { label: "Settings", icon: Settings, path: "/admin/settings" },
       { label: "Profile", icon: UserCircle, path: "/admin/profile" },
     ],
@@ -148,6 +150,7 @@ const MOBILE_PRIMARY_PATHS = [
 /** Routes gated on strict admin (ProtectedRoute requiredRole="superadmin"). */
 const ADMIN_ONLY_PATHS = new Set([
   "/admin/settings",
+  "/admin/whatsapp",
   "/admin/storage",
   "/admin/ai",
   "/admin/audit",
