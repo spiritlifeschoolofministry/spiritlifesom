@@ -20,7 +20,7 @@ const corsHeaders = {
  * open relay for sending WhatsApp messages as the school.
  */
 
-type Kind = "payment_submitted";
+type Kind = "payment_submitted" | "admissions_digest";
 
 type Alert = {
   /** Lines of the message, joined with newlines. */
@@ -141,6 +141,128 @@ async function buildPaymentSubmitted(
   };
 }
 
+/** Whole days since a timestamp, for "waiting 3 days". */
+function daysSince(iso: string | null): number {
+  if (!iso) return 0;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+}
+
+/** How long a queue entry has waited, phrased for a glance. */
+function waited(iso: string | null): string {
+  const days = daysSince(iso);
+  if (days <= 0) return "today";
+  if (days === 1) return "1 day";
+  return `${days} days`;
+}
+
+/** Keeps a digest readable on a phone. A list of forty names is a list nobody
+ *  reads, and the count above it is the part that actually prompts action. */
+function capped(items: string[], limit = 8): string[] {
+  if (items.length <= limit) return items;
+  return [...items.slice(0, limit), `_…and ${items.length - limit} more_`];
+}
+
+async function buildAdmissionsDigest(
+  admin: ReturnType<typeof createClient>,
+): Promise<Alert | null> {
+  // The admissions screen is three queues, not one -- an application, a
+  // certificate name change and a learning-mode change each wait for a
+  // different decision, and each is invisible until somebody opens the page.
+  // A digest that covered only the first would quietly let the other two rot.
+  //
+  // `admission_status` is matched in both casings because the screen itself
+  // does: the column holds 'Pending' on some rows and 'PENDING' on others, and
+  // picking one would hide half the queue.
+  const nameSelect =
+    "id, created_at, pending_name_change, name_on_certificate, " +
+    "requested_learning_mode, learning_mode, " +
+    "profile:profiles(first_name, last_name)";
+
+  const [applications, nameChanges, modeChanges] = await Promise.all([
+    admin
+      .from("students")
+      .select(nameSelect)
+      .eq("is_staff_preview", false)
+      .in("admission_status", ["Pending", "PENDING"])
+      .order("created_at", { ascending: true }),
+    admin
+      .from("students")
+      .select(nameSelect)
+      .eq("is_staff_preview", false)
+      .not("pending_name_change", "is", null)
+      .order("created_at", { ascending: true }),
+    admin
+      .from("students")
+      .select(nameSelect)
+      .eq("is_staff_preview", false)
+      .not("requested_learning_mode", "is", null)
+      .order("created_at", { ascending: true }),
+  ]);
+
+  for (const result of [applications, nameChanges, modeChanges]) {
+    if (result.error) throw new Error(`admissions lookup failed: ${result.error.message}`);
+  }
+
+  const apps = applications.data ?? [];
+  const names = nameChanges.data ?? [];
+  const modes = modeChanges.data ?? [];
+
+  // Say nothing when there is nothing to do. A daily "no pending admissions"
+  // is a message that teaches its reader to stop looking at messages, and the
+  // one day it matters it will be skimmed past with the rest.
+  if (apps.length + names.length + modes.length === 0) return null;
+
+  const who = (row: Record<string, unknown>) =>
+    fullName(row.profile as { first_name?: string; last_name?: string } | null);
+
+  const lines: string[] = ["*Admissions awaiting review*"];
+
+  if (apps.length > 0) {
+    lines.push("", `New applications — ${apps.length}`);
+    lines.push(
+      ...capped(apps.map((a) => `• ${who(a)} — ${waited(a.created_at as string)}`)),
+    );
+  }
+
+  if (names.length > 0) {
+    lines.push("", `Certificate name changes — ${names.length}`);
+    lines.push(
+      ...capped(
+        names.map(
+          (n) =>
+            `• ${who(n)} — "${n.name_on_certificate ?? "—"}" → "${n.pending_name_change}"`,
+        ),
+      ),
+    );
+  }
+
+  if (modes.length > 0) {
+    lines.push("", `Learning mode changes — ${modes.length}`);
+    lines.push(
+      ...capped(
+        modes.map(
+          (m) => `• ${who(m)} — ${m.learning_mode ?? "—"} → ${m.requested_learning_mode}`,
+        ),
+      ),
+    );
+  }
+
+  const appUrl = (Deno.env.get("APP_URL") ?? "").replace(/\/$/, "");
+  if (appUrl) lines.push("", `${appUrl}/admin/admissions`);
+
+  return {
+    lines,
+    // A digest is about the school, not about one student, so no student_id --
+    // and with none set, the gateway's group guard does not apply. That is
+    // correct here and must stay deliberate: this message names applicants, so
+    // it still goes only to ADMIN_WHATSAPP_JIDS, never to a group.
+    studentId: null,
+    // Keyed to the day: pg_cron retrying within the day must not send twice,
+    // but tomorrow's digest is a new message.
+    idempotencyKey: `admissions_digest-${new Date().toISOString().slice(0, 10)}`,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -186,6 +308,9 @@ Deno.serve(async (req) => {
           });
         }
         alert = await buildPaymentSubmitted(admin, payment_id);
+        break;
+      case "admissions_digest":
+        alert = await buildAdmissionsDigest(admin);
         break;
       default:
         return new Response(JSON.stringify({ error: `unknown kind: ${kind}` }), {
