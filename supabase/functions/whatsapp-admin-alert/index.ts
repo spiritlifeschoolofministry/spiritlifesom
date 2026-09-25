@@ -20,7 +20,11 @@ const corsHeaders = {
  * open relay for sending WhatsApp messages as the school.
  */
 
-type Kind = "payment_submitted" | "admissions_digest";
+type Kind =
+  | "payment_submitted"
+  | "admissions_digest"
+  | "exam_integrity_stop"
+  | "exam_device_conflict";
 
 type Alert = {
   /** Lines of the message, joined with newlines. */
@@ -263,6 +267,140 @@ async function buildAdmissionsDigest(
   };
 }
 
+/** Name and code for a student id, for the exam alerts. */
+async function describeStudent(
+  admin: ReturnType<typeof createClient>,
+  studentId: string | null,
+): Promise<string> {
+  if (!studentId) return "A student";
+  const { data: student } = await admin
+    .from("students")
+    .select("student_code, profile_id")
+    .eq("id", studentId)
+    .maybeSingle();
+  const { data: profile } = student?.profile_id
+    ? await admin
+        .from("profiles")
+        .select("first_name, last_name")
+        .eq("id", student.profile_id)
+        .maybeSingle()
+    : { data: null };
+  const name = fullName(profile);
+  return student?.student_code ? `${name} (${student.student_code})` : name;
+}
+
+/**
+ * A sitting the system stopped for a proctoring breach.
+ *
+ * Worth interrupting someone for because it is still reversible: the attempt
+ * can be reset while the exam is running, and cannot once it has closed. The
+ * student is sitting there right now believing their paper is over.
+ *
+ * Only the two breach reasons alert. A timeout is the exam working as
+ * designed, and a disconnect belongs in the after-the-fact digest rather than
+ * in an interruption -- there is nothing to decide about a dropped network.
+ */
+async function buildExamIntegrityStop(
+  admin: ReturnType<typeof createClient>,
+  attemptId: string,
+): Promise<Alert | null> {
+  const { data: attempt, error } = await admin
+    .from("exam_attempts")
+    .select(
+      "id, exam_id, student_id, submission_reason, tab_switch_count, " +
+        "fullscreen_exits, submitted_at, status",
+    )
+    .eq("id", attemptId)
+    .maybeSingle();
+
+  if (error) throw new Error(`attempt lookup failed: ${error.message}`);
+  if (!attempt) return null;
+
+  const reason = String(attempt.submission_reason ?? "");
+  if (reason !== "tab_switches" && reason !== "fullscreen_exit") return null;
+
+  const { data: exam } = await admin
+    .from("exams")
+    .select("title, max_tab_switches, max_fullscreen_exits")
+    .eq("id", attempt.exam_id)
+    .maybeSingle();
+
+  const cause =
+    reason === "tab_switches"
+      ? `left the exam tab ${attempt.tab_switch_count} times` +
+        (exam?.max_tab_switches != null ? ` (limit ${exam.max_tab_switches})` : "")
+      : `left fullscreen ${attempt.fullscreen_exits} times` +
+        (exam?.max_fullscreen_exits != null ? ` (limit ${exam.max_fullscreen_exits})` : "");
+
+  const appUrl = (Deno.env.get("APP_URL") ?? "").replace(/\/$/, "");
+  const lines = [
+    "*Exam stopped — proctoring limit*",
+    "",
+    await describeStudent(admin, attempt.student_id as string | null),
+    exam?.title ?? "Unknown exam",
+    `Auto-submitted: ${cause}.`,
+    "",
+    "Reset the attempt from the monitor if this was not cheating.",
+  ];
+  if (appUrl) lines.push(`${appUrl}/admin/exams`);
+
+  return {
+    lines,
+    studentId: attempt.student_id as string | null,
+    idempotencyKey: `exam_integrity_stop-${attempt.id}`,
+  };
+}
+
+/**
+ * A second device trying to pick up a paper already in flight.
+ *
+ * Logged as a refusal by exam-start, which is the only thing that sees it. The
+ * student is locked out at that moment and usually cannot explain why, so the
+ * alert exists to put a human in the loop while the exam is still open.
+ *
+ * Note this is not by itself evidence of cheating -- a phone swapped for a
+ * laptop looks identical -- which is why the message says what happened rather
+ * than what it means.
+ */
+async function buildExamDeviceConflict(
+  admin: ReturnType<typeof createClient>,
+  eventId: string,
+): Promise<Alert | null> {
+  const { data: event, error } = await admin
+    .from("exam_access_events")
+    .select("id, student_id, exam_id, event, detail, occurred_at")
+    .eq("id", eventId)
+    .maybeSingle();
+
+  if (error) throw new Error(`access event lookup failed: ${error.message}`);
+  if (!event || event.event !== "refused") return null;
+
+  const { data: exam } = event.exam_id
+    ? await admin.from("exams").select("title").eq("id", event.exam_id).maybeSingle()
+    : { data: null };
+
+  const appUrl = (Deno.env.get("APP_URL") ?? "").replace(/\/$/, "");
+  const lines = [
+    "*Exam blocked — another device*",
+    "",
+    await describeStudent(admin, event.student_id as string | null),
+    exam?.title ?? "Unknown exam",
+    String(event.detail ?? "Attempt already open on another device"),
+    "",
+    "They cannot continue until the attempt is reset or they return to the first device.",
+  ];
+  if (appUrl) lines.push(`${appUrl}/admin/exams`);
+
+  return {
+    lines,
+    studentId: event.student_id as string | null,
+    // Keyed to the student and exam, not the event: a student retrying ten
+    // times in a minute is one situation, not ten alerts. The gateway's
+    // one-hour window lets it re-alert if it is still happening later.
+    idempotencyKey: `exam_device_conflict-${event.student_id}-${event.exam_id}`,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -291,7 +429,12 @@ Deno.serve(async (req) => {
   }
 
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-  const { kind, payment_id } = body as { kind?: Kind; payment_id?: string };
+  const { kind, payment_id, attempt_id, event_id } = body as {
+    kind?: Kind;
+    payment_id?: string;
+    attempt_id?: string;
+    event_id?: string;
+  };
 
   const serviceKey =
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY")!;
@@ -311,6 +454,24 @@ Deno.serve(async (req) => {
         break;
       case "admissions_digest":
         alert = await buildAdmissionsDigest(admin);
+        break;
+      case "exam_integrity_stop":
+        if (!attempt_id) {
+          return new Response(JSON.stringify({ error: "attempt_id is required" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        alert = await buildExamIntegrityStop(admin, attempt_id);
+        break;
+      case "exam_device_conflict":
+        if (!event_id) {
+          return new Response(JSON.stringify({ error: "event_id is required" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        alert = await buildExamDeviceConflict(admin, event_id);
         break;
       default:
         return new Response(JSON.stringify({ error: `unknown kind: ${kind}` }), {
