@@ -49,6 +49,8 @@ type Settings = {
   alert_email_failures: boolean;
   alert_audit_retention: boolean;
   audit_retention_months: number;
+  inbound_enabled: boolean;
+  inbound_replies_per_hour: number;
   grading_backlog_days: number;
   quota_warn_percent: number;
   exam_reminder_minutes: number;
@@ -310,6 +312,35 @@ export default function WhatsAppSettings() {
           </CardDescription>
         </CardHeader>
         <CardContent className="py-0">{STUDENT_ALERTS.map(rowFor)}</CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Replying to messages</CardTitle>
+          <CardDescription>
+            Whether the number answers people who write to it. It can explain what
+            it is, verify a certificate, and stop or resume updates &mdash; nothing
+            about anyone&rsquo;s results or fees. Incoming messages are recorded either
+            way, so turning this off does not make the school deaf.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="inbound" className="cursor-pointer">Answer incoming messages</Label>
+            <Switch
+              id="inbound"
+              checked={settings.inbound_enabled}
+              onCheckedChange={(v) => set('inbound_enabled', v)}
+              disabled={!settings.enabled}
+            />
+          </div>
+          <div className="space-y-1 max-w-xs">
+            <Label htmlFor="rate">Replies per number, per hour</Label>
+            <Input id="rate" type="number" min={1} max={200}
+              value={settings.inbound_replies_per_hour}
+              onChange={(e) => set('inbound_replies_per_hour', Number(e.target.value))} />
+          </div>
+        </CardContent>
       </Card>
 
       <Card>

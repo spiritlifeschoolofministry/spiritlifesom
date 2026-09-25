@@ -2777,6 +2777,33 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_conversations: {
+        Row: {
+          awaiting: string | null
+          awaiting_until: string | null
+          jid: string
+          last_seen_at: string
+          messages_in_window: number
+          window_started_at: string
+        }
+        Insert: {
+          awaiting?: string | null
+          awaiting_until?: string | null
+          jid: string
+          last_seen_at?: string
+          messages_in_window?: number
+          window_started_at?: string
+        }
+        Update: {
+          awaiting?: string | null
+          awaiting_until?: string | null
+          jid?: string
+          last_seen_at?: string
+          messages_in_window?: number
+          window_started_at?: string
+        }
+        Relationships: []
+      }
       whatsapp_gateway_status: {
         Row: {
           connection: string
@@ -2807,6 +2834,51 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_inbound_log: {
+        Row: {
+          body: string | null
+          command: string | null
+          from_jid: string
+          id: string
+          received_at: string
+          replied: boolean
+          student_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          command?: string | null
+          from_jid: string
+          id?: string
+          received_at?: string
+          replied?: boolean
+          student_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          command?: string | null
+          from_jid?: string
+          id?: string
+          received_at?: string
+          replied?: boolean
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_inbound_log_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "graduate_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_inbound_log_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_settings: {
         Row: {
           admin_jids: string[]
@@ -2832,6 +2904,8 @@ export type Database = {
           exam_reminder_minutes: number
           grading_backlog_days: number
           id: boolean
+          inbound_enabled: boolean
+          inbound_replies_per_hour: number
           message_signature: string
           mirror_announcements: boolean
           notify_admission_decision: boolean
@@ -2871,6 +2945,8 @@ export type Database = {
           exam_reminder_minutes?: number
           grading_backlog_days?: number
           id?: boolean
+          inbound_enabled?: boolean
+          inbound_replies_per_hour?: number
           message_signature?: string
           mirror_announcements?: boolean
           notify_admission_decision?: boolean
@@ -2910,6 +2986,8 @@ export type Database = {
           exam_reminder_minutes?: number
           grading_backlog_days?: number
           id?: boolean
+          inbound_enabled?: boolean
+          inbound_replies_per_hour?: number
           message_signature?: string
           mirror_announcements?: boolean
           notify_admission_decision?: boolean
@@ -3275,6 +3353,7 @@ export type Database = {
       }
       verify_certificate: { Args: { p_serial: string }; Returns: Json }
       whatsapp_msisdn_candidates: { Args: { raw: string }; Returns: string[] }
+      whatsapp_student_for_jid: { Args: { p_jid: string }; Returns: string }
       whatsapp_sweep_event_reminders: { Args: never; Returns: undefined }
       whatsapp_sweep_exam_reminders: { Args: never; Returns: undefined }
       whatsapp_sweep_missed_exams: { Args: never; Returns: undefined }
