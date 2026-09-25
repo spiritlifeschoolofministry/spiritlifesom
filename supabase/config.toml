@@ -164,3 +164,10 @@ enabled = true
 # through whatsapp_target_for_student, which honours the opt-out.
 verify_jwt = false
 entrypoint = "./functions/whatsapp-student-notify/index.ts"
+
+[functions.whatsapp-number-check]
+enabled = true
+# Called by pg_cron. Takes no instruction from its caller: it finds the broken
+# numbers itself and can only ask their owners to correct them.
+verify_jwt = false
+entrypoint = "./functions/whatsapp-number-check/index.ts"

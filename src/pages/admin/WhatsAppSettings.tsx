@@ -40,6 +40,7 @@ type Settings = {
   notify_results_released: boolean;
   notify_admission_decision: boolean;
   notify_certificate_issued: boolean;
+  notify_number_fix: boolean;
   grading_backlog_days: number;
   quota_warn_percent: number;
   exam_reminder_minutes: number;
@@ -74,6 +75,7 @@ const STUDENT_ALERTS: { key: keyof Settings; label: string; help: string }[] = [
   { key: 'notify_results_released', label: 'Exam result released', help: 'Only when results are released, not when they are scored.' },
   { key: 'notify_admission_decision', label: 'Admission decision', help: 'Approved or not. A rejection is kept brief and carries no reason.' },
   { key: 'notify_certificate_issued', label: 'Certificate issued', help: 'Serial number and the verification link.' },
+  { key: 'notify_number_fix', label: 'Ask about unusable numbers', help: 'Weekly. Where a profile lists two numbers, asks the student which to use; where none can be read, tells the admins instead.' },
 ];
 
 type Coverage = { total: number; reachable: number; optedOut: number };

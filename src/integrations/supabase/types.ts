@@ -2138,6 +2138,8 @@ export type Database = {
           promoted_by: string | null
           role: string
           whatsapp_jid: string | null
+          whatsapp_number_asked_at: string | null
+          whatsapp_number_issue: string | null
           whatsapp_opted_in_at: string | null
           whatsapp_opted_out_at: string | null
         }
@@ -2156,6 +2158,8 @@ export type Database = {
           promoted_by?: string | null
           role?: string
           whatsapp_jid?: string | null
+          whatsapp_number_asked_at?: string | null
+          whatsapp_number_issue?: string | null
           whatsapp_opted_in_at?: string | null
           whatsapp_opted_out_at?: string | null
         }
@@ -2174,6 +2178,8 @@ export type Database = {
           promoted_by?: string | null
           role?: string
           whatsapp_jid?: string | null
+          whatsapp_number_asked_at?: string | null
+          whatsapp_number_issue?: string | null
           whatsapp_opted_in_at?: string | null
           whatsapp_opted_out_at?: string | null
         }
@@ -2812,6 +2818,7 @@ export type Database = {
           notify_admission_decision: boolean
           notify_assignment_graded: boolean
           notify_certificate_issued: boolean
+          notify_number_fix: boolean
           notify_payment_rejected: boolean
           notify_payment_verified: boolean
           notify_results_released: boolean
@@ -2842,6 +2849,7 @@ export type Database = {
           notify_admission_decision?: boolean
           notify_assignment_graded?: boolean
           notify_certificate_issued?: boolean
+          notify_number_fix?: boolean
           notify_payment_rejected?: boolean
           notify_payment_verified?: boolean
           notify_results_released?: boolean
@@ -2872,6 +2880,7 @@ export type Database = {
           notify_admission_decision?: boolean
           notify_assignment_graded?: boolean
           notify_certificate_issued?: boolean
+          notify_number_fix?: boolean
           notify_payment_rejected?: boolean
           notify_payment_verified?: boolean
           notify_results_released?: boolean
@@ -3229,6 +3238,7 @@ export type Database = {
         }
       }
       verify_certificate: { Args: { p_serial: string }; Returns: Json }
+      whatsapp_msisdn_candidates: { Args: { raw: string }; Returns: string[] }
       whatsapp_sweep_exam_reminders: { Args: never; Returns: undefined }
       whatsapp_sweep_new_materials: { Args: never; Returns: undefined }
       whatsapp_target_for_student: {
