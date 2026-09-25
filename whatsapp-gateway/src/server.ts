@@ -132,12 +132,27 @@ app.get("/groups", requireSecret, async (_req, res) => {
   }
   try {
     const groups = await state.sock!.groupFetchAllParticipating();
-    // The bare number, without the device suffix Baileys appends to sock.user.id
-    // ("2349165822262:4@s.whatsapp.net"). Group participant ids carry no such
-    // suffix, so comparing them directly never matches.
-    const me = (state.jid ?? "").replace(/:\d+(?=@)/, "");
+
+    // Identifying ourselves in a participant list is not as simple as matching
+    // our number, for two reasons:
+    //
+    //  - Baileys appends a device suffix to sock.user.id
+    //    ("2349165822262:4@s.whatsapp.net") that participant ids do not carry.
+    //  - A group may address its members by LID rather than phone number (see
+    //    GroupMetadata.addressingMode). In those groups our phone JID appears
+    //    nowhere at all, and matching on it silently reports us as a non-admin
+    //    -- which reads exactly like "you were never promoted".
+    //
+    // So: compare the local part only, against both of our identities, and
+    // against both identities a participant may be listed under.
+    const localPart = (value: string | null | undefined) =>
+      (value ?? "").split("@")[0].split(":")[0];
+    const mine = new Set([localPart(state.jid), localPart(state.lid)].filter(Boolean));
+
     const rows = Object.values(groups).map((group) => {
-      const self = group.participants?.find((p) => p.id === me);
+      const self = group.participants?.find(
+        (p) => mine.has(localPart(p.id)) || mine.has(localPart(p.lid)),
+      );
       return {
         jid: group.id,
         subject: group.subject,
@@ -145,6 +160,8 @@ app.get("/groups", requireSecret, async (_req, res) => {
         // Announcement groups are the ones where only admins may post, which is
         // usually exactly what an "official" school group is.
         announceOnly: group.announce ?? false,
+        // 'pn' means members are listed by phone number, 'lid' by anonymous id.
+        addressingMode: group.addressingMode ?? "pn",
         // In an announce-only group a non-admin cannot post at all, and the
         // failure is quiet. Better to know before wiring anything to it than to
         // find out from an announcement that never arrived.

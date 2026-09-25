@@ -37,6 +37,10 @@ type GatewayState = {
   sock: WASocket | null;
   connection: Connection;
   jid: string | null;
+  /** The same account's anonymous id. Groups may address participants by LID
+   *  rather than phone number -- see GroupMetadata.addressingMode -- and in
+   *  those groups our phone JID appears nowhere in the participant list. */
+  lid: string | null;
   lastError: string | null;
   reconnectCount: number;
   /** Data-URL PNG of the current pairing QR, when one is outstanding. Held in
@@ -53,6 +57,7 @@ export const state: GatewayState = {
   sock: null,
   connection: "closed",
   jid: null,
+  lid: null,
   lastError: null,
   reconnectCount: 0,
   qr: null,
@@ -139,6 +144,7 @@ export async function connect(): Promise<void> {
     if (connection === "open") {
       state.connection = "open";
       state.jid = sock.user?.id ?? null;
+      state.lid = sock.user?.lid ?? null;
       state.lastError = null;
       state.qr = null;
       state.needsPairing = false;
