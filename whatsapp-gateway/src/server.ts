@@ -132,14 +132,26 @@ app.get("/groups", requireSecret, async (_req, res) => {
   }
   try {
     const groups = await state.sock!.groupFetchAllParticipating();
-    const rows = Object.values(groups).map((group) => ({
-      jid: group.id,
-      subject: group.subject,
-      participants: group.participants?.length ?? 0,
-      // Announcement groups are the ones where only admins may post, which is
-      // usually exactly what an "official" school group is.
-      announceOnly: group.announce ?? false,
-    }));
+    // The bare number, without the device suffix Baileys appends to sock.user.id
+    // ("2349165822262:4@s.whatsapp.net"). Group participant ids carry no such
+    // suffix, so comparing them directly never matches.
+    const me = (state.jid ?? "").replace(/:\d+(?=@)/, "");
+    const rows = Object.values(groups).map((group) => {
+      const self = group.participants?.find((p) => p.id === me);
+      return {
+        jid: group.id,
+        subject: group.subject,
+        participants: group.participants?.length ?? 0,
+        // Announcement groups are the ones where only admins may post, which is
+        // usually exactly what an "official" school group is.
+        announceOnly: group.announce ?? false,
+        // In an announce-only group a non-admin cannot post at all, and the
+        // failure is quiet. Better to know before wiring anything to it than to
+        // find out from an announcement that never arrived.
+        iAmAdmin: self?.admin === "admin" || self?.admin === "superadmin",
+        canPost: !(group.announce ?? false) || self?.admin === "admin" || self?.admin === "superadmin",
+      };
+    });
     rows.sort((a, b) => b.participants - a.participants);
     res.json({ count: rows.length, groups: rows });
   } catch (err) {
