@@ -34,13 +34,11 @@ Deno.serve(async (req) => {
     );
   }
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-  const { announcement_id } = body as { announcement_id?: string };
-  if (!announcement_id) {
-    return new Response(JSON.stringify({ error: "announcement_id is required" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  const { kind = "announcement", announcement_id, exam_id } = body as {
+    kind?: "announcement" | "exam_published" | "exam_starting_soon";
+    announcement_id?: string;
+    exam_id?: string;
+  };
 
   const serviceKey =
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY")!;
@@ -52,13 +50,27 @@ Deno.serve(async (req) => {
   // re-saving it.
   const { data: settings } = await admin
     .from("whatsapp_settings")
-    .select("enabled, mirror_announcements, official_group_jid")
+    .select(
+      "enabled, mirror_announcements, alert_exam_published, alert_exam_starting_soon, " +
+        "official_group_jid, exam_reminder_minutes",
+    )
     .eq("id", true)
     .maybeSingle();
 
-  if (settings && (settings.enabled === false || settings.mirror_announcements === false)) {
+  const SWITCH: Record<string, string> = {
+    announcement: "mirror_announcements",
+    exam_published: "alert_exam_published",
+    exam_starting_soon: "alert_exam_starting_soon",
+  };
+  const switchName = SWITCH[kind];
+
+  if (
+    settings &&
+    (settings.enabled === false ||
+      (switchName && (settings as Record<string, unknown>)[switchName] === false))
+  ) {
     return new Response(
-      JSON.stringify({ sent: 0, reason: "announcement mirroring is switched off" }),
+      JSON.stringify({ sent: 0, reason: `${kind} posts are switched off` }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
@@ -71,66 +83,196 @@ Deno.serve(async (req) => {
     });
   }
 
-  const { data: announcement, error } = await admin
-    .from("announcements")
-    .select("id, title, body, category, target_cohort_id, cohort_id, is_published, send_to_whatsapp, whatsapp_sent_at")
-    .eq("id", announcement_id)
-    .maybeSingle();
+  const appUrl = (Deno.env.get("APP_URL") ?? "").replace(/\/$/, "");
 
-  if (error) {
-    return new Response(JSON.stringify({ error: `lookup failed: ${error.message}` }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+  /** Lagos time, written the way a person would say it. Everything in the
+   *  database is UTC, and a student reading "07:00" for an eight o'clock exam
+   *  is the one mistake this notice must never make. */
+  const lagos = (iso: string) =>
+    new Date(iso).toLocaleString("en-GB", {
+      timeZone: "Africa/Lagos",
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
     });
-  }
 
-  // Re-check every condition the trigger checked. The trigger fires on a row as
-  // it was written; by the time this runs the announcement may have been
-  // unpublished, un-flagged, or already sent by a call that raced this one.
-  if (
-    !announcement ||
-    !announcement.is_published ||
-    !announcement.send_to_whatsapp ||
-    announcement.whatsapp_sent_at
-  ) {
-    return new Response(JSON.stringify({ sent: 0, reason: "nothing to post" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  // The group is one cohort's group. An announcement aimed at a different
-  // cohort must not go there -- those students are not in it, and the ones who
-  // are would be reading somebody else's notice. Untargeted announcements are
-  // for everyone and do go.
-  const targetCohort = announcement.target_cohort_id ?? announcement.cohort_id ?? null;
-  if (targetCohort) {
+  /** The group belongs to one cohort. Anything aimed at a different one is not
+   *  posted there: those students are not in it, and the ones who are would be
+   *  reading somebody else's notice. */
+  async function targetsThisGroup(cohortId: string | null): Promise<boolean> {
+    if (!cohortId) return true;
     const { data: cohort } = await admin
       .from("cohorts")
-      .select("id, is_active")
-      .eq("id", targetCohort)
+      .select("is_active")
+      .eq("id", cohortId)
       .maybeSingle();
-    if (!cohort?.is_active) {
+    return Boolean(cohort?.is_active);
+  }
+
+  let text: string | null = null;
+  let idempotencyKey = "";
+  let markSent: (() => Promise<void>) | null = null;
+
+  if (kind === "announcement") {
+    if (!announcement_id) {
+      return new Response(JSON.stringify({ error: "announcement_id is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: announcement, error } = await admin
+      .from("announcements")
+      .select("id, title, body, target_cohort_id, cohort_id, is_published, send_to_whatsapp, whatsapp_sent_at")
+      .eq("id", announcement_id)
+      .maybeSingle();
+
+    if (error) {
+      return new Response(JSON.stringify({ error: `lookup failed: ${error.message}` }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Re-check every condition the trigger checked. The trigger fires on a row
+    // as it was written; by the time this runs the announcement may have been
+    // unpublished, un-flagged, or already sent by a call that raced this one.
+    if (
+      !announcement ||
+      !announcement.is_published ||
+      !announcement.send_to_whatsapp ||
+      announcement.whatsapp_sent_at
+    ) {
+      return new Response(JSON.stringify({ sent: 0, reason: "nothing to post" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!(await targetsThisGroup(announcement.target_cohort_id ?? announcement.cohort_id ?? null))) {
       return new Response(
         JSON.stringify({ sent: 0, reason: "announcement targets a cohort that is not the active one" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-  }
 
-  const appUrl = (Deno.env.get("APP_URL") ?? "").replace(/\/$/, "");
-  const lines = [`*${announcement.title}*`, "", String(announcement.body ?? "").trim()];
-  if (appUrl) lines.push("", `${appUrl}/student/announcements`);
+    const lines = [`*${announcement.title}*`, "", String(announcement.body ?? "").trim()];
+    if (appUrl) lines.push("", `${appUrl}/student/announcements`);
+    text = lines.join("\n");
+    idempotencyKey = `announcement-${announcement.id}`;
+    markSent = async () => {
+      await admin
+        .from("announcements")
+        .update({ whatsapp_sent_at: new Date().toISOString() })
+        .eq("id", announcement.id);
+    };
+  } else {
+    if (!exam_id) {
+      return new Response(JSON.stringify({ error: "exam_id is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: exam, error } = await admin
+      .from("exams")
+      .select("id, title, status, start_at, end_at, duration_minutes, cohort_id, whatsapp_reminded_at, whatsapp_published_at")
+      .eq("id", exam_id)
+      .maybeSingle();
+
+    if (error) {
+      return new Response(JSON.stringify({ error: `lookup failed: ${error.message}` }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!exam) {
+      return new Response(JSON.stringify({ sent: 0, reason: "nothing to post" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!(await targetsThisGroup(exam.cohort_id as string | null))) {
+      return new Response(
+        JSON.stringify({ sent: 0, reason: "exam belongs to a cohort that is not the active one" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    if (kind === "exam_published") {
+      // A draft that was published and then withdrawn should not be announced
+      // by a call that arrives late.
+      if (exam.status !== "published" || exam.whatsapp_published_at) {
+        return new Response(JSON.stringify({ sent: 0, reason: "nothing to post" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const lines = [
+        "*New exam published*",
+        "",
+        String(exam.title ?? "Untitled exam"),
+      ];
+      if (exam.start_at) lines.push(`Opens: ${lagos(exam.start_at as string)}`);
+      if (exam.end_at) lines.push(`Closes: ${lagos(exam.end_at as string)}`);
+      if (exam.duration_minutes) lines.push(`Duration: ${exam.duration_minutes} minutes`);
+      if (appUrl) lines.push("", `${appUrl}/student/exams`);
+      text = lines.join("\n");
+      idempotencyKey = `exam_published-${exam.id}`;
+      markSent = async () => {
+        await admin
+          .from("exams")
+          .update({ whatsapp_published_at: new Date().toISOString() })
+          .eq("id", exam.id);
+      };
+    } else {
+      // exam_starting_soon. The schedule finds the exam; this re-checks that it
+      // is still ahead of us and still unreminded, because the window is swept
+      // repeatedly and two passes can overlap.
+      if (exam.whatsapp_reminded_at || !exam.start_at) {
+        return new Response(JSON.stringify({ sent: 0, reason: "already reminded" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const minutesAway = Math.round(
+        (new Date(exam.start_at as string).getTime() - Date.now()) / 60000,
+      );
+      if (minutesAway < 0) {
+        return new Response(JSON.stringify({ sent: 0, reason: "exam already started" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const lines = [
+        "*Exam reminder*",
+        "",
+        String(exam.title ?? "Untitled exam"),
+        `Starts ${lagos(exam.start_at as string)} — in about ${minutesAway} minutes.`,
+      ];
+      if (exam.duration_minutes) lines.push(`Duration: ${exam.duration_minutes} minutes.`);
+      lines.push("", "Be seated and logged in before the start time.");
+      if (appUrl) lines.push(`${appUrl}/student/exams`);
+      text = lines.join("\n");
+      idempotencyKey = `exam_starting_soon-${exam.id}`;
+      markSent = async () => {
+        await admin
+          .from("exams")
+          .update({ whatsapp_reminded_at: new Date().toISOString() })
+          .eq("id", exam.id);
+      };
+    }
+  }
 
   const response = await fetch(`${gatewayUrl.replace(/\/$/, "")}/send`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-gateway-secret": gatewaySecret },
     body: JSON.stringify({
       to: groupJid,
-      text: lines.join("\n"),
+      text,
       // Deliberately no student_id. This is a group message and the gateway
       // would refuse it if one were set -- which is the point: if this function
       // ever grows a per-student variant, it fails closed rather than leaking.
-      idempotency_key: `announcement-${announcement.id}`,
+      idempotency_key: idempotencyKey,
     }),
     signal: AbortSignal.timeout(15_000),
   });
@@ -144,12 +286,9 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Marked only on success, so a failed post can be retried by re-saving the
-  // announcement rather than being silently recorded as delivered.
-  await admin
-    .from("announcements")
-    .update({ whatsapp_sent_at: new Date().toISOString() })
-    .eq("id", announcement.id);
+  // Marked only on success, so a failed post can be retried rather than being
+  // silently recorded as delivered.
+  if (markSent) await markSent();
 
   return new Response(JSON.stringify({ sent: 1 }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
