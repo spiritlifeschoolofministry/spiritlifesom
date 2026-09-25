@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { PageSkeleton } from '@/components/portal/PageSkeleton';
 import { Loader2, Sparkles } from 'lucide-react';
 import { draftMessage } from '@/lib/ai-message';
@@ -26,6 +27,9 @@ const AdminAnnouncements = () => {
   const [body, setBody] = useState('');
   const [category, setCategory] = useState('GENERAL');
   const [targetCohortId, setTargetCohortId] = useState('');
+  // Off by default. Not every notice belongs in a group of seventy-seven
+  // people, and a default that sends is one nobody remembers to turn off.
+  const [sendToWhatsapp, setSendToWhatsapp] = useState(false);
 
   // Drafting. `brief` is what the writer wants said, in their own words; the
   // figures come from the server. `facts` is kept so they can check them.
@@ -98,14 +102,16 @@ const AdminAnnouncements = () => {
         created_by: profile?.id || null,
         is_published: true,
         published_at: new Date().toISOString(),
+        send_to_whatsapp: sendToWhatsapp,
       };
       const { error } = await supabase.from('announcements').insert(payload);
       if (error) throw error;
-      toast.success('Announcement posted');
+      toast.success(sendToWhatsapp ? 'Announcement posted and sent to WhatsApp' : 'Announcement posted');
       setTitle('');
       setBody('');
       setCategory('GENERAL');
       setTargetCohortId('');
+      setSendToWhatsapp(false);
       await loadData();
     } catch (err) {
       console.error('Create announcement error:', err);
@@ -211,6 +217,23 @@ const AdminAnnouncements = () => {
               <Button type="submit" disabled={submitting} className="self-start">
                 {submitting ? 'Posting...' : 'Post Announcement'}
               </Button>
+            </div>
+            <div className="flex items-start gap-3 rounded-md border border-input p-3">
+              <Checkbox
+                id="send-to-whatsapp"
+                checked={sendToWhatsapp}
+                onCheckedChange={(v) => setSendToWhatsapp(v === true)}
+                className="mt-0.5"
+              />
+              <div className="space-y-1">
+                <label htmlFor="send-to-whatsapp" className="text-sm font-medium cursor-pointer">
+                  Also send to the WhatsApp group
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Posts this notice to the official group. Only for announcements meant
+                  for everyone &mdash; a notice aimed at a past cohort is not sent.
+                </p>
+              </div>
             </div>
           </form>
         </CardContent>

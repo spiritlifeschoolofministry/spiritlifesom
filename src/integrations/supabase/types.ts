@@ -319,9 +319,11 @@ export type Database = {
           id: string
           is_published: boolean | null
           published_at: string | null
+          send_to_whatsapp: boolean
           target_audience: string | null
           target_cohort_id: string | null
           title: string
+          whatsapp_sent_at: string | null
         }
         Insert: {
           body: string
@@ -332,9 +334,11 @@ export type Database = {
           id?: string
           is_published?: boolean | null
           published_at?: string | null
+          send_to_whatsapp?: boolean
           target_audience?: string | null
           target_cohort_id?: string | null
           title: string
+          whatsapp_sent_at?: string | null
         }
         Update: {
           body?: string
@@ -345,9 +349,11 @@ export type Database = {
           id?: string
           is_published?: boolean | null
           published_at?: string | null
+          send_to_whatsapp?: boolean
           target_audience?: string | null
           target_cohort_id?: string | null
           title?: string
+          whatsapp_sent_at?: string | null
         }
         Relationships: [
           {
@@ -2717,6 +2723,54 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_auth_state: {
+        Row: {
+          id: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          id: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          id?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      whatsapp_gateway_status: {
+        Row: {
+          connection: string
+          id: boolean
+          jid: string | null
+          last_alert_at: string | null
+          last_error: string | null
+          last_seen_at: string
+          reconnect_count: number
+        }
+        Insert: {
+          connection?: string
+          id?: boolean
+          jid?: string | null
+          last_alert_at?: string | null
+          last_error?: string | null
+          last_seen_at?: string
+          reconnect_count?: number
+        }
+        Update: {
+          connection?: string
+          id?: boolean
+          jid?: string | null
+          last_alert_at?: string | null
+          last_error?: string | null
+          last_seen_at?: string
+          reconnect_count?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       classmate_directory: {
@@ -3022,6 +3076,7 @@ export type Database = {
         Args: { p_cohort_id: string; p_exclude_student?: string }
         Returns: string
       }
+      ops_usage_snapshot: { Args: never; Returns: Json }
       reconcile_student_fees: {
         Args: { p_student_id: string }
         Returns: undefined

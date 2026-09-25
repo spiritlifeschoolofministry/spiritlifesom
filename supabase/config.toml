@@ -145,3 +145,13 @@ enabled = true
 # really was submitted -- and the gateway deduplicates that.
 verify_jwt = false
 entrypoint = "./functions/whatsapp-admin-alert/index.ts"
+
+[functions.whatsapp-group-post]
+enabled = true
+# Called by a table trigger through pg_net, which cannot sign a JWT. Safe to
+# leave open for the same reason as whatsapp-admin-alert: the caller names an
+# announcement, never a message or a destination. It also re-checks every
+# condition the trigger checked, so a replayed call cannot post something that
+# has since been unpublished or already sent.
+verify_jwt = false
+entrypoint = "./functions/whatsapp-group-post/index.ts"
