@@ -26,7 +26,8 @@ type Kind =
   | "exam_integrity_stop"
   | "exam_device_conflict"
   | "exam_close_digest"
-  | "grading_backlog";
+  | "grading_backlog"
+  | "revenue_digest";
 
 type Alert = {
   /** Lines of the message, joined with newlines. */
@@ -560,6 +561,133 @@ async function buildGradingBacklog(
   };
 }
 
+/**
+ * Where the money stands, once a week.
+ *
+ * Scoped to the active cohort and to fees that were not waived, because both
+ * exclusions are the difference between a true figure and an alarming one. A
+ * closed session's balances are written off deliberately; counting them as
+ * outstanding would report a debt the school has already decided not to
+ * collect, every week, for ever.
+ *
+ * The last line is the one worth having. A fee's amount_paid and the payments
+ * behind it are maintained by different paths -- verification, manual entry,
+ * deletion, direct adjustment -- and nothing reconciles them. A fee marked paid
+ * with no payment behind it is either money that arrived untracked or money
+ * that never arrived, and both are worth a question.
+ */
+async function buildRevenueDigest(
+  admin: ReturnType<typeof createClient>,
+): Promise<Alert | null> {
+  const { data: cohorts, error: cohortError } = await admin
+    .from("cohorts")
+    .select("id, name")
+    .eq("is_active", true);
+
+  if (cohortError) throw new Error(`cohort lookup failed: ${cohortError.message}`);
+  if (!cohorts || cohorts.length === 0) return null;
+
+  const cohortIds = cohorts.map((c) => c.id as string);
+
+  const { data: fees, error: feeError } = await admin
+    .from("fees")
+    .select("id, student_id, amount_due, amount_paid, waived")
+    .in("cohort_id", cohortIds);
+
+  if (feeError) throw new Error(`fee lookup failed: ${feeError.message}`);
+
+  const billable = (fees ?? []).filter((f) => !f.waived);
+  if (billable.length === 0) return null;
+
+  let due = 0;
+  let paid = 0;
+  let outstanding = 0;
+  const owing = new Set<string>();
+  const students = new Set<string>();
+
+  for (const fee of billable) {
+    const feeDue = Number(fee.amount_due ?? 0);
+    const feePaid = Number(fee.amount_paid ?? 0);
+    due += feeDue;
+    paid += feePaid;
+    students.add(String(fee.student_id));
+    if (feeDue > feePaid) {
+      outstanding += feeDue - feePaid;
+      owing.add(String(fee.student_id));
+    }
+  }
+
+  const feeIds = billable.map((f) => f.id as string);
+
+  const { data: payments } = await admin
+    .from("payments")
+    .select("id, amount_paid, status, created_at, student_fee_id, fee_id")
+    .or(`student_fee_id.in.(${feeIds.join(",")}),fee_id.in.(${feeIds.join(",")})`);
+
+  const all = payments ?? [];
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+  const verified = all.filter((p) => p.status === "VERIFIED");
+  const thisWeek = verified.filter(
+    (p) => new Date(p.created_at as string).getTime() >= weekAgo,
+  );
+  const pending = all.filter((p) => p.status === "PENDING");
+
+  const weekTotal = thisWeek.reduce((sum, p) => sum + Number(p.amount_paid ?? 0), 0);
+  const pendingTotal = pending.reduce((sum, p) => sum + Number(p.amount_paid ?? 0), 0);
+
+  // Reconcile each fee against the payments actually recorded against it.
+  const verifiedByFee = new Map<string, number>();
+  for (const payment of verified) {
+    const key = String(payment.student_fee_id ?? payment.fee_id ?? "");
+    if (!key) continue;
+    verifiedByFee.set(key, (verifiedByFee.get(key) ?? 0) + Number(payment.amount_paid ?? 0));
+  }
+  let unbackedCount = 0;
+  let unbackedAmount = 0;
+  for (const fee of billable) {
+    const credited = Number(fee.amount_paid ?? 0);
+    const backed = verifiedByFee.get(String(fee.id)) ?? 0;
+    if (credited > backed) {
+      unbackedCount += 1;
+      unbackedAmount += credited - backed;
+    }
+  }
+
+  const pct = due > 0 ? Math.round((paid / due) * 100) : 0;
+  const names = cohorts.map((c) => c.name).join(", ");
+
+  const lines = [
+    `*Fees — ${names}*`,
+    "",
+    thisWeek.length > 0
+      ? `This week: ${naira(weekTotal)} from ${thisWeek.length} payment${thisWeek.length === 1 ? "" : "s"}`
+      : "This week: nothing received",
+    pending.length > 0
+      ? `Awaiting verification: ${naira(pendingTotal)} (${pending.length})`
+      : "Awaiting verification: none",
+    "",
+    `Collected: ${naira(paid)} of ${naira(due)} (${pct}%)`,
+    `Outstanding: ${naira(outstanding)} across ${owing.size} of ${students.size} students`,
+  ];
+
+  if (unbackedCount > 0) {
+    lines.push(
+      "",
+      `⚠️ ${unbackedCount} fee${unbackedCount === 1 ? "" : "s"} marked paid with no payment behind ${unbackedCount === 1 ? "it" : "them"}: ${naira(unbackedAmount)}`,
+    );
+  }
+
+  const appUrl = (Deno.env.get("APP_URL") ?? "").replace(/\/$/, "");
+  if (appUrl) lines.push("", `${appUrl}/admin/payments`);
+
+  return {
+    lines,
+    studentId: null,
+    idempotencyKey: `revenue_digest-${new Date().toISOString().slice(0, 10)}`,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -625,6 +753,9 @@ Deno.serve(async (req) => {
         break;
       case "exam_close_digest":
         alert = await buildExamCloseDigest(admin);
+        break;
+      case "revenue_digest":
+        alert = await buildRevenueDigest(admin);
         break;
       case "grading_backlog":
         alert = await buildGradingBacklog(admin);
