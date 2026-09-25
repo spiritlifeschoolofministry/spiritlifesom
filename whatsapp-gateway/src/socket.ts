@@ -108,6 +108,13 @@ export async function connect(): Promise<void> {
     // wherever the phone is rather than from a Render log tail.
     printQRInTerminal: false,
     browser: [env.deviceName, "Chrome", "1.0.0"],
+    // Baileys gives the first QR 60 seconds and every one after it only 20,
+    // then gives up with "QR refs attempts ended" and needs a restart. Twenty
+    // seconds is not enough for a person who is opening a link, unlocking a
+    // phone and finding Linked devices, so the window closes while they are
+    // still walking towards it. Two minutes per code makes pairing something
+    // you do rather than something you race.
+    qrTimeout: 120_000,
     // Nothing here reads chat history, and syncing it on every reconnect costs
     // minutes of bandwidth and a large memory spike for no benefit.
     syncFullHistory: false,
