@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { classify } from "./intents.ts";
 import { assignmentsAnswer, feesAnswer, resultsAnswer, timetableAnswer } from "./answers.ts";
-import { converse } from "./converse.ts";
+import { converse, soundsUnsure } from "./converse.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -399,11 +399,25 @@ Deno.serve(async (req) => {
         assistantName: "Barnabas",
       });
       aiGenerated = Boolean(reply);
+
       // An answer that amounts to "I do not know" is not an answer. Counting
-      // it as one would let somebody ask the same unanswerable question all
-      // afternoon and never reach anybody.
-      if (reply && /\b(not sure|don'?t know|do not know|cannot help|can'?t help|contact the school)\b/i.test(reply)) {
+      // it lets somebody who keeps asking unanswerable things reach a person
+      // instead of the same apology a third time.
+      if (reply && soundsUnsure(reply)) {
         newStreak = streak + 1;
+
+        // The route to a person is offered on the *first* failure, not the
+        // third. Telling somebody who has just texted the school to phone the
+        // school instead is an absurd thing to say, and two rounds of it
+        // before anyone offers to help is how a person decides the number is
+        // useless.
+        if (settings?.handover_enabled !== false) {
+          reply = [
+            reply.trim(),
+            "",
+            "Reply *HUMAN* and I will pass this to the school office.",
+          ].join("\n");
+        }
       }
     }
 
