@@ -17,6 +17,20 @@ function secretMatches(provided: string | undefined): boolean {
   return timingSafeEqual(a, b);
 }
 
+/** True when the caller presented the pairing token, which opens the QR page
+ *  and nothing else. Compared in constant time like the main secret, and
+ *  refused outright when no token is configured -- so an empty or unset
+ *  PAIRING_TOKEN cannot be satisfied by an empty query parameter. */
+function pairingTokenMatches(provided: unknown): boolean {
+  if (!env.pairingToken || typeof provided !== "string" || provided === "") {
+    return false;
+  }
+  const a = Buffer.from(provided);
+  const b = Buffer.from(env.pairingToken);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
 function requireSecret(req: Request, res: Response, next: NextFunction): void {
   if (!secretMatches(req.header("x-gateway-secret"))) {
     res.status(401).json({ error: "unauthorized" });
@@ -66,7 +80,18 @@ app.get("/status", requireSecret, async (_req, res) => {
  * account, so an open endpoint here would hand the school's number to anyone
  * who loaded the URL at the wrong moment.
  */
-app.get("/qr", requireSecret, (_req, res) => {
+app.get("/qr", (req, res) => {
+  // Either credential opens this page: the gateway secret, for scripts, or the
+  // pairing token, for a link someone can open on the machine next to the
+  // phone. Nothing else in the API accepts the token.
+  const authorised =
+    secretMatches(req.header("x-gateway-secret")) ||
+    pairingTokenMatches(req.query.token);
+  if (!authorised) {
+    res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+
   if (!state.qr) {
     res
       .status(409)

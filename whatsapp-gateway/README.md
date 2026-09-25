@@ -15,7 +15,7 @@ else does.
 |---|---|---|---|
 | GET | `/healthz` | none | Liveness for Render. 200 whenever the process is up — says nothing about WhatsApp. |
 | GET | `/status` | secret | What the socket is actually doing. Also refreshes the heartbeat. |
-| GET | `/qr` | secret | Scannable pairing page, when a pairing is in progress. |
+| GET | `/qr` | secret **or** pairing token | Scannable pairing page, when a pairing is in progress. |
 | POST | `/send` | secret | `{ to, text, idempotency_key?, student_id? }` |
 
 Auth is the `x-gateway-secret` header, compared in constant time.
@@ -47,6 +47,7 @@ down.
    | `SUPABASE_URL` | Project URL |
    | `SUPABASE_SERVICE_ROLE_KEY` | Service role, **not** anon — `whatsapp_auth_state` has RLS on with no policy, so the anon key reads back nothing and the gateway asks for a QR on every boot |
    | `GATEWAY_SECRET` | Long random string; also set on the `whatsapp-health` Edge Function |
+   | `PAIRING_TOKEN` | Optional. Opens `/qr` from a plain browser link. Scoped to that page only — it cannot send. Unset closes the query-parameter route entirely |
    | `OFFICIAL_GROUP_JID` | Optional until group sends are built |
    | `NODE_VERSION` | `22.11.0` — Baileys needs ≥20.10 for JSON import attributes |
 
@@ -57,12 +58,17 @@ down.
 ## Pairing
 
 1. Deploy. The service starts, finds no credentials, and issues a QR.
-2. Open `https://<service>.onrender.com/qr` with the `x-gateway-secret` header
-   (or paste the URL into a tool that can set it).
+2. Open the QR page. With `PAIRING_TOKEN` set, that is just a link:
+   `https://<service>.onrender.com/qr?token=<PAIRING_TOKEN>`
+   Otherwise, curl it with the `x-gateway-secret` header and open the file.
 3. On the school phone: **WhatsApp → Settings → Linked devices → Link a device**.
 4. `/status` should report `connection: "open"`.
 
 The QR expires in about a minute — reload for a fresh one.
+
+Rotate or unset `PAIRING_TOKEN` once paired. It only ever displays a QR that is
+already being offered, but there is no reason to leave the page reachable when
+no pairing is in progress.
 
 Credentials are written to `whatsapp_auth_state` in Supabase, so a redeploy does
 **not** require re-pairing. Only an explicit logout does, and the health check

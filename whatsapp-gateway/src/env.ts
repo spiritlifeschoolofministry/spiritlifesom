@@ -35,6 +35,20 @@ export const env = {
   // messages as the school.
   gatewaySecret: required("GATEWAY_SECRET"),
 
+  // A second, weaker secret that opens the QR page from a plain browser link.
+  //
+  // The pairing QR has to be scanned from a screen, and a browser cannot be
+  // made to send a custom header, so pairing otherwise means curling the page
+  // to a file. This exists to make that one step a link. It is deliberately
+  // *not* the gateway secret: a URL ends up in Render's access log, in shell
+  // history and in whatever chat it was pasted into, and the gateway secret can
+  // send messages as the school. This one can only display a QR that is already
+  // being offered, and only during the minute it stays valid.
+  //
+  // Unset means the query-parameter route is closed entirely and only the
+  // header works.
+  pairingToken: process.env.PAIRING_TOKEN ?? null,
+
   // The official group's JID (ends @g.us). Optional at boot because the group
   // send path is not needed to pair or to run the health check.
   officialGroupJid: process.env.OFFICIAL_GROUP_JID ?? null,
