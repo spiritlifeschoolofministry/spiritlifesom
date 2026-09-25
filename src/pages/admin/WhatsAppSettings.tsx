@@ -33,6 +33,7 @@ type Settings = {
   mirror_announcements: boolean;
   alert_exam_published: boolean;
   alert_exam_starting_soon: boolean;
+  alert_material_uploaded: boolean;
   grading_backlog_days: number;
   quota_warn_percent: number;
   exam_reminder_minutes: number;
@@ -57,6 +58,7 @@ const GROUP_ALERTS: { key: keyof Settings; label: string; help: string }[] = [
   { key: 'mirror_announcements', label: 'Mirror announcements', help: 'Post announcements ticked for WhatsApp to the official group.' },
   { key: 'alert_exam_published', label: 'Exam published', help: 'Tell the group when a new exam opens.' },
   { key: 'alert_exam_starting_soon', label: 'Exam starting soon', help: 'Remind the group before an exam begins.' },
+  { key: 'alert_material_uploaded', label: 'New course material', help: 'A batch upload is announced once, not once per file.' },
 ];
 
 export default function WhatsAppSettings() {

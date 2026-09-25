@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
   }
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   const { kind = "announcement", announcement_id, exam_id } = body as {
-    kind?: "announcement" | "exam_published" | "exam_starting_soon";
+    kind?: "announcement" | "exam_published" | "exam_starting_soon" | "materials_added";
     announcement_id?: string;
     exam_id?: string;
   };
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
     .from("whatsapp_settings")
     .select(
       "enabled, mirror_announcements, alert_exam_published, alert_exam_starting_soon, " +
-        "official_group_jid, exam_reminder_minutes",
+        "alert_material_uploaded, official_group_jid, exam_reminder_minutes",
     )
     .eq("id", true)
     .maybeSingle();
@@ -61,6 +61,7 @@ Deno.serve(async (req) => {
     announcement: "mirror_announcements",
     exam_published: "alert_exam_published",
     exam_starting_soon: "alert_exam_starting_soon",
+    materials_added: "alert_material_uploaded",
   };
   const switchName = SWITCH[kind];
 
@@ -167,6 +168,72 @@ Deno.serve(async (req) => {
         .from("announcements")
         .update({ whatsapp_sent_at: new Date().toISOString() })
         .eq("id", announcement.id);
+    };
+  } else if (kind === "materials_added") {
+    // The sweep decides there is something to say; this decides what. Reading
+    // the rows here rather than being handed ids means a material uploaded
+    // between the sweep and this call is included rather than waiting fifteen
+    // minutes for the next pass.
+    const settled = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data: materials, error } = await admin
+      .from("course_materials")
+      .select("id, title, material_type, is_paid, course_id, cohort_id, created_at")
+      .is("whatsapp_sent_at", null)
+      .lt("created_at", settled)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      return new Response(JSON.stringify({ error: `lookup failed: ${error.message}` }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const mine: typeof materials = [];
+    for (const material of materials ?? []) {
+      if (await targetsThisGroup(material.cohort_id as string | null)) mine.push(material);
+    }
+
+    if (mine.length === 0) {
+      return new Response(JSON.stringify({ sent: 0, reason: "nothing to post" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const courseIds = [...new Set(mine.map((m) => m.course_id as string).filter(Boolean))];
+    const { data: courses } = courseIds.length
+      ? await admin.from("courses").select("id, title, code").in("id", courseIds)
+      : { data: [] };
+    const courseName = new Map(
+      (courses ?? []).map((c) => [
+        c.id as string,
+        [c.code, c.title].filter(Boolean).join(" — ") || "Course",
+      ]),
+    );
+
+    const lines =
+      mine.length === 1
+        ? ["*New course material*", ""]
+        : [`*${mine.length} new course materials*`, ""];
+
+    for (const material of mine.slice(0, 12)) {
+      const course = courseName.get(material.course_id as string);
+      lines.push(
+        `• ${material.title}${course ? ` — ${course}` : ""}${material.is_paid ? " _(paid)_" : ""}`,
+      );
+    }
+    if (mine.length > 12) lines.push(`_…and ${mine.length - 12} more_`);
+    if (appUrl) lines.push("", `${appUrl}/student/materials`);
+
+    text = lines.join("\n");
+    // Keyed to the set, so a retry of the same batch is refused but a genuinely
+    // new upload a minute later is not.
+    idempotencyKey = `materials_added-${mine.map((m) => m.id).join(",").slice(0, 80)}`;
+    markSent = async () => {
+      await admin
+        .from("course_materials")
+        .update({ whatsapp_sent_at: new Date().toISOString() })
+        .in("id", mine.map((m) => m.id as string));
     };
   } else {
     if (!exam_id) {

@@ -893,6 +893,7 @@ export type Database = {
           tags: string[]
           title: string
           uploaded_by: string | null
+          whatsapp_sent_at: string | null
         }
         Insert: {
           ai_description_written_at?: string | null
@@ -913,6 +914,7 @@ export type Database = {
           tags?: string[]
           title: string
           uploaded_by?: string | null
+          whatsapp_sent_at?: string | null
         }
         Update: {
           ai_description_written_at?: string | null
@@ -933,6 +935,7 @@ export type Database = {
           tags?: string[]
           title?: string
           uploaded_by?: string | null
+          whatsapp_sent_at?: string | null
         }
         Relationships: [
           {
@@ -1588,6 +1591,8 @@ export type Database = {
           title: string
           total_points: number
           updated_at: string
+          whatsapp_published_at: string | null
+          whatsapp_reminded_at: string | null
         }
         Insert: {
           allow_late_entry?: boolean
@@ -1629,6 +1634,8 @@ export type Database = {
           title: string
           total_points?: number
           updated_at?: string
+          whatsapp_published_at?: string | null
+          whatsapp_reminded_at?: string | null
         }
         Update: {
           allow_late_entry?: boolean
@@ -1670,6 +1677,8 @@ export type Database = {
           title?: string
           total_points?: number
           updated_at?: string
+          whatsapp_published_at?: string | null
+          whatsapp_reminded_at?: string | null
         }
         Relationships: [
           {
@@ -2781,6 +2790,7 @@ export type Database = {
           alert_exam_published: boolean
           alert_exam_starting_soon: boolean
           alert_grading_backlog: boolean
+          alert_material_uploaded: boolean
           alert_ops_check: boolean
           alert_payment_receipt: boolean
           alert_revenue_digest: boolean
@@ -2804,6 +2814,7 @@ export type Database = {
           alert_exam_published?: boolean
           alert_exam_starting_soon?: boolean
           alert_grading_backlog?: boolean
+          alert_material_uploaded?: boolean
           alert_ops_check?: boolean
           alert_payment_receipt?: boolean
           alert_revenue_digest?: boolean
@@ -2827,6 +2838,7 @@ export type Database = {
           alert_exam_published?: boolean
           alert_exam_starting_soon?: boolean
           alert_grading_backlog?: boolean
+          alert_material_uploaded?: boolean
           alert_ops_check?: boolean
           alert_payment_receipt?: boolean
           alert_revenue_digest?: boolean
@@ -3189,6 +3201,8 @@ export type Database = {
         }
       }
       verify_certificate: { Args: { p_serial: string }; Returns: Json }
+      whatsapp_sweep_exam_reminders: { Args: never; Returns: undefined }
+      whatsapp_sweep_new_materials: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
