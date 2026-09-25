@@ -1,0 +1,40 @@
+# Render blueprint for the WhatsApp gateway.
+#
+# plan: starter is not a preference. Render's free web services spin down after
+# ~15 minutes without traffic, and a spun-down container has no process, so the
+# Baileys socket dies with it. It would reconnect on the next request using the
+# credentials in Supabase, but the cycle of dropping and re-establishing a
+# session many times a day is exactly the pattern WhatsApp reads as abuse. The
+# scheduled ping in the migration reduces the idling, it does not remove the
+# risk: free-tier instances are also cycled for their own reasons. Pay the $7.
+services:
+  - type: web
+    name: slsom-whatsapp-gateway
+    runtime: node
+    plan: starter
+    region: frankfurt
+    rootDir: whatsapp-gateway
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    # One instance, always. A Baileys session is a single linked device: two
+    # containers holding the same credentials fight over the socket and get the
+    # number logged out.
+    numInstances: 1
+    envVars:
+      # Baileys imports JSON with import attributes, which Node only supports
+      # from 20.10. Render's default is not guaranteed to be newer, and the
+      # failure is a SyntaxError at import time -- a crash loop on first boot,
+      # not a warning. .node-version pins it too; this is belt and braces.
+      - key: NODE_VERSION
+        value: 22.11.0
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GATEWAY_SECRET
+        sync: false
+      - key: OFFICIAL_GROUP_JID
+        sync: false
+      - key: DEVICE_NAME
+        value: SLSOM Gateway

@@ -126,3 +126,11 @@ entrypoint = "./functions/ai-study/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/ai-chat/index.ts"
+
+[functions.whatsapp-health]
+enabled = true
+# Called by pg_cron. Like the exam sweep it takes no instruction from its
+# caller -- it inspects the gateway and reports -- so there is nothing an
+# unauthorised caller could make it do, and no JWT is required.
+verify_jwt = false
+entrypoint = "./functions/whatsapp-health/index.ts"

@@ -1,0 +1,180 @@
+import express from "express";
+import type { Request, Response, NextFunction } from "express";
+import { timingSafeEqual } from "node:crypto";
+import { env } from "./env.js";
+import { state, canSend, reportStatus } from "./socket.js";
+
+export const app = express();
+app.use(express.json({ limit: "256kb" }));
+
+/** Constant-time comparison, so the secret cannot be recovered a byte at a time
+ *  by timing repeated requests. */
+function secretMatches(provided: string | undefined): boolean {
+  if (!provided) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(env.gatewaySecret);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
+function requireSecret(req: Request, res: Response, next: NextFunction): void {
+  if (!secretMatches(req.header("x-gateway-secret"))) {
+    res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+  next();
+}
+
+/**
+ * Liveness, for Render's own health check and for the scheduled ping.
+ *
+ * Deliberately unauthenticated and deliberately dumb: it answers 200 whenever
+ * the process is up, which is exactly what Render needs to decide whether to
+ * restart the container. It says nothing about the WhatsApp socket -- see
+ * /status for that, and note that a process answering 200 here while its socket
+ * is closed is the precise failure the status row exists to expose.
+ */
+app.get("/healthz", (_req, res) => {
+  res.json({ ok: true, uptime: process.uptime() });
+});
+
+/**
+ * What the socket is actually doing.
+ *
+ * Authenticated, because it names the paired number and the last error, and
+ * both are more than an anonymous caller needs.
+ */
+app.get("/status", requireSecret, async (_req, res) => {
+  // Touch last_seen_at on every poll. The scheduled check reads staleness to
+  // detect a dead process, and a gateway that is up but idle must keep proving
+  // it, or it will be reported as dead the moment traffic goes quiet.
+  await reportStatus();
+  res.json({
+    connection: state.connection,
+    jid: state.jid,
+    canSend: canSend(),
+    needsPairing: state.needsPairing,
+    reconnectCount: state.reconnectCount,
+    lastError: state.lastError,
+  });
+});
+
+/**
+ * The pairing QR, as a scannable page.
+ *
+ * Authenticated: whoever scans this QR links a device to the school's WhatsApp
+ * account, so an open endpoint here would hand the school's number to anyone
+ * who loaded the URL at the wrong moment.
+ */
+app.get("/qr", requireSecret, (_req, res) => {
+  if (!state.qr) {
+    res
+      .status(409)
+      .json({ error: "no pairing in progress", connection: state.connection });
+    return;
+  }
+  res.type("html").send(
+    `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
+     <body style="display:grid;place-items:center;min-height:100vh;margin:0;font-family:system-ui;background:#111;color:#eee">
+       <div style="text-align:center">
+         <h1 style="font-size:1rem;font-weight:600">Link SLSOM Gateway</h1>
+         <img src="${state.qr}" width="320" height="320" alt="WhatsApp pairing QR code"
+              style="background:#fff;padding:12px;border-radius:12px">
+         <p style="opacity:.7;font-size:.85rem;max-width:320px">
+           WhatsApp &rarr; Settings &rarr; Linked devices &rarr; Link a device.
+           This code expires in about a minute; reload for a fresh one.
+         </p>
+       </div>
+     </body>`,
+  );
+});
+
+/**
+ * Recent idempotency keys.
+ *
+ * Every caller that retries -- pg_cron re-firing, an Edge Function retried
+ * after a timeout -- can send the same message twice. For a fee reminder that
+ * means a student reading "you owe N45,000" three times, which reads as
+ * dunning rather than as a bug. Callers pass a stable key and a repeat is
+ * acknowledged without sending.
+ *
+ * In-memory on purpose: it guards against retry storms over minutes, not
+ * against a redeploy hours later, and the gateway runs as a single instance
+ * because a Baileys session cannot be shared across two.
+ */
+const seen = new Map<string, number>();
+const IDEMPOTENCY_TTL_MS = 60 * 60 * 1000;
+
+function alreadySent(key: string | undefined): boolean {
+  if (!key) return false;
+  const now = Date.now();
+  for (const [k, at] of seen) {
+    if (now - at > IDEMPOTENCY_TTL_MS) seen.delete(k);
+  }
+  if (seen.has(key)) return true;
+  seen.set(key, now);
+  return false;
+}
+
+type SendBody = {
+  to?: string;
+  text?: string;
+  idempotency_key?: string;
+  student_id?: string;
+};
+
+/**
+ * Send one message.
+ *
+ * The guard below is the one rule worth enforcing in code rather than in
+ * review: anything carrying a student_id is personal -- a balance, a score, a
+ * rejected receipt -- and must never reach a group. The official group contains
+ * staff and every other student, and its membership is maintained by hand in
+ * WhatsApp, entirely outside this system's access control. A copy-pasted
+ * workflow six months from now will not remember that. This will.
+ */
+app.post("/send", requireSecret, async (req, res) => {
+  const { to, text, idempotency_key, student_id } = req.body as SendBody;
+
+  if (!to || !text) {
+    res.status(400).json({ error: "to and text are required" });
+    return;
+  }
+
+  const isGroup = to.endsWith("@g.us");
+  if (isGroup && student_id) {
+    res.status(422).json({
+      error: "refusing to send student-specific content to a group",
+      detail:
+        "A payload carrying student_id is personal data. Send it to the student's own JID.",
+    });
+    return;
+  }
+
+  if (!canSend()) {
+    // 503, not 500: this is temporary and retryable, and the caller should be
+    // able to tell the difference between "the line is down" and "the request
+    // was wrong".
+    res.status(503).json({
+      error: "gateway not connected",
+      connection: state.connection,
+      needsPairing: state.needsPairing,
+    });
+    return;
+  }
+
+  if (alreadySent(idempotency_key)) {
+    res.json({ ok: true, deduplicated: true });
+    return;
+  }
+
+  try {
+    const result = await state.sock!.sendMessage(to, { text });
+    res.json({ ok: true, id: result?.key?.id ?? null });
+  } catch (err) {
+    res.status(502).json({
+      error: "send failed",
+      detail: err instanceof Error ? err.message : String(err),
+    });
+  }
+});
