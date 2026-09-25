@@ -130,6 +130,48 @@ export async function connect(): Promise<void> {
 
   sock.ev.on("creds.update", saveCreds);
 
+  /**
+   * Forward what people say to us.
+   *
+   * Four things are dropped before anything is forwarded, and each of them
+   * would otherwise cause real trouble:
+   *
+   *  - our own messages, or the gateway answers itself forever;
+   *  - group messages, because a reply would go to seventy-seven people and
+   *    because nobody in a group is addressing the school in particular;
+   *  - anything without plain text -- a photo, a sticker, a voice note -- which
+   *    the router has no way to read;
+   *  - anything older than five minutes, because reconnecting replays history
+   *    and a week-old "stop" should not be acted on now.
+   *
+   * The forward is fire-and-forget. A webhook that is slow or down must not
+   * hold up the socket, and the inbound log is not worth dropping a connection
+   * over.
+   */
+  sock.ev.on("messages.upsert", ({ messages, type }) => {
+    // 'append' is history being replayed; only 'notify' is live traffic.
+    if (type !== "notify") return;
+
+    for (const message of messages) {
+      const from = message.key?.remoteJid;
+      if (!from || message.key?.fromMe) continue;
+      if (from.endsWith("@g.us") || from.endsWith("@broadcast")) continue;
+
+      const text =
+        message.message?.conversation ??
+        message.message?.extendedTextMessage?.text ??
+        null;
+      if (!text) continue;
+
+      const sentAt = Number(message.messageTimestamp ?? 0) * 1000;
+      if (sentAt && Date.now() - sentAt > 5 * 60_000) continue;
+
+      forwardInbound(from, text).catch((err) =>
+        logger.warn({ err }, "forwarding inbound message failed"),
+      );
+    }
+  });
+
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr } = update;
 
@@ -186,6 +228,33 @@ export async function connect(): Promise<void> {
       }, delay);
     }
   });
+}
+
+/**
+ * Hand an incoming message to Supabase, which decides what to do with it.
+ *
+ * The gateway deliberately knows nothing about commands or students. It is a
+ * wire: it carries words in both directions and holds no rules, so the rules
+ * stay in one place with the data they need.
+ */
+async function forwardInbound(from: string, text: string): Promise<void> {
+  const response = await fetch(
+    `${env.supabaseUrl.replace(/\/$/, "")}/functions/v1/whatsapp-inbound`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        // The same secret that guards /send. Without it anyone who found the
+        // endpoint could put words into a student's mouth.
+        "x-gateway-secret": env.gatewaySecret,
+      },
+      body: JSON.stringify({ from, text }),
+      signal: AbortSignal.timeout(20_000),
+    },
+  );
+  if (!response.ok) {
+    logger.warn({ status: response.status }, "inbound webhook rejected the message");
+  }
 }
 
 /** True only when a send can actually succeed. */

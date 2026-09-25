@@ -171,3 +171,11 @@ enabled = true
 # numbers itself and can only ask their owners to correct them.
 verify_jwt = false
 entrypoint = "./functions/whatsapp-number-check/index.ts"
+
+[functions.whatsapp-inbound]
+enabled = true
+# Called by the gateway, which cannot sign a JWT. It authenticates with the
+# same shared secret that guards /send -- necessarily so: without it anyone who
+# found the URL could put words into any student's mouth, including "stop".
+verify_jwt = false
+entrypoint = "./functions/whatsapp-inbound/index.ts"
