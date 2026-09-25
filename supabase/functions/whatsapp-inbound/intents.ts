@@ -15,6 +15,7 @@
  */
 
 export type Intent =
+  | "human"
   | "help"
   | "stop"
   | "start"
@@ -26,6 +27,15 @@ export type Intent =
   | null;
 
 const PATTERNS: [Intent, RegExp][] = [
+  // Asking for a person comes first, ahead of every other reading. Somebody
+  // who says "I need to speak to someone about my fees" is asking for a
+  // person, and answering with a fee balance would be a machine talking over
+  // a request to stop talking to a machine.
+  [
+    "human",
+    /\b(human|real person|speak to (someone|somebody|a person|an admin|the office)|talk to (someone|somebody|a person|an admin|the office)|customer (care|service)|agent|call me|complain|complaint|urgent|emergency)\b/,
+  ],
+
   ["stop", /\b(stop|unsubscribe|opt ?out|don'?t message|no more messages)\b/],
   ["start", /\b(start|resume|subscribe|opt ?in)\b/],
   ["verify", /\b(verify|certificate|cert)\b/],

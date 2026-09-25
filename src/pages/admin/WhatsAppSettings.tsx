@@ -52,6 +52,9 @@ type Settings = {
   audit_retention_months: number;
   inbound_enabled: boolean;
   inbound_replies_per_hour: number;
+  handover_enabled: boolean;
+  handover_hours: number;
+  handover_streak_trigger: number;
   grading_backlog_days: number;
   quota_warn_percent: number;
   exam_reminder_minutes: number;
@@ -340,6 +343,36 @@ export default function WhatsAppSettings() {
             <Input id="rate" type="number" min={1} max={200}
               value={settings.inbound_replies_per_hour}
               onChange={(e) => set('inbound_replies_per_hour', Number(e.target.value))} />
+          </div>
+          <div className="flex items-center justify-between border-t pt-4">
+            <div className="space-y-0.5 pr-4">
+              <Label htmlFor="handover" className="cursor-pointer">Hand over to a person</Label>
+              <p className="text-xs text-muted-foreground">
+                When someone asks for a person &mdash; or the assistant fails to answer
+                several times running &mdash; it stops replying to that number and tells
+                the admins, so nobody is answered by a machine and a colleague at once.
+              </p>
+            </div>
+            <Switch
+              id="handover"
+              checked={settings.handover_enabled}
+              onCheckedChange={(v) => set('handover_enabled', v)}
+              disabled={!settings.enabled || !settings.inbound_enabled}
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="hohours">Stay quiet for (hours)</Label>
+              <Input id="hohours" type="number" min={1} max={168}
+                value={settings.handover_hours}
+                onChange={(e) => set('handover_hours', Number(e.target.value))} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="hostreak">Hand over after N failed answers</Label>
+              <Input id="hostreak" type="number" min={2} max={10}
+                value={settings.handover_streak_trigger}
+                onChange={(e) => set('handover_streak_trigger', Number(e.target.value))} />
+            </div>
           </div>
           <div className="pt-1">
             <Button asChild variant="outline" size="sm">

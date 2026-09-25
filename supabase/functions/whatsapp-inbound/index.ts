@@ -71,7 +71,10 @@ Deno.serve(async (req) => {
 
   const { data: settings } = await admin
     .from("whatsapp_settings")
-    .select("enabled, inbound_enabled, inbound_replies_per_hour")
+    .select(
+      "enabled, inbound_enabled, inbound_replies_per_hour, admin_jids, " +
+        "handover_enabled, handover_hours, handover_streak_trigger",
+    )
     .eq("id", true)
     .maybeSingle();
 
@@ -109,7 +112,10 @@ Deno.serve(async (req) => {
   const limit = Number(settings?.inbound_replies_per_hour ?? 20);
   const { data: conversation } = await admin
     .from("whatsapp_conversations")
-    .select("jid, awaiting, awaiting_until, window_started_at, messages_in_window")
+    .select(
+      "jid, awaiting, awaiting_until, window_started_at, messages_in_window, " +
+        "handover_at, handover_closed_at, unanswered_streak",
+    )
     .eq("jid", from)
     .maybeSingle();
 
@@ -125,6 +131,29 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ replied: false, reason: "rate limited" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+  }
+
+  // A conversation a person has taken over is listened to and recorded, but
+  // never answered. Two voices from the same number -- one of them a machine
+  // replying underneath a colleague's message -- is worse than either alone.
+  const handoverHours = Number(settings?.handover_hours ?? 24);
+  const handoverOpen =
+    conversation?.handover_at &&
+    !conversation.handover_closed_at &&
+    Date.now() - new Date(conversation.handover_at as string).getTime() <
+      handoverHours * 60 * 60 * 1000;
+
+  if (handoverOpen) {
+    command = "handover_silent";
+    await admin
+      .from("whatsapp_conversations")
+      .update({ last_seen_at: new Date().toISOString(), messages_in_window: count + 1 })
+      .eq("jid", from);
+    await log(false, null);
+    return new Response(
+      JSON.stringify({ replied: false, reason: "a person has this conversation" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 
   const awaiting =
@@ -155,6 +184,73 @@ Deno.serve(async (req) => {
   };
 
   const intent = classify(body);
+
+  const streak = Number(conversation?.unanswered_streak ?? 0);
+  let newStreak = 0;
+  let openHandover: string | null = null;
+
+  /** Tell the admins, with enough of the conversation to act on it. */
+  const raiseHandover = async (reason: string) => {
+    const recipients = (settings?.admin_jids ?? []) as string[];
+    if (recipients.length === 0) return;
+
+    const { data: history } = await admin
+      .from("whatsapp_inbound_log")
+      .select("body, received_at")
+      .eq("from_jid", from)
+      .order("received_at", { ascending: false })
+      .limit(4);
+
+    let who = `${from.split("@")[0]} (not a student)`;
+    if (studentId) {
+      const { data: student } = await admin
+        .from("students")
+        .select("student_code, profile_id")
+        .eq("id", studentId)
+        .maybeSingle();
+      const { data: profile } = student?.profile_id
+        ? await admin
+            .from("profiles")
+            .select("first_name, last_name")
+            .eq("id", student.profile_id)
+            .maybeSingle()
+        : { data: null };
+      const name =
+        [profile?.first_name, profile?.last_name].map((p) => p?.trim()).filter(Boolean).join(" ") ||
+        "Student";
+      who = `${name}${student?.student_code ? ` (${student.student_code})` : ""}`;
+    }
+
+    const lines = [
+      "*Someone needs a person*",
+      "",
+      who,
+      `Number: +${from.split("@")[0]}`,
+      `Reason: ${reason}`,
+      "",
+      "What they said:",
+      `• ${text.slice(0, 300)}`,
+      ...((history ?? []).slice(1).reverse().map((h) => `• ${String(h.body ?? "").slice(0, 120)}`)),
+      "",
+      `The assistant will stay quiet on this number for ${handoverHours} hours.`,
+    ];
+    const appLink = appUrl ? `${appUrl}/admin/whatsapp/log` : "";
+    if (appLink) lines.push(appLink);
+
+    for (const to of recipients) {
+      await fetch(`${gatewayUrl.replace(/\/$/, "")}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-gateway-secret": gatewaySecret },
+        body: JSON.stringify({
+          to,
+          text: lines.join("\n"),
+          student_id: studentId ?? null,
+          idempotency_key: `handover-${from}-${new Date().toISOString().slice(0, 13)}`,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      }).catch(() => {});
+    }
+  };
 
   // A pending confirmation takes precedence over everything: the person was
   // asked a question and this is their answer to it.
@@ -196,6 +292,20 @@ Deno.serve(async (req) => {
         "Anything else leaves things as they are.",
       ].join("\n");
     }
+  } else if (intent === "human" && settings?.handover_enabled !== false) {
+    command = "handover_requested";
+    openHandover = "asked for a person";
+    reply = [
+      "*Passing this to the school office*",
+      "",
+      "Someone will get back to you. This number will stop replying",
+      "automatically in the meantime, so you are not talking to a machine",
+      "while you wait.",
+      "",
+      appUrl ? `If it is urgent, the office details are on ${appUrl}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
   } else if (intent === "start") {
     command = "start";
     if (studentId) await setOptOut(false);
@@ -289,10 +399,17 @@ Deno.serve(async (req) => {
         assistantName: "Barnabas",
       });
       aiGenerated = Boolean(reply);
+      // An answer that amounts to "I do not know" is not an answer. Counting
+      // it as one would let somebody ask the same unanswerable question all
+      // afternoon and never reach anybody.
+      if (reply && /\b(not sure|don'?t know|do not know|cannot help|can'?t help|contact the school)\b/i.test(reply)) {
+        newStreak = streak + 1;
+      }
     }
 
     if (!reply) {
       command = "fallback";
+      newStreak = streak + 1;
       reply = [
         studentId
           ? "I can tell you about your *fees*, *results*, *assignments* or *timetable*."
@@ -305,6 +422,24 @@ Deno.serve(async (req) => {
         .join("\n");
     }
   }
+
+  // Three unanswerable questions in a row is a person who needs somebody, not
+  // a person who needs the fallback message a third time.
+  const streakTrigger = Number(settings?.handover_streak_trigger ?? 3);
+  if (!openHandover && settings?.handover_enabled !== false && newStreak >= streakTrigger) {
+    openHandover = `the assistant could not answer ${newStreak} messages in a row`;
+    command = "handover_auto";
+    newStreak = 0;
+    reply = [
+      "*Passing this to the school office*",
+      "",
+      "I have not been able to answer that. Someone from the school will get",
+      "back to you, and this number will stop replying automatically until",
+      "they do.",
+    ].join("\n");
+  }
+
+  if (openHandover) await raiseHandover(openHandover);
 
   let delivered = false;
   if (reply) {
@@ -332,6 +467,15 @@ Deno.serve(async (req) => {
       window_started_at: freshWindow ? new Date().toISOString() : conversation?.window_started_at ?? new Date().toISOString(),
       messages_in_window: count + 1,
       last_seen_at: new Date().toISOString(),
+      unanswered_streak: newStreak,
+      ...(openHandover
+        ? {
+            handover_at: new Date().toISOString(),
+            handover_reason: openHandover,
+            handover_closed_at: null,
+            handover_closed_by: null,
+          }
+        : {}),
     },
     { onConflict: "jid" },
   );

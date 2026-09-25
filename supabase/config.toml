@@ -179,3 +179,12 @@ enabled = true
 # found the URL could put words into any student's mouth, including "stop".
 verify_jwt = false
 entrypoint = "./functions/whatsapp-inbound/index.ts"
+
+[functions.whatsapp-reply]
+enabled = true
+# The only function that sends words a person typed, so unlike the others it
+# requires a real session rather than a shared secret -- pg_net must not be
+# able to reach it. The role is then checked against the database, and it can
+# only write to a number that has already written to us.
+verify_jwt = true
+entrypoint = "./functions/whatsapp-reply/index.ts"

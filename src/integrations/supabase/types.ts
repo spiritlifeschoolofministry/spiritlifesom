@@ -2781,28 +2781,58 @@ export type Database = {
         Row: {
           awaiting: string | null
           awaiting_until: string | null
+          handover_at: string | null
+          handover_closed_at: string | null
+          handover_closed_by: string | null
+          handover_reason: string | null
           jid: string
           last_seen_at: string
           messages_in_window: number
+          unanswered_streak: number
           window_started_at: string
         }
         Insert: {
           awaiting?: string | null
           awaiting_until?: string | null
+          handover_at?: string | null
+          handover_closed_at?: string | null
+          handover_closed_by?: string | null
+          handover_reason?: string | null
           jid: string
           last_seen_at?: string
           messages_in_window?: number
+          unanswered_streak?: number
           window_started_at?: string
         }
         Update: {
           awaiting?: string | null
           awaiting_until?: string | null
+          handover_at?: string | null
+          handover_closed_at?: string | null
+          handover_closed_by?: string | null
+          handover_reason?: string | null
           jid?: string
           last_seen_at?: string
           messages_in_window?: number
+          unanswered_streak?: number
           window_started_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversations_handover_closed_by_fkey"
+            columns: ["handover_closed_by"]
+            isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_handover_closed_by_fkey"
+            columns: ["handover_closed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_gateway_status: {
         Row: {
@@ -2836,30 +2866,36 @@ export type Database = {
       }
       whatsapp_inbound_log: {
         Row: {
+          ai_generated: boolean
           body: string | null
           command: string | null
           from_jid: string
           id: string
           received_at: string
           replied: boolean
+          reply: string | null
           student_id: string | null
         }
         Insert: {
+          ai_generated?: boolean
           body?: string | null
           command?: string | null
           from_jid: string
           id?: string
           received_at?: string
           replied?: boolean
+          reply?: string | null
           student_id?: string | null
         }
         Update: {
+          ai_generated?: boolean
           body?: string | null
           command?: string | null
           from_jid?: string
           id?: string
           received_at?: string
           replied?: boolean
+          reply?: string | null
           student_id?: string | null
         }
         Relationships: [
@@ -2903,6 +2939,9 @@ export type Database = {
           enabled: boolean
           exam_reminder_minutes: number
           grading_backlog_days: number
+          handover_enabled: boolean
+          handover_hours: number
+          handover_streak_trigger: number
           id: boolean
           inbound_enabled: boolean
           inbound_replies_per_hour: number
@@ -2944,6 +2983,9 @@ export type Database = {
           enabled?: boolean
           exam_reminder_minutes?: number
           grading_backlog_days?: number
+          handover_enabled?: boolean
+          handover_hours?: number
+          handover_streak_trigger?: number
           id?: boolean
           inbound_enabled?: boolean
           inbound_replies_per_hour?: number
@@ -2985,6 +3027,9 @@ export type Database = {
           enabled?: boolean
           exam_reminder_minutes?: number
           grading_backlog_days?: number
+          handover_enabled?: boolean
+          handover_hours?: number
+          handover_streak_trigger?: number
           id?: boolean
           inbound_enabled?: boolean
           inbound_replies_per_hour?: number

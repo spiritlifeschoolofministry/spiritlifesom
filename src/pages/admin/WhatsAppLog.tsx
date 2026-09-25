@@ -8,12 +8,14 @@ import { Input } from '@/components/ui/input';
 import {
   ArrowLeft,
   Bot,
+  HandHelping,
   Loader2,
   MessageSquare,
   RefreshCw,
   Search,
   UserRound,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 /**
  * What people said to the school's number, and what it said back.
@@ -43,6 +45,13 @@ type Row = {
   } | null;
 };
 
+type Handover = {
+  jid: string;
+  handover_at: string;
+  handover_reason: string | null;
+  last_seen_at: string;
+};
+
 type Filter = 'all' | 'ai' | 'unanswered' | 'students';
 
 const FILTERS: { key: Filter; label: string }[] = [
@@ -70,6 +79,10 @@ export default function WhatsAppLog() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
+  const [handovers, setHandovers] = useState<Handover[]>([]);
+  const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [sending, setSending] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -82,8 +95,38 @@ export default function WhatsAppLog() {
       .order('received_at', { ascending: false })
       .limit(200);
     setRows((data ?? []) as unknown as Row[]);
+
+    const { data: open } = await supabase
+      .from('whatsapp_conversations')
+      .select('jid, handover_at, handover_reason, last_seen_at')
+      .not('handover_at', 'is', null)
+      .is('handover_closed_at', null)
+      .order('handover_at', { ascending: false });
+    setHandovers((open ?? []) as unknown as Handover[]);
+
     setLoading(false);
   }, []);
+
+  /** Reply through the school's number, and optionally hand the conversation
+   *  back to the assistant. Closing is separate from replying because some are
+   *  dealt with by phoning the person instead. */
+  const respond = async (jid: string, text: string, close: boolean) => {
+    setSending(true);
+    const { data, error } = await supabase.functions.invoke('whatsapp-reply', {
+      body: { to: jid, text, close },
+    });
+    setSending(false);
+    if (error) {
+      toast.error('Could not send');
+      return;
+    }
+    toast.success(
+      close && data?.sent ? 'Replied and closed' : close ? 'Closed' : 'Reply sent',
+    );
+    setReplyTo(null);
+    setReplyText('');
+    void load();
+  };
 
   useEffect(() => { void load(); }, [load]);
 
@@ -123,6 +166,71 @@ export default function WhatsAppLog() {
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
         </Button>
       </div>
+
+      {handovers.length > 0 && (
+        <Card className="border-amber-400 dark:border-amber-600">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <HandHelping className="h-5 w-5" />
+              {handovers.length} waiting for a person
+            </CardTitle>
+            <CardDescription>
+              The assistant has stopped replying to these numbers so it does not
+              answer underneath you. Replying here goes out from the school&rsquo;s
+              number.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {handovers.map((h) => (
+              <div key={h.jid} className="rounded-lg border p-3 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-sm">
+                    <span className="font-medium">{readableNumber(h.jid)}</span>
+                    <span className="text-muted-foreground"> &middot; {h.handover_reason}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{when(h.handover_at)}</span>
+                </div>
+                {replyTo === h.jid ? (
+                  <div className="space-y-2">
+                    <textarea
+                      autoFocus
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      rows={3}
+                      placeholder="Type your reply…"
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" disabled={sending || !replyText.trim()}
+                        onClick={() => void respond(h.jid, replyText, false)}>
+                        {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                        Send
+                      </Button>
+                      <Button size="sm" variant="secondary" disabled={sending || !replyText.trim()}
+                        onClick={() => void respond(h.jid, replyText, true)}>
+                        Send and close
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => { setReplyTo(null); setReplyText(''); }}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => { setReplyTo(h.jid); setReplyText(''); }}>
+                      Reply
+                    </Button>
+                    <Button size="sm" variant="ghost" disabled={sending}
+                      onClick={() => void respond(h.jid, '', true)}>
+                      Handled elsewhere
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex flex-wrap gap-2">
