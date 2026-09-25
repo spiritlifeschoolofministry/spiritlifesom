@@ -1,4 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { classify } from "./intents.ts";
+import { assignmentsAnswer, feesAnswer, resultsAnswer, timetableAnswer } from "./answers.ts";
+import { converse } from "./converse.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -78,13 +81,17 @@ Deno.serve(async (req) => {
   let command: string | null = null;
   let reply: string | null = null;
 
-  const log = async (replied: boolean) => {
+  let aiGenerated = false;
+
+  const log = async (replied: boolean, reply?: string | null) => {
     await admin.from("whatsapp_inbound_log").insert({
       from_jid: from,
       student_id: studentId ?? null,
       body: text.slice(0, 2000),
       command,
       replied,
+      reply: reply ? reply.slice(0, 2000) : null,
+      ai_generated: aiGenerated,
     });
   };
 
@@ -147,10 +154,12 @@ Deno.serve(async (req) => {
       .eq("id", student.profile_id);
   };
 
-  // A pending confirmation takes precedence: the person was asked a question
-  // and this is their answer.
+  const intent = classify(body);
+
+  // A pending confirmation takes precedence over everything: the person was
+  // asked a question and this is their answer to it.
   if (awaiting === "stop") {
-    if (body === "stop confirm" || body === "confirm" || body === "yes") {
+    if (/^(stop confirm|confirm|yes|yes stop)$/.test(body)) {
       command = "stop_confirmed";
       await setOptOut(true);
       reply = [
@@ -158,17 +167,16 @@ Deno.serve(async (req) => {
         "",
         "You will no longer receive WhatsApp updates from the school.",
         "",
-        "You can turn them back on any time by replying START, or from your",
-        "profile in the portal.",
+        "Reply START any time to turn them back on.",
       ].join("\n");
     } else {
       command = "stop_cancelled";
       reply = "No change made — you will keep receiving updates.";
     }
-  } else if (/^(stop|unsubscribe|opt out|optout)$/.test(body)) {
+  } else if (intent === "stop") {
     command = "stop_requested";
     if (!studentId) {
-      // Said the same way to everyone. Confirming that a number is not on the
+      // Said the same way to everyone. Confirming that a number is *not* on the
       // school's books is still information about that number.
       reply = "No school updates are being sent to this number.";
     } else {
@@ -188,79 +196,114 @@ Deno.serve(async (req) => {
         "Anything else leaves things as they are.",
       ].join("\n");
     }
-  } else if (/^(start|resume|subscribe)$/.test(body)) {
+  } else if (intent === "start") {
     command = "start";
     if (studentId) await setOptOut(false);
-    // Same wording either way, for the same reason as above.
     reply = "School updates are on for this number.";
-  } else if (/^(help|menu|hi|hello|\?)$/.test(body)) {
+  } else if (intent === "verify") {
+    command = "verify";
+    const serial = text.trim().replace(/^\s*(verify|certificate|cert)\s*/i, "").trim();
+    if (!serial) {
+      reply = "Send *VERIFY* followed by the certificate serial, for example: VERIFY SLSM-0001";
+    } else {
+      const { data: certificate } = await admin
+        .from("certificates")
+        .select("serial, issued_at, revoked_at, student_id")
+        .ilike("serial", serial)
+        .maybeSingle();
+
+      if (!certificate) {
+        reply = `No certificate found with serial ${serial}.`;
+      } else if (certificate.revoked_at) {
+        reply = [`*Certificate ${certificate.serial}*`, "", "This certificate has been revoked and is not valid."].join("\n");
+      } else {
+        const { data: student } = await admin
+          .from("students")
+          .select("name_on_certificate, profile_id")
+          .eq("id", certificate.student_id)
+          .maybeSingle();
+        const { data: profile } = student?.profile_id
+          ? await admin.from("profiles").select("first_name, last_name").eq("id", student.profile_id).maybeSingle()
+          : { data: null };
+        const name =
+          student?.name_on_certificate ||
+          [profile?.first_name, profile?.last_name].map((p) => p?.trim()).filter(Boolean).join(" ") ||
+          "a graduate";
+        reply = [
+          `*Certificate ${certificate.serial}*`,
+          "",
+          "Valid.",
+          `Issued to ${name}`,
+          certificate.issued_at
+            ? `Issued ${new Date(certificate.issued_at as string).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "long", year: "numeric" })}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n");
+      }
+    }
+  } else if (intent === "fees" && studentId) {
+    command = "fees";
+    reply = await feesAnswer(admin, studentId, appUrl);
+  } else if (intent === "results" && studentId) {
+    command = "results";
+    reply = await resultsAnswer(admin, studentId, appUrl);
+  } else if (intent === "assignments" && studentId) {
+    command = "assignments";
+    reply = await assignmentsAnswer(admin, studentId, appUrl);
+  } else if (intent === "timetable" && studentId) {
+    command = "timetable";
+    reply = await timetableAnswer(admin, studentId, appUrl);
+  } else if (intent === "help") {
     command = "help";
     reply = [
       "*Spirit Life School of Ministry*",
       "",
-      "This number sends automatic updates. It can also answer:",
+      studentId
+        ? "Ask me about your *fees*, *results*, *assignments* or *timetable* — or anything about the school."
+        : "Ask me anything about the school — courses, admissions, where we are.",
       "",
-      "• *HELP* — this message",
       "• *VERIFY <serial>* — check a certificate",
       "• *STOP* — stop updates to this number",
-      "• *START* — turn them back on",
       "",
-      appUrl ? `Everything else is in the portal: ${appUrl}` : "",
+      appUrl ? `Portal: ${appUrl}` : "",
       "",
-      "Messages here are not read by a person.",
+      "Replies here are automatic, not read by a person.",
     ]
       .filter(Boolean)
       .join("\n");
-  } else if (/^(verify|certificate|cert)\s+\S+/.test(body)) {
-    command = "verify";
-    const serial = text.trim().split(/\s+/).slice(1).join(" ").trim();
-    const { data: certificate } = await admin
-      .from("certificates")
-      .select("serial, student_code_at_issue, issued_at, revoked_at, student_id")
-      .ilike("serial", serial)
+  } else {
+    // Nothing known matched, so this is a question about the school rather than
+    // about a person -- which is the only kind a model is allowed to answer.
+    command = "conversation";
+    const aiEnabled = await admin
+      .from("system_settings")
+      .select("value")
+      .eq("key", "ai_enabled")
       .maybeSingle();
 
-    if (!certificate) {
-      reply = `No certificate found with serial ${serial}.`;
-    } else if (certificate.revoked_at) {
-      reply = [`*Certificate ${certificate.serial}*`, "", "This certificate has been revoked and is not valid."].join("\n");
-    } else {
-      // The same facts the public verification page shows, and nothing more:
-      // a serial, that it is genuine, and when it was issued.
-      const { data: student } = await admin
-        .from("students")
-        .select("name_on_certificate, profile_id")
-        .eq("id", certificate.student_id)
-        .maybeSingle();
-      const { data: profile } = student?.profile_id
-        ? await admin.from("profiles").select("first_name, last_name").eq("id", student.profile_id).maybeSingle()
-        : { data: null };
-      const name =
-        student?.name_on_certificate ||
-        [profile?.first_name, profile?.last_name].map((p) => p?.trim()).filter(Boolean).join(" ") ||
-        "a graduate";
+    if (aiEnabled.data?.value === true) {
+      reply = await converse(admin, text, {
+        isStudent: Boolean(studentId),
+        appUrl,
+        assistantName: "Barnabas",
+      });
+      aiGenerated = Boolean(reply);
+    }
+
+    if (!reply) {
+      command = "fallback";
       reply = [
-        `*Certificate ${certificate.serial}*`,
+        studentId
+          ? "I can tell you about your *fees*, *results*, *assignments* or *timetable*."
+          : "I can answer questions about the school.",
         "",
-        "Valid.",
-        `Issued to ${name}`,
-        certificate.issued_at
-          ? `Issued ${new Date(certificate.issued_at as string).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "long", year: "numeric" })}`
-          : "",
+        "Reply *HELP* to see what I can do.",
+        appUrl ? `For anything else: ${appUrl}` : "",
       ]
         .filter(Boolean)
         .join("\n");
     }
-  } else {
-    command = null;
-    reply = [
-      "This number sends automatic updates and is not read by a person.",
-      "",
-      "Reply *HELP* to see what it can answer.",
-      appUrl ? `For anything else, use the portal: ${appUrl}` : "",
-    ]
-      .filter(Boolean)
-      .join("\n");
   }
 
   let delivered = false;
@@ -293,9 +336,9 @@ Deno.serve(async (req) => {
     { onConflict: "jid" },
   );
 
-  await log(delivered);
+  await log(delivered, reply);
 
-  return new Response(JSON.stringify({ command, replied: delivered }), {
+  return new Response(JSON.stringify({ command, replied: delivered, ai: aiGenerated, reply }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });
