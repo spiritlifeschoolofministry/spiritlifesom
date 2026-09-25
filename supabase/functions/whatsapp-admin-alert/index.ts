@@ -27,7 +27,8 @@ type Kind =
   | "exam_device_conflict"
   | "exam_close_digest"
   | "grading_backlog"
-  | "revenue_digest";
+  | "revenue_digest"
+  | "ops_check";
 
 type Alert = {
   /** Lines of the message, joined with newlines. */
@@ -688,6 +689,94 @@ async function buildRevenueDigest(
   };
 }
 
+/** Bytes as something readable on a phone. */
+function bytes(value: number): string {
+  if (value >= 1024 ** 3) return `${(value / 1024 ** 3).toFixed(2)} GB`;
+  if (value >= 1024 ** 2) return `${(value / 1024 ** 2).toFixed(0)} MB`;
+  return `${(value / 1024).toFixed(0)} KB`;
+}
+
+/**
+ * The quota and failure checks, reported only when something is wrong.
+ *
+ * A free-tier project that reaches its limit does not slow down -- it starts
+ * refusing writes, and on this system that means a student cannot submit a
+ * paper. The warning has to arrive while there is still room to act, which is
+ * why it fires well below the limit rather than at it.
+ *
+ * AI is checked for failures rather than for spend. Nothing records cost, and
+ * at a handful of calls a day a budget alert would be theatre -- but a provider
+ * that starts refusing calls breaks the AI features silently, and nobody finds
+ * out from the inside.
+ *
+ * Silent when everything is fine, which should be almost always. A daily "all
+ * good" is a message that teaches its reader to stop reading.
+ */
+async function buildOpsCheck(
+  admin: ReturnType<typeof createClient>,
+): Promise<Alert | null> {
+  // Free tier: 1 GB storage, 500 MB database. Override both when the plan
+  // changes -- a limit that is wrong in the generous direction is a warning
+  // that never arrives.
+  const storageLimit = Number(Deno.env.get("STORAGE_LIMIT_BYTES") ?? 1024 ** 3);
+  const databaseLimit = Number(Deno.env.get("DATABASE_LIMIT_BYTES") ?? 500 * 1024 ** 2);
+  const warnAt = Number(Deno.env.get("QUOTA_WARN_PERCENT") ?? 70);
+
+  const { data: usage, error } = await admin.rpc("ops_usage_snapshot");
+  if (error) throw new Error(`usage snapshot failed: ${error.message}`);
+
+  const storageBytes = Number(usage?.storage_bytes ?? 0);
+  const databaseBytes = Number(usage?.database_bytes ?? 0);
+  const storagePct = storageLimit > 0 ? (storageBytes / storageLimit) * 100 : 0;
+  const databasePct = databaseLimit > 0 ? (databaseBytes / databaseLimit) * 100 : 0;
+
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const { data: aiRows } = await admin
+    .from("ai_model_usage")
+    .select("calls, failures, day")
+    .gte("day", since);
+
+  const calls = (aiRows ?? []).reduce((sum, r) => sum + Number(r.calls ?? 0), 0);
+  const failures = (aiRows ?? []).reduce((sum, r) => sum + Number(r.failures ?? 0), 0);
+
+  const problems: string[] = [];
+
+  if (storagePct >= warnAt) {
+    const biggest = (usage?.buckets ?? [])
+      .slice()
+      .sort((a: { bytes: number }, b: { bytes: number }) => Number(b.bytes) - Number(a.bytes))[0];
+    problems.push(
+      `*Storage ${storagePct.toFixed(0)}% full* — ${bytes(storageBytes)} of ${bytes(storageLimit)}` +
+        (biggest ? `\nLargest: ${biggest.name} (${bytes(Number(biggest.bytes))}, ${biggest.objects} files)` : ""),
+    );
+  }
+
+  if (databasePct >= warnAt) {
+    problems.push(
+      `*Database ${databasePct.toFixed(0)}% full* — ${bytes(databaseBytes)} of ${bytes(databaseLimit)}`,
+    );
+  }
+
+  if (failures > 0) {
+    const rate = calls > 0 ? Math.round((failures / calls) * 100) : 100;
+    problems.push(
+      `*AI failures* — ${failures} of ${calls} calls failed in the last 24h (${rate}%)`,
+    );
+  }
+
+  if (problems.length === 0) return null;
+
+  const appUrl = (Deno.env.get("APP_URL") ?? "").replace(/\/$/, "");
+  const lines = ["*System check*", "", ...problems.flatMap((p) => [p, ""])];
+  if (appUrl) lines.push(`${appUrl}/admin/settings`);
+
+  return {
+    lines,
+    studentId: null,
+    idempotencyKey: `ops_check-${new Date().toISOString().slice(0, 10)}`,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -753,6 +842,9 @@ Deno.serve(async (req) => {
         break;
       case "exam_close_digest":
         alert = await buildExamCloseDigest(admin);
+        break;
+      case "ops_check":
+        alert = await buildOpsCheck(admin);
         break;
       case "revenue_digest":
         alert = await buildRevenueDigest(admin);
