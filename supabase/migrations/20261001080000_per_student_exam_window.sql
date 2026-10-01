@@ -106,9 +106,19 @@ SET search_path = public
 AS $$
   WITH who AS (
     SELECT CASE
+             -- Staff may ask about anyone, and about themselves by default.
              WHEN get_my_role() = ANY (ARRAY['admin', 'teacher'])
                THEN COALESCE(p_student_id, get_my_student_id())
-             ELSE get_my_student_id()
+             -- A student session is forced to its own id, whatever it passes.
+             WHEN get_my_student_id() IS NOT NULL
+               THEN get_my_student_id()
+             -- No student identity and no staff role: the service role, which
+             -- is how exam-start asks on a student's behalf before it will let
+             -- them in. Forcing it to "the caller's own id" resolved to NULL,
+             -- so every override was silently ignored at the one point that
+             -- decides whether a concession is real — the page honoured it and
+             -- the runner did not.
+             ELSE p_student_id
            END AS student_id
   )
   SELECT COALESCE(o.start_at, e.start_at),
