@@ -1553,6 +1553,75 @@ export type Database = {
           },
         ]
       }
+      exam_window_overrides: {
+        Row: {
+          created_at: string
+          end_at: string | null
+          exam_id: string
+          granted_by: string | null
+          id: string
+          reason: string | null
+          start_at: string | null
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          end_at?: string | null
+          exam_id: string
+          granted_by?: string | null
+          id?: string
+          reason?: string | null
+          start_at?: string | null
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          end_at?: string | null
+          exam_id?: string
+          granted_by?: string | null
+          id?: string
+          reason?: string | null
+          start_at?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_window_overrides_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_window_overrides_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "exam_window_overrides_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_window_overrides_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "graduate_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exam_window_overrides_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exams: {
         Row: {
           allow_late_entry: boolean
@@ -3304,6 +3373,14 @@ export type Database = {
         Args: { p_exam_id: string; p_student_id: string }
         Returns: boolean
       }
+      exam_window_for: {
+        Args: { p_exam_id: string; p_student_id?: string }
+        Returns: {
+          end_at: string
+          overridden: boolean
+          start_at: string
+        }[]
+      }
       fee_structure_applies: {
         Args: { p_modes: string[]; p_student_mode: string }
         Returns: boolean
@@ -3375,6 +3452,10 @@ export type Database = {
       reconcile_student_fees: {
         Args: { p_student_id: string }
         Returns: undefined
+      }
+      reset_exam_attempt: {
+        Args: { p_attempt_id: string; p_reason?: string }
+        Returns: Json
       }
       set_certificate_revocation: {
         Args: { p_reason?: string; p_revoked: boolean; p_serial: string }
