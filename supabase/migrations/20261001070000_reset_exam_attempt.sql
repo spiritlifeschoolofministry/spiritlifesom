@@ -69,9 +69,19 @@ BEGIN
   -- a student. With every attempt gone that lock guards nothing, and leaving it
   -- set silently blocks the builder with no visible cause — which cost an hour
   -- when a test attempt did exactly this in September.
+  --
+  -- The same trigger also flips a published exam to in_progress, which is how
+  -- the staff list decides to call it "Live". Clearing only the lock left a
+  -- paper that nobody has sat, opening tomorrow, announcing itself as in
+  -- progress. Both halves of that first attempt have to come undone, but only
+  -- while the exam is still ahead of its own opening time: an exam genuinely
+  -- underway is in progress whether or not this one student's sitting survives.
   SELECT count(*) INTO v_left FROM public.exam_attempts WHERE exam_id = v_attempt.exam_id;
   IF v_left = 0 THEN
-    UPDATE public.exams SET locked_at = NULL WHERE id = v_attempt.exam_id;
+    UPDATE public.exams
+       SET locked_at = NULL,
+           status = CASE WHEN status = 'in_progress' AND now() < start_at THEN 'published' ELSE status END
+     WHERE id = v_attempt.exam_id;
   END IF;
 
   RETURN jsonb_build_object(
