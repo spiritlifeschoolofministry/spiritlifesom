@@ -24,6 +24,8 @@ export default function ExamLobby() {
   // Null until known; falls back to the exam's own total, which is right for
   // every paper where all questions count.
   const [markedOutOf, setMarkedOutOf] = useState<number | null>(null);
+  // This student's own window, where staff have granted them one.
+  const [myWindow, setMyWindow] = useState<{ start_at: string; end_at: string; overridden: boolean } | null>(null);
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
@@ -48,6 +50,13 @@ export default function ExamLobby() {
           p_user_agent: navigator.userAgent,
         });
       }
+      // The times this student is working to. exam-start asks the same
+      // function before it will let anyone in, so the page cannot promise a
+      // deadline the runner would refuse.
+      const { data: w } = await supabase.rpc("exam_window_for", { p_exam_id: id! });
+      const resolved = Array.isArray(w) ? w[0] : w;
+      if (resolved) setMyWindow(resolved);
+
       // What this paper is actually marked out of. exams.total_points is every
       // question on it, which overstates the mark available whenever only the
       // best few count — a student told to answer two of three would be
@@ -152,15 +161,25 @@ export default function ExamLobby() {
   if (loading) return <p className="p-6">Loading…</p>;
   if (!exam) return <p className="p-6">Exam not found</p>;
 
-  const startMs = new Date(exam.start_at).getTime();
-  const endMs = new Date(exam.end_at).getTime();
+  // A student with a concession works to their own window; everyone else works
+  // to the paper's. exam-start resolves the same way, so the countdown on this
+  // page and the answer from the runner always agree.
+  const startMs = new Date(myWindow?.start_at ?? exam.start_at).getTime();
+  const endMs = new Date(myWindow?.end_at ?? exam.end_at).getTime();
   const beforeStart = now < startMs;
   const afterEnd = now > endMs;
   const secondsToStart = Math.max(0, Math.floor((startMs - now) / 1000));
   // Entry can shut well before the exam does. Reading the same rule the server
   // enforces is what stops this page offering a Start button that only
   // dead-ends in the runner with a 403.
-  const entryClosesMs = entryClosesAt(exam);
+  // Late-entry is measured from this student's own opening time, not the
+  // paper's — otherwise a concession granted for Friday would have its entry
+  // cutoff computed from Thursday morning and shut before it opened.
+  const entryClosesMs = entryClosesAt({
+    ...exam,
+    start_at: new Date(startMs).toISOString(),
+    end_at: new Date(endMs).toISOString(),
+  });
   const entryClosed = !beforeStart && now > entryClosesMs;
 
   // Support is a property of the browser, not of this render — but it is read
@@ -215,7 +234,12 @@ export default function ExamLobby() {
           <div className="mt-5 p-4 rounded-md bg-amber-500/5 border border-amber-500/20">
             <p className="text-sm font-medium mb-1 flex items-center gap-2"><Clock className="w-4 h-4" /> Window</p>
             <p className="text-xs text-muted-foreground">
-              Opens {format(new Date(exam.start_at), "PPpp")} · Closes {format(new Date(exam.end_at), "PPpp")}
+              Opens {format(new Date(startMs), "PPpp")} · Closes {format(new Date(endMs), "PPpp")}
+              {myWindow?.overridden && (
+                <span className="block text-primary mt-1">
+                  These times were set for you by your lecturer — they are not the same as the rest of your class.
+                </span>
+              )}
             </p>
             {/* Entry usually shuts before the exam does, and a student who does
                 not know that only finds out by being turned away. */}

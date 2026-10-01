@@ -46,7 +46,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Label } from "@/components/ui/label";
-import { ClipboardCheck, Download, AlertTriangle, CheckCircle2, Send, Camera, Mic, Trash2, Loader2, LockKeyhole, ShieldAlert, ScanEye, RotateCcw } from "lucide-react";
+import { ClipboardCheck, Download, AlertTriangle, CheckCircle2, Send, Camera, Mic, Trash2, Loader2, LockKeyhole, ShieldAlert, ScanEye, RotateCcw, CalendarClock } from "lucide-react";
 import PageHeader from "@/components/portal/PageHeader";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
@@ -77,6 +77,11 @@ export default function ExamMonitor() {
   const [resetting, setResetting] = useState<MonitoredAttempt | null>(null);
   const [resetReason, setResetReason] = useState("");
   const [busy, setBusy] = useState(false);
+  // Granting one student their own closing time, rather than reopening the
+  // paper for a cohort that has already sat it.
+  const [extending, setExtending] = useState<{ id: string; name: string; code: string } | null>(null);
+  const [extendUntil, setExtendUntil] = useState("");
+  const [extendReason, setExtendReason] = useState("");
   const [loading, setLoading] = useState(true);
   const [grading, setGrading] = useState<MonitoredAttempt | null>(null);
   const [gradeData, setGradeData] = useState<{ answers: GradableAnswer[]; questions: Tables<'question_bank'>[]; override: string }>({ answers: [], questions: [], override: "" });
@@ -311,6 +316,38 @@ export default function ExamMonitor() {
       load();
     } catch (err) {
       toast.error(err?.message || "Could not reset that attempt");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * Give one student until a later time, leaving everyone else's window alone.
+   *
+   * Written as an override rather than by moving the exam, because moving the
+   * exam says something false: the paper closed at half past one, and this
+   * student has an extension. The runner resolves the same record before it
+   * lets anyone in, so the concession is real and not merely displayed.
+   */
+  const grantWindow = async () => {
+    if (!extending || !extendUntil) return;
+    try {
+      setBusy(true);
+      const { error } = await supabase.from("exam_window_overrides").upsert({
+        exam_id: id!,
+        student_id: extending.id,
+        end_at: new Date(extendUntil).toISOString(),
+        reason: extendReason.trim() || null,
+        granted_by: (await supabase.auth.getUser()).data.user?.id ?? null,
+      }, { onConflict: "exam_id,student_id" });
+      if (error) throw error;
+      toast.success(`${extending.name} can now sit this paper until ${new Date(extendUntil).toLocaleString()}`);
+      setExtending(null);
+      setExtendUntil("");
+      setExtendReason("");
+      load();
+    } catch (err) {
+      toast.error(err?.message || "Could not grant that extension");
     } finally {
       setBusy(false);
     }
@@ -1254,20 +1291,71 @@ export default function ExamMonitor() {
           </div>
           <p className="text-xs text-muted-foreground mb-3">
             No attempt was ever created for these students. A reset will not help them — there is nothing to
-            reset. They need the paper open to them again: either reopen this exam's window, or set a resit
-            paper aimed at these names.
+            reset. <strong>Click a name</strong> to give that student their own closing time for this paper,
+            leaving everyone else's window untouched.
           </p>
           <div className="flex flex-wrap gap-1.5">
             {didNotSit.map((d) => (
-              <span key={d.id} className="inline-flex items-center gap-1.5 text-xs rounded border border-border bg-muted/40 px-2 py-1">
+              <button
+                key={d.id}
+                type="button"
+                onClick={() => { setExtending(d); setExtendReason(""); setExtendUntil(""); }}
+                className="inline-flex items-center gap-1.5 text-xs rounded border border-border bg-muted/40 px-2 py-1 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+                title={`Give ${d.name} their own window for this paper`}
+              >
                 {d.name}
                 <span className="text-muted-foreground">{d.code}</span>
                 {d.mode && <span className="text-muted-foreground">· {d.mode}</span>}
-              </span>
+                <CalendarClock className="w-3 h-3 opacity-60" />
+              </button>
             ))}
           </div>
         </Card>
       )}
+
+      {/* One student's window, not the paper's. */}
+      <ConfirmDialog
+        open={!!extending}
+        onOpenChange={(open) => { if (!open) { setExtending(null); setExtendUntil(""); setExtendReason(""); } }}
+        title={`Give ${extending?.name ?? "this student"} their own window`}
+        description={
+          <>
+            <p>
+              <strong>{extending?.name}</strong> ({extending?.code}) will be able to sit this paper until the time
+              you set below. Nobody else's window changes, and students who have already sat it are unaffected.
+            </p>
+            <div className="pt-2 space-y-2">
+              <div>
+                <Label htmlFor="extend-until" className="text-sm">They can sit it until</Label>
+                <Input
+                  id="extend-until"
+                  type="datetime-local"
+                  value={extendUntil}
+                  onChange={(ev) => setExtendUntil(ev.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="extend-reason" className="text-sm">Why? <span className="text-muted-foreground font-normal">(kept with the record)</span></Label>
+                <Textarea
+                  id="extend-reason"
+                  value={extendReason}
+                  onChange={(ev) => setExtendReason(ev.target.value)}
+                  placeholder="e.g. was unavailable on the day"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              The paper opens for them at the same time as everyone else. They will see these times on their own
+              exam page, marked as set by their lecturer.
+            </p>
+          </>
+        }
+        confirmLabel="Give them this window"
+        loading={busy}
+        onConfirm={grantWindow}
+      />
 
       {/* A reset throws away a student's work. Say exactly what will go. */}
       <ConfirmDialog

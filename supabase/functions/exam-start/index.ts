@@ -364,16 +364,34 @@ Deno.serve(async (req) => {
     // request can arrive straight from the runner. late_entry_cutoff_minutes
     // was stored and never read, so a student could stroll in at any point
     // before the exam closed.
+    // The window this student is working to, which is not always the paper's.
+    //
+    // A concession used to mean reopening the exam for the whole cohort or
+    // building the student a duplicate of it; both were done in September, and
+    // both say something false about the sitting. An override replaces one or
+    // both ends for one student, and the same function answers here and on the
+    // page that tells them when their paper closes — so what a student is told
+    // and what they are allowed can never drift apart.
+    const { data: windowRows, error: windowError } = await admin
+      .rpc("exam_window_for", { p_exam_id: exam_id, p_student_id: student.id });
+
+    if (windowError) {
+      console.error("Resolve exam window error:", windowError);
+      return new Response(JSON.stringify({ error: "Could not work out when this exam is open for you" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const resolved = Array.isArray(windowRows) ? windowRows[0] : windowRows;
     const nowMs = Date.now();
-    const startMs = new Date(exam.start_at).getTime();
-    const endMs = new Date(exam.end_at).getTime();
+    const startMs = new Date(resolved?.start_at ?? exam.start_at).getTime();
+    const endMs = new Date(resolved?.end_at ?? exam.end_at).getTime();
+    const hasOverride = !!resolved?.overridden;
 
     if (nowMs < startMs) {
-      noteAccess(student.id, "refused", "Arrived before the exam opened");
+      noteAccess(student.id, "refused", hasOverride ? "Arrived before their own opening time" : "Arrived before the exam opened");
       return new Response(JSON.stringify({ error: "This exam has not opened yet" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     if (nowMs > endMs) {
-      noteAccess(student.id, "refused", "Arrived after the exam closed");
+      noteAccess(student.id, "refused", hasOverride ? "Arrived after their own closing time" : "Arrived after the exam closed");
       return new Response(JSON.stringify({ error: "This exam has closed" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     // Late entry off used to refuse from the instant after start_at, which made
