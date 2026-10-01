@@ -44,8 +44,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Label } from "@/components/ui/label";
-import { ClipboardCheck, Download, AlertTriangle, CheckCircle2, Send, Camera, Mic, Trash2, Loader2, LockKeyhole, ShieldAlert, ScanEye } from "lucide-react";
+import { ClipboardCheck, Download, AlertTriangle, CheckCircle2, Send, Camera, Mic, Trash2, Loader2, LockKeyhole, ShieldAlert, ScanEye, RotateCcw } from "lucide-react";
 import PageHeader from "@/components/portal/PageHeader";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
@@ -69,6 +70,13 @@ export default function ExamMonitor() {
   // this the only students on the screen are the ones who succeeded, so
   // "I couldn't get in" had nothing to check it against.
   const [turnedAway, setTurnedAway] = useState<{ id: string; name: string; code: string; at: string; event: string; detail: string | null }[]>([]);
+  // Students this exam was set for who never produced an attempt. Absence is
+  // the one outcome with no row of its own, so it was the one thing this screen
+  // could not show — and "they were not available that day" had nowhere to land.
+  const [didNotSit, setDidNotSit] = useState<{ id: string; name: string; code: string; mode: string | null }[]>([]);
+  const [resetting, setResetting] = useState<MonitoredAttempt | null>(null);
+  const [resetReason, setResetReason] = useState("");
+  const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [grading, setGrading] = useState<MonitoredAttempt | null>(null);
   const [gradeData, setGradeData] = useState<{ answers: GradableAnswer[]; questions: Tables<'question_bank'>[]; override: string }>({ answers: [], questions: [], override: "" });
@@ -137,6 +145,25 @@ export default function ExamMonitor() {
           event: r.event,
           detail: r.detail,
         })),
+    );
+
+    // Who the exam was set for, minus everyone who started it.
+    const { data: audience } = await supabase
+      .from("students")
+      .select("id, student_code, learning_mode, is_staff_preview, profiles(first_name, last_name)")
+      .eq("cohort_id", e?.cohort_id ?? "")
+      .eq("is_staff_preview", false);
+    const sat = new Set((a ?? []).map((att) => att.student_id));
+    setDidNotSit(
+      (audience ?? [])
+        .filter((r) => !sat.has(r.id))
+        .map((r) => ({
+          id: r.id,
+          name: [r.profiles?.first_name, r.profiles?.last_name].filter(Boolean).join(" ").trim() || (r.student_code ?? "Unknown"),
+          code: r.student_code ?? "",
+          mode: r.learning_mode,
+        }))
+        .sort((x, y) => x.name.localeCompare(y.name)),
     );
 
     // Offline records filed against this exam, with the marks entered for them.
@@ -255,6 +282,38 @@ export default function ExamMonitor() {
     if (error || data?.error) return toast.error(await edgeErrorMessage(error, data, "Could not release results"));
     toast.success(`Released to ${data.released} students`);
     load();
+  };
+
+  /**
+   * Discard one student's sitting so they can start again.
+   *
+   * The work is done in the database, not here: the audit entry has to be
+   * written while the attempt still exists, so it can record what was actually
+   * destroyed rather than what this screen believed it was removing.
+   */
+  const resetAttempt = async () => {
+    if (!resetting) return;
+    try {
+      setBusy(true);
+      const { data, error } = await supabase.rpc("reset_exam_attempt", {
+        p_attempt_id: resetting.id,
+        p_reason: resetReason.trim() || null,
+      });
+      if (error) throw error;
+      const out = data as { answers_discarded?: number } | null;
+      toast.success(
+        out?.answers_discarded
+          ? `Attempt reset — ${out.answers_discarded} answer(s) discarded. They can sit it again.`
+          : "Attempt reset. They can sit it again.",
+      );
+      setResetting(null);
+      setResetReason("");
+      load();
+    } catch (err) {
+      toast.error(err?.message || "Could not reset that attempt");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const exportCSV = () => {
@@ -842,6 +901,17 @@ export default function ExamMonitor() {
                         {a.status === "graded" ? "Regrade" : "Grade"}
                       </Button>
                     )}
+                    {/* The thing the app already tells a blocked student to ask
+                        their lecturer for. */}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-destructive"
+                      onClick={() => { setResetting(a); setResetReason(""); }}
+                      title="Discard this sitting so the student can start again"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 mr-1" /> Reset
+                    </Button>
                     {a.status === "in_progress" && (
                       <Button size="sm" variant="outline" onClick={() => closeAttempt(a)} disabled={closingAttempt === a.id}>
                         {closingAttempt === a.id
@@ -1171,6 +1241,71 @@ export default function ExamMonitor() {
           assistantName={assistantName}
         />
       )}
+      {/* Absence has no row of its own: a student who never opened the paper
+          leaves nothing behind, so the one group staff most need to chase was
+          the one group this screen could not show. */}
+      {didNotSit.length > 0 && (
+        <Card className="p-4 mt-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+            <h3 className="font-semibold">Did not sit this paper</h3>
+            <p className="text-xs text-muted-foreground">
+              {didNotSit.length} of {didNotSit.length + attempts.length} students the exam was set for
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            No attempt was ever created for these students. A reset will not help them — there is nothing to
+            reset. They need the paper open to them again: either reopen this exam's window, or set a resit
+            paper aimed at these names.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {didNotSit.map((d) => (
+              <span key={d.id} className="inline-flex items-center gap-1.5 text-xs rounded border border-border bg-muted/40 px-2 py-1">
+                {d.name}
+                <span className="text-muted-foreground">{d.code}</span>
+                {d.mode && <span className="text-muted-foreground">· {d.mode}</span>}
+              </span>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* A reset throws away a student's work. Say exactly what will go. */}
+      <ConfirmDialog
+        open={!!resetting}
+        onOpenChange={(open) => { if (!open) { setResetting(null); setResetReason(""); } }}
+        title="Reset this attempt?"
+        description={
+          <>
+            <p>
+              <strong>{resetting?.students?.profiles?.first_name} {resetting?.students?.profiles?.last_name}</strong>
+              {" "}({resetting?.students?.student_code}) will be able to sit this exam again from the beginning.
+            </p>
+            <p className="text-destructive font-medium">
+              Their current sitting is discarded — every answer they wrote, any marks already given, and the
+              proctoring record. This cannot be undone.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              They can only start again while the exam's window is open. If it has closed, reopen it or set a
+              resit paper for them instead.
+            </p>
+            <div className="pt-2">
+              <Label htmlFor="reset-reason" className="text-sm">Why? <span className="text-muted-foreground font-normal">(recorded in the audit log)</span></Label>
+              <Textarea
+                id="reset-reason"
+                value={resetReason}
+                onChange={(ev) => setResetReason(ev.target.value)}
+                placeholder="e.g. lost connection and could not get back in"
+                className="mt-1"
+              />
+            </div>
+          </>
+        }
+        confirmLabel="Reset attempt"
+        variant="destructive"
+        loading={busy}
+        onConfirm={resetAttempt}
+      />
+
     </div>
   );
 }

@@ -3376,6 +3376,10 @@ export type Database = {
         Args: { p_student_id: string }
         Returns: undefined
       }
+      reset_exam_attempt: {
+        Args: { p_attempt_id: string; p_reason?: string }
+        Returns: Json
+      }
       set_certificate_revocation: {
         Args: { p_reason?: string; p_revoked: boolean; p_serial: string }
         Returns: {
