@@ -2214,6 +2214,7 @@ export type Database = {
           promoted_by: string | null
           role: string
           whatsapp_jid: string | null
+          whatsapp_lid: string | null
           whatsapp_number_asked_at: string | null
           whatsapp_number_issue: string | null
           whatsapp_opted_in_at: string | null
@@ -2235,6 +2236,7 @@ export type Database = {
           promoted_by?: string | null
           role?: string
           whatsapp_jid?: string | null
+          whatsapp_lid?: string | null
           whatsapp_number_asked_at?: string | null
           whatsapp_number_issue?: string | null
           whatsapp_opted_in_at?: string | null
@@ -2256,6 +2258,7 @@ export type Database = {
           promoted_by?: string | null
           role?: string
           whatsapp_jid?: string | null
+          whatsapp_lid?: string | null
           whatsapp_number_asked_at?: string | null
           whatsapp_number_issue?: string | null
           whatsapp_opted_in_at?: string | null
@@ -2984,6 +2987,60 @@ export type Database = {
           },
         ]
       }
+      whatsapp_outbound_log: {
+        Row: {
+          body: string | null
+          error: string | null
+          id: string
+          idempotency_key: string | null
+          message_id: string | null
+          outcome: string
+          sent_at: string
+          source: string | null
+          student_id: string | null
+          to_jid: string
+        }
+        Insert: {
+          body?: string | null
+          error?: string | null
+          id?: string
+          idempotency_key?: string | null
+          message_id?: string | null
+          outcome: string
+          sent_at?: string
+          source?: string | null
+          student_id?: string | null
+          to_jid: string
+        }
+        Update: {
+          body?: string | null
+          error?: string | null
+          id?: string
+          idempotency_key?: string | null
+          message_id?: string | null
+          outcome?: string
+          sent_at?: string
+          source?: string | null
+          student_id?: string | null
+          to_jid?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_outbound_log_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "graduate_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_outbound_log_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_settings: {
         Row: {
           admin_jids: string[]
@@ -3479,6 +3536,10 @@ export type Database = {
       }
       verify_certificate: { Args: { p_serial: string }; Returns: Json }
       whatsapp_msisdn_candidates: { Args: { raw: string }; Returns: string[] }
+      whatsapp_remember_lid: {
+        Args: { p_lid: string; p_phone_jid: string }
+        Returns: undefined
+      }
       whatsapp_student_for_jid: { Args: { p_jid: string }; Returns: string }
       whatsapp_sweep_event_reminders: { Args: never; Returns: undefined }
       whatsapp_sweep_exam_reminders: { Args: never; Returns: undefined }

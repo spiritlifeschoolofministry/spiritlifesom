@@ -13,7 +13,9 @@ import {
   MessageSquare,
   RefreshCw,
   Search,
+  Send,
   UserRound,
+  Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -54,6 +56,39 @@ type Handover = {
 
 type Filter = 'all' | 'ai' | 'unanswered' | 'students';
 
+type Outgoing = {
+  id: string;
+  sent_at: string;
+  to_jid: string;
+  source: string | null;
+  body: string | null;
+  outcome: 'sent' | 'deduplicated' | 'not_connected' | 'refused' | 'failed';
+  error: string | null;
+  student: {
+    student_code: string | null;
+    profile: { first_name: string | null; last_name: string | null } | null;
+  } | null;
+};
+
+type OutFilter = 'all' | 'problems' | 'students' | 'groups';
+
+const OUT_FILTERS: { key: OutFilter; label: string }[] = [
+  { key: 'all', label: 'Everything' },
+  { key: 'problems', label: 'Did not send' },
+  { key: 'students', label: 'To students' },
+  { key: 'groups', label: 'To groups' },
+];
+
+/** Green for delivered, red for every way a message can fail to leave. A
+ *  deduplicated send is neither: it was correctly not sent twice. */
+const OUTCOME_STYLE: Record<Outgoing['outcome'], { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+  sent: { label: 'sent', variant: 'default' },
+  deduplicated: { label: 'repeat, skipped', variant: 'outline' },
+  not_connected: { label: 'line down', variant: 'destructive' },
+  refused: { label: 'refused', variant: 'destructive' },
+  failed: { label: 'failed', variant: 'destructive' },
+};
+
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'Everything' },
   { key: 'ai', label: 'Written by AI' },
@@ -80,6 +115,9 @@ export default function WhatsAppLog() {
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
   const [handovers, setHandovers] = useState<Handover[]>([]);
+  const [view, setView] = useState<'incoming' | 'outgoing'>('incoming');
+  const [outgoing, setOutgoing] = useState<Outgoing[]>([]);
+  const [outFilter, setOutFilter] = useState<OutFilter>('all');
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
   const [sending, setSending] = useState(false);
@@ -103,6 +141,16 @@ export default function WhatsAppLog() {
       .is('handover_closed_at', null)
       .order('handover_at', { ascending: false });
     setHandovers((open ?? []) as unknown as Handover[]);
+
+    const { data: sent } = await supabase
+      .from('whatsapp_outbound_log')
+      .select(
+        'id, sent_at, to_jid, source, body, outcome, error, ' +
+          'student:students(student_code, profile:profiles(first_name, last_name))',
+      )
+      .order('sent_at', { ascending: false })
+      .limit(300);
+    setOutgoing((sent ?? []) as unknown as Outgoing[]);
 
     setLoading(false);
   }, []);
@@ -147,6 +195,25 @@ export default function WhatsAppLog() {
 
   const aiCount = rows.filter((r) => r.ai_generated).length;
 
+  const shownOut = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return outgoing.filter((row) => {
+      if (outFilter === 'problems' && (row.outcome === 'sent' || row.outcome === 'deduplicated')) return false;
+      if (outFilter === 'students' && !row.student) return false;
+      if (outFilter === 'groups' && !row.to_jid.endsWith('@g.us')) return false;
+      if (!term) return true;
+      return (
+        (row.body ?? '').toLowerCase().includes(term) ||
+        (row.source ?? '').toLowerCase().includes(term) ||
+        row.to_jid.includes(term)
+      );
+    });
+  }, [outgoing, outFilter, search]);
+
+  const failedCount = outgoing.filter(
+    (r) => r.outcome !== 'sent' && r.outcome !== 'deduplicated',
+  ).length;
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-start justify-between gap-4">
@@ -155,12 +222,26 @@ export default function WhatsAppLog() {
             <Link to="/admin/whatsapp"><ArrowLeft className="h-4 w-4 mr-1" /> WhatsApp settings</Link>
           </Button>
           <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <MessageSquare className="h-6 w-6" /> Incoming messages
+            <MessageSquare className="h-6 w-6" /> WhatsApp messages
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            What people sent the school&rsquo;s number, and what it replied.
-            {aiCount > 0 && ` ${aiCount} of the last ${rows.length} replies were written by AI.`}
+            {view === 'incoming'
+              ? `What people sent the school’s number, and what it replied.${aiCount > 0 ? ` ${aiCount} of the last ${rows.length} replies were written by AI.` : ''}`
+              : `Everything the number has sent, and whether it got there.${failedCount > 0 ? ` ${failedCount} of the last ${outgoing.length} did not send.` : ''}`}
           </p>
+          <div className="flex gap-1 mt-3 rounded-lg bg-muted p-1 w-fit">
+            {(['incoming', 'outgoing'] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`px-3 py-1 text-sm rounded-md capitalize transition-colors ${
+                  view === v ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground'
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
         </div>
         <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
@@ -232,6 +313,96 @@ export default function WhatsAppLog() {
         </Card>
       )}
 
+      {view === 'outgoing' ? (
+        <>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex flex-wrap gap-2">
+              {OUT_FILTERS.map((f) => (
+                <Button
+                  key={f.key}
+                  size="sm"
+                  variant={outFilter === f.key ? 'default' : 'outline'}
+                  onClick={() => setOutFilter(f.key)}
+                >
+                  {f.label}
+                </Button>
+              ))}
+            </div>
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search messages, kinds and numbers"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center p-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : shownOut.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Send className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
+                <p className="font-medium">Nothing here yet</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {outgoing.length === 0
+                    ? 'Nothing has been sent since sending started being recorded.'
+                    : 'No messages match this filter.'}
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {shownOut.map((row) => {
+                const style = OUTCOME_STYLE[row.outcome];
+                const name = row.student
+                  ? [row.student.profile?.first_name, row.student.profile?.last_name]
+                      .map((p) => p?.trim())
+                      .filter(Boolean)
+                      .join(' ')
+                  : null;
+                const recipient = row.to_jid.endsWith('@g.us')
+                  ? 'Group'
+                  : name
+                    ? `${name}${row.student?.student_code ? ` · ${row.student.student_code}` : ''}`
+                    : readableNumber(row.to_jid);
+                return (
+                  <Card key={row.id}>
+                    <CardHeader className="pb-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                          {row.to_jid.endsWith('@g.us')
+                            ? <Users className="h-4 w-4 text-muted-foreground" />
+                            : <UserRound className="h-4 w-4 text-muted-foreground" />}
+                          {recipient}
+                        </CardTitle>
+                        <div className="flex items-center gap-2">
+                          {row.source && <Badge variant="outline">{row.source}</Badge>}
+                          <Badge variant={style.variant}>{style.label}</Badge>
+                          <CardDescription className="text-xs">{when(row.sent_at)}</CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-2 pt-0">
+                      <div className="rounded-lg px-3 py-2 text-sm whitespace-pre-wrap bg-emerald-50 dark:bg-emerald-950/20 border-l-2 border-emerald-500">
+                        {row.body || <span className="italic text-muted-foreground">(empty)</span>}
+                      </div>
+                      {row.error && (
+                        <p className="text-xs text-destructive px-1">{row.error}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ) : (
+      <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="flex flex-wrap gap-2">
           {FILTERS.map((f) => (
@@ -334,6 +505,8 @@ export default function WhatsAppLog() {
             );
           })}
         </div>
+      )}
+      </>
       )}
     </div>
   );
