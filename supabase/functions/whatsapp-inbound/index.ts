@@ -264,6 +264,7 @@ Deno.serve(async (req) => {
           text: lines.join("\n"),
           student_id: studentId ?? null,
           idempotency_key: `handover-${from}-${new Date().toISOString().slice(0, 13)}`,
+          source: "handover",
         }),
         signal: AbortSignal.timeout(15_000),
       }).catch(() => {});
@@ -481,6 +482,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         to: from,
         text: reply,
+        source: `reply:${command ?? "unmatched"}`,
         // No idempotency key: a person who sends the same word twice means it
         // twice, and a deduplicated reply would look like being ignored.
       }),

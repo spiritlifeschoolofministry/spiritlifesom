@@ -1203,6 +1203,7 @@ Deno.serve(async (req) => {
           to,
           text,
           student_id: alert.studentId,
+          source: kind,
           // Per recipient: two admins must each get their copy, and only a
           // repeat to the *same* admin is a duplicate.
           idempotency_key: `${alert.idempotencyKey}-${to}`,

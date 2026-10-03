@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     const response = await fetch(`${gatewayUrl.replace(/\/$/, "")}/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-gateway-secret": gatewaySecret },
-      body: JSON.stringify({ to, text, student_id: studentId, idempotency_key: key }),
+      body: JSON.stringify({ to, text, student_id: studentId, idempotency_key: key, source: kind }),
       signal: AbortSignal.timeout(15_000),
     });
     return response.ok;
@@ -386,6 +386,7 @@ Deno.serve(async (req) => {
       // function the gateway refuses the send rather than publishing it.
       student_id: composed.studentId,
       idempotency_key: composed.key,
+      source: kind,
     }),
     signal: AbortSignal.timeout(15_000),
   });

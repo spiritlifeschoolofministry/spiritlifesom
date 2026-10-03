@@ -59,11 +59,17 @@ Deno.serve(async (req) => {
 
   const appUrl = (Deno.env.get("APP_URL") ?? "").replace(/\/$/, "");
 
-  const send = async (to: string, text: string, key: string, studentId: string | null) => {
+  const send = async (
+    to: string,
+    text: string,
+    key: string,
+    studentId: string | null,
+    source = "number_check",
+  ) => {
     const response = await fetch(`${gatewayUrl.replace(/\/$/, "")}/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-gateway-secret": gatewaySecret },
-      body: JSON.stringify({ to, text, idempotency_key: key, student_id: studentId }),
+      body: JSON.stringify({ to, text, idempotency_key: key, student_id: studentId, source }),
       signal: AbortSignal.timeout(15_000),
     });
     return response.ok;
@@ -181,6 +187,7 @@ Deno.serve(async (req) => {
         lines.join("\n"),
         `number_issues-${new Date().toISOString().slice(0, 10)}-${to}`,
         null,
+        "number_issues",
       );
       if (ok) reported += 1;
     }

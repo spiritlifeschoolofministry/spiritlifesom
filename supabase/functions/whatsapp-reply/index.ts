@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
     const response = await fetch(`${gatewayUrl.replace(/\/$/, "")}/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-gateway-secret": gatewaySecret },
-      body: JSON.stringify({ to, text: text.trim() }),
+      body: JSON.stringify({ to, text: text.trim(), source: "admin_reply" }),
       signal: AbortSignal.timeout(15_000),
     });
     sent = response.ok;

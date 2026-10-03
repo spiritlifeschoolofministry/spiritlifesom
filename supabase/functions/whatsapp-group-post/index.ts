@@ -432,6 +432,7 @@ Deno.serve(async (req) => {
     body: JSON.stringify({
       to: groupJid,
       text,
+      source: kind,
       // Deliberately no student_id. This is a group message and the gateway
       // would refuse it if one were set -- which is the point: if this function
       // ever grows a per-student variant, it fails closed rather than leaking.

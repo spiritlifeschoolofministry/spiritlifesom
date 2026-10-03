@@ -256,7 +256,47 @@ type SendBody = {
   text?: string;
   idempotency_key?: string;
   student_id?: string;
+  /** What kind of message this is, as named by the caller. Recorded only. */
+  source?: string;
 };
+
+type Outcome = "sent" | "deduplicated" | "not_connected" | "refused" | "failed";
+
+/**
+ * Record a send attempt, whatever became of it.
+ *
+ * Fire-and-forget: a database that is slow or down must never delay or fail a
+ * message, and a lost log row is a much smaller problem than a lost message.
+ * But every outcome is written, failures most of all -- a send that did not
+ * happen leaves no trace anywhere else, which is how a week of alerts vanished
+ * while the device was unlinked and nobody could say which.
+ */
+function record(entry: {
+  to: string;
+  body: string | null;
+  outcome: Outcome;
+  source?: string;
+  error?: string | null;
+  messageId?: string | null;
+  studentId?: string | null;
+  idempotencyKey?: string | null;
+}): void {
+  void supabase
+    .from("whatsapp_outbound_log")
+    .insert({
+      to_jid: entry.to,
+      body: entry.body ? entry.body.slice(0, 4000) : null,
+      outcome: entry.outcome,
+      source: entry.source ?? null,
+      error: entry.error ?? null,
+      message_id: entry.messageId ?? null,
+      student_id: entry.studentId ?? null,
+      idempotency_key: entry.idempotencyKey ?? null,
+    })
+    .then(({ error }) => {
+      if (error) console.warn("outbound log write failed", error.message);
+    });
+}
 
 /**
  * Send one message.
@@ -269,7 +309,8 @@ type SendBody = {
  * workflow six months from now will not remember that. This will.
  */
 app.post("/send", requireSecret, async (req, res) => {
-  const { to, text, idempotency_key, student_id } = req.body as SendBody;
+  const { to, text, idempotency_key, student_id, source } = req.body as SendBody;
+  const base = { to: to ?? "", source, studentId: student_id, idempotencyKey: idempotency_key };
 
   if (!to || !text) {
     res.status(400).json({ error: "to and text are required" });
@@ -278,6 +319,7 @@ app.post("/send", requireSecret, async (req, res) => {
 
   const isGroup = to.endsWith("@g.us");
   if (isGroup && student_id) {
+    record({ ...base, body: text, outcome: "refused", error: "personal data addressed to a group" });
     res.status(422).json({
       error: "refusing to send student-specific content to a group",
       detail:
@@ -287,6 +329,7 @@ app.post("/send", requireSecret, async (req, res) => {
   }
 
   if (!canSend()) {
+    record({ ...base, body: text, outcome: "not_connected", error: `connection: ${state.connection}` });
     // 503, not 500: this is temporary and retryable, and the caller should be
     // able to tell the difference between "the line is down" and "the request
     // was wrong".
@@ -299,6 +342,7 @@ app.post("/send", requireSecret, async (req, res) => {
   }
 
   if (alreadySent(idempotency_key)) {
+    record({ ...base, body: text, outcome: "deduplicated" });
     res.json({ ok: true, deduplicated: true });
     return;
   }
@@ -309,11 +353,12 @@ app.post("/send", requireSecret, async (req, res) => {
     const suffix = await currentSignature();
     const body = suffix && !text.trimEnd().endsWith(suffix.trim()) ? `${text}${suffix}` : text;
     const result = await state.sock!.sendMessage(to, { text: body });
-    res.json({ ok: true, id: result?.key?.id ?? null });
+    const messageId = result?.key?.id ?? null;
+    record({ ...base, body, outcome: "sent", messageId });
+    res.json({ ok: true, id: messageId });
   } catch (err) {
-    res.status(502).json({
-      error: "send failed",
-      detail: err instanceof Error ? err.message : String(err),
-    });
+    const detail = err instanceof Error ? err.message : String(err);
+    record({ ...base, body: text, outcome: "failed", error: detail });
+    res.status(502).json({ error: "send failed", detail });
   }
 });
