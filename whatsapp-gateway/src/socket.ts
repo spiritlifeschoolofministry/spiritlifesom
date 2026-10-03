@@ -166,9 +166,13 @@ export async function connect(): Promise<void> {
       const sentAt = Number(message.messageTimestamp ?? 0) * 1000;
       if (sentAt && Date.now() - sentAt > 5 * 60_000) continue;
 
-      forwardInbound(from, text).catch((err) =>
-        logger.warn({ err }, "forwarding inbound message failed"),
-      );
+      // WhatsApp now addresses most chats by LID -- an anonymous id that is
+      // nothing like the person's number -- so the phone number has to be
+      // resolved before anyone can be recognised. The key usually carries it
+      // as the alternate address; where it does not, the mapping store knows.
+      resolvePhoneJid(sock, from, message.key?.remoteJidAlt)
+        .then((phoneJid) => forwardInbound(from, text, phoneJid))
+        .catch((err) => logger.warn({ err }, "forwarding inbound message failed"));
     }
   });
 
@@ -237,7 +241,39 @@ export async function connect(): Promise<void> {
  * wire: it carries words in both directions and holds no rules, so the rules
  * stay in one place with the data they need.
  */
-async function forwardInbound(from: string, text: string): Promise<void> {
+/**
+ * The phone-number address behind a LID, where one can be found.
+ *
+ * WhatsApp has moved to addressing people by LID -- an identifier deliberately
+ * unrelated to their number -- so "who is this" can no longer be answered by
+ * looking at the address. Two sources, in order of reliability: the alternate
+ * address the message itself carries, and then the mapping the library builds
+ * as it goes.
+ *
+ * Returning null is a normal outcome, not a failure. An unknown sender is
+ * answered as a member of the public, which is the right answer when we cannot
+ * tell who they are.
+ */
+async function resolvePhoneJid(
+  sock: WASocket,
+  from: string,
+  alt: string | null | undefined,
+): Promise<string | null> {
+  if (from.endsWith("@s.whatsapp.net")) return from;
+  if (alt?.endsWith("@s.whatsapp.net")) return alt;
+  if (!from.endsWith("@lid")) return null;
+  try {
+    return (await sock.signalRepository.lidMapping.getPNForLID(from)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function forwardInbound(
+  from: string,
+  text: string,
+  phoneJid: string | null,
+): Promise<void> {
   const response = await fetch(
     `${env.supabaseUrl.replace(/\/$/, "")}/functions/v1/whatsapp-inbound`,
     {
@@ -248,7 +284,7 @@ async function forwardInbound(from: string, text: string): Promise<void> {
         // endpoint could put words into a student's mouth.
         "x-gateway-secret": env.gatewaySecret,
       },
-      body: JSON.stringify({ from, text }),
+      body: JSON.stringify({ from, text, phone_jid: phoneJid }),
       signal: AbortSignal.timeout(20_000),
     },
   );

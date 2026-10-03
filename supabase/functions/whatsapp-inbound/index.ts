@@ -53,9 +53,12 @@ Deno.serve(async (req) => {
     });
   }
 
-  const { from, text } = (await req.json().catch(() => ({}))) as {
+  const { from, text, phone_jid } = (await req.json().catch(() => ({}))) as {
     from?: string;
     text?: string;
+    /** The phone-number address behind a LID, where the gateway could resolve
+     *  one. Absent for a sender we genuinely cannot identify. */
+    phone_jid?: string | null;
   };
   if (!from || !text) {
     return new Response(JSON.stringify({ error: "from and text are required" }), {
@@ -78,7 +81,22 @@ Deno.serve(async (req) => {
     .eq("id", true)
     .maybeSingle();
 
-  const { data: studentId } = await admin.rpc("whatsapp_student_for_jid", { p_jid: from });
+  // Try the address the message came from, then the phone number behind it.
+  // Most senders now arrive as a LID, which matches nothing until the mapping
+  // has been learned once.
+  let { data: studentId } = await admin.rpc("whatsapp_student_for_jid", { p_jid: from });
+
+  if (!studentId && phone_jid) {
+    const byPhone = await admin.rpc("whatsapp_student_for_jid", { p_jid: phone_jid });
+    studentId = byPhone.data ?? null;
+
+    // Learned, so the next message from this LID is recognised without the
+    // gateway having to resolve it again -- and so an outbound reply can be
+    // addressed the same way the person writes to us.
+    if (studentId && from.endsWith("@lid")) {
+      await admin.rpc("whatsapp_remember_lid", { p_phone_jid: phone_jid, p_lid: from });
+    }
+  }
 
   const body = normalise(text);
   let command: string | null = null;
