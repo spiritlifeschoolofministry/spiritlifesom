@@ -36,6 +36,23 @@ const heartbeat = setInterval(() => {
   reportStatus().catch(() => {});
 }, 60_000);
 
+/**
+ * Never die on an unhandled rejection.
+ *
+ * A WhatsApp socket throws from places no caller can wrap -- a decrypt that
+ * fails inside an event handler, a stream error mid-frame. Node's default is
+ * to kill the process, which on Render means a restart, which means a fresh
+ * connection, which is the churn WhatsApp reads as abuse. Logging and carrying
+ * on is strictly better: the socket's own close handler already knows how to
+ * reconnect deliberately.
+ */
+process.on("unhandledRejection", (reason) => {
+  console.error("unhandled rejection (continuing)", reason);
+});
+process.on("uncaughtException", (error) => {
+  console.error("uncaught exception (continuing)", error);
+});
+
 /** Render sends SIGTERM on deploy. Closing the socket deliberately means
  *  WhatsApp sees a clean disconnect rather than a dropped one, which is both
  *  faster to reconnect from and less likely to be read as flapping. */

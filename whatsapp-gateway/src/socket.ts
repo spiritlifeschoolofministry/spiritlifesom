@@ -211,15 +211,31 @@ export async function connect(): Promise<void> {
       logger.error({ statusCode, loggedOut }, "connection closed");
 
       if (loggedOut) {
-        // The pairing was revoked -- from the phone, or by WhatsApp. Retrying
-        // cannot succeed, so stop, drop the dead credentials, and wait for a
-        // human to scan a new QR.
+        // The pairing was revoked -- from the phone, or by WhatsApp. These
+        // credentials are dead, so they go.
+        //
+        // But we must still reconnect, which is the opposite of what it looks
+        // like. Reconnecting with the *old* credentials would be a stream of
+        // failed authentications; reconnecting with none asks WhatsApp for a
+        // fresh QR, and a QR is the only thing that can fix this. Stopping
+        // here left the gateway reporting "needs pairing" with no code for
+        // anybody to scan, recoverable only by restarting the process by hand.
         state.needsPairing = true;
-        state.connection = "qr";
+        state.connection = "connecting";
+        state.qr = null;
         await clearAuthState(supabase).catch((err) =>
           logger.error({ err }, "failed to clear revoked session"),
         );
         await report();
+
+        // Backed off like any other reconnect, so an unattended gateway offers
+        // a fresh code every few minutes rather than hammering the server.
+        state.reconnectCount += 1;
+        const pairingDelay = backoffMs(state.reconnectCount);
+        logger.warn({ pairingDelay }, "session revoked -- asking for a new QR");
+        setTimeout(() => {
+          connect().catch((err) => logger.error({ err }, "re-pair reconnect failed"));
+        }, pairingDelay);
         return;
       }
 
