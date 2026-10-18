@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { isSignupRefusal } from "@/lib/signup-closed";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesUpdate } from '@/integrations/supabase/types';
@@ -222,6 +223,12 @@ const Register = () => {
       if (authError) {
         if (authError.message.includes("already registered") || authError.message.includes("already been registered")) {
           throw new Error("An account with this email already exists. Please log in instead.");
+        }
+        // The form was open when the page loaded, but applications closed since:
+        // the database now refuses the account (lib/signup-closed.ts).
+        if (isSignupRefusal(authError.message)) {
+          setAcceptingApplications(false);
+          throw new Error("Registrations have just closed, so we couldn't create your account.");
         }
         throw authError;
       }

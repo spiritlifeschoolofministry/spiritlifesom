@@ -13,6 +13,7 @@ import SEO from "@/components/SEO";
 import { useAuth } from "@/contexts/useAuth";
 import { isStudentProfileComplete } from "@/lib/profile-complete";
 import GoogleAuthButton from "@/components/GoogleAuthButton";
+import { SIGNUP_REFUSED_PARAM, SIGNUP_REFUSED_VALUE } from "@/lib/signup-closed";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -23,6 +24,9 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
+  // Set when "Continue with Google" was used by an address with no account and
+  // the database refused to create one. See lib/signup-closed.ts.
+  const [signupRefusal, setSignupRefusal] = useState<"closed" | "failed" | null>(null);
 
   // Magic link / OTP state
   const [otpEmail, setOtpEmail] = useState("");
@@ -41,6 +45,19 @@ const Login = () => {
     if (r === "admin" || r === "teacher") return "/admin/dashboard";
     return isStudentProfileComplete(profile, student) ? "/student/dashboard" : "/complete-profile";
   }, [role, profile, student]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get(SIGNUP_REFUSED_PARAM) !== SIGNUP_REFUSED_VALUE) return;
+    window.history.replaceState(null, "", "/login");
+    // The refusal reads the same whatever caused it, so only call it "closed"
+    // when the setting says so.
+    supabase.from("system_settings").select("value").eq("key", "accepting_applications").maybeSingle()
+      .then(({ data }) => {
+        const closed = data?.value === false || data?.value === "false";
+        setSignupRefusal(closed ? "closed" : "failed");
+      });
+  }, []);
 
   // Redirect once — and only once — the context has a settled answer for this
   // user. `redirecting` keeps the form disabled in the meantime instead of
@@ -136,6 +153,21 @@ const Login = () => {
       </div>
       <div className="w-full max-w-md">
         <div className="bg-card rounded-2xl shadow-[var(--shadow-card)] border border-border p-8 sm:p-10">
+
+          {signupRefusal && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription className="text-sm">
+                {signupRefusal === "closed" ? (
+                  <>
+                    <strong>That Google account isn't registered with us, and registrations are currently closed.</strong>{" "}
+                    If you are already a student, sign in with the email address you registered with.
+                  </>
+                ) : (
+                  <>We couldn't create an account for that Google address. Please try again, or contact the school office.</>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
 
           <Alert className="mb-4 bg-blue-50 border-blue-200">
             <Info className="h-4 w-4 text-blue-600" />

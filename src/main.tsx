@@ -3,6 +3,7 @@ import { HelmetProvider } from "react-helmet-async";
 import App from "./App.tsx";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { isChunkLoadError, recoverFromStaleBuild } from "./lib/chunk-recovery";
+import { redirectRefusedOAuthSignup } from "./lib/signup-closed";
 import "./index.css";
 import posthog from 'posthog-js';
 
@@ -31,6 +32,9 @@ if (import.meta.env.PROD) {
 window.addEventListener("unhandledrejection", (event) => {
   if (isChunkLoadError(event.reason)) recoverFromStaleBuild();
 });
+
+// Before the router: the dashboard's guard would drop the error in the URL.
+redirectRefusedOAuthSignup();
 
 createRoot(document.getElementById("root")!).render(
   <AppErrorBoundary>
