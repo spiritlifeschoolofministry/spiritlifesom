@@ -3,11 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
+import StepIndicator from "@/components/StepIndicator";
+import LearningModeCard from "@/components/LearningModeCard";
+import ApplyFrame, { backButtonClass, continueButtonClass } from "@/components/redesign/apply/ApplyFrame";
+import { Field, NativeSelect, Optional, fieldClass } from "@/components/redesign/apply/fields";
+import { LEARNING_MODES } from "@/components/redesign/apply/learning-modes";
+import { ArrowRight, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import SEO from "@/components/SEO";
@@ -186,100 +187,167 @@ const CompleteProfile = () => {
     );
   }
 
+  const isLast = stepIdx >= steps.length - 1;
+  const title =
+    current.key === "name"
+      ? "What's your name?"
+      : current.key === "contact"
+        ? "Where can we reach you?"
+        : missing.includes("learning_mode")
+          ? "How will you study?"
+          : "A few more details";
+  const errorProps = (key: string) =>
+    errors[key] ? { "aria-invalid": true, "aria-describedby": `${key}-error` } : {};
+
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-background">
+    <>
       <SEO title="Complete your profile | SLSOM" description="Finish setting up your Spirit Life SOM student account." path="/complete-profile" />
-      <div className="w-full max-w-lg bg-card rounded-2xl shadow-[var(--shadow-card)] border border-border p-8">
-        <h1 className="text-2xl font-bold text-primary mb-1">Complete your profile</h1>
-        <p className="text-sm text-muted-foreground mb-4">
-          Just {missing.length} quick {missing.length === 1 ? "field" : "fields"} left before you can access your dashboard.
-        </p>
-
-        <div className="mb-6">
-          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
-            <span>Step {Math.min(stepIdx + 1, steps.length)} of {steps.length} — {current.title}</span>
-            <span>{filledCount}/{REQUIRED_FIELD_COUNT} done</span>
+      <ApplyFrame
+        className="min-h-dvh sm:items-center"
+        leading={
+          <img src="/images/school-logo.png" alt="Spirit Life School of Ministry" className="h-11 w-11 object-contain" />
+        }
+        status={
+          <span className="text-[13px] font-semibold text-muted-foreground">
+            {filledCount} of {REQUIRED_FIELD_COUNT} done
+          </span>
+        }
+        progress={
+          <div className="flex flex-col gap-2">
+            <StepIndicator currentStep={Math.min(stepIdx + 1, steps.length)} steps={steps.map((s) => s.title)} />
+            <span className="sr-only">{progressPct}% of your profile is complete.</span>
           </div>
-          <Progress value={progressPct} className="h-2" />
-        </div>
-
-        <form onSubmit={(e) => { e.preventDefault(); handleNext(); }} className="space-y-4">
-          {current.key === "name" && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <Label htmlFor="fn">First name *</Label>
-                <Input id="fn" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus />
-                {errors.firstName && <p className="text-xs text-destructive mt-1">{errors.firstName}</p>}
-              </div>
-              <div>
-                <Label htmlFor="mn">Middle name</Label>
-                <Input id="mn" value={middleName} onChange={(e) => setMiddleName(e.target.value)} />
-              </div>
-              <div>
-                <Label htmlFor="ln">Last name *</Label>
-                <Input id="ln" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-                {errors.lastName && <p className="text-xs text-destructive mt-1">{errors.lastName}</p>}
-              </div>
-            </div>
-          )}
-
-          {current.key === "contact" && (
-            <div>
-              <Label htmlFor="phone">Phone *</Label>
-              <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+234..." autoFocus />
-              {errors.phone && <p className="text-xs text-destructive mt-1">{errors.phone}</p>}
-            </div>
-          )}
-
-          {current.key === "details" && (
-            <div className="space-y-4">
-              {missing.includes("gender") && (
-                <div>
-                  <Label>Gender *</Label>
-                  <RadioGroup value={gender} onValueChange={setGender} className="flex gap-6 mt-2">
-                    <div className="flex items-center gap-2"><RadioGroupItem value="Male" id="g-m" /><Label htmlFor="g-m">Male</Label></div>
-                    <div className="flex items-center gap-2"><RadioGroupItem value="Female" id="g-f" /><Label htmlFor="g-f">Female</Label></div>
-                  </RadioGroup>
-                  {errors.gender && <p className="text-xs text-destructive mt-1">{errors.gender}</p>}
-                </div>
-              )}
-              {missing.includes("age") && (
-                <div>
-                  <Label htmlFor="age">Age *</Label>
-                  <Input id="age" type="number" min={10} max={100} value={age} onChange={(e) => setAge(e.target.value)} />
-                  {errors.age && <p className="text-xs text-destructive mt-1">{errors.age}</p>}
-                </div>
-              )}
-              {missing.includes("learning_mode") && (
-                <div>
-                  <Label>Learning mode *</Label>
-                  <Select value={learningMode} onValueChange={setLearningMode}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="How will you attend?" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Physical">Physical (in-person)</SelectItem>
-                      <SelectItem value="Online">Online</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.learningMode && <p className="text-xs text-destructive mt-1">{errors.learningMode}</p>}
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex items-center justify-between pt-2">
-            <Button type="button" variant="ghost" onClick={handleBack} disabled={stepIdx === 0 || saving} className="gap-1">
-              <ArrowLeft className="w-4 h-4" /> Back
+        }
+        titleId="complete-step-title"
+        title={title}
+        description={
+          <>Just {missing.length} quick {missing.length === 1 ? "field" : "fields"} left before you can access your dashboard.</>
+        }
+        onSubmit={(e) => { e.preventDefault(); handleNext(); }}
+        footer={
+          <>
+            {stepIdx > 0 && (
+              <Button type="button" variant="outline" onClick={handleBack} disabled={saving} className={backButtonClass}>
+                Back
+              </Button>
+            )}
+            <Button type="submit" disabled={saving} className={continueButtonClass}>
+              {saving ? (<><Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" /> Saving…</>)
+                : isLast
+                  ? (<>Finish <Check className="h-5 w-5" aria-hidden="true" /></>)
+                  : (<>Continue <ArrowRight className="h-5 w-5" aria-hidden="true" /></>)}
             </Button>
-            <Button type="submit" variant="flame" disabled={saving} className="gap-2">
-              {saving ? (<><Loader2 className="w-4 h-4 animate-spin" /> Saving…</>)
-                : stepIdx === steps.length - 1
-                  ? (<>Finish <Check className="w-4 h-4" /></>)
-                  : (<>Next <ArrowRight className="w-4 h-4" /></>)}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+          </>
+        }
+      >
+        {current.key === "name" && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="First name" htmlFor="fn" error={errors.firstName} errorId="firstName-error">
+                <Input id="fn" autoComplete="given-name" aria-required="true" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus className={fieldClass} {...errorProps("firstName")} />
+              </Field>
+              <Field label="Last name" htmlFor="ln" error={errors.lastName} errorId="lastName-error">
+                <Input id="ln" autoComplete="family-name" aria-required="true" value={lastName} onChange={(e) => setLastName(e.target.value)} className={fieldClass} {...errorProps("lastName")} />
+              </Field>
+            </div>
+            <Field label={<>Middle name<Optional /></>} htmlFor="mn">
+              <Input id="mn" autoComplete="additional-name" value={middleName} onChange={(e) => setMiddleName(e.target.value)} className={fieldClass} />
+            </Field>
+          </>
+        )}
+
+        {current.key === "contact" && (
+          <Field
+            label="WhatsApp number"
+            htmlFor="phone"
+            hint="We send your admission update here."
+            hintId="phone-hint"
+            error={errors.phone}
+            errorId="phone-error"
+          >
+            <Input
+              id="phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              aria-required="true"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+234 …"
+              autoFocus
+              className={fieldClass}
+              aria-invalid={errors.phone ? true : undefined}
+              aria-describedby={errors.phone ? "phone-hint phone-error" : "phone-hint"}
+            />
+          </Field>
+        )}
+
+        {current.key === "details" && (
+          <>
+            {missing.includes("learning_mode") && (
+              <fieldset
+                className="m-0 flex min-w-0 flex-col gap-2.5 border-0 p-0"
+                aria-describedby={errors.learningMode ? "learningMode-error" : undefined}
+              >
+                <legend className="mb-2.5 text-sm font-semibold text-foreground">Learning mode</legend>
+                {LEARNING_MODES.map((m) => (
+                  <LearningModeCard
+                    key={m.value}
+                    name="learningMode"
+                    value={m.value}
+                    title={m.title}
+                    description={m.description}
+                    price={m.price}
+                    details={[...m.details]}
+                    selected={learningMode === m.value}
+                    onSelect={() => setLearningMode(m.value)}
+                  />
+                ))}
+                {errors.learningMode && (
+                  <p id="learningMode-error" role="alert" className="text-[13px] font-medium text-destructive">{errors.learningMode}</p>
+                )}
+              </fieldset>
+            )}
+            {(missing.includes("gender") || missing.includes("age")) && (
+              <div className="flex items-start gap-3">
+                {missing.includes("gender") && (
+                  <Field label="Gender" htmlFor="gender" error={errors.gender} errorId="gender-error" className="flex-1">
+                    <NativeSelect id="gender" aria-required="true" value={gender} onChange={(e) => setGender(e.target.value)} {...errorProps("gender")}>
+                      <option value="" disabled>Select</option>
+                      <option value="Female">Female</option>
+                      <option value="Male">Male</option>
+                    </NativeSelect>
+                  </Field>
+                )}
+                {missing.includes("age") && (
+                  <Field
+                    label="Age"
+                    htmlFor="age"
+                    error={errors.age}
+                    errorId="age-error"
+                    className={missing.includes("gender") ? "w-[110px] shrink-0" : "w-full max-w-[160px]"}
+                  >
+                    <Input
+                      id="age"
+                      type="number"
+                      inputMode="numeric"
+                      min={10}
+                      max={100}
+                      aria-required="true"
+                      placeholder="e.g. 28"
+                      value={age}
+                      onChange={(e) => setAge(e.target.value)}
+                      className={fieldClass}
+                      {...errorProps("age")}
+                    />
+                  </Field>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </ApplyFrame>
+    </>
   );
 };
 

@@ -1,59 +1,66 @@
-import { useState } from "react";
-import { Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface StepIndicatorProps {
+  /** 1-based. */
   currentStep: number;
   steps: string[];
+  /** When given, each segment is a button that jumps to its step. */
   onStepClick?: (step: number) => void;
+  className?: string;
 }
 
-const StepIndicator = ({ currentStep, steps, onStepClick }: StepIndicatorProps) => {
-  return (
-    <div className="flex items-center justify-center w-full mb-8">
-      {steps.map((label, index) => {
-        const stepNum = index + 1;
-        const isCompleted = currentStep > stepNum;
-        const isCurrent = currentStep === stepNum;
-        const clickable = !!onStepClick;
+/**
+ * The Apply board's progress: one thin segment per step, filled up to the
+ * current one, then "Step N of M · Title" underneath. Segments are 6px to the
+ * eye but each has a 44px-tall hit area when clickable.
+ */
+const StepIndicator = ({ currentStep, steps, onStepClick, className }: StepIndicatorProps) => {
+  const total = steps.length;
+  const current = Math.min(Math.max(currentStep, 1), total);
+  const label = steps[current - 1];
 
-        return (
-          <div key={label} className="flex items-center">
-            <button
-              type="button"
-              onClick={() => clickable && onStepClick(stepNum)}
-              disabled={!clickable}
-              className={`flex flex-col items-center ${clickable ? "cursor-pointer group" : ""}`}
-              aria-label={`Go to step ${stepNum}: ${label}`}
-            >
-              <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
-                  isCompleted
-                    ? "gradient-flame text-accent-foreground"
-                    : isCurrent
-                    ? "bg-primary text-primary-foreground shadow-lg"
-                    : "bg-muted text-muted-foreground"
-                } ${clickable ? "group-hover:ring-2 group-hover:ring-primary/40" : ""}`}
-              >
-                {isCompleted ? <Check className="w-5 h-5" /> : stepNum}
-              </div>
-              <span
-                className={`mt-2 text-xs font-medium hidden sm:block ${
-                  isCurrent ? "text-primary" : "text-muted-foreground"
-                }`}
-              >
-                {label}
-              </span>
-            </button>
-            {index < steps.length - 1 && (
-              <div
-                className={`w-12 sm:w-24 h-0.5 mx-2 transition-all duration-300 ${
-                  isCompleted ? "gradient-flame" : "bg-muted"
-                }`}
-              />
-            )}
-          </div>
-        );
-      })}
+  return (
+    <div className={cn("flex flex-col gap-3.5", className)}>
+      <ol className="m-0 flex list-none gap-1.5 p-0" aria-label={`Step ${current} of ${total}`}>
+        {steps.map((name, index) => {
+          const stepNum = index + 1;
+          const done = stepNum < current;
+          const isCurrent = stepNum === current;
+          const bar = (
+            <span
+              aria-hidden="true"
+              className={cn(
+                "block h-1.5 w-full rounded-[3px] transition-colors duration-300",
+                stepNum <= current ? "bg-primary" : "bg-border",
+              )}
+            />
+          );
+          const status = done ? "done" : isCurrent ? "current" : "not started";
+          return (
+            <li key={name} className="flex-1">
+              {onStepClick ? (
+                <button
+                  type="button"
+                  onClick={() => onStepClick(stepNum)}
+                  aria-current={isCurrent ? "step" : undefined}
+                  aria-label={`Go to step ${stepNum}: ${name} (${status})`}
+                  className="group -my-[19px] flex h-11 w-full items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {bar}
+                </button>
+              ) : (
+                <span aria-current={isCurrent ? "step" : undefined} className="block">
+                  <span className="sr-only">{`Step ${stepNum}: ${name} (${status})`}</span>
+                  {bar}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      <p className="m-0 text-[13px] font-semibold text-muted-foreground" aria-live="polite">
+        Step {current} of {total} · {label}
+      </p>
     </div>
   );
 };

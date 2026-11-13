@@ -3,58 +3,75 @@ import { cn } from "@/lib/utils";
 interface LearningModeCardProps {
   title: string;
   description: string;
-  price: string;
+  /** Radio group name; give every card in one question the same name. */
+  name: string;
+  value: string;
+  price?: string;
   details?: string[];
   selected: boolean;
   onSelect: () => void;
 }
 
+/**
+ * One option of the "Learning mode" question on the Apply board: a whole-card
+ * radio with a title, a one-line description and, where known, the price.
+ * Wrap the set in a <fieldset> with a <legend>.
+ */
 const LearningModeCard = ({
   title,
   description,
+  name,
+  value,
   price,
   details,
   selected,
   onSelect,
 }: LearningModeCardProps) => {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
+    <label
       className={cn(
-        "w-full text-left rounded-xl border-2 p-5 transition-all duration-200",
+        "flex cursor-pointer items-start gap-3 rounded-[14px] border p-3.5 transition-colors",
+        "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 ring-offset-background",
         selected
-          ? "border-primary bg-secondary shadow-lg ring-2 ring-primary/20"
-          : "border-border bg-card hover:border-primary/40 hover:shadow-md"
+          ? "border-primary bg-secondary/60 ring-1 ring-primary"
+          : "border-input bg-card hover:border-primary/50",
       )}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <h4 className="font-semibold text-foreground">{title}</h4>
-          <p className="text-sm text-muted-foreground mt-1">{description}</p>
-        </div>
-        <span
-          className={cn(
-            "text-sm font-bold px-3 py-1 rounded-full whitespace-nowrap ml-3",
-            selected
-              ? "gradient-flame text-accent-foreground"
-              : "bg-muted text-muted-foreground"
+      <input
+        type="radio"
+        name={name}
+        value={value}
+        checked={selected}
+        onChange={onSelect}
+        className="mt-0.5 h-5 w-5 shrink-0 accent-primary focus-visible:outline-none"
+      />
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex items-start justify-between gap-3">
+          <strong className="text-[15px] font-semibold text-foreground">{title}</strong>
+          {price && (
+            <span
+              className={cn(
+                "shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold",
+                selected ? "gradient-flame" : "bg-muted text-foreground",
+              )}
+            >
+              {price}
+            </span>
           )}
-        >
-          {price}
         </span>
-      </div>
-      {details && details.length > 0 && (
-        <ul className="mt-3 space-y-1">
-          {details.map((d) => (
-            <li key={d} className="text-xs text-muted-foreground flex items-start gap-1.5">
-              <span className="text-accent mt-0.5">•</span>
-              {d}
-            </li>
-          ))}
-        </ul>
-      )}
-    </button>
+        <span className="text-[13px] text-muted-foreground">{description}</span>
+        {details && details.length > 0 && (
+          <ul className="mt-2 flex flex-col gap-1">
+            {details.map((d) => (
+              <li key={d} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                <span aria-hidden="true" className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-primary/60" />
+                {d}
+              </li>
+            ))}
+          </ul>
+        )}
+      </span>
+    </label>
   );
 };
 
