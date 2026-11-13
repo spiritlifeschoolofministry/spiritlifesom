@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, type CSSProperties, type ReactNode } from "react";
 import {
   BODY,
   CERTIFICATE_HEIGHT,
@@ -12,12 +12,43 @@ import {
   type CertificateArtworkProps,
   type CertificateSignatory,
 } from "@/lib/certificate-design";
+import {
+  CERTIFICATE_TEXT,
+  HEADER_GAP,
+  LAYOUT_ELEMENTS,
+  LOGO_DISC,
+  LOGO_IMAGE,
+  NAME_CODE_GAP,
+  RULE_DIAMOND,
+  SIGNATURE_HEIGHT,
+  SIGNATURE_OVERLAP,
+  resolveCertificateLayout,
+  type CertificateLayout,
+  type CertificateTextStyle,
+  type LayoutElementKey,
+  type LayoutPosition,
+} from "@/lib/certificate-layout";
 
 /**
  * The certificate itself, at its true print size. Nothing in here is
  * responsive on purpose -- see the note on CERTIFICATE_WIDTH.
+ *
+ * With a saved layout (see certificate-layout.ts) each element is placed where
+ * the layout says; without one it is the original fixed markup, untouched.
  */
-export const CertificateArtwork = ({
+export const CertificateArtwork = ({ layout, ...props }: CertificateArtworkProps) => {
+  useEffect(() => {
+    void loadCertificateFonts();
+  }, []);
+
+  if (layout && Object.keys(layout).length > 0) {
+    return <LaidOutArtwork layout={layout} {...props} />;
+  }
+  return <FixedArtwork {...props} />;
+};
+
+/** The original certificate: every element at a fixed pixel position. */
+const FixedArtwork = ({
   recipientName,
   studentCode,
   dateText,
@@ -26,11 +57,7 @@ export const CertificateArtwork = ({
   signatories,
   serial,
   verifyHost,
-}: CertificateArtworkProps) => {
-  useEffect(() => {
-    void loadCertificateFonts();
-  }, []);
-
+}: Omit<CertificateArtworkProps, "layout">) => {
   const [left, right] = signatories;
 
   return (
@@ -44,134 +71,7 @@ export const CertificateArtwork = ({
         flex: "none",
       }}
     >
-      {/* Ivory paper ground with a faint warm sheen */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "radial-gradient(120% 90% at 15% 10%, #fffdf6 0%, #fdf9ec 45%, #f7f1de 100%)",
-        }}
-      />
-
-      {/* Cream ribbon sweeping out of the top-left corner */}
-      <svg
-        style={{ position: "absolute", top: 0, left: 0, width: 472, height: 175 }}
-        viewBox="0 0 700 260"
-        preserveAspectRatio="none"
-      >
-        <path
-          d="M0,0 H660 C440,26 210,74 70,158 C38,180 14,212 0,236 Z"
-          fill="#f3ead4"
-          opacity="0.75"
-        />
-        <path
-          d="M0,0 H430 C300,22 160,58 66,124 C36,146 14,176 0,198 Z"
-          fill="#ece0c0"
-          opacity="0.6"
-        />
-        {Array.from({ length: 6 }).map((_, i) => (
-          <path
-            key={i}
-            d={`M0,${34 + i * 30} C170,${16 + i * 26} 400,${-4 + i * 22} 660,${-44 + i * 20}`}
-            fill="none"
-            stroke="#e0d2ab"
-            strokeWidth="3"
-            opacity={0.55 - i * 0.06}
-          />
-        ))}
-      </svg>
-
-      {/* Matching whisper of ribbon in the bottom-right corner */}
-      <svg
-        style={{ position: "absolute", bottom: 0, right: 0, width: 382, height: 127 }}
-        viewBox="0 0 560 200"
-        preserveAspectRatio="none"
-      >
-        {Array.from({ length: 4 }).map((_, i) => (
-          <path
-            key={i}
-            d={`M560,${170 - i * 26} C380,${190 - i * 22} 170,${196 - i * 18} 0,${210 - i * 16}`}
-            fill="none"
-            stroke="#e6dabb"
-            strokeWidth="3"
-            opacity={0.4 - i * 0.07}
-          />
-        ))}
-      </svg>
-
-      {/* Layered purple-to-magenta ribbon fan, bottom-left corner */}
-      <svg
-        style={{ position: "absolute", bottom: 0, left: 0, width: 290, height: 205 }}
-        viewBox="0 0 460 340"
-        preserveAspectRatio="none"
-      >
-        <path d="M0,26 C150,110 285,225 360,340 L0,340 Z" fill="#3a1878" />
-        <path d="M0,96 C140,168 250,258 306,340 L0,340 Z" fill="#7b28c4" />
-        <path d="M0,158 C118,214 205,272 252,340 L0,340 Z" fill="#c4359f" />
-        <path d="M0,214 C92,252 152,296 190,340 L0,340 Z" fill="#f4499f" />
-        <path d="M0,272 C58,296 104,318 128,340 L0,340 Z" fill="#ff77bd" opacity="0.85" />
-      </svg>
-
-      {/* Gold medal with red rosette and ribbon tails, top-right */}
-      <svg
-        style={{ position: "absolute", top: 12, right: 39, width: 258, height: 323 }}
-        viewBox="0 0 240 300"
-      >
-        <defs>
-          <radialGradient id="certGoldOuter" cx="38%" cy="30%" r="75%">
-            <stop offset="0%" stopColor="#f7e6a8" />
-            <stop offset="45%" stopColor="#d7b558" />
-            <stop offset="100%" stopColor="#9d7c26" />
-          </radialGradient>
-          <radialGradient id="certGoldInner" cx="42%" cy="34%" r="72%">
-            <stop offset="0%" stopColor="#fbf1c8" />
-            <stop offset="40%" stopColor="#dcbe66" />
-            <stop offset="100%" stopColor="#b28f34" />
-          </radialGradient>
-        </defs>
-
-        {/* Ribbon tails hanging below the medal */}
-        <path d="M92,152 L58,296 L104,258 L112,164 Z" fill="#c62828" />
-        <path d="M148,152 L182,296 L136,258 L128,164 Z" fill="#c62828" />
-        <path d="M148,152 L164,220 L136,206 Z" fill="#a81f1f" opacity="0.5" />
-
-        {/* Scalloped red rosette */}
-        {Array.from({ length: 22 }).map((_, i) => {
-          const a = (i * Math.PI * 2) / 22;
-          return (
-            <circle
-              key={i}
-              cx={120 + 78 * Math.cos(a)}
-              cy={120 + 78 * Math.sin(a)}
-              r="24"
-              fill={i % 2 ? "#c0261f" : "#d63028"}
-            />
-          );
-        })}
-        <circle cx="120" cy="120" r="82" fill="#cf2a22" />
-
-        {/* Gold discs */}
-        <circle cx="120" cy="120" r="70" fill="url(#certGoldOuter)" />
-        <circle cx="120" cy="120" r="62" fill="#b8912f" />
-        <circle cx="120" cy="120" r="58" fill="url(#certGoldInner)" />
-
-        {/* Brushed-metal spokes across the inner disc */}
-        {Array.from({ length: 36 }).map((_, i) => {
-          const a1 = (i * Math.PI * 2) / 36;
-          const a2 = ((i + 0.5) * Math.PI * 2) / 36;
-          return (
-            <path
-              key={i}
-              d={`M120,120 L${120 + 58 * Math.cos(a1)},${120 + 58 * Math.sin(a1)} L${120 + 58 * Math.cos(a2)},${120 + 58 * Math.sin(a2)} Z`}
-              fill={i % 2 ? "#c9a54a" : "#e6cd82"}
-              opacity="0.18"
-            />
-          );
-        })}
-        <circle cx="120" cy="120" r="58" fill="url(#certGoldInner)" opacity="0.6" />
-        <ellipse cx="98" cy="96" rx="26" ry="18" fill="#fdf4d2" opacity="0.2" />
-      </svg>
+      <CertificateBackdrop />
 
       {/* Header: logo + school name */}
       <div
@@ -351,29 +251,7 @@ export const CertificateArtwork = ({
         DATE: {dateText}
       </p>
 
-      {/* Rolled diploma scroll between the signatures */}
-      <svg
-        style={{ position: "absolute", left: 513, top: 690, width: 96, height: 53 }}
-        viewBox="0 0 200 110"
-      >
-        <defs>
-          <linearGradient id="certScroll" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#f7dd9b" />
-            <stop offset="55%" stopColor="#e6c063" />
-            <stop offset="100%" stopColor="#c79f3f" />
-          </linearGradient>
-        </defs>
-        <rect x="26" y="34" width="148" height="44" rx="6" fill="url(#certScroll)" />
-        <path d="M40,44 H160 M40,56 H160 M40,68 H140" stroke="#c9a24a" strokeWidth="2" opacity="0.45" />
-        <ellipse cx="28" cy="56" rx="15" ry="26" fill="#e8c470" stroke="#b8912f" strokeWidth="2" />
-        <ellipse cx="28" cy="56" rx="6" ry="11" fill="#c79f3f" />
-        <ellipse cx="172" cy="56" rx="15" ry="26" fill="#e8c470" stroke="#b8912f" strokeWidth="2" />
-        <ellipse cx="172" cy="56" rx="6" ry="11" fill="#c79f3f" />
-        <rect x="86" y="30" width="13" height="52" fill="#ef5b93" />
-        <path d="M92,40 C72,20 60,34 78,44 Z" fill="#f4749f" />
-        <path d="M94,40 C114,20 126,34 108,44 Z" fill="#f4749f" />
-        <circle cx="93" cy="43" r="6" fill="#ef5b93" />
-      </svg>
+      <DiplomaScroll />
 
       {/* Verification line, along the very bottom edge */}
       {serial && (
@@ -420,12 +298,225 @@ export const CertificateArtwork = ({
   );
 };
 
+const RuleDiamond = ({ size }: { size: number }) => (
+  <span style={{ width: size, height: size, background: NAVY, transform: "rotate(45deg)", flex: "none" }} />
+);
+
+/** CSS for one of the shared text styles, at a layout's font scale. */
+const textCss = (style: CertificateTextStyle, scale: number): CSSProperties => ({
+  margin: 0,
+  color: style.color,
+  fontFamily: style.fontFamily,
+  fontSize: style.fontSize * scale,
+  fontWeight: style.fontWeight,
+  fontStyle: style.italic ? "italic" : undefined,
+  lineHeight: style.lineHeight,
+  letterSpacing: style.letterSpacingEm ? `${style.letterSpacingEm}em` : undefined,
+  textTransform: style.uppercase ? "uppercase" : undefined,
+});
+
+/**
+ * Puts one element's box on the sheet by its layout anchor. The translate
+ * turns "left/top of the box" into whichever point the element is anchored by
+ * (its top centre, its bottom-right, ...), so the box can size to its content.
+ */
+const Placed = ({
+  element,
+  position,
+  children,
+}: {
+  element: LayoutElementKey;
+  position: LayoutPosition;
+  children: ReactNode;
+}) => {
+  const { anchorX, anchorY } = LAYOUT_ELEMENTS[element];
+  const tx = anchorX === "center" ? "-50%" : anchorX === "right" ? "-100%" : "0";
+  const ty = anchorY === "bottom" ? "-100%" : "0";
+  return (
+    <div
+      data-layout-element={element}
+      style={{
+        position: "absolute",
+        left: position.x * CERTIFICATE_WIDTH,
+        top: position.y * CERTIFICATE_HEIGHT,
+        transform: `translate(${tx}, ${ty})`,
+        width: position.width ? position.width * CERTIFICATE_WIDTH : undefined,
+        whiteSpace: position.width ? undefined : "nowrap",
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
+/**
+ * The certificate with every element placed by a saved layout. The defaults
+ * reproduce FixedArtwork's positions; the student code and second line of body
+ * text follow the name and the first line until they are placed on their own.
+ */
+const LaidOutArtwork = ({
+  layout,
+  recipientName,
+  studentCode,
+  dateText,
+  mainText,
+  subText,
+  signatories,
+  serial,
+  verifyHost,
+}: CertificateArtworkProps & { layout: CertificateLayout }) => {
+  const at = resolveCertificateLayout(layout);
+  const scale = (key: LayoutElementKey) => at[key]?.fontScale ?? 1;
+  const [left, right] = signatories;
+  const T = CERTIFICATE_TEXT;
+
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: CERTIFICATE_WIDTH,
+        height: CERTIFICATE_HEIGHT,
+        overflow: "hidden",
+        background: CREAM,
+        flex: "none",
+      }}
+    >
+      <CertificateBackdrop />
+      <DiplomaScroll />
+
+      <Placed element="header" position={at.header}>
+        <div style={{ display: "flex", alignItems: "center", gap: HEADER_GAP * scale("header") }}>
+          <div
+            style={{
+              width: LOGO_DISC * scale("header"),
+              height: LOGO_DISC * scale("header"),
+              borderRadius: "50%",
+              background: "#ffffff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flex: "none",
+              boxShadow: "0 1px 5px rgba(0,0,0,0.08)",
+            }}
+          >
+            <img
+              src="/certificate-logo.png"
+              alt="Spirit Life School of Ministry"
+              style={{
+                width: LOGO_IMAGE * scale("header"),
+                height: LOGO_IMAGE * scale("header"),
+                objectFit: "contain",
+                borderRadius: "50%",
+              }}
+            />
+          </div>
+          <h2 style={textCss(T.header, scale("header"))}>
+            School of
+            <br />
+            Ministry
+          </h2>
+        </div>
+      </Placed>
+
+      <Placed element="title" position={at.title}>
+        <div style={textCss(T.title, scale("title"))}>Certificate of Completion</div>
+      </Placed>
+
+      <Placed element="certify" position={at.certify}>
+        <p style={textCss(T.certify, scale("certify"))}>This is to proudly certify that</p>
+      </Placed>
+
+      <Placed element="recipientName" position={at.recipientName}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "center",
+            gap: NAME_CODE_GAP * scale("recipientName"),
+          }}
+        >
+          <h1 style={{ ...textCss(T.recipientName, scale("recipientName")), textAlign: "center" }}>
+            {recipientName}
+          </h1>
+          {studentCode && !at.studentCode && (
+            <span style={{ ...textCss(T.studentCode, scale("recipientName")), whiteSpace: "nowrap" }}>
+              {studentCode}
+            </span>
+          )}
+        </div>
+      </Placed>
+
+      {studentCode && at.studentCode && (
+        <Placed element="studentCode" position={at.studentCode}>
+          <span style={{ ...textCss(T.studentCode, scale("studentCode")), display: "block" }}>
+            {studentCode}
+          </span>
+        </Placed>
+      )}
+
+      <Placed element="rule" position={at.rule}>
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <RuleDiamond size={RULE_DIAMOND * scale("rule")} />
+          <span style={{ flex: 1, height: 2 * scale("rule"), background: NAVY }} />
+          <RuleDiamond size={RULE_DIAMOND * scale("rule")} />
+        </div>
+      </Placed>
+
+      <Placed element="mainText" position={at.mainText}>
+        <p style={{ ...textCss(T.mainText, scale("mainText")), textAlign: "center" }}>
+          {mainText}
+          {subText && !at.subText && (
+            <>
+              <br />
+              {subText}
+            </>
+          )}
+        </p>
+      </Placed>
+
+      {subText && at.subText && (
+        <Placed element="subText" position={at.subText}>
+          <p style={{ ...textCss(T.mainText, scale("subText")), textAlign: "center" }}>{subText}</p>
+        </Placed>
+      )}
+
+      <Placed element="date" position={at.date}>
+        <p style={textCss(T.date, scale("date"))}>DATE: {dateText}</p>
+      </Placed>
+
+      {serial && (
+        <Placed element="serial" position={at.serial}>
+          <p style={textCss(T.serial, scale("serial"))}>
+            {verifyHost ? `Verify at ${verifyHost} — ` : "Certificate No. "}
+            {serial}
+          </p>
+        </Placed>
+      )}
+
+      <Placed element="signatory1" position={at.signatory1}>
+        <SignatoryBlock signatory={left} scale={scale("signatory1")} />
+      </Placed>
+      <Placed element="signatory2" position={at.signatory2}>
+        <SignatoryBlock signatory={right} scale={scale("signatory2")} />
+      </Placed>
+    </div>
+  );
+};
+
 /**
  * One signature column. A drawn signature sits above the name; the block
  * collapses to nothing rather than printing an empty rule if a cohort has only
  * one signatory configured.
  */
-const SignatoryBlock = ({ signatory }: { signatory?: CertificateSignatory }) => {
+const SignatoryBlock = ({
+  signatory,
+  scale = 1,
+}: {
+  signatory?: CertificateSignatory;
+  /** Layout font scale; 1 for the fixed artwork. */
+  scale?: number;
+}) => {
   const name = signatory?.name?.trim();
   const title = signatory?.title?.trim();
   if (!name && !title && !signatory?.signatureUrl) return <div />;
@@ -440,8 +531,8 @@ const SignatoryBlock = ({ signatory }: { signatory?: CertificateSignatory }) => 
           // above a printed name does.
           style={{
             display: "block",
-            height: 54,
-            margin: "0 auto -8px",
+            height: SIGNATURE_HEIGHT * scale,
+            margin: `0 auto ${-SIGNATURE_OVERLAP * scale}px`,
             objectFit: "contain",
           }}
         />
@@ -452,7 +543,7 @@ const SignatoryBlock = ({ signatory }: { signatory?: CertificateSignatory }) => 
             margin: 0,
             color: NAVY,
             fontFamily: SERIF,
-            fontSize: 20,
+            fontSize: 20 * scale,
             fontWeight: 700,
             textTransform: "uppercase",
           }}
@@ -466,7 +557,7 @@ const SignatoryBlock = ({ signatory }: { signatory?: CertificateSignatory }) => 
             margin: 0,
             color: "#5f6672",
             fontFamily: SERIF,
-            fontSize: 19,
+            fontSize: 19 * scale,
             fontWeight: 400,
             letterSpacing: "0.04em",
             textTransform: "uppercase",
@@ -478,3 +569,168 @@ const SignatoryBlock = ({ signatory }: { signatory?: CertificateSignatory }) => 
     </div>
   );
 };
+
+/**
+ * Everything on the sheet that is decoration rather than content: the paper,
+ * ribbons and medal. Shared by the fixed artwork, the layout mode and the
+ * layout editor (which draws it behind its canvas), so all three show the same
+ * sheet.
+ */
+export const CertificateBackdrop = () => (
+  <>
+    {/* Ivory paper ground with a faint warm sheen */}
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        background:
+          "radial-gradient(120% 90% at 15% 10%, #fffdf6 0%, #fdf9ec 45%, #f7f1de 100%)",
+      }}
+    />
+
+    {/* Cream ribbon sweeping out of the top-left corner */}
+    <svg
+      style={{ position: "absolute", top: 0, left: 0, width: 472, height: 175 }}
+      viewBox="0 0 700 260"
+      preserveAspectRatio="none"
+    >
+      <path
+        d="M0,0 H660 C440,26 210,74 70,158 C38,180 14,212 0,236 Z"
+        fill="#f3ead4"
+        opacity="0.75"
+      />
+      <path
+        d="M0,0 H430 C300,22 160,58 66,124 C36,146 14,176 0,198 Z"
+        fill="#ece0c0"
+        opacity="0.6"
+      />
+      {Array.from({ length: 6 }).map((_, i) => (
+        <path
+          key={i}
+          d={`M0,${34 + i * 30} C170,${16 + i * 26} 400,${-4 + i * 22} 660,${-44 + i * 20}`}
+          fill="none"
+          stroke="#e0d2ab"
+          strokeWidth="3"
+          opacity={0.55 - i * 0.06}
+        />
+      ))}
+    </svg>
+
+    {/* Matching whisper of ribbon in the bottom-right corner */}
+    <svg
+      style={{ position: "absolute", bottom: 0, right: 0, width: 382, height: 127 }}
+      viewBox="0 0 560 200"
+      preserveAspectRatio="none"
+    >
+      {Array.from({ length: 4 }).map((_, i) => (
+        <path
+          key={i}
+          d={`M560,${170 - i * 26} C380,${190 - i * 22} 170,${196 - i * 18} 0,${210 - i * 16}`}
+          fill="none"
+          stroke="#e6dabb"
+          strokeWidth="3"
+          opacity={0.4 - i * 0.07}
+        />
+      ))}
+    </svg>
+
+    {/* Layered purple-to-magenta ribbon fan, bottom-left corner */}
+    <svg
+      style={{ position: "absolute", bottom: 0, left: 0, width: 290, height: 205 }}
+      viewBox="0 0 460 340"
+      preserveAspectRatio="none"
+    >
+      <path d="M0,26 C150,110 285,225 360,340 L0,340 Z" fill="#3a1878" />
+      <path d="M0,96 C140,168 250,258 306,340 L0,340 Z" fill="#7b28c4" />
+      <path d="M0,158 C118,214 205,272 252,340 L0,340 Z" fill="#c4359f" />
+      <path d="M0,214 C92,252 152,296 190,340 L0,340 Z" fill="#f4499f" />
+      <path d="M0,272 C58,296 104,318 128,340 L0,340 Z" fill="#ff77bd" opacity="0.85" />
+    </svg>
+
+    {/* Gold medal with red rosette and ribbon tails, top-right */}
+    <svg
+      style={{ position: "absolute", top: 12, right: 39, width: 258, height: 323 }}
+      viewBox="0 0 240 300"
+    >
+      <defs>
+        <radialGradient id="certGoldOuter" cx="38%" cy="30%" r="75%">
+          <stop offset="0%" stopColor="#f7e6a8" />
+          <stop offset="45%" stopColor="#d7b558" />
+          <stop offset="100%" stopColor="#9d7c26" />
+        </radialGradient>
+        <radialGradient id="certGoldInner" cx="42%" cy="34%" r="72%">
+          <stop offset="0%" stopColor="#fbf1c8" />
+          <stop offset="40%" stopColor="#dcbe66" />
+          <stop offset="100%" stopColor="#b28f34" />
+        </radialGradient>
+      </defs>
+
+      {/* Ribbon tails hanging below the medal */}
+      <path d="M92,152 L58,296 L104,258 L112,164 Z" fill="#c62828" />
+      <path d="M148,152 L182,296 L136,258 L128,164 Z" fill="#c62828" />
+      <path d="M148,152 L164,220 L136,206 Z" fill="#a81f1f" opacity="0.5" />
+
+      {/* Scalloped red rosette */}
+      {Array.from({ length: 22 }).map((_, i) => {
+        const a = (i * Math.PI * 2) / 22;
+        return (
+          <circle
+            key={i}
+            cx={120 + 78 * Math.cos(a)}
+            cy={120 + 78 * Math.sin(a)}
+            r="24"
+            fill={i % 2 ? "#c0261f" : "#d63028"}
+          />
+        );
+      })}
+      <circle cx="120" cy="120" r="82" fill="#cf2a22" />
+
+      {/* Gold discs */}
+      <circle cx="120" cy="120" r="70" fill="url(#certGoldOuter)" />
+      <circle cx="120" cy="120" r="62" fill="#b8912f" />
+      <circle cx="120" cy="120" r="58" fill="url(#certGoldInner)" />
+
+      {/* Brushed-metal spokes across the inner disc */}
+      {Array.from({ length: 36 }).map((_, i) => {
+        const a1 = (i * Math.PI * 2) / 36;
+        const a2 = ((i + 0.5) * Math.PI * 2) / 36;
+        return (
+          <path
+            key={i}
+            d={`M120,120 L${120 + 58 * Math.cos(a1)},${120 + 58 * Math.sin(a1)} L${120 + 58 * Math.cos(a2)},${120 + 58 * Math.sin(a2)} Z`}
+            fill={i % 2 ? "#c9a54a" : "#e6cd82"}
+            opacity="0.18"
+          />
+        );
+      })}
+      <circle cx="120" cy="120" r="58" fill="url(#certGoldInner)" opacity="0.6" />
+      <ellipse cx="98" cy="96" rx="26" ry="18" fill="#fdf4d2" opacity="0.2" />
+    </svg>
+  </>
+);
+
+/** The rolled diploma between the signatures. Decoration; it does not move with a layout. */
+export const DiplomaScroll = () => (
+  <svg
+    style={{ position: "absolute", left: 513, top: 690, width: 96, height: 53 }}
+    viewBox="0 0 200 110"
+  >
+    <defs>
+      <linearGradient id="certScroll" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#f7dd9b" />
+        <stop offset="55%" stopColor="#e6c063" />
+        <stop offset="100%" stopColor="#c79f3f" />
+      </linearGradient>
+    </defs>
+    <rect x="26" y="34" width="148" height="44" rx="6" fill="url(#certScroll)" />
+    <path d="M40,44 H160 M40,56 H160 M40,68 H140" stroke="#c9a24a" strokeWidth="2" opacity="0.45" />
+    <ellipse cx="28" cy="56" rx="15" ry="26" fill="#e8c470" stroke="#b8912f" strokeWidth="2" />
+    <ellipse cx="28" cy="56" rx="6" ry="11" fill="#c79f3f" />
+    <ellipse cx="172" cy="56" rx="15" ry="26" fill="#e8c470" stroke="#b8912f" strokeWidth="2" />
+    <ellipse cx="172" cy="56" rx="6" ry="11" fill="#c79f3f" />
+    <rect x="86" y="30" width="13" height="52" fill="#ef5b93" />
+    <path d="M92,40 C72,20 60,34 78,44 Z" fill="#f4749f" />
+    <path d="M94,40 C114,20 126,34 108,44 Z" fill="#f4749f" />
+    <circle cx="93" cy="43" r="6" fill="#ef5b93" />
+  </svg>
+);

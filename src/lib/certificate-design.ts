@@ -1,3 +1,5 @@
+import type { CertificateLayout } from "@/lib/certificate-layout";
+
 // The certificate is drawn once, at one size: A4 landscape at 96dpi. Every
 // measurement in CertificateArtwork is a fixed pixel figure taken off the
 // printed original, so the rendered document does not depend on the width of
@@ -61,4 +63,9 @@ export type CertificateArtworkProps = {
   serial?: string | null;
   /** Host shown beside the serial, e.g. "spiritlifesom.org/verify". */
   verifyHost?: string | null;
+  /**
+   * Saved positions for this cohort (cohort_certificate_settings.layout). Absent
+   * or null draws the original fixed artwork.
+   */
+  layout?: CertificateLayout | null;
 };

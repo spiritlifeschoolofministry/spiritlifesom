@@ -761,18 +761,21 @@ export type Database = {
       cohort_certificate_settings: {
         Row: {
           cohort_id: string
+          layout: Json | null
           signatories: Json
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           cohort_id: string
+          layout?: Json | null
           signatories?: Json
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           cohort_id?: string
+          layout?: Json | null
           signatories?: Json
           updated_at?: string
           updated_by?: string | null

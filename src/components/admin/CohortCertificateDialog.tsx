@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Check, Loader2 } from "lucide-react";
+import { Check, LayoutTemplate, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { CertificateArtwork } from "@/components/certificate/CertificateArtwork";
 import { CertificateFrame } from "@/components/certificate/CertificateFrame";
@@ -26,6 +26,11 @@ import {
   withEmptySlots,
 } from "@/lib/certificate-signatories";
 import { CERTIFICATE_VERIFY_HOST } from "@/lib/certificate-serial";
+import { parseCertificateLayout, type CertificateLayout } from "@/lib/certificate-layout";
+
+// The layout editor is the only thing in the app that uses konva, so it loads
+// only when a superadmin opens it.
+const CertificateLayoutEditor = lazy(() => import("@/components/admin/CertificateLayoutEditor"));
 
 export type EditableCohort = {
   id: string;
@@ -67,6 +72,8 @@ export const CohortCertificateDialog = ({
   const [mainText, setMainText] = useState("");
   const [subText, setSubText] = useState("");
   const [signatories, setSignatories] = useState<CertificateSignatory[]>([]);
+  const [layout, setLayout] = useState<CertificateLayout | null>(null);
+  const [layoutEditorOpen, setLayoutEditorOpen] = useState(false);
 
   useEffect(() => {
     if (!cohort || !open) return;
@@ -78,7 +85,7 @@ export const CohortCertificateDialog = ({
 
     supabase
       .from("cohort_certificate_settings")
-      .select("signatories")
+      .select("signatories, layout")
       .eq("cohort_id", cohort.id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -87,6 +94,7 @@ export const CohortCertificateDialog = ({
           toast.error("Could not load this cohort's signatories");
         }
         setSignatories(withEmptySlots(parseSignatories(data?.signatories)));
+        setLayout(parseCertificateLayout(data?.layout));
         setLoading(false);
       });
   }, [cohort, open]);
@@ -146,6 +154,19 @@ export const CohortCertificateDialog = ({
     } finally {
       setSaving(false);
     }
+  };
+
+  // The sample certificate shown in the preview and laid out in the editor: this
+  // cohort's own wording and signatories, with a placeholder graduate.
+  const sample = {
+    recipientName: "Adebayo Oluwaseun Grace",
+    studentCode: "SLSM/BBM/2025/001",
+    dateText: formatDate(graduationDate || null),
+    mainText: mainText.trim() || DEFAULT_MAIN_TEXT,
+    subText: subText.trim() || null,
+    signatories,
+    serial: "SLSM-4K7P-92XT",
+    verifyHost: CERTIFICATE_VERIFY_HOST,
   };
 
   return (
@@ -245,20 +266,22 @@ export const CohortCertificateDialog = ({
 
             {/* Live preview */}
             <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Preview
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Preview{layout ? " · custom layout" : ""}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => setLayoutEditorOpen(true)}
+                >
+                  <LayoutTemplate className="h-4 w-4" /> Edit layout
+                </Button>
+              </div>
               <CertificateFrame className="rounded-lg border border-border shadow-sm">
-                <CertificateArtwork
-                  recipientName="Adebayo Oluwaseun Grace"
-                  studentCode="SLSM/BBM/2025/001"
-                  dateText={formatDate(graduationDate || null)}
-                  mainText={mainText.trim() || DEFAULT_MAIN_TEXT}
-                  subText={subText.trim() || null}
-                  signatories={signatories}
-                  serial="SLSM-4K7P-92XT"
-                  verifyHost={CERTIFICATE_VERIFY_HOST}
-                />
+                <CertificateArtwork {...sample} layout={layout} />
               </CertificateFrame>
               <p className="text-[11px] text-muted-foreground">
                 Sample name, code and certificate number. Each graduate's own details are filled in
@@ -278,6 +301,20 @@ export const CohortCertificateDialog = ({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {cohort && layoutEditorOpen && (
+        <Suspense fallback={null}>
+          <CertificateLayoutEditor
+            open={layoutEditorOpen}
+            onOpenChange={setLayoutEditorOpen}
+            cohortId={cohort.id}
+            cohortName={cohort.name}
+            content={sample}
+            initialLayout={layout}
+            onSaved={setLayout}
+          />
+        </Suspense>
+      )}
     </Dialog>
   );
 };

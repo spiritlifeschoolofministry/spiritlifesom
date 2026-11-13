@@ -50,10 +50,13 @@ export function summarisePublicFees(
   if (totals.length === 0) return { kind: "none" };
 
   const cohortName = list[0]?.cohort_name ?? null;
-  const allSame = totals.length === PUBLIC_MODES.length && totals.every((t) => t.total === totals[0].total);
-  const text = allSame
-    ? formatNaira(totals[0].total)
-    : totals.map((t) => `${formatNaira(t.total)} ${t.mode.toLowerCase()}`).join(" · ");
+  // School policy: studying in person (Physical) is free. Physical-only rows
+  // are course handouts, not school fees, so the public line never quotes a
+  // price for Physical — it says it is free.
+  const online = totals.find((t) => t.mode === "Online");
+  const text = online
+    ? `${formatNaira(online.total)} online · free for physical students`
+    : "Free for physical students";
 
   return { kind: "live", text, cohortName };
 }

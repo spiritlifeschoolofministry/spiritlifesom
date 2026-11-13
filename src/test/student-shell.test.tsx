@@ -69,7 +69,7 @@ describe("student shell", () => {
   it("marks the current page for assistive tech", () => {
     renderAt("/student/dashboard");
     const current = screen.getAllByRole("link", { current: "page" });
-    expect(current.map((el) => el.textContent)).toContain("Today");
+    expect(current.map((el) => el.textContent)).toContain("Dashboard");
   });
 
   it("keeps Exams marked as current on a nested exam route", () => {
@@ -100,7 +100,7 @@ describe("student shell", () => {
     expect(screen.queryByRole("link", { name: "Assessments" })).not.toBeInTheDocument();
   });
 
-  it("shows the pending banner off Today, where the tracker takes its place", () => {
+  it("shows the pending banner off the dashboard, where the tracker takes its place", () => {
     authState.current = auth({ student: { admission_status: "PENDING" } as never });
     const { unmount } = renderAt("/student/dashboard");
     expect(screen.queryByText(/application is under review/i)).not.toBeInTheDocument();

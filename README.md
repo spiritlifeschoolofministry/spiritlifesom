@@ -114,6 +114,15 @@ Guidelines:
 - **Cheap to run.** It renders only while on screen (IntersectionObserver), holds a still angle under reduced motion, and caps the pixel ratio at 2.
 - **Accessible.** The canvas is `aria-hidden`; the same details are on the page as text. The card text layout is tested in `src/test/certificate-card.test.ts`.
 
+### Certificate layout editor
+
+Superadmins can move the elements of a cohort's certificate: **Admin › Settings › Certificates › Edit** (a cohort) **› Edit layout**. Drag the logo/school name, title, "certify" line, recipient name, student code, rule, main text, sub text, date, serial/verify line and each signatory block; they snap to the sheet's centre lines. For keyboard use, pick an element from the list and move it with the arrow keys (Shift = 10px), or type its position, size and (for text blocks) width. **Reset to default** puts everything back; **Save layout** stores it for that cohort.
+
+- **Where it is stored.** `cohort_certificate_settings.layout` (jsonb, nullable), added by `supabase/migrations/20261114090000_certificate_layout.sql`. The existing policies apply unchanged: staff and the cohort's own students read it, only superadmins (the `admin` role) write it.
+- **Shape.** An object keyed by element (`header`, `title`, `certify`, `recipientName`, `studentCode`, `rule`, `mainText`, `subText`, `date`, `serial`, `signatory1`, `signatory2`), each `{ x, y, fontScale?, width? }`. `x`/`y` are the element's anchor point as fractions 0–1 of the A4-landscape sheet (top centre for most, top-left for the header, bottom-left/bottom-right for the signatories). `fontScale` multiplies the type size; `width` is a wrapping block's width as a fraction of the sheet. Missing elements keep their default place; the student code and sub text follow the name and main text until they are moved. Only changed elements are saved, and a layout with no changes saves as `null`.
+- **Where it is used.** `CertificateArtwork` takes a `layout` prop. With `null` it draws the original fixed certificate, unchanged; with a layout it places each element by it. The student Certificate page (screen, Print, PDF/PNG export) and the admin preview both load and pass it.
+- **Code.** `src/lib/certificate-layout.ts` (type, defaults, `parseCertificateLayout`, `serialiseCertificateLayout`, geometry helpers; tested in `src/test/certificate-layout.test.ts`), `src/components/admin/CertificateLayoutEditor.tsx` (react-konva, loaded with `React.lazy` so konva stays out of every other chunk). `src/test/certificate-artwork.test.tsx` checks that a certificate with no layout renders exactly as before.
+
 ## Graphics, charts and animation libraries
 
 Import the heavy ones only from pages loaded with `React.lazy`, or with a dynamic `import()`, so they stay out of the main bundle.
@@ -124,7 +133,7 @@ Import the heavy ones only from pages loaded with `React.lazy`, or with a dynami
 | Animation | `gsap` + `@gsap/react` | ^3.15 / ^2.1 | Home page scroll effects. Planned (homepage redesign, on the `homepage-redesign` branch). |
 | Charts | `recharts` | ^3.10 | Dashboard charts (admin Analytics) |
 | Charts | `d3` (+ `@types/d3`, dev) | ^7.9 | Cohort funnel scale (admin Analytics) |
-| 2D | `konva` + `react-konva` | ^10.9 / ^19.3 | Canvas editing (certificate layout editor). Planned; needs a place to store positions. |
+| 2D | `konva` + `react-konva` | ^10.9 / ^19.3 | Certificate layout editor (see "Certificate layout editor"), in its own lazy chunk |
 | 3D | `three` (+ `@react-three/fiber`, `@react-three/drei` for `SceneCanvas`) | see "3D graphics" | 3D certificate card (see "3D graphics") |
 
 Removed in November 2026 because nothing used them and other packages already cover them: Babylon.js (`@babylonjs/core`, `@babylonjs/loaders`, `babylonjs-gltf2interface`), PixiJS (`pixi.js`, `@pixi/react`), `animejs`, and Chart.js (`chart.js`, `react-chartjs-2`).
@@ -165,11 +174,11 @@ Built to the boards on the "SLSOM Redesign" canvas (everything except the home p
 
 ## Portal navigation
 
-- **Student portal** (`src/components/StudentLayout.tsx`): sections are Today (the dashboard), Learn (courses, materials, tasks, study), Exams, My Record (attendance, assessments, transcript, certificate, fees), Community and Account. On phones the bottom bar has one tab per section (Today, Learn, Exams, Record, More), and the pages of the current section sit in a tab strip above the content. URLs are unchanged.
+- **Student portal** (`src/components/StudentLayout.tsx`): sections are Dashboard, Learn (courses, materials, tasks, study), Exams, My Record (attendance, assessments, transcript, certificate, fees), Community and Account. On phones the bottom bar has one tab per section (Dashboard, Learn, Exams, Record, More), and the pages of the current section sit in a tab strip above the content. URLs are unchanged. The sidebar (and the phone menu drawer) runs the full height of the screen with one button pinned at the bottom: "Switch to admin" for staff, "Sign out" for students.
 - **Student exams** (`src/pages/student/exams/ExamsList.tsx`): papers that share a window (same start and end) are grouped under one heading with "x of n done", live windows first. While a window is open the heading compares the time left with the time the unsubmitted papers need. Grouping logic: `src/lib/exam-windows.ts` (tested in `src/test/exam-windows.test.ts`).
 - **Admin portal** (`src/components/AdminLayout.tsx`): sections are People, Teaching (courses, attendance, tasks, practice questions, materials, calendar), Exams, Money, Reach (announcements, email history), Insights and System.
 - **Admin dashboard, "Needs your attention"**: besides admissions, receipts and requests it now counts unverified check-ins, exam attempts submitted but not yet graded, and WhatsApp chats handed to a person and still open.
-- **Up next on Today** (`src/components/student/UpNext.tsx`): the first card on the student dashboard. An open exam window wins (papers done, time left versus time needed), then the soonest window in the next 14 days, then the next class that counts for attendance (with a Check in link on the day). It renders nothing when none of those exist.
+- **Up next on the dashboard** (`src/components/student/UpNext.tsx`): the first card on the student dashboard. An open exam window wins (papers done, time left versus time needed), then the soonest window in the next 14 days, then the next class that counts for attendance (with a Check in link on the day). It renders nothing when none of those exist.
 - **Page transitions** (`src/components/motion/PageTransition.tsx`): pages inside the student and admin shells fade and lift in on navigation (Framer Motion, `LazyMotion` + `domAnimation`, only in the portal chunks). No exit animation, because lazy pages behind Suspense would flash blank. Off when the device asks for reduced motion.
 - **Attendance heatmap** (admin Attendance, `src/components/charts/AttendanceHeatmap.tsx`): students × the last 20 classes that count, lowest attendance first, following the statistics' cohort filter. Cells: present (blue), late (amber), checked in but not verified (hatched), absent (dark orange), excused (lilac); colours differ in lightness, not hue alone. Data shaping in `src/lib/attendance-heatmap.ts` (tested). The verification queue's rows slide out when verified or declined.
 - **Cohort funnel** (admin Analytics, Records tab, `src/components/charts/CohortFunnel.tsx`): Applied → Admitted (admitted + graduates) → Graduated, with conversion, using a d3 scale for bar widths. Counting in `src/lib/cohort-funnel.ts` (tested).
@@ -180,7 +189,7 @@ Built to the boards on the "SLSOM Redesign" canvas (everything except the home p
 The "Begin Your Ministry Journey" section on `/` shows what the programme costs, from one of two sources:
 
 1. **An admin's note.** Admin › Settings › Site content › `home` › "Fees line on the home page". Whatever is written there is shown as is (for example "₦50,000, payable in two instalments").
-2. **Live fees**, when that note is empty. The `public_fee_summary()` database function returns the fee structures of the active cohort (the one Register uses): fee name, amount and learning modes, and nothing about any student. The page totals them per learning mode, counting `All` for both, so it quotes what a new Physical or Online student is billed. Hybrid is assigned by admins, so it isn't quoted.
+2. **Live fees**, when that note is empty. The `public_fee_summary()` database function returns the fee structures of the active cohort (the one Register uses): fee name, amount and learning modes, and nothing about any student. The page totals the Online fees (counting `All`) and quotes that, followed by "free for physical students": studying in person is free, and Physical-only rows are course handouts, not school fees. For example "₦30,000 online · free for physical students". With no Online fees it reads "Free for physical students". Hybrid is assigned by admins, so it isn't quoted.
 
 `fee_structures` itself stays closed to visitors. The function is the only public way in. It ships in `supabase/migrations/20261113100000_public_fee_summary.sql`, which also adds the empty site-content row. If neither source has anything, the line is hidden. The logic is in `src/lib/public-fees.ts` (tested in `src/test/public-fees.test.ts`) and `src/hooks/use-public-fees.ts`.
 

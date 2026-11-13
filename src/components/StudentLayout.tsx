@@ -70,7 +70,7 @@ const NAV_GROUPS: NavGroup[] = [
     id: "overview",
     title: null,
     items: [
-      { label: "Today", icon: LayoutDashboard, path: "/student/dashboard", restrictedWhenPending: false },
+      { label: "Dashboard", icon: LayoutDashboard, path: "/student/dashboard", restrictedWhenPending: false },
     ],
   },
   {
@@ -143,7 +143,7 @@ export const STUDENT_NAV_PATHS = NAV_PATHS;
  * section the pages sit in a tab strip at the top of the content.
  */
 const MOBILE_TABS: { label: string; icon: LucideIcon; path: string; group: string }[] = [
-  { label: "Today", icon: LayoutDashboard, path: "/student/dashboard", group: "overview" },
+  { label: "Dashboard", icon: LayoutDashboard, path: "/student/dashboard", group: "overview" },
   { label: "Learn", icon: BookOpen, path: "/student/courses", group: "learning" },
   { label: "Exams", icon: FileCheck, path: "/student/exams", group: "exams" },
   { label: "Record", icon: GraduationCap, path: "/student/attendance", group: "record" },
@@ -205,6 +205,31 @@ const StudentLayout = () => {
   useEffect(() => {
     trackView(location.pathname, "student", cohortId);
   }, [location.pathname, cohortId]);
+
+  /** Bottom of the sidebar: "Switch to admin" for staff, "Sign out" for students. */
+  const sidebarFooter = (closeOnNavigate?: boolean) => (
+    <div className="mt-auto border-t border-primary-foreground/15 p-3">
+      {isAdmin ? (
+        <Link
+          to="/admin"
+          onClick={closeOnNavigate ? () => setSidebarOpen(false) : undefined}
+          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl gradient-flame px-3 text-sm font-bold shadow-md transition-opacity hover:opacity-90"
+        >
+          <Shield className="h-4 w-4 shrink-0" aria-hidden="true" />
+          Switch to admin
+        </Link>
+      ) : (
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-primary-foreground/30 px-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary-foreground/10"
+        >
+          <LogOut className="h-4 w-4 shrink-0" aria-hidden="true" />
+          Sign out
+        </button>
+      )}
+    </div>
+  );
 
   const handleLogout = async () => {
     await signOut();
@@ -392,7 +417,7 @@ const StudentLayout = () => {
   };
 
   return (
-    <div className="flex min-h-screen supports-[min-height:100dvh]:min-h-[100dvh] flex-col bg-background">
+    <div className="flex h-screen supports-[height:100dvh]:h-[100dvh] flex-col bg-background">
       <a
         href="#student-main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:text-primary-foreground"
@@ -508,20 +533,13 @@ const StudentLayout = () => {
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Sidebar - desktop */}
         <TooltipProvider>
-          <aside className="hidden md:flex flex-col w-56 shrink-0 h-full gradient-purple text-primary-foreground overflow-y-auto">
-            <nav className="flex-1 py-4 px-2" aria-label="Student sections">
+          <aside className="hidden md:flex flex-col w-56 shrink-0 gradient-purple text-primary-foreground">
+            <nav className="flex-1 overflow-y-auto py-4 px-2" aria-label="Student sections">
               {renderSidebarGroups()}
-              {/* Admin link in sidebar for admins/teachers */}
-              {isAdmin && (
-                <Link
-                  to="/admin"
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 mt-4 border-t border-primary-foreground/20 pt-4"
-                >
-                  <Shield className="w-4 h-4 shrink-0" />
-                  Admin Portal
-                </Link>
-              )}
             </nav>
+            {/* Pinned to the bottom of the full-height sidebar: staff switch back
+                to the admin portal, students sign out. */}
+            {sidebarFooter()}
           </aside>
         </TooltipProvider>
 
@@ -536,22 +554,13 @@ const StudentLayout = () => {
                 role="dialog"
                 aria-modal="true"
                 aria-label="Student navigation"
-                className="absolute left-0 top-0 bottom-0 w-60 gradient-purple text-primary-foreground overflow-y-auto pt-14"
+                className="absolute left-0 top-0 bottom-0 flex w-60 flex-col gradient-purple text-primary-foreground pt-14 pb-[env(safe-area-inset-bottom)]"
                 onClick={(e) => e.stopPropagation()}
               >
-                <nav className="py-4 px-2" aria-label="Student sections">
+                <nav className="min-h-0 flex-1 overflow-y-auto py-4 px-2" aria-label="Student sections">
                   {renderSidebarGroups(true)}
-                  {isAdmin && (
-                    <Link
-                      to="/admin"
-                      onClick={() => setSidebarOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-foreground/80 hover:bg-primary-foreground/10 mt-4 border-t border-primary-foreground/20 pt-4"
-                    >
-                      <Shield className="w-4 h-4 shrink-0" />
-                      Admin Portal
-                    </Link>
-                  )}
                 </nav>
+                {sidebarFooter(true)}
               </aside>
             </TooltipProvider>
           </div>

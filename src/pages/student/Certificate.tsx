@@ -24,6 +24,7 @@ import {
   type CertificateSignatory,
 } from "@/lib/certificate-design";
 import { DEFAULT_SIGNATORIES, parseSignatories } from "@/lib/certificate-signatories";
+import { parseCertificateLayout, type CertificateLayout } from "@/lib/certificate-layout";
 import { CERTIFICATE_VERIFY_HOST, certificateVerifyUrl } from "@/lib/certificate-serial";
 import { CertificateFrame } from "@/components/certificate/CertificateFrame";
 import LazyCertificate3D from "@/components/three/LazyCertificate3D";
@@ -42,6 +43,7 @@ const StudentCertificate = () => {
   const [isPendingVerification, setIsPendingVerification] = useState(false);
   const [originalFullName, setOriginalFullName] = useState("");
   const [signatories, setSignatories] = useState<CertificateSignatory[]>(DEFAULT_SIGNATORIES);
+  const [layout, setLayout] = useState<CertificateLayout | null>(null);
   const [serial, setSerial] = useState<string | null>(null);
 
   useEffect(() => {
@@ -76,14 +78,18 @@ const StudentCertificate = () => {
         if (data) setCohortData(data);
       });
 
-      // Who signs this cohort's certificates. A cohort with no row falls back to
-      // the pair that was hardcoded before this was configurable.
+      // Who signs this cohort's certificates, and where its elements sit. A cohort
+      // with no row falls back to the pair that was hardcoded before this was
+      // configurable; one with no layout prints the original fixed artwork.
       supabase
         .from("cohort_certificate_settings")
-        .select("signatories")
+        .select("signatories, layout")
         .eq("cohort_id", student.cohort_id)
         .maybeSingle()
-        .then(({ data }) => setSignatories(parseSignatories(data?.signatories)));
+        .then(({ data }) => {
+          setSignatories(parseSignatories(data?.signatories));
+          setLayout(parseCertificateLayout(data?.layout));
+        });
     }
 
     if (student?.id) {
@@ -334,6 +340,7 @@ const StudentCertificate = () => {
             signatories={signatories}
             serial={serial}
             verifyHost={CERTIFICATE_VERIFY_HOST}
+            layout={layout}
           />
         </CertificateFrame>
       </div>
