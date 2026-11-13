@@ -5,15 +5,31 @@ import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { isChunkLoadError, recoverFromStaleBuild } from "./lib/chunk-recovery";
 import { redirectRefusedOAuthSignup } from "./lib/signup-closed";
 import "./index.css";
-import posthog from 'posthog-js';
 
-// Initialize PostHog if API key is provided
-if (import.meta.env.VITE_POSTHOG_KEY && import.meta.env.VITE_POSTHOG_KEY !== 'your_posthog_api_key_here') {
-  posthog.init(import.meta.env.VITE_POSTHOG_KEY, {
-    api_host: 'https://app.posthog.com',
-    capture_pageview: true,
-    capture_pageleave: true,
-  });
+// PostHog is ~160 KB gzipped. Importing it statically put it in the entry
+// chunk, so every visitor downloaded it before the first paint. Load it once
+// the page has loaded and the browser is idle; it records the current page as
+// its first pageview when it initialises, so nothing is lost.
+const posthogKey = import.meta.env.VITE_POSTHOG_KEY;
+if (posthogKey && posthogKey !== "your_posthog_api_key_here") {
+  const startPosthog = () =>
+    import("posthog-js")
+      .then(({ default: posthog }) =>
+        posthog.init(posthogKey, {
+          api_host: "https://app.posthog.com",
+          capture_pageview: true,
+          capture_pageleave: true,
+        }),
+      )
+      .catch(() => {
+        // Analytics is optional; a blocked or failed load must not break the app.
+      });
+  const whenIdle = () =>
+    "requestIdleCallback" in window
+      ? window.requestIdleCallback(startPosthog, { timeout: 5000 })
+      : setTimeout(startPosthog, 2000);
+  if (document.readyState === "complete") whenIdle();
+  else window.addEventListener("load", whenIdle, { once: true });
 }
 
 // Suppress console output in production to prevent information leakage

@@ -826,7 +826,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
                     <Pie data={attendanceData} cx="50%" cy="50%" outerRadius={100} paddingAngle={3} dataKey="count" nameKey="status"
-                      label={({ status, percentage }) => `${status} ${percentage}%`}>
+                      label={({ payload }) => `${payload.status} ${payload.percentage}%`}>
                       {attendanceData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
                     <Tooltip contentStyle={TOOLTIP_STYLE} />
