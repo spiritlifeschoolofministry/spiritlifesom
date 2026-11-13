@@ -201,7 +201,7 @@ const PublicLayout = () => {
                   <Link
                     key={l.label}
                     to={l.to}
-                    className="inline-flex min-h-11 items-center rounded-lg px-2.5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526]"
+                    className="inline-flex min-h-11 items-center rounded-lg px-2.5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B5FD]"
                   >
                     {l.label}
                   </Link>
@@ -215,7 +215,7 @@ const PublicLayout = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={label}
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526]"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B5FD]"
                   >
                     <Icon size={20} aria-hidden="true" />
                   </a>

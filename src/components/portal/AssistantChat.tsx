@@ -166,7 +166,7 @@ export default function AssistantChat({ audience, openRequested = false, onClose
       >
         <span
           aria-hidden="true"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#E0A526] font-extrabold text-[#17112B]"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary font-extrabold text-primary-foreground"
         >
           {name.charAt(0).toUpperCase()}
         </span>

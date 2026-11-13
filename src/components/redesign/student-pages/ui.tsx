@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 /**
  * The card language of the student Learn, Exams and Record screens, taken from
  * the redesign boards: white 16–20px-radius cards on the soft canvas, one deep
- * plum panel per screen for the thing that matters most, gold for the single
+ * plum panel per screen for the thing that matters most, primary purple for the single
  * standout action, and one shared set of status pills (colour plus text, never
  * colour alone).
  */
@@ -18,7 +18,7 @@ const PILL_TONES: Record<Tone, string> = {
   danger: "bg-[#FDE2D8] text-[#8E2A0A] dark:bg-red-500/15 dark:text-red-300",
   info: "bg-[#EFE9FB] text-[#3F1585] dark:bg-primary/20 dark:text-violet-200",
   neutral: "bg-[#F1EFF6] text-[#3A3450] dark:bg-muted dark:text-muted-foreground",
-  gold: "bg-[#E0A526] text-[#17112B]",
+  gold: "bg-primary text-primary-foreground",
 };
 
 /** A status badge. Always carries its meaning in words. */
@@ -45,7 +45,7 @@ export const Pill = ({
 const BAR_TONES = {
   primary: "bg-primary",
   success: "bg-[#157F5B] dark:bg-emerald-400",
-  gold: "bg-[#E0A526]",
+  gold: "bg-primary",
 } as const;
 
 /** A thin progress bar. Pass a label so assistive tech hears what it measures. */

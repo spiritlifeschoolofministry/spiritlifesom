@@ -18,7 +18,7 @@ interface Row {
 }
 
 const PILL: Record<Tone, string> = {
-  gold: "bg-[#E0A526] text-[#17112B]",
+  gold: "bg-primary text-primary-foreground",
   lavender: "bg-secondary text-secondary-foreground",
   muted: "bg-muted text-foreground/80",
   green: "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200",

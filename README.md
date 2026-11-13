@@ -151,7 +151,7 @@ The portal follows the redesign canvas ("SLSOM Redesign" artifact). Colours are 
 - **Base colours:** ink `#17112B` for text, ground `#F9F8FC`, primary purple `#5B21B6` (dark mode: a lighter purple with white text).
 - **Softer tones:** soft lavender for secondary surfaces and hovers, a muted grey for secondary text, and a 0.875rem radius.
 - **Sidebars:** both portal sidebars use `.gradient-purple`, now a deep plum.
-- **Gold:** `.gradient-flame` is now gold (`#E0A526` → `#F3C969`) with ink text. It's the single standout colour, used for the active nav item and the main call to action. Don't put white text on it: the class forces ink, because white on gold fails contrast.
+- **Standout colour:** `.gradient-flame` is now the primary purple with white text, the same as "Apply now" (it was gold until November 2026, and the class name is kept). It's used for the active nav item and the main call to action. Every other gold on the site (buttons, badges, the staff-preview banner, count badges, the "gold" tone in `redesign/student-pages/ui.tsx` and `TodayTimetable`) is now that purple too; gold text on dark panels became a light tint of it (`#C4B5FD`). Two things keep gold on purpose: the printed certificate artwork (its seal and ribbon, in `src/components/certificate/` and the 3D card) and amber status colours (warnings, "Pending", "Late", "Missed"), which carry meaning.
 
 ## Redesigned screens
 
@@ -196,7 +196,7 @@ Built to the boards on the "SLSOM Redesign" canvas; the home page follows Option
 - **How you can study**: a Physical / Online switch with the price and what is included (see "Fees on the home page"), next to the three joining steps (Site content `journey_title`, `step1_title` … `step3_desc`). Sections fade up as they scroll in (`Reveal`).
 - **Footer**: copyright and social links only.
 - **Phones only**: a purple "Ask about the next intake" (or "Apply now") button pinned to the bottom, which slides in once the hero has scrolled away. The floating WhatsApp button is hidden there on phones, and the back-to-top button sits above the bar.
-- **Colour**: buttons use the same purple as "Apply now" on the other public pages (`bg-primary`); purple text on the dark bar and photos uses a light tint of it (`#C4B5FD`), since the button purple is too dark to read there. No gold on the home page.
+- **Colour**: buttons use the same purple as "Apply now" on the other public pages (`bg-primary`); purple text on the dark bar and photos uses a light tint of it (`#C4B5FD`), since the button purple is too dark to read there. No gold on the home page (or anywhere else now; see "Visual design").
 - **Font**: headings use Fraunces from `@fontsource/fraunces` (^5.3, self-hosted, only the Latin 500, 700 and 500-italic files, imported by `Home.tsx`), available as Tailwind's `font-display`.
 
 ## Fees on the home page

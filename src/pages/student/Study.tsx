@@ -411,7 +411,7 @@ export default function Study() {
                               <Checkbox
                                 disabled={empty}
                                 checked={practiceCourses.includes(course.id)}
-                                className="border-[#CFC9DE] data-[state=checked]:border-[#E0A526] data-[state=checked]:bg-[#E0A526] data-[state=checked]:text-[#17112B] focus-visible:ring-[#E0A526] focus-visible:ring-offset-[#17112B]"
+                                className="border-[#CFC9DE] data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground focus-visible:ring-[#C4B5FD] focus-visible:ring-offset-[#17112B]"
                                 onCheckedChange={(v) =>
                                   setPracticeCourses((prev) =>
                                     v
@@ -456,7 +456,7 @@ export default function Study() {
                           aria-pressed={practiceCount === n}
                           onClick={() => setPracticeCount(n)}
                           className={cn(
-                            'h-11 min-w-11 rounded-xl px-4 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526]',
+                            'h-11 min-w-11 rounded-xl px-4 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B5FD]',
                             practiceCount === n
                               ? 'bg-white text-[#17112B]'
                               : 'border border-[#3A3254] text-white hover:bg-white/10',
@@ -510,7 +510,7 @@ export default function Study() {
                       type="button"
                       disabled={starting || available === 0}
                       onClick={begin}
-                      className="flex h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-[#E0A526] text-[15px] font-bold text-[#17112B] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#17112B] disabled:opacity-55"
+                      className="flex h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-primary text-[15px] font-bold text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#17112B] disabled:opacity-55"
                     >
                       {starting
                         ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Setting up…</>

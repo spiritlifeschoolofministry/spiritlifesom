@@ -64,13 +64,13 @@ export const AuthCard = ({ children, className }: { children: ReactNode; classNa
   </div>
 );
 
-/** Deep plum panel with the gold "Apply now" — the one standout colour. */
+/** Deep plum panel with the purple "Apply now" — the one standout colour. */
 export const ApplyPanel = () => (
   <div className="flex flex-col items-center gap-2.5 rounded-[18px] bg-[#17112B] p-[18px] text-center text-white">
     <span className="text-[15px] font-semibold">New to Spirit Life SOM?</span>
     <Link
       to="/register"
-      className="inline-flex min-h-[46px] items-center rounded-xl bg-[#E0A526] px-[22px] text-[15px] font-extrabold text-[#17112B] hover:bg-[#F3C969] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526] focus-visible:ring-offset-2 focus-visible:ring-offset-[#17112B]"
+      className="inline-flex min-h-[46px] items-center rounded-xl bg-primary px-[22px] text-[15px] font-extrabold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B5FD] focus-visible:ring-offset-2 focus-visible:ring-offset-[#17112B]"
     >
       Apply now
     </Link>

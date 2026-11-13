@@ -204,7 +204,7 @@ const StudentMaterials = () => {
                 key={m.id}
                 className={cn(
                   "flex items-center gap-3 rounded-2xl border bg-card px-3.5 py-3",
-                  m.is_pinned ? "border-[#E0A526]/50" : "border-border",
+                  m.is_pinned ? "border-primary/50" : "border-border",
                 )}
               >
                 <span
@@ -215,7 +215,7 @@ const StudentMaterials = () => {
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <h2 className="flex items-center gap-1.5 text-sm font-bold text-foreground">
-                    {m.is_pinned && <Star className="h-3.5 w-3.5 shrink-0 fill-[#E0A526] text-[#E0A526]" aria-label="Featured" />}
+                    {m.is_pinned && <Star className="h-3.5 w-3.5 shrink-0 fill-primary text-primary" aria-label="Featured" />}
                     <span className="min-w-0">{m.title}</span>
                   </h2>
                   {meta && <p className="text-xs text-muted-foreground">{meta}</p>}

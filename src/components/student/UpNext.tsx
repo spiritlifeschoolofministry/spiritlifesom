@@ -57,7 +57,7 @@ const UpNext = ({ plan }: { plan: TodayPlan }) => {
             Up next · {live ? "exams open now" : startsLabel(window_.start, now)}
           </p>
           {many && (
-            <span className="shrink-0 rounded-full bg-[#E0A526] px-2 py-1 text-xs font-bold text-[#17112B]">
+            <span className="shrink-0 rounded-full bg-primary px-2 py-1 text-xs font-bold text-primary-foreground">
               {window_.done} of {count} done
             </span>
           )}

@@ -281,7 +281,7 @@ export default function StudentExamsList() {
                 <DarkPanel className="space-y-1.5 rounded-2xl px-4 py-3.5">
                   <div className="flex items-baseline justify-between gap-2">
                     <h2 className="text-base font-bold">{windowLabel(w)}</h2>
-                    <span className="shrink-0 text-[13px] font-bold text-[#E0A526]">
+                    <span className="shrink-0 text-[13px] font-bold text-[#C4B5FD]">
                       {many ? `${w.done} of ${w.exams.length} done` : w.done ? "Done" : "Open now"}
                     </span>
                   </div>
@@ -415,7 +415,7 @@ function ResultDetail({
   return (
     <>
       <DarkPanel className="space-y-2.5 rounded-[18px]">
-        <p className="text-xs font-bold uppercase tracking-[0.06em] text-[#E0A526]">
+        <p className="text-xs font-bold uppercase tracking-[0.06em] text-[#C4B5FD]">
           {exam.assessment_type || "Exam"} · {exam.courses?.code ?? "All courses"} · sat {format(new Date(sat), "d MMM")}
         </p>
         {exam.courses?.title && <p className="text-lg font-extrabold leading-snug">{exam.courses.title}</p>}

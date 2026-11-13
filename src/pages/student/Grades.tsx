@@ -316,7 +316,7 @@ const StudentGrades = () => {
 
         {/* Overall */}
         <DarkPanel className="space-y-3" aria-label="Overall grade">
-          <p className="text-xs font-bold uppercase tracking-[0.06em] text-[#E0A526]">Overall · this session</p>
+          <p className="text-xs font-bold uppercase tracking-[0.06em] text-[#C4B5FD]">Overall · this session</p>
           <div className="flex items-end justify-between gap-4">
             <div className="flex items-end gap-3.5">
               <strong className="text-[44px] font-extrabold leading-none tracking-tight">{overallPct}%</strong>
@@ -324,7 +324,7 @@ const StudentGrades = () => {
                 <span className="text-sm text-[#CFC9DE]">
                   {overallEarned}/{overallTotal} points · {allGraded.length} of {items.length} graded
                 </span>
-                <span className="self-start rounded-full bg-[#E0A526] px-2 py-[3px] text-xs font-extrabold text-[#17112B]">
+                <span className="self-start rounded-full bg-primary px-2 py-[3px] text-xs font-extrabold text-primary-foreground">
                   {overallGrade.label} · Point {overallGrade.point}
                 </span>
               </span>

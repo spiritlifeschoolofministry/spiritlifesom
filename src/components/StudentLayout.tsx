@@ -431,11 +431,11 @@ const StudentLayout = () => {
       />
       {/* Staff previewing the student portal: say so, and the way back. */}
       {isAdmin && (
-        <div className="flex shrink-0 items-center justify-between gap-2 bg-[#E0A526] py-1 pl-4 pr-3 text-[#17112B]">
+        <div className="flex shrink-0 items-center justify-between gap-2 bg-primary py-1 pl-4 pr-3 text-primary-foreground">
           <span className="text-[13px] font-bold">Viewing as a student (staff preview)</span>
           <Link
             to="/admin"
-            className="flex min-h-11 shrink-0 items-center rounded-[10px] bg-[#17112B] px-3 text-[13px] font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#17112B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#E0A526] md:min-h-9"
+            className="flex min-h-11 shrink-0 items-center rounded-[10px] bg-[#17112B] px-3 text-[13px] font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#17112B] focus-visible:ring-offset-2 focus-visible:ring-offset-primary md:min-h-9"
           >
             Back to admin
           </Link>

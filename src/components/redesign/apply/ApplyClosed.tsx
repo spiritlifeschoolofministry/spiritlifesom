@@ -13,7 +13,7 @@ const ApplyClosed = () => (
       aria-labelledby="apply-closed-title"
       className="flex w-full max-w-md flex-col items-center gap-5 text-center sm:rounded-[20px] sm:border sm:border-border sm:bg-card sm:p-10 sm:shadow-[var(--shadow-card)]"
     >
-      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#17112B] text-[#E0A526]">
+      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#17112B] text-[#C4B5FD]">
         <Lock className="h-7 w-7" aria-hidden="true" />
       </span>
       <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-3 py-1 text-[13px] font-semibold text-secondary-foreground">

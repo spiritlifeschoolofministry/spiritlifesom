@@ -79,16 +79,16 @@ const CoursesPage = () => {
                   <p className="text-xs font-bold uppercase tracking-[0.06em] text-white/75">Online</p>
                   <p className="mt-1 text-4xl font-extrabold tracking-tight">{get("online_price", "₦30,000")}</p>
                 </div>
-                <span className="rounded-full bg-[#E0A526] px-3 py-1 text-xs font-bold text-[#17112B]">Most popular</span>
+                <span className="rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground">Most popular</span>
               </div>
               <ul className="flex flex-col gap-2.5 text-[15px] text-white/85">
                 {["Live Zoom sessions every Saturday", "Full training materials included", "Class recordings access", "Must attend physically for project defense and graduation"].map((f) => (
-                  <li key={f} className="flex gap-2"><Check size={18} className="mt-0.5 shrink-0 text-[#E0A526]" aria-hidden="true" />{f}</li>
+                  <li key={f} className="flex gap-2"><Check size={18} className="mt-0.5 shrink-0 text-[#C4B5FD]" aria-hidden="true" />{f}</li>
                 ))}
               </ul>
               <Link
                 to="/register"
-                className="mt-auto inline-flex min-h-12 items-center justify-center rounded-xl bg-white px-5 font-bold text-[#17112B] transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526] focus-visible:ring-offset-2 focus-visible:ring-offset-[#17112B]"
+                className="mt-auto inline-flex min-h-12 items-center justify-center rounded-xl bg-white px-5 font-bold text-[#17112B] transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B5FD] focus-visible:ring-offset-2 focus-visible:ring-offset-[#17112B]"
               >
                 Apply now
               </Link>
@@ -100,7 +100,7 @@ const CoursesPage = () => {
           <span className="text-[17px] font-semibold">Start with the Basic Module.</span>
           <Link
             to="/register"
-            className="inline-flex min-h-11 items-center rounded-xl bg-[#E0A526] px-[22px] font-bold text-[#17112B] transition-colors hover:bg-[#F3C969] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526] focus-visible:ring-offset-2 focus-visible:ring-offset-[#17112B]"
+            className="inline-flex min-h-11 items-center rounded-xl bg-primary px-[22px] font-bold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B5FD] focus-visible:ring-offset-2 focus-visible:ring-offset-[#17112B]"
           >
             Apply now
           </Link>

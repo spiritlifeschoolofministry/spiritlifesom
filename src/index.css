@@ -183,17 +183,18 @@
 }
 
 /* Redesign palette: the portal sidebars and hero bands are deep plum, and the
-   one standout colour (active nav item, main call to action) is gold with ink
-   text. The class names are kept so every existing use picks the new look. */
+   one standout colour (active nav item, main call to action) is the primary
+   purple with white text, the same as "Apply now" (it was gold until November
+   2026). The class names are kept so every existing use picks the new look. */
 .gradient-purple {
   @apply bg-gradient-to-b from-[#1C1236] to-[#2A1257];
 }
 
 .gradient-flame {
-  @apply bg-gradient-to-r from-[#E0A526] to-[#F3C969];
-  /* Ink on gold (~9:1). Overrides text-white / text-primary-foreground on the
-     same element, which would be unreadable on gold. */
-  color: #17112b;
+  @apply bg-primary;
+  /* White on the primary purple. Set here so it wins over any older text
+     colour class on the same element. */
+  color: hsl(var(--primary-foreground));
 }
 
 .animate-fade-in {

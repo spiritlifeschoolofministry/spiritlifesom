@@ -1,7 +1,7 @@
 import { scaleLinear } from "d3";
 import type { FunnelStage } from "@/lib/cohort-funnel";
 
-const COLORS = ["#5B21B6", "#7C3AED", "#E0A526"];
+const COLORS = ["#5B21B6", "#7C3AED", "#A78BFA"];
 
 /**
  * Horizontal funnel: one bar per stage, width proportional to its count

@@ -292,7 +292,7 @@ export default function ExamLobby() {
 
   const MARK_STYLE: Record<Mark, { cls: string; label: string; icon: React.ReactNode }> = {
     ok: { cls: "bg-[#157F5B] text-white", label: "Ready", icon: <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" /> },
-    warn: { cls: "bg-[#E0A526] text-[#17112B]", label: "Note", icon: <span aria-hidden="true">!</span> },
+    warn: { cls: "bg-primary text-primary-foreground", label: "Note", icon: <span aria-hidden="true">!</span> },
     bad: { cls: "bg-[#C2410C] text-white", label: "Blocked", icon: <X className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" /> },
     wait: { cls: "bg-[#3A3254] text-white", label: "Checking", icon: <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> },
   };
@@ -319,13 +319,13 @@ export default function ExamLobby() {
         <Link
           to="/student/exams"
           aria-label="Back to Exams"
-          className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#3A3254] text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526]"
+          className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#3A3254] text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B5FD]"
         >
           <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         </Link>
 
         <div className="space-y-1.5">
-          <p className="text-[13px] font-bold uppercase tracking-[0.06em] text-[#E0A526]">
+          <p className="text-[13px] font-bold uppercase tracking-[0.06em] text-[#C4B5FD]">
             {exam.assessment_type || "Exam"} · {exam.courses ? exam.courses.code : "All courses"}
           </p>
           <h1 className="text-[28px] font-extrabold leading-[1.15] tracking-tight">{exam.title}</h1>
@@ -348,7 +348,7 @@ export default function ExamLobby() {
             Opens {format(new Date(startMs), "PPpp")} · Closes {format(new Date(endMs), "PPpp")}
           </p>
           {myWindow?.overridden && (
-            <p className="font-semibold text-[#E0A526]">
+            <p className="font-semibold text-[#C4B5FD]">
               These times were set for you by your lecturer — they are not the same as the rest of your class.
             </p>
           )}
@@ -381,7 +381,7 @@ export default function ExamLobby() {
                       <button
                         type="button"
                         onClick={c.retry}
-                        className="mt-1 min-h-11 rounded-xl border border-[#3A3254] px-4 text-sm font-bold text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526]"
+                        className="mt-1 min-h-11 rounded-xl border border-[#3A3254] px-4 text-sm font-bold text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B5FD]"
                       >
                         Try again
                       </button>
@@ -402,7 +402,7 @@ export default function ExamLobby() {
 
         <section aria-labelledby="lobby-rules" className="space-y-2">
           <h2 id="lobby-rules" className="text-[15px] font-bold">How this paper works</h2>
-          <ul className="list-disc space-y-1.5 pl-5 text-[13px] leading-relaxed text-[#CFC9DE] marker:text-[#E0A526]">
+          <ul className="list-disc space-y-1.5 pl-5 text-[13px] leading-relaxed text-[#CFC9DE] marker:text-[#C4B5FD]">
             {rules.map((r, i) => <li key={i}>{r}</li>)}
           </ul>
         </section>
@@ -412,7 +412,7 @@ export default function ExamLobby() {
             id="agree"
             checked={agreed}
             onCheckedChange={(v) => setAgreed(!!v)}
-            className="mt-0.5 h-5 w-5 border-[#CFC9DE] data-[state=checked]:border-[#E0A526] data-[state=checked]:bg-[#E0A526] data-[state=checked]:text-[#17112B] focus-visible:ring-[#E0A526] focus-visible:ring-offset-[#17112B]"
+            className="mt-0.5 h-5 w-5 border-[#CFC9DE] data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground focus-visible:ring-[#C4B5FD] focus-visible:ring-offset-[#17112B]"
           />
           <Label htmlFor="agree" className="cursor-pointer text-sm font-normal leading-relaxed text-[#E9E5F2]">
             I have read and agree to follow all the rules above. I understand that violations may result in auto-submission and disciplinary action.
@@ -429,13 +429,13 @@ export default function ExamLobby() {
             type="button"
             disabled={!canStart}
             onClick={startExam}
-            className="h-[54px] rounded-2xl bg-[#E0A526] text-base font-extrabold text-[#17112B] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#17112B] disabled:cursor-not-allowed disabled:opacity-55"
+            className="h-[54px] rounded-2xl bg-primary text-base font-extrabold text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#17112B] disabled:cursor-not-allowed disabled:opacity-55"
           >
             {startLabel}
           </button>
           <Link
             to="/student/exams"
-            className="flex min-h-11 items-center justify-center rounded-xl text-sm font-semibold text-[#CFC9DE] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526]"
+            className="flex min-h-11 items-center justify-center rounded-xl text-sm font-semibold text-[#CFC9DE] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B5FD]"
           >
             Cancel
           </Link>

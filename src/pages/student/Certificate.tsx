@@ -307,7 +307,7 @@ const StudentCertificate = () => {
               type="button"
               onClick={() => handleDownload("pdf")}
               disabled={isDownloading}
-              className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#E0A526] px-4 text-sm font-bold text-[#17112B] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-55"
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-55"
             >
               {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <FileDown className="h-4 w-4" aria-hidden="true" />}
               Save PDF

@@ -254,7 +254,7 @@ const AdminLayout = () => {
   );
 
   // The board's deep plum sidebar: text items, a lighter plum pill for the
-  // current page and gold count badges where the shell already has a count.
+  // current page and purple count badges where the shell already has a count.
   const renderSidebarLink = (item: NavItem, onNavigate?: () => void) => {
     const active = isNavActive(location.pathname, item.path, NAV_PATHS);
     const showBadge = item.path === "/admin/admissions" && pendingCount > 0;
@@ -266,14 +266,14 @@ const AdminLayout = () => {
         onClick={onNavigate}
         aria-current={active ? "page" : undefined}
         aria-label={showBadge ? `${item.label}, ${pendingCount} waiting` : undefined}
-        className={`flex min-h-11 items-center gap-2.5 rounded-[10px] px-3 text-[15px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526] ${
+        className={`flex min-h-11 items-center gap-2.5 rounded-[10px] px-3 text-[15px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B5FD] ${
           active ? "bg-[#3A2B66] font-bold text-white" : "font-medium text-[#CFC9DE] hover:bg-white/5 hover:text-white"
         }`}
       >
         <item.icon className={`h-4 w-4 shrink-0 ${active ? "opacity-100" : "opacity-70"}`} aria-hidden="true" />
         <span className="flex-1">{item.label}</span>
         {showBadge && (
-          <span className="flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-[#E0A526] px-1.5 text-xs font-extrabold text-[#17112B]">
+          <span className="flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-primary px-1.5 text-xs font-extrabold text-primary-foreground">
             {pendingCount}
           </span>
         )}
@@ -327,7 +327,7 @@ const AdminLayout = () => {
     <Link
       to="/admin/dashboard"
       onClick={onNavigate}
-      className="flex items-center gap-2.5 rounded-[10px] px-2 py-1 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526]"
+      className="flex items-center gap-2.5 rounded-[10px] px-2 py-1 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B5FD]"
     >
       <img src="/images/school-logo.png" alt="" className="h-8 w-8 rounded-lg bg-white object-contain" />
       <strong className="text-base font-extrabold tracking-tight">SLSOM Admin</strong>
@@ -387,7 +387,7 @@ const AdminLayout = () => {
                 type="button"
                 onClick={closeSidebar}
                 aria-label="Close navigation menu"
-                className="flex h-11 w-11 items-center justify-center rounded-[10px] text-[#CFC9DE] hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526]"
+                className="flex h-11 w-11 items-center justify-center rounded-[10px] text-[#CFC9DE] hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4B5FD]"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -497,7 +497,7 @@ const AdminLayout = () => {
               <item.icon className="w-5 h-5" aria-hidden="true" />
               {item.shortLabel ?? item.label.split(" ")[0]}
               {showBadge && (
-                <span className="absolute -top-0.5 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#E0A526] px-1 text-[10px] font-extrabold text-[#17112B]">
+                <span className="absolute -top-0.5 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-extrabold text-primary-foreground">
                   {pendingCount}
                 </span>
               )}

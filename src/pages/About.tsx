@@ -49,7 +49,7 @@ const About = () => {
             <p className="text-[17px] leading-relaxed text-foreground/85">
               {get("mission_text", "In a time like this, women, men and brethren who are genuinely called by God into Ministry need a platform where they can be thoroughly equipped with the accurate Word of God — to help them see clearly the call of God and how to embrace it. Spirit Life School of Ministry exists to be that platform. Rooted in Scripture and led by the Holy Spirit, we are committed to raising men and women who are grounded in biblical truth and prepared for effective service in God's vineyard.")}
             </p>
-            <blockquote className="flex flex-col gap-1.5 border-l-4 border-[#E0A526] pl-4">
+            <blockquote className="flex flex-col gap-1.5 border-l-4 border-primary pl-4">
               <p className="text-[15px] italic leading-relaxed text-foreground/85">
                 {get("mission_quote", '"Whoever wants to embrace the call of God in their life must go through thorough learning, teaching and furnishing" — Ephesians 4:12-13')}
               </p>
