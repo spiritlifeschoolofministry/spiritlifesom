@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import LazyCertificate3D from "@/components/three/LazyCertificate3D";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -159,6 +160,13 @@ const VerificationResult = ({
             </p>
           )}
         </div>
+
+        {!revoked && (
+          <LazyCertificate3D
+            className="h-56 w-full sm:h-72"
+            details={{ name: result.recipient_name ?? "", cohort: result.cohort, serial: result.serial, dateText: result.graduated_on ? formatDate(result.graduated_on) : null }}
+          />
+        )}
 
         <dl className="divide-y divide-border text-sm">
           <Field label="Awarded to" value={result.recipient_name} strong />

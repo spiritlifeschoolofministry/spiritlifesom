@@ -26,6 +26,7 @@ import {
 import { DEFAULT_SIGNATORIES, parseSignatories } from "@/lib/certificate-signatories";
 import { CERTIFICATE_VERIFY_HOST, certificateVerifyUrl } from "@/lib/certificate-serial";
 import { CertificateFrame } from "@/components/certificate/CertificateFrame";
+import LazyCertificate3D from "@/components/three/LazyCertificate3D";
 import { certificateFilename, exportCertificate } from "@/lib/certificate-export";
 
 const StudentCertificate = () => {
@@ -312,6 +313,14 @@ const StudentCertificate = () => {
               <Printer className="w-4 h-4" /> Print
             </Button>
           </div>
+        </div>
+
+        {/* The celebratory moment: the card turns over from its seal to its
+            face. Decorative only; skipped without WebGL and in print. */}
+        <div className="mx-auto max-w-xl print:hidden">
+          <LazyCertificate3D
+            details={{ name: customName || fullName, cohort: cohortData?.name, serial, dateText: graduationDateText }}
+          />
         </div>
 
         {/* Drawn at A4 print size and scaled down to fit -- see CertificateFrame */}

@@ -105,7 +105,14 @@ Guidelines:
 
 `src/components/three/SceneCanvas.tsx` wraps all of this: `<SceneCanvas><mesh>…</mesh></SceneCanvas>` gives you a canvas with lighting, capped pixel ratio and orbit controls. Put model files in `public/models/` and load them with drei's `useGLTF("/models/name.glb")`.
 
-No feature uses 3D yet. Add each 3D feature to this section when you build it.
+### 3D certificate card
+
+`src/components/three/Certificate3D.tsx` shows a certificate card that turns over from its gold seal to its face, then sways and tilts toward the pointer. It appears on the student Certificate page once the certificate is issued, and on the public Verify page for a genuine (not revoked) certificate. The details come from the page: name, session, graduation date and serial.
+
+- **Plain three.js, not React Three Fiber.** It uses named imports, so the bundle keeps only what the scene uses: about 132 KB gzipped against 243 KB with Fiber. It lives in its own chunk.
+- **Lazy and safe.** `LazyCertificate3D.tsx` loads it with `React.lazy` only when WebGL is available (`hasWebGL()` in `src/lib/certificate-card.ts`). An error boundary hides it if WebGL fails mid-way.
+- **Cheap to run.** It renders only while on screen (IntersectionObserver), holds a still angle under reduced motion, and caps the pixel ratio at 2.
+- **Accessible.** The canvas is `aria-hidden`; the same details are on the page as text. The card text layout is tested in `src/test/certificate-card.test.ts`.
 
 ## Graphics, charts and animation libraries
 
@@ -118,7 +125,7 @@ Import the heavy ones only from pages loaded with `React.lazy`, or with a dynami
 | Charts | `recharts` | ^3.10 | Dashboard charts (admin Analytics) |
 | Charts | `d3` (+ `@types/d3`, dev) | ^7.9 | Cohort funnel scale (admin Analytics) |
 | 2D | `konva` + `react-konva` | ^10.9 / ^19.3 | Canvas editing (certificate layout editor). Planned; needs a place to store positions. |
-| 3D | `three`, `@react-three/fiber`, `@react-three/drei` | see "3D graphics" | 3D certificate. Planned. |
+| 3D | `three` (+ `@react-three/fiber`, `@react-three/drei` for `SceneCanvas`) | see "3D graphics" | 3D certificate card (see "3D graphics") |
 
 Removed in November 2026 because nothing used them and other packages already cover them: Babylon.js (`@babylonjs/core`, `@babylonjs/loaders`, `babylonjs-gltf2interface`), PixiJS (`pixi.js`, `@pixi/react`), `animejs`, and Chart.js (`chart.js`, `react-chartjs-2`).
 
