@@ -62,19 +62,33 @@ describe("Home hero", () => {
     await renderHome();
     const first = heroImgs()[0];
     expect(first.getAttribute("srcset")).toContain("/images/som3-800.webp 800w");
-    // The photo is 85% of a phone's width, 62% on tablets, a fixed column on desktop.
-    expect(first.getAttribute("sizes")).toContain("85vw");
+    // The photos fill the screen width.
+    expect(first.getAttribute("sizes")).toBe("100vw");
     expect(first.getAttribute("fetchpriority")).toBe("high");
     // Explicit dimensions keep the hero from shifting layout as it decodes.
     expect(first.getAttribute("width")).toBe("1439");
     expect(first.getAttribute("height")).toBe("957");
   });
 
-  it("puts the school's purple wash over every photo", async () => {
+  it("puts the school's purple wash over the photos and the headline on top", async () => {
     await renderHome();
-    const slides = document.querySelectorAll('[aria-roledescription="slide"]');
-    expect(slides.length).toBe(7);
-    slides.forEach((slide) => expect(slide.querySelector(".bg-primary\\/35")).not.toBeNull());
+    expect(document.querySelectorAll('[aria-roledescription="slide"]')).toHaveLength(7);
+    expect(screen.getByTestId("hero-wash")).toHaveClass("bg-primary/40");
+    const carousel = document.querySelector('[aria-roledescription="carousel"]');
+    expect(carousel?.querySelector("h1")?.textContent).toBe("Equipping the saints for the work of ministry.");
+  });
+
+  it("moves to the next photo every 4 seconds once the first has loaded", async () => {
+    await renderHome();
+    await act(async () => {
+      heroImgs()[0].dispatchEvent(new Event("load"));
+    });
+    const current = () => document.querySelector('[aria-label^="Show photo"][aria-current="true"]')?.getAttribute("aria-label");
+    expect(current()).toBe("Show photo 1 of 7");
+    await act(async () => {
+      vi.advanceTimersByTime(4000);
+    });
+    expect(current()).toBe("Show photo 2 of 7");
   });
 
   it("holds off on later slides until the first one has loaded", async () => {

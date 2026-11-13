@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BookOpen, Check, FilePlus2, LogIn, Menu, MessageCircle } from "lucide-react";
 import "@fontsource/fraunces/latin-500.css";
 import "@fontsource/fraunces/latin-700.css";
@@ -17,10 +17,11 @@ import { cn } from "@/lib/utils";
 import { publicNavLinks, socialLinks, whatsappHref } from "@/components/redesign/public/public-links";
 
 /**
- * The home page, phone first. A sticky top bar (links in a bottom-sheet menu on
- * phones and tablets, inline on desktop), the headline and photo carousel, four
- * big actions, how you can study, how to join, and on phones an action bar in
- * the thumb zone. The other public pages are only linked from here, never
+ * The home page, phone first. A dark sticky top bar (links in a bottom-sheet
+ * menu on phones and tablets, inline on desktop), full-screen photos with the
+ * headline and buttons on top, four big actions, how you can study, how to
+ * join, and on phones an action bar in the thumb zone once the photos have
+ * scrolled away. The other public pages are only linked from here, never
  * repeated. Wording comes from Admin › Settings › Site content › home.
  */
 
@@ -28,6 +29,25 @@ const INTAKE_MESSAGE = "Hello Spirit Life SOM, I'd like to know when the next in
 
 const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 const gold = "bg-[#E0A526] text-[#17112B] hover:bg-[#d39a1f]";
+const darkRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526] focus-visible:ring-offset-2 focus-visible:ring-offset-[#17112B]";
+
+/** The headline with "saints" picked out in gold, when the wording has it. */
+const Headline = ({ text }: { text: string }) => {
+  const parts = text.split(/(saints)/i);
+  return (
+    <>
+      {parts.map((part, i) =>
+        /^saints$/i.test(part) ? (
+          <em key={i} className="font-medium italic text-[#E0A526]">
+            {part}
+          </em>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+};
 
 /** Warm a lazy page's chunk on hover / focus / touch, before the click lands. */
 const prefetch = (path: string) => ({
@@ -44,11 +64,14 @@ const menuLinks = [
 const HomeTopBar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
+    <header className="sticky top-0 z-40 bg-[#17112B] text-white">
       <div className="mx-auto flex h-[60px] max-w-[1200px] items-center gap-2 px-4 md:px-8 lg:h-[72px]">
-        <Link to="/" className={cn("mr-auto flex min-w-0 items-center gap-2 rounded-lg", focusRing)}>
-          <img src="/images/school-logo.png" alt="" className="h-9 w-9 shrink-0 object-contain" />
-          <span className="truncate font-display text-lg font-bold">Spirit Life SOM</span>
+        <Link to="/" className={cn("mr-auto flex min-w-0 items-center gap-2.5 rounded-lg", darkRing)}>
+          <img src="/images/school-logo.png" alt="" className="h-9 w-9 shrink-0 rounded-full bg-white object-contain p-0.5" />
+          <span className="flex min-w-0 flex-col leading-tight">
+            <span className="truncate font-display text-[17px] font-bold">Spirit Life SOM</span>
+            <span className="truncate text-[10px] font-semibold uppercase tracking-[0.22em] text-[#E0A526]">School of Ministry</span>
+          </span>
         </Link>
 
         <nav aria-label="Main" className="hidden items-center gap-6 lg:flex">
@@ -59,7 +82,7 @@ const HomeTopBar = () => {
                 key={l.to}
                 to={l.to}
                 {...prefetch(l.to)}
-                className={cn("inline-flex min-h-11 items-center rounded-md font-medium text-foreground/80 hover:text-foreground", focusRing)}
+                className={cn("inline-flex min-h-11 items-center rounded-md text-[15px] font-medium text-white/75 hover:text-white", darkRing)}
               >
                 {l.label}
               </Link>
@@ -69,14 +92,14 @@ const HomeTopBar = () => {
         <Link
           to="/login"
           {...prefetch("/login")}
-          className={cn("inline-flex min-h-11 items-center rounded-xl px-3 text-[15px] font-bold text-primary dark:text-foreground", focusRing)}
+          className={cn("inline-flex min-h-11 items-center rounded-xl px-3 text-[15px] font-bold text-white", darkRing)}
         >
           Log in
         </Link>
         <Link
           to="/register"
           {...prefetch("/register")}
-          className={cn("hidden min-h-11 items-center rounded-xl px-5 font-bold lg:inline-flex", gold, focusRing)}
+          className={cn("hidden min-h-11 items-center rounded-xl px-5 font-bold lg:inline-flex", gold, darkRing)}
         >
           Register
         </Link>
@@ -86,7 +109,7 @@ const HomeTopBar = () => {
             <button
               type="button"
               aria-label="Open menu"
-              className={cn("inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-foreground text-background lg:hidden", focusRing)}
+              className={cn("inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/25 text-white hover:bg-white/10 lg:hidden", darkRing)}
             >
               <Menu className="h-5 w-5" aria-hidden="true" />
             </button>
@@ -141,6 +164,18 @@ const Home = () => {
   const fees = usePublicFees(get("fees_note", ""));
   const intakeHref = whatsappHref(INTAKE_MESSAGE);
   const open = acceptingApplications === true;
+  // The phone's bottom button repeats the hero's main button, so it only
+  // slides in once the hero has scrolled away.
+  const heroRef = useRef<HTMLElement | null>(null);
+  const [pastHero, setPastHero] = useState(false);
+
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) => setPastHero(!entry.isIntersecting), { threshold: 0 });
+    observer.observe(hero);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     supabase
@@ -207,37 +242,48 @@ const Home = () => {
 
       <HomeTopBar />
 
-      {/* Headline + photos */}
-      <section className="mx-auto grid max-w-[1200px] gap-[18px] px-4 pb-2 pt-[22px] md:px-8 lg:grid-cols-[5fr_6fr] lg:items-center lg:gap-14 lg:pb-10 lg:pt-14">
-        <div className="flex min-w-0 flex-col gap-3.5">
-          <h1 className="font-display text-[36px] font-medium leading-[1.06] tracking-[-0.02em] md:text-[52px] lg:text-[62px]">
-            {get("hero_headline", "Equipping the saints for the work of ministry.")}
+      {/* Full-screen photos with the headline on top */}
+      <HeroCarousel sectionRef={heroRef}>
+        <div className="mx-auto flex max-w-[1200px] flex-col gap-4 px-5 pb-16 md:px-8 md:pb-20 lg:pb-24">
+          <p className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/80 md:text-xs">
+            <span aria-hidden="true" className="h-px w-6 shrink-0 bg-[#E0A526]" />
+            Welcome to Spirit Life School of Ministry
+          </p>
+          <h1 className="max-w-[15ch] font-display text-[44px] font-medium leading-[1.02] tracking-[-0.02em] text-white md:text-[68px] lg:text-[84px]">
+            <Headline text={get("hero_headline", "Equipping the saints for the work of ministry.")} />
           </h1>
-          <p className="font-display text-[17px] italic text-muted-foreground">{get("hero_reference", "Ephesians 4:12")}</p>
-          <div className="mt-1 hidden flex-wrap gap-2.5 md:flex">
+          <p className="font-display text-lg italic text-white/80 md:text-2xl">{get("hero_reference", "Ephesians 4:12")}</p>
+          <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             {open ? (
-              <Link to="/register" className={cn("inline-flex min-h-[52px] items-center rounded-2xl px-6 font-extrabold", gold, focusRing)}>
+              <Link to="/register" className={cn("inline-flex min-h-[52px] items-center justify-center rounded-xl px-7 font-extrabold", gold, darkRing)}>
                 Apply now
               </Link>
             ) : (
-              <a href={intakeHref} target="_blank" rel="noopener noreferrer" className={cn("inline-flex min-h-[52px] items-center rounded-2xl px-6 font-extrabold", gold, focusRing)}>
+              <a
+                href={intakeHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn("inline-flex min-h-[52px] items-center justify-center rounded-xl px-7 font-extrabold", gold, darkRing)}
+              >
                 Ask about the next intake
               </a>
             )}
             <Link
               to="/courses"
               {...prefetch("/courses")}
-              className={cn("inline-flex min-h-[52px] items-center rounded-2xl border-[1.5px] border-foreground px-5 font-bold", focusRing)}
+              className={cn(
+                "inline-flex min-h-[52px] items-center justify-center rounded-xl border border-white/50 bg-white/5 px-7 font-bold text-white backdrop-blur-sm hover:bg-white/15",
+                darkRing,
+              )}
             >
               See the courses
             </Link>
           </div>
         </div>
-        <HeroCarousel />
-      </section>
+      </HeroCarousel>
 
       {/* Quick actions: links only */}
-      <Reveal className="mx-auto max-w-[1200px] px-4 pb-7 pt-2 md:px-8">
+      <Reveal className="mx-auto max-w-[1200px] px-4 pb-7 pt-8 md:px-8 md:pt-10">
         <nav aria-label="Quick actions" className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-3">
           <a href={intakeHref} target="_blank" rel="noopener noreferrer" className={cn(quickTile, "bg-[#17112B] text-white", focusRing)}>
             <MessageCircle className="h-6 w-6 text-[#E0A526]" aria-hidden="true" />
@@ -340,7 +386,14 @@ const Home = () => {
       </footer>
 
       {/* Phones: one action in the thumb zone */}
-      <div className="sticky bottom-0 z-30 border-t border-border bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 md:hidden">
+      <div
+        aria-hidden={!pastHero}
+        inert={!pastHero}
+        className={cn(
+          "sticky bottom-0 z-30 border-t border-border bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 transition-transform duration-300 md:hidden",
+          pastHero ? "translate-y-0" : "translate-y-full",
+        )}
+      >
         {open ? (
           <Link to="/register" className={cn("flex min-h-[54px] items-center justify-center rounded-2xl text-base font-extrabold", gold, focusRing)}>
             Apply now
