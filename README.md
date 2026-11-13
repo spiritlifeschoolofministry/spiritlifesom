@@ -135,6 +135,15 @@ Version constraints (the app is on React 19):
 - **React 19 brought these upgrades:** `next-themes` 0.4, `vaul` 1.1 and `react-day-picker` 9. `src/components/ui/calendar.tsx` uses day-picker 9's class names and `Chevron` component; pass `autoFocus`, not the removed `initialFocus`.
 - **Recharts 3** no longer puts `payload` and `label` on `Tooltip`'s props, and pie `label` callbacks get the data row under `payload`. `src/components/ui/chart.tsx` is already adapted.
 
+## Visual design
+
+The portal follows the redesign canvas ("SLSOM Redesign" artifact). Colours are CSS variables in `src/index.css` (`:root` and `.dark`):
+
+- **Base colours:** ink `#17112B` for text, ground `#F9F8FC`, primary purple `#5B21B6` (dark mode: a lighter purple with white text).
+- **Softer tones:** soft lavender for secondary surfaces and hovers, a muted grey for secondary text, and a 0.875rem radius.
+- **Sidebars:** both portal sidebars use `.gradient-purple`, now a deep plum.
+- **Gold:** `.gradient-flame` is now gold (`#E0A526` → `#F3C969`) with ink text. It's the single standout colour, used for the active nav item and the main call to action. Don't put white text on it: the class forces ink, because white on gold fails contrast.
+
 ## Portal navigation
 
 - **Student portal** (`src/components/StudentLayout.tsx`): sections are Today (the dashboard), Learn (courses, materials, tasks, study), Exams, My Record (attendance, assessments, transcript, certificate, fees), Community and Account. On phones the bottom bar has one tab per section (Today, Learn, Exams, Record, More), and the pages of the current section sit in a tab strip above the content. URLs are unchanged.

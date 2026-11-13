@@ -55,35 +55,35 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 252 33% 98%;
+    --foreground: 252 44% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 252 44% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 252 44% 12%;
 
-    --primary: 262.1 83.3% 57.8%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 263 69% 42%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 260 60% 95%;
+    --secondary-foreground: 263 64% 30%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 255 30% 95%;
+    --muted-foreground: 254 14% 40%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 260 60% 95%;
+    --accent-foreground: 252 44% 12%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 262.1 83.3% 57.8%;
+    --border: 255 20% 90%;
+    --input: 255 20% 86%;
+    --ring: 263 69% 42%;
 
-    --radius: 0.75rem;
+    --radius: 0.875rem;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -94,37 +94,37 @@
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
 
-    --shadow-card: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-card: 0 1px 2px rgb(23 17 43 / 0.05), 0 12px 32px -18px rgb(23 17 43 / 0.25);
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 252 50% 7%;
+    --foreground: 260 40% 96%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 252 44% 11%;
+    --card-foreground: 260 40% 96%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 252 44% 11%;
+    --popover-foreground: 260 40% 96%;
 
-    --primary: 263.4 70% 50.4%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 263 70% 56%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 252 32% 18%;
+    --secondary-foreground: 260 40% 96%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 252 32% 16%;
+    --muted-foreground: 254 18% 72%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 252 32% 18%;
+    --accent-foreground: 260 40% 96%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 263.4 70% 50.4%;
+    --border: 252 30% 20%;
+    --input: 252 30% 24%;
+    --ring: 263 70% 62%;
 
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
@@ -182,12 +182,18 @@
   }
 }
 
+/* Redesign palette: the portal sidebars and hero bands are deep plum, and the
+   one standout colour (active nav item, main call to action) is gold with ink
+   text. The class names are kept so every existing use picks the new look. */
 .gradient-purple {
-  @apply bg-gradient-to-br from-[#5B2D8E] to-[#2d1b69];
+  @apply bg-gradient-to-b from-[#1C1236] to-[#2A1257];
 }
 
 .gradient-flame {
-  @apply bg-gradient-to-r from-[#FF4D4D] to-[#F9CB28];
+  @apply bg-gradient-to-r from-[#E0A526] to-[#F3C969];
+  /* Ink on gold (~9:1). Overrides text-white / text-primary-foreground on the
+     same element, which would be unreadable on gold. */
+  color: #17112b;
 }
 
 .animate-fade-in {

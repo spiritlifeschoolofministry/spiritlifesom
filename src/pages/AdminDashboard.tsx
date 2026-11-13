@@ -17,6 +17,7 @@ import PortalPulse from "@/components/admin/PortalPulse";
 import AssistantChat from "@/components/portal/AssistantChat";
 import { Link } from "react-router-dom";
 import { preloadPath } from "@/routes/lazy-pages";
+import { useAuth } from "@/contexts/useAuth";
 import { toast } from "sonner";
 
 interface PendingStudent {
@@ -78,8 +79,22 @@ interface DashboardStats {
   openHandovers: number;
 }
 
+const greeting = () => {
+  const h = new Date().getHours();
+  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+};
+
+/** Shortcuts to the create forms admins open most, top right of the page. */
+const QUICK_CREATE = [
+  { label: "Announcement", path: "/admin/announcements" },
+  { label: "Task", path: "/admin/assignments" },
+  { label: "Exam", path: "/admin/exams/new" },
+  { label: "Event", path: "/admin/calendar" },
+];
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -360,6 +375,8 @@ const AdminDashboard = () => {
     },
   ];
 
+  const waitingTotal = QUEUES.reduce((sum, queue) => sum + queue.count, 0);
+
   // A short path to the pages staff open every day. The sidebar has all of
   // them, but on a phone it is behind a drawer.
   const SHORTCUTS = [
@@ -415,9 +432,30 @@ const AdminDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Admin Dashboard</h1>
-        <p className="text-muted-foreground text-sm mt-1">Overview of Spirit Life School of Ministry</p>
+      {/* Inbox first: the greeting says how much is waiting before anything else. */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+            {greeting()}{profile?.first_name ? `, ${profile.first_name}` : ""}
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {waitingTotal > 0
+              ? `${waitingTotal} ${waitingTotal === 1 ? "thing needs" : "things need"} you. Most take one click.`
+              : "Nothing is waiting on you right now."}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2" aria-label="Quick create">
+          {QUICK_CREATE.map((q) => (
+            <Link
+              key={q.path}
+              to={q.path}
+              onMouseEnter={() => preloadPath(q.path)}
+              className="inline-flex h-10 items-center rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-secondary"
+            >
+              + {q.label}
+            </Link>
+          ))}
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -440,14 +478,17 @@ const AdminDashboard = () => {
 
       {/* What is waiting, and how the portal is being used. Both are reasons
           to open a different page, so they sit above the record listings. */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ActionCentre queues={QUEUES} loading={loading} />
-        <PortalPulse />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          <ActionCentre queues={QUEUES} loading={loading} />
+        </div>
+        <div className="space-y-6 lg:col-span-2">
+          {/* A question is usually faster than finding the page that answers
+              it, and most of these cost no model call at all. */}
+          <AssistantChat audience="admin" />
+          <PortalPulse />
+        </div>
       </div>
-
-      {/* Above the listings: a question is usually faster than finding the
-          page that answers it, and most of these cost no model call at all. */}
-      <AssistantChat audience="admin" />
 
       {/* Quick navigation */}
       <Card className="shadow-[var(--shadow-card)] border-border">

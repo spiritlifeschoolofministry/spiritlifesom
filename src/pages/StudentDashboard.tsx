@@ -489,21 +489,21 @@ const StudentDashboard = () => {
       <div className="space-y-6">
         {/* Welcome Banner */}
         <Reveal>
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/70 p-6 sm:p-8 text-primary-foreground">
-            <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
-            <div className="relative z-10">
+          {/* A compact greeting: the first card below it (Up next) is what the
+              student came for, so the banner no longer takes the first screen. */}
+          <div className="text-foreground">
+            <div>
               {/* Name and status come from the auth context, which already has
                   them — no reason to hold the greeting behind the stats fetch. */}
               <div className="flex items-center gap-2 mb-1">
-                <Sparkles className="h-4 w-4 opacity-80" />
-                <span className="text-sm opacity-80">{getGreeting()}</span>
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span className="text-sm text-muted-foreground">{getGreeting()}</span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold">{fullName} 👋</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold">{fullName}</h1>
               {admissionStatus && (
-                <div className="mt-3 inline-flex items-center gap-2">
-                  <GraduationCap className="h-4 w-4" />
-                  <Badge variant="secondary" className="bg-white/20 text-primary-foreground border-0 hover:bg-white/30">
+                <div className="mt-2 inline-flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4 text-primary" />
+                  <Badge variant="secondary" className="border-0">
                     {admissionStatus}
                   </Badge>
                 </div>
@@ -515,24 +515,6 @@ const StudentDashboard = () => {
         {/* What to do next: an open or soon exam window, else the next class. */}
         <Reveal>
           <UpNext />
-        </Reveal>
-
-        {/* Placed under the greeting and above the figures: it is a summary of
-            them, so it should not sit where it looks like the record itself. */}
-        <Reveal>
-          <ProgressSummary />
-        </Reveal>
-
-        {/* Introduces the assistant by name and lists where he turns up.
-            Renders nothing while every student-facing AI feature is off. */}
-        <Reveal delay={40}>
-          <AssistantCard />
-        </Reveal>
-
-        {/* Directly under the introduction, so the name has been explained
-            before the box asking for a question appears. */}
-        <Reveal delay={60}>
-          <AssistantChat audience="student" />
         </Reveal>
 
         {/* Summary Cards */}
@@ -678,6 +660,24 @@ const StudentDashboard = () => {
             })()}
           </Reveal>
         </div>
+
+        {/* Placed under the greeting and above the figures: it is a summary of
+            them, so it should not sit where it looks like the record itself. */}
+        <Reveal>
+          <ProgressSummary />
+        </Reveal>
+
+        {/* Introduces the assistant by name and lists where he turns up.
+            Renders nothing while every student-facing AI feature is off. */}
+        <Reveal delay={40}>
+          <AssistantCard />
+        </Reveal>
+
+        {/* Directly under the introduction, so the name has been explained
+            before the box asking for a question appears. */}
+        <Reveal delay={60}>
+          <AssistantChat audience="student" />
+        </Reveal>
 
         {/* Quick Actions */}
         <Reveal delay={300}>
