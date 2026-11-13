@@ -1,13 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
+import { withRejectionReason } from "@/lib/rejection-note";
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Eye, Check, X, Download, Trash2, CheckCheck, Search, ArrowLeftRight, Pencil } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Loader2, Eye, Check, X, Download, Trash2, CheckCheck, Search, ArrowLeftRight, Pencil, HandCoins } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
@@ -20,6 +23,15 @@ import { LearningModeSelect, LearningModeTags } from '@/components/admin/Learnin
 import { ManualPaymentPanel } from '@/components/admin/ManualPaymentPanel';
 import { PageSkeleton } from '@/components/portal/PageSkeleton';
 import { toModeArray } from '@/lib/learning-modes';
+import { naira } from '@/lib/money';
+import { AdminPageHeader, KpiTile, Panel, StatusPill, type Tone } from '@/components/redesign/admin/primitives';
+import { APPROVE_BUTTON, QUIET_BUTTON, REJECT_BUTTON } from '@/components/redesign/admin/styles';
+import {
+  DetailField,
+  ReceiptDetail,
+  ReceiptQueueList,
+} from '@/components/redesign/admin/fees/ReceiptQueue';
+import { paymentTypeLabel, submittedLabel } from '@/components/redesign/admin/fees/receipt-labels';
 
 interface AddFeeFormData {
   cohort_id: string;
@@ -37,12 +49,37 @@ type PaymentWithStudent = Tables<'payments'> & {
 
 type StudentFee = Tables<'fees'>;
 
+/** A fee record with the student's name, for the Student fee records tab. */
+type FeeRecord = Pick<
+  StudentFee,
+  'id' | 'student_id' | 'fee_type' | 'amount_due' | 'amount_paid' | 'payment_status' | 'cohort_id' | 'waived'
+> & { student_name: string; student_email: string };
+
+type FeesTab = 'approvals' | 'records' | 'manager' | 'all' | 'manual';
+
+const feeStatusOf = (f: Pick<StudentFee, 'waived' | 'payment_status'>) => {
+  if (f.waived) return 'Waived';
+  const s = (f.payment_status || '').toLowerCase();
+  if (s === 'paid') return 'Paid';
+  if (s === 'partial') return 'Partial';
+  return 'Unpaid';
+};
+
+const STATUS_TONE: Record<string, Tone> = { Paid: 'good', Partial: 'warn', Unpaid: 'bad', Waived: 'neutral' };
+
+const outstandingOf = (f: Pick<StudentFee, 'amount_due' | 'amount_paid'>) =>
+  Math.max(Number(f.amount_due || 0) - Number(f.amount_paid || 0), 0);
+
+const TAB_TRIGGER =
+  'h-11 shrink-0 rounded-none border-b-[3px] border-transparent bg-transparent px-4 text-[15px] font-semibold text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none';
+
 const AdminFees = () => {
-  const [tab, setTab] = useState<'manager' | 'approvals' | 'manual'>('manager');
+  const [tab, setTab] = useState<FeesTab>('approvals');
   const [cohorts, setCohorts] = useState<Tables<'cohorts'>[]>([]);
   const [feeStructures, setFeeStructures] = useState<Tables<'fee_structures'>[]>([]);
   const [pendingPayments, setPendingPayments] = useState<PaymentWithStudent[]>([]);
   const [approvedPayments, setApprovedPayments] = useState<PaymentWithStudent[]>([]);
+  const [feeRecords, setFeeRecords] = useState<FeeRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -53,6 +90,13 @@ const AdminFees = () => {
   const [selectedReceiptLoading, setSelectedReceiptLoading] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
 
+  // The receipt open in the approvals detail panel. When it is decided and
+  // leaves the queue, the one that took its place opens next.
+  const [selectedPendingId, setSelectedPendingId] = useState<string | null>(null);
+  const [selectedPendingIndex, setSelectedPendingIndex] = useState(0);
+  const [rejectReason, setRejectReason] = useState('');
+  const [inlineFeeId, setInlineFeeId] = useState('');
+
   const [structureFilter, setStructureFilter] = useState('all');
 
   // Approved-payments filters
@@ -61,6 +105,11 @@ const AdminFees = () => {
   const [filterFee, setFilterFee] = useState('all');
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
+
+  // Student fee records filters
+  const [recordsSearch, setRecordsSearch] = useState('');
+  const [recordsCohort, setRecordsCohort] = useState('all');
+  const [recordsFee, setRecordsFee] = useState('all');
 
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState<PaymentWithStudent | null>(null);
@@ -149,6 +198,41 @@ const AdminFees = () => {
     }
   };
 
+  /**
+   * Every student's fee records, for the KPI row and the Student fee records
+   * tab. Same query shapes as the fee report export.
+   */
+  const fetchFeeRecords = async () => {
+    try {
+      const { data: fees, error } = await supabase
+        .from('fees')
+        .select('id, student_id, fee_type, amount_due, amount_paid, payment_status, cohort_id, waived');
+      if (error) throw error;
+      const studentIds = [...new Set((fees || []).map((f) => f.student_id))];
+      const { data: students } = studentIds.length
+        ? await supabase.from('students').select('id, student_code, profile:profiles(first_name, last_name, email)').in('id', studentIds)
+        : { data: [] };
+      const map = new Map((students || []).map((s) => [s.id, s]));
+      setFeeRecords(
+        (fees || []).map((f) => {
+          const s = map.get(f.student_id);
+          return {
+            ...f,
+            student_name: s ? `${s.profile?.first_name || ''} ${s.profile?.last_name || ''}`.trim() || 'Unknown' : 'Unknown',
+            student_email: s?.profile?.email || '',
+          };
+        }),
+      );
+    } catch (e) {
+      console.error('Failed to load fee records', e);
+    }
+  };
+
+  /** After anything that moves money: payments and balances both change. */
+  const refreshMoney = async () => {
+    await Promise.all([fetchPaymentsWithStudents(), fetchFeeRecords()]);
+  };
+
   useEffect(() => {
     (async () => {
       try {
@@ -159,7 +243,7 @@ const AdminFees = () => {
         ]);
         if (cohortsData) setCohorts(cohortsData);
         if (fees) setFeeStructures(fees);
-        await fetchPaymentsWithStudents();
+        await refreshMoney();
       } catch (e) {
         console.error(e);
         toast.error('Failed to load data');
@@ -167,6 +251,8 @@ const AdminFees = () => {
         setLoading(false);
       }
     })();
+    // Mount-only load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const openReceipt = async (p: PaymentWithStudent) => {
@@ -250,6 +336,7 @@ const AdminFees = () => {
       const { data: fees } = await supabase.from('fee_structures').select('*').order('created_at', { ascending: false });
       if (fees) setFeeStructures(fees);
       setEditTarget(null);
+      await fetchFeeRecords();
     } finally {
       setIsProcessing(false);
     }
@@ -280,7 +367,7 @@ const AdminFees = () => {
       const { error } = await supabase.rpc('admin_approve_payment', { p_payment_id: payment.id });
       if (error) { toast.error('Failed to approve: ' + error.message); return; }
       toast.success('Payment approved');
-      await fetchPaymentsWithStudents();
+      await refreshMoney();
     } finally {
       setIsProcessing(false);
     }
@@ -293,21 +380,14 @@ const AdminFees = () => {
 
   // Every fee in the system, whatever the learning mode: the student's own fee
   // records first, then any fee definition they haven't been assigned yet.
-  const reassignOptions = useMemo(() => {
-    if (!reassignTarget) return [];
-    const own = studentFees.filter((f) => f.student_id === reassignTarget.student_id);
+  const feeOptionsFor = (target: PaymentWithStudent | null) => {
+    if (!target) return [];
+    const own = studentFees.filter((f) => f.student_id === target.student_id);
     const ownTypes = new Set(own.map((f) => f.fee_type));
-    const statusOf = (f: StudentFee) => {
-      if (f.waived) return 'Waived';
-      const s = (f.payment_status || '').toLowerCase();
-      if (s === 'paid') return 'Paid';
-      if (s === 'partial') return 'Partial';
-      return 'Unpaid';
-    };
     return [
       ...own.map((f) => ({
         value: `fee:${f.id}`,
-        status: statusOf(f),
+        status: feeStatusOf(f),
         label: `${f.fee_type} — ₦${Number(f.amount_paid || 0).toLocaleString()} of ₦${Number(f.amount_due || 0).toLocaleString()} paid`,
       })),
       ...feeStructures
@@ -318,41 +398,64 @@ const AdminFees = () => {
           label: `${fs.fee_name} — ₦${Number(fs.amount).toLocaleString()} (${cohorts.find((c) => c.id === fs.cohort_id)?.name || 'no cohort'}, not yet assigned)`,
         })),
     ];
-  }, [reassignTarget, studentFees, feeStructures, cohorts]);
+  };
 
-  const confirmReassign = async () => {
-    if (!reassignTarget || !reassignFeeId) return;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const reassignOptions = useMemo(() => feeOptionsFor(reassignTarget), [reassignTarget, studentFees, feeStructures, cohorts]);
+
+  /** Moves a receipt onto a fee, with the same two RPCs as always. */
+  const assignFee = async (target: PaymentWithStudent, value: string) => {
     try {
       setIsProcessing(true);
-      const [kind, id] = reassignFeeId.split(':');
+      const [kind, id] = value.split(':');
       // A fee the student was never assigned has no fees row yet — the
       // by_structure RPC creates it before moving the receipt onto it.
       const { error } = kind === 'structure'
         ? await supabase.rpc('admin_set_payment_fee_by_structure', {
-            p_payment_id: reassignTarget.id,
+            p_payment_id: target.id,
             p_fee_structure_id: id,
           })
         : await supabase.rpc('admin_set_payment_fee', {
-            p_payment_id: reassignTarget.id,
+            p_payment_id: target.id,
             p_student_fee_id: id,
           });
-      if (error) { toast.error('Failed to reassign: ' + error.message); return; }
+      if (error) { toast.error('Failed to reassign: ' + error.message); return false; }
       toast.success('Receipt assigned to the selected fee');
-      setReassignTarget(null);
-      setReassignFeeId('');
-      await fetchPaymentsWithStudents();
+      await refreshMoney();
+      return true;
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const rejectPayment = async (id: string) => {
+  const confirmReassign = async () => {
+    if (!reassignTarget || !reassignFeeId) return;
+    const ok = await assignFee(reassignTarget, reassignFeeId);
+    if (ok) {
+      setReassignTarget(null);
+      setReassignFeeId('');
+    }
+  };
+
+  const rejectPayment = async (id: string, reason?: string) => {
     try {
       setIsProcessing(true);
-      const { error } = await supabase.from('payments').update({ status: 'REJECTED' }).eq('id', id);
+      // A typed reason is kept on the payment, as the Payments page does.
+      const note = reason?.trim();
+      // Keep the student's own note; add the reason after it.
+      let adminNotes: string | undefined;
+      if (note) {
+        const { data: current } = await supabase.from('payments').select('admin_notes').eq('id', id).maybeSingle();
+        adminNotes = withRejectionReason(current?.admin_notes, note);
+      }
+      const { error } = await supabase
+        .from('payments')
+        .update(adminNotes ? { status: 'REJECTED', admin_notes: adminNotes } : { status: 'REJECTED' })
+        .eq('id', id);
       if (error) { toast.error('Failed to reject'); return; }
       toast.success('Payment rejected');
-      await fetchPaymentsWithStudents();
+      setRejectReason('');
+      await refreshMoney();
     } finally {
       setIsProcessing(false);
     }
@@ -371,6 +474,7 @@ const AdminFees = () => {
       toast.success(deleteTarget.is_manual_record ? 'Manual payment reversed' : 'Payment record deleted');
       setPendingPayments((prev) => prev.filter((p) => p.id !== deleteTarget.id));
       setApprovedPayments((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+      if (deleteTarget.is_manual_record) await fetchFeeRecords();
     } finally {
       setIsProcessing(false);
       setDeleteTarget(null);
@@ -394,7 +498,7 @@ const AdminFees = () => {
       toast.success(
         `Verified ${ok}${fail ? `, ${fail} failed` : ''}${skipped ? `, ${skipped} skipped (no fee assigned)` : ''}`,
       );
-      await fetchPaymentsWithStudents();
+      await refreshMoney();
     } finally {
       setIsProcessing(false);
     }
@@ -428,6 +532,53 @@ const AdminFees = () => {
     }
   };
 
+  // ===== Approvals queue selection =====
+  const selectedPending = useMemo(() => {
+    if (pendingPayments.length === 0) return null;
+    return (
+      pendingPayments.find((p) => p.id === selectedPendingId) ??
+      pendingPayments[Math.min(selectedPendingIndex, pendingPayments.length - 1)]
+    );
+  }, [pendingPayments, selectedPendingId, selectedPendingIndex]);
+
+  const selectPending = (id: string) => {
+    setSelectedPendingId(id);
+    setSelectedPendingIndex(Math.max(0, pendingPayments.findIndex((p) => p.id === id)));
+  };
+
+  // A new receipt starts with an empty reason and no fee picked.
+  useEffect(() => {
+    setRejectReason('');
+    setInlineFeeId('');
+  }, [selectedPending?.id]);
+
+  const balanceAfter = (p: PaymentWithStudent) => {
+    if (!p.student_fee_id) return 'Depends on the fee chosen';
+    const fee = studentFees.find((f) => f.id === p.student_fee_id);
+    if (!fee) return '—';
+    const left = outstandingOf(fee) - Number(p.amount_paid || 0);
+    return left <= 0 ? 'Fully paid' : `${naira(left)} left on ${fee.fee_type}`;
+  };
+
+  // ===== KPI row =====
+  const kpis = useMemo(() => {
+    const live = feeRecords.filter((f) => !f.waived);
+    const collected = live.reduce((sum, f) => sum + Number(f.amount_paid || 0), 0);
+    const expected = live.reduce((sum, f) => sum + Number(f.amount_due || 0), 0);
+    const owing = live.filter((f) => outstandingOf(f) > 0);
+    const owingStudents = new Set(owing.map((f) => f.student_id)).size;
+    const outstanding = owing.reduce((sum, f) => sum + outstandingOf(f), 0);
+    const waived = feeRecords.filter((f) => f.waived);
+    const waivedAmount = waived.reduce((sum, f) => sum + outstandingOf(f), 0);
+    const oldest = pendingPayments.reduce<number | null>((min, p) => {
+      if (!p.created_at) return min;
+      const t = new Date(p.created_at).getTime();
+      return min === null || t < min ? t : min;
+    }, null);
+    const oldestDays = oldest === null ? null : Math.floor((Date.now() - oldest) / 86_400_000);
+    return { collected, expected, owingStudents, outstanding, waivedAmount, waivedCount: waived.length, oldestDays };
+  }, [feeRecords, pendingPayments]);
+
   // ===== Filtering for approved payments =====
   const feeNames = useMemo(() => {
     const names = new Set<string>();
@@ -452,327 +603,524 @@ const AdminFees = () => {
     setSearchName(''); setFilterCohort('all'); setFilterFee('all'); setFilterFrom(''); setFilterTo('');
   };
 
+  // ===== Student fee records =====
+  const recordFeeTypes = useMemo(
+    () => Array.from(new Set(feeRecords.map((f) => f.fee_type).filter(Boolean))).sort(),
+    [feeRecords],
+  );
+
+  const filteredRecords = useMemo(() => {
+    const q = recordsSearch.trim().toLowerCase();
+    return feeRecords
+      .filter((f) => {
+        if (q && !f.student_name.toLowerCase().includes(q) && !f.student_email.toLowerCase().includes(q)) return false;
+        if (recordsCohort !== 'all' && f.cohort_id !== recordsCohort) return false;
+        if (recordsFee !== 'all' && f.fee_type !== recordsFee) return false;
+        return true;
+      })
+      .sort((a, b) => a.student_name.localeCompare(b.student_name) || a.fee_type.localeCompare(b.fee_type));
+  }, [feeRecords, recordsSearch, recordsCohort, recordsFee]);
+
   const filteredStructures = useMemo(
     () => structureFilter === 'all' ? feeStructures : feeStructures.filter((f) => f.cohort_id === structureFilter),
     [feeStructures, structureFilter],
   );
 
+  const cohortName = (id: string | null | undefined) => cohorts.find((c) => c.id === id)?.name || '—';
+
   if (loading) {
     return <PageSkeleton panels={2} />;
   }
 
+  const inlineOptions = feeOptionsFor(selectedPending);
+
   return (
-    <div className="space-y-6 pb-6">
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Fee Management</h1>
-          <p className="text-sm text-muted-foreground">Create fees and approve student payments</p>
-        </div>
-        {/* Wraps rather than overflowing: four controls in one row is wider
-            than a phone. */}
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={handleExportFees} className="gap-2">
-            <Download className="h-4 w-4" /> Export Fees
-          </Button>
-          <Button variant={tab === 'manager' ? 'default' : 'ghost'} onClick={() => setTab('manager')}>Fee Manager</Button>
-          <Button variant={tab === 'approvals' ? 'default' : 'ghost'} onClick={() => setTab('approvals')}>
-            Payment Approvals
-            {pendingPayments.length > 0 && (
-              <Badge variant="destructive" className="ml-2">{pendingPayments.length}</Badge>
-            )}
-          </Button>
-          <Button variant={tab === 'manual' ? 'default' : 'ghost'} onClick={() => setTab('manual')}>
-            Record Payment
-          </Button>
-        </div>
+    <Tabs value={tab} onValueChange={(v) => setTab(v as FeesTab)} className="pb-6">
+      <AdminPageHeader
+        section="Money"
+        title="Fees and payments"
+        actions={
+          <>
+            <Button variant="outline" onClick={handleExportFees} className={`h-11 gap-2 rounded-[10px] font-semibold sm:h-10 ${QUIET_BUTTON}`}>
+              <Download className="h-4 w-4" /> Export fees
+            </Button>
+            <Button variant="outline" onClick={() => setTab('manual')} className={`h-11 gap-2 rounded-[10px] font-semibold sm:h-10 ${QUIET_BUTTON}`}>
+              <HandCoins className="h-4 w-4" /> Record payment
+            </Button>
+          </>
+        }
+        tabs={
+          <TabsList aria-label="Fees sections" className="h-auto w-full gap-1 rounded-none bg-transparent p-0">
+            <TabsTrigger value="approvals" className={TAB_TRIGGER}>
+              Payment approvals
+              {pendingPayments.length > 0 && (
+                <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+                  {pendingPayments.length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="records" className={TAB_TRIGGER}>Student fee records</TabsTrigger>
+            <TabsTrigger value="manager" className={TAB_TRIGGER}>Fee manager</TabsTrigger>
+            <TabsTrigger value="all" className={TAB_TRIGGER}>Verified payments</TabsTrigger>
+            <TabsTrigger value="manual" className={TAB_TRIGGER}>Record payment</TabsTrigger>
+          </TabsList>
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiTile
+          label="Collected"
+          value={naira(kpis.collected)}
+          note={kpis.expected > 0 ? `${Math.round((kpis.collected / kpis.expected) * 100)}% of ${naira(kpis.expected)} expected` : 'Nothing billed yet'}
+        />
+        <KpiTile
+          label="Receipts to verify"
+          value={pendingPayments.length}
+          tone={pendingPayments.length > 0 ? 'warn' : 'good'}
+          note={
+            kpis.oldestDays === null
+              ? 'None waiting'
+              : kpis.oldestDays === 0
+                ? 'Oldest from today'
+                : `Oldest ${kpis.oldestDays} day${kpis.oldestDays === 1 ? '' : 's'}`
+          }
+        />
+        <KpiTile
+          label="Students owing"
+          value={kpis.owingStudents}
+          tone={kpis.owingStudents > 0 ? 'bad' : 'good'}
+          note={`${naira(kpis.outstanding)} outstanding`}
+        />
+        <KpiTile
+          label="Waived"
+          value={naira(kpis.waivedAmount)}
+          note={`${kpis.waivedCount} fee${kpis.waivedCount === 1 ? '' : 's'}`}
+        />
       </div>
 
-      {tab === 'manager' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Create New Fee</CardTitle>
-            <CardDescription>
-              Define a fee for a cohort. Fees marked 'All' apply to everyone; specific modes only apply to students in that learning mode.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit(onAddFee)} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <Label>Cohort</Label>
-                <Select value={selectedCohort} onValueChange={(v) => setValue('cohort_id', v)}>
-                  <SelectTrigger><SelectValue placeholder="Select cohort" /></SelectTrigger>
-                  <SelectContent>
-                    {cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Learning Modes</Label>
-                <LearningModeSelect
-                  value={selectedModes}
-                  onChange={(modes) => setValue('learning_modes', modes)}
+      {/* ===== Payment approvals ===== */}
+      <TabsContent value="approvals" className="mt-5">
+        <div className="flex flex-wrap items-start gap-5">
+          <ReceiptQueueList
+            title={`Receipts to verify · ${pendingPayments.length}`}
+            payments={pendingPayments}
+            selectedId={selectedPending?.id ?? null}
+            onSelect={selectPending}
+            actions={
+              pendingPayments.length > 0 && (
+                <Button
+                  onClick={verifyAllPending}
+                  disabled={isProcessing}
+                  className={`h-11 gap-2 rounded-[10px] font-bold sm:h-10 ${APPROVE_BUTTON}`}
+                >
+                  <CheckCheck className="h-4 w-4" /> Verify all ({pendingPayments.length})
+                </Button>
+              )
+            }
+          />
+          {pendingPayments.length > 0 && (
+            <ReceiptDetail payment={selectedPending}>
+              {selectedPending && (
+                <>
+                  <dl className="grid grid-cols-1 gap-x-5 gap-y-3 sm:grid-cols-2">
+                    <DetailField label="Student says">{paymentTypeLabel(selectedPending.payment_type, true)}</DetailField>
+                    <DetailField label="Submitted">{submittedLabel(selectedPending.created_at)}</DetailField>
+                    <DetailField label="Fee">
+                      {selectedPending.fee_name || 'Not set'}
+                      {selectedPending.student_fee_id && (
+                        <button
+                          type="button"
+                          onClick={() => openReassign(selectedPending)}
+                          disabled={isProcessing}
+                          className="ml-2 inline-flex min-h-[44px] items-center gap-1 rounded text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-0"
+                        >
+                          <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden="true" /> Change fee
+                        </button>
+                      )}
+                    </DetailField>
+                    <DetailField label="Balance after approval">{balanceAfter(selectedPending)}</DetailField>
+                  </dl>
+                  {selectedPending.admin_notes && (
+                    <DetailField label="Notes">{selectedPending.admin_notes}</DetailField>
+                  )}
+
+                  {!selectedPending.student_fee_id && (
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="inline-fee" className="text-sm font-semibold">Assign this receipt to a fee first</Label>
+                      {inlineOptions.length === 0 ? (
+                        <p className="text-sm text-destructive">No fees exist yet. Create one under Fee manager first.</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          <Select value={inlineFeeId} onValueChange={setInlineFeeId}>
+                            <SelectTrigger id="inline-fee" className="h-11 min-w-0 flex-1 basis-60 rounded-[10px]">
+                              <SelectValue placeholder="Select fee" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {inlineOptions.map((o) => (
+                                <SelectItem key={o.value} value={o.value}>
+                                  {o.label} ({o.status})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            onClick={() => assignFee(selectedPending, inlineFeeId)}
+                            disabled={isProcessing || !inlineFeeId}
+                            className="h-11 rounded-[10px] font-bold"
+                          >
+                            {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save fee'}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="reject-reason" className="text-sm font-semibold">Reason (if rejecting)</Label>
+                    <Textarea
+                      id="reject-reason"
+                      rows={2}
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                      placeholder="Optional. Saved on the payment record."
+                      className="rounded-[10px]"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap gap-2.5">
+                    <Button
+                      onClick={() => approvePayment(selectedPending)}
+                      disabled={isProcessing}
+                      className={`h-[46px] gap-2 rounded-xl px-5 text-[15px] font-bold ${APPROVE_BUTTON}`}
+                    >
+                      <Check className="h-4 w-4" /> Approve payment
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => rejectPayment(selectedPending.id, rejectReason)}
+                      disabled={isProcessing}
+                      className={`h-[46px] gap-2 rounded-xl px-[18px] text-[15px] font-semibold ${REJECT_BUTTON}`}
+                    >
+                      <X className="h-4 w-4" /> Reject
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setDeleteTarget(selectedPending)}
+                      disabled={isProcessing}
+                      className="h-[46px] gap-2 rounded-xl text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" /> Delete record
+                    </Button>
+                  </div>
+                </>
+              )}
+            </ReceiptDetail>
+          )}
+        </div>
+      </TabsContent>
+
+      {/* ===== Student fee records ===== */}
+      <TabsContent value="records" className="mt-5">
+        <Panel
+          title={`Student fee records (${filteredRecords.length})`}
+          actions={
+            <>
+              <div className="relative w-full sm:w-60">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <Input
+                  aria-label="Search student"
+                  placeholder="Search student name or email…"
+                  value={recordsSearch}
+                  onChange={(e) => setRecordsSearch(e.target.value)}
+                  className="h-11 rounded-[10px] pl-9 sm:h-10"
                 />
               </div>
-              <div>
-                <Label>Fee Name</Label>
-                <Input {...register('fee_name', { required: true })} placeholder="e.g. Tuition" />
-              </div>
-              <div>
-                <Label>Amount (₦)</Label>
-                <Input type="number" step="0.01" {...register('amount', { required: true })} />
-              </div>
-              <div className="md:col-span-2 lg:col-span-4">
-                <Button type="submit" disabled={isProcessing}>{isProcessing ? 'Adding…' : 'Add Fee'}</Button>
-              </div>
-            </form>
-
-            <div className="mt-8">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                <h3 className="font-semibold text-lg">Existing Fees ({filteredStructures.length})</h3>
-                <Select value={structureFilter} onValueChange={setStructureFilter}>
-                  <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="All Cohorts" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Cohorts</SelectItem>
-                    {cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              {filteredStructures.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No fees defined yet.</p>
-              ) : (
-                <div className="overflow-x-auto rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Fee</TableHead>
-                        <TableHead className="hidden md:table-cell">Cohort</TableHead>
-                        <TableHead className="hidden lg:table-cell">Mode</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+              <Select value={recordsCohort} onValueChange={setRecordsCohort}>
+                <SelectTrigger aria-label="Cohort" className="h-11 w-full rounded-[10px] sm:h-10 sm:w-44"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All cohorts</SelectItem>
+                  {cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={recordsFee} onValueChange={setRecordsFee}>
+                <SelectTrigger aria-label="Fee type" className="h-11 w-full rounded-[10px] sm:h-10 sm:w-48"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All fee types</SelectItem>
+                  {recordFeeTypes.map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </>
+          }
+        >
+          {filteredRecords.length === 0 ? (
+            <p className="px-5 py-8 text-center text-sm text-muted-foreground">
+              {feeRecords.length === 0 ? 'No fee records yet.' : 'No fee records match these filters.'}
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="text-xs uppercase tracking-[0.05em]">
+                    <TableHead className="pl-5">Student</TableHead>
+                    <TableHead className="hidden md:table-cell">Fee</TableHead>
+                    <TableHead className="hidden sm:table-cell text-right">Due</TableHead>
+                    <TableHead className="hidden sm:table-cell text-right">Paid</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="pr-5 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredRecords.map((f) => {
+                    const status = feeStatusOf(f);
+                    return (
+                      <TableRow key={f.id}>
+                        <TableCell className="pl-5 font-semibold">
+                          {f.student_name}
+                          <span className="mt-0.5 block text-xs font-normal text-muted-foreground md:hidden">
+                            {f.fee_type}
+                            <span className="sm:hidden"> · {naira(Number(f.amount_paid))} of {naira(Number(f.amount_due))}</span>
+                          </span>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">{f.fee_type}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-right">{naira(Number(f.amount_due))}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-right">{naira(Number(f.amount_paid))}</TableCell>
+                        <TableCell><StatusPill tone={STATUS_TONE[status]}>{status}</StatusPill></TableCell>
+                        <TableCell className="pr-5 text-right">
+                          <div className="flex flex-col items-end gap-1.5 sm:flex-row sm:justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={`h-11 rounded-lg sm:h-[34px] ${QUIET_BUTTON}`}
+                              onClick={() => { setSearchName(f.student_name); setTab('all'); }}
+                              aria-label={`Receipts for ${f.student_name}`}
+                            >
+                              Receipts
+                            </Button>
+                            <Button asChild variant="outline" size="sm" className={`h-11 rounded-lg sm:h-[34px] ${QUIET_BUTTON}`}>
+                              <Link to={`/admin/students/${f.student_id}`} aria-label={`Open ${f.student_name}`}>Open student</Link>
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredStructures.map((f) => (
-                        <TableRow key={f.id}>
-                          <TableCell className="font-medium">
-                            {f.fee_name}
-                            {/* Cohort and mode lose their columns on a narrow
-                                screen, so they ride under the fee name. */}
-                            <span className="mt-1 block text-xs font-normal text-muted-foreground md:hidden">
-                              {cohorts.find((c) => c.id === f.cohort_id)?.name || '—'}
-                            </span>
-                            <span className="mt-1 block lg:hidden">
-                              <LearningModeTags modes={f.learning_modes} />
-                            </span>
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell">{cohorts.find((c) => c.id === f.cohort_id)?.name || '—'}</TableCell>
-                          <TableCell className="hidden lg:table-cell"><LearningModeTags modes={f.learning_modes} /></TableCell>
-                          <TableCell className="text-right">₦{Number(f.amount).toLocaleString()}</TableCell>
-                          <TableCell className="text-right">
-                            <Button size="sm" variant="ghost" onClick={() => openEditFee(f)} disabled={isProcessing}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => setDeleteFeeId(f.id)} disabled={isProcessing}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </Panel>
+      </TabsContent>
 
-      {tab === 'approvals' && (
-        <>
-          <Card>
-            <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle>Pending Payments</CardTitle>
-                <CardDescription>Review and verify pending student receipts</CardDescription>
+      {/* ===== Fee manager ===== */}
+      <TabsContent value="manager" className="mt-5">
+        <div className="flex flex-wrap items-start gap-5">
+          <Panel
+            title={`Fee manager (${filteredStructures.length})`}
+            className="flex-[2] basis-[520px]"
+            actions={
+              <Select value={structureFilter} onValueChange={setStructureFilter}>
+                <SelectTrigger aria-label="Filter fees by cohort" className="h-11 w-full rounded-[10px] sm:h-10 sm:w-[200px]"><SelectValue placeholder="All Cohorts" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All cohorts</SelectItem>
+                  {cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            }
+          >
+            {filteredStructures.length === 0 ? (
+              <p className="px-5 py-8 text-sm text-muted-foreground">No fees defined yet.</p>
+            ) : (
+              <ul>
+                {filteredStructures.map((f) => (
+                  <li key={f.id} className="flex flex-wrap items-center gap-3.5 border-t border-border/60 px-5 py-3 first:border-t-0">
+                    <span className="flex min-w-0 flex-1 basis-40 flex-col gap-1">
+                      <strong className="text-sm text-foreground">{f.fee_name}</strong>
+                      <span className="text-[13px] text-muted-foreground">{cohortName(f.cohort_id)}</span>
+                    </span>
+                    <span className="w-40"><LearningModeTags modes={f.learning_modes} /></span>
+                    <strong className="w-24 text-sm text-foreground">{naira(Number(f.amount))}</strong>
+                    <span className="flex gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEditFee(f)}
+                        disabled={isProcessing}
+                        aria-label={`Edit ${f.fee_name}`}
+                        className={`h-11 gap-1.5 rounded-lg sm:h-[34px] ${QUIET_BUTTON}`}
+                      >
+                        <Pencil className="h-3.5 w-3.5" /> Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeleteFeeId(f.id)}
+                        disabled={isProcessing}
+                        aria-label={`Delete ${f.fee_name}`}
+                        className={`h-11 w-11 rounded-lg p-0 sm:h-[34px] sm:w-[34px] ${QUIET_BUTTON}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="border-t border-border/60 px-5 pb-4 pt-3 text-[13px] text-muted-foreground">
+              You can edit the amount and learning modes; the cohort and name are fixed. A new price reaches only the
+              records with nothing against them, and you are told how many kept the old price. Fees marked All apply to
+              everyone; a specific mode applies only to students in that learning mode.
+            </p>
+          </Panel>
+
+          <form
+            onSubmit={handleSubmit(onAddFee)}
+            aria-labelledby="create-fee-title"
+            className="flex min-w-0 flex-1 basis-[320px] flex-col gap-3 rounded-[18px] border border-border bg-card px-5 py-[18px]"
+          >
+            <h2 id="create-fee-title" className="text-[17px] font-bold text-foreground">Create a fee</h2>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-fee-cohort" className="font-semibold">Cohort</Label>
+              <Select value={selectedCohort} onValueChange={(v) => setValue('cohort_id', v)}>
+                <SelectTrigger id="new-fee-cohort" className="h-11 rounded-[10px]"><SelectValue placeholder="Select cohort" /></SelectTrigger>
+                <SelectContent>
+                  {cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-fee-name" className="font-semibold">Fee name</Label>
+              <Input id="new-fee-name" className="h-11 rounded-[10px]" {...register('fee_name', { required: true })} placeholder="e.g. Tuition" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-fee-amount" className="font-semibold">Amount (₦)</Label>
+              <Input id="new-fee-amount" className="h-11 rounded-[10px]" type="number" step="0.01" inputMode="decimal" {...register('amount', { required: true })} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="font-semibold">Learning modes</Label>
+              <LearningModeSelect
+                value={selectedModes}
+                onChange={(modes) => setValue('learning_modes', modes)}
+              />
+            </div>
+            <Button type="submit" disabled={isProcessing} className="h-11 rounded-[10px] font-bold">
+              {isProcessing ? 'Creating…' : 'Create fee'}
+            </Button>
+          </form>
+        </div>
+      </TabsContent>
+
+      {/* ===== Verified payments ===== */}
+      <TabsContent value="all" className="mt-5">
+        <Panel
+          title={`Verified payments (${filteredApproved.length}/${approvedPayments.length})`}
+          description="Filter, view receipts, and manage verified payments. Manual entries (cash or bank) are marked and can be reversed."
+        >
+          <div className="space-y-3 px-5 pt-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="relative lg:col-span-2">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <Input aria-label="Search payments by student" className="h-11 rounded-[10px] pl-9 sm:h-10" placeholder="Search student name or email…" value={searchName} onChange={(e) => setSearchName(e.target.value)} />
               </div>
-              {pendingPayments.length > 0 && (
-                <Button size="sm" onClick={verifyAllPending} disabled={isProcessing} className="gap-2 self-start">
-                  <CheckCheck className="h-4 w-4" /> Verify All ({pendingPayments.length})
-                </Button>
-              )}
-            </CardHeader>
-            <CardContent>
-              {pendingPayments.length === 0 ? (
-                <p className="text-muted-foreground">No pending payments</p>
-              ) : (
-                <div className="overflow-x-auto rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Student</TableHead>
-                        <TableHead className="hidden md:table-cell">Fee</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                        <TableHead className="hidden lg:table-cell">Date</TableHead>
-                        <TableHead>Receipt</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {pendingPayments.map((p) => (
-                        <TableRow key={p.id}>
-                          <TableCell className="font-medium">
-                            {p.student_name}
-                            <span className="mt-0.5 block text-xs font-normal text-muted-foreground md:hidden">
-                              <button onClick={() => openReassign(p)} className="text-left hover:underline">
-                                {p.fee_name || <span className="text-destructive">Not assigned — set fee</span>}
-                              </button>
-                              <span className="lg:hidden">{p.created_at ? ` · ${new Date(p.created_at).toLocaleDateString()}` : ''}</span>
-                            </span>
-                          </TableCell>
-                          <TableCell className="hidden text-xs md:table-cell">
-                            <button onClick={() => openReassign(p)} className="hover:underline text-left">
+              <Select value={filterCohort} onValueChange={setFilterCohort}>
+                <SelectTrigger aria-label="Cohort" className="h-11 rounded-[10px] sm:h-10"><SelectValue placeholder="Cohort" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Cohorts</SelectItem>
+                  {cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterFee} onValueChange={setFilterFee}>
+                <SelectTrigger aria-label="Fee type" className="h-11 rounded-[10px] sm:h-10"><SelectValue placeholder="Fee type" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Fee Types</SelectItem>
+                  {feeNames.map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <div className="flex gap-2">
+                <Input type="date" aria-label="From date" className="h-11 rounded-[10px] sm:h-10" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} title="From" />
+                <Input type="date" aria-label="To date" className="h-11 rounded-[10px] sm:h-10" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} title="To" />
+              </div>
+            </div>
+            {(searchName || filterCohort !== 'all' || filterFee !== 'all' || filterFrom || filterTo) && (
+              <Button size="sm" variant="ghost" onClick={clearFilters}>Clear filters</Button>
+            )}
+          </div>
+
+          {filteredApproved.length === 0 ? (
+            <p className="px-5 py-8 text-center text-sm text-muted-foreground">{approvedPayments.length === 0 ? 'No approved payments yet' : 'No payments match the current filters'}</p>
+          ) : (
+            <div className="mt-3 overflow-x-auto border-t border-border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="text-xs uppercase tracking-[0.05em]">
+                    <TableHead className="pl-5">Student</TableHead>
+                    <TableHead className="hidden xl:table-cell">Cohort</TableHead>
+                    <TableHead className="hidden md:table-cell">Fee</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="hidden lg:table-cell">Date</TableHead>
+                    <TableHead>Receipt</TableHead>
+                    <TableHead className="pr-5 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredApproved.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="pl-5 font-semibold">
+                        {p.student_name}
+                        <span className="mt-0.5 block text-xs font-normal text-muted-foreground xl:hidden">
+                          <span className="md:hidden">
+                            <button onClick={() => openReassign(p)} className="text-left hover:underline">
                               {p.fee_name || <span className="text-destructive">Not assigned — set fee</span>}
                             </button>
-                          </TableCell>
-                          <TableCell className="text-right">₦{Number(p.amount_paid).toLocaleString()}</TableCell>
-                          <TableCell className="hidden lg:table-cell">{p.created_at ? new Date(p.created_at).toLocaleDateString() : ''}</TableCell>
-                          <TableCell>
-                            {(p.payment_proof_url || p.storage_path) ? (
-                              <button onClick={() => openReceipt(p)} className="text-primary hover:underline flex items-center gap-1">
-                                <Eye className="h-4 w-4" /> View
-                              </button>
-                            ) : <span className="text-muted-foreground text-sm">No receipt</span>}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex gap-1 justify-end">
-                              <Button size="sm" variant="outline" onClick={() => openReassign(p)} disabled={isProcessing} title="Change fee">
-                                <ArrowLeftRight className="h-4 w-4" />
-                              </Button>
-                              <Button size="sm" onClick={() => approvePayment(p)} disabled={isProcessing}><Check className="h-4 w-4" /></Button>
-                              <Button size="sm" variant="destructive" onClick={() => rejectPayment(p.id)} disabled={isProcessing}><X className="h-4 w-4" /></Button>
-                              <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(p)} disabled={isProcessing}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                            {' · '}
+                          </span>
+                          {cohortName(p.cohort_id)}
+                          <span className="lg:hidden">{(p.payment_date || p.created_at) ? ` · ${new Date(p.payment_date || p.created_at!).toLocaleDateString()}` : ''}</span>
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden text-xs xl:table-cell">{cohortName(p.cohort_id)}</TableCell>
+                      <TableCell className="hidden text-xs md:table-cell">
+                        <button onClick={() => openReassign(p)} className="hover:underline text-left">
+                          {p.fee_name || <span className="text-destructive">Not assigned — set fee</span>}
+                        </button>
+                      </TableCell>
+                      <TableCell className="text-right">{naira(Number(p.amount_paid))}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{(p.payment_date || p.created_at) ? new Date(p.payment_date || p.created_at!).toLocaleDateString() : ''}</TableCell>
+                      <TableCell>
+                        {(p.payment_proof_url || p.storage_path) ? (
+                          <button onClick={() => openReceipt(p)} className="flex min-h-[44px] items-center gap-1 text-primary hover:underline sm:min-h-0">
+                            <Eye className="h-4 w-4" /> View
+                          </button>
+                        ) : p.is_manual_record ? (
+                          <Badge variant="outline" className="text-xs">Manual entry</Badge>
+                        ) : <span className="text-muted-foreground text-sm">No receipt</span>}
+                      </TableCell>
+                      <TableCell className="pr-5 text-right">
+                        <div className="flex gap-1 justify-end">
+                          <Button size="sm" variant="outline" className="h-11 w-11 p-0 sm:h-9 sm:w-9" onClick={() => openReassign(p)} disabled={isProcessing} title="Change fee" aria-label={`Change fee for ${p.student_name}`}>
+                            <ArrowLeftRight className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-11 w-11 p-0 sm:h-9 sm:w-9" onClick={() => setDeleteTarget(p)} disabled={isProcessing} aria-label={`Delete payment from ${p.student_name}`}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </Panel>
+      </TabsContent>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Approved Payments ({filteredApproved.length}/{approvedPayments.length})</CardTitle>
-              <CardDescription>Filter, view receipts, and manage verified payments</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                <div className="lg:col-span-2 relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input className="pl-8" placeholder="Search student name or email…" value={searchName} onChange={(e) => setSearchName(e.target.value)} />
-                </div>
-                <Select value={filterCohort} onValueChange={setFilterCohort}>
-                  <SelectTrigger><SelectValue placeholder="Cohort" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Cohorts</SelectItem>
-                    {cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Select value={filterFee} onValueChange={setFilterFee}>
-                  <SelectTrigger><SelectValue placeholder="Fee type" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Fee Types</SelectItem>
-                    {feeNames.map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <div className="flex gap-2">
-                  <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} title="From" />
-                  <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} title="To" />
-                </div>
-              </div>
-              {(searchName || filterCohort !== 'all' || filterFee !== 'all' || filterFrom || filterTo) && (
-                <Button size="sm" variant="ghost" onClick={clearFilters}>Clear filters</Button>
-              )}
-
-              {filteredApproved.length === 0 ? (
-                <p className="text-muted-foreground">{approvedPayments.length === 0 ? 'No approved payments yet' : 'No payments match the current filters'}</p>
-              ) : (
-                <div className="overflow-x-auto rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Student</TableHead>
-                        <TableHead className="hidden xl:table-cell">Cohort</TableHead>
-                        <TableHead className="hidden md:table-cell">Fee</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                        <TableHead className="hidden lg:table-cell">Date</TableHead>
-                        <TableHead>Receipt</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredApproved.map((p) => (
-                        <TableRow key={p.id}>
-                          <TableCell className="font-medium">
-                            {p.student_name}
-                            <span className="mt-0.5 block text-xs font-normal text-muted-foreground xl:hidden">
-                              <span className="md:hidden">
-                                <button onClick={() => openReassign(p)} className="text-left hover:underline">
-                                  {p.fee_name || <span className="text-destructive">Not assigned — set fee</span>}
-                                </button>
-                                {' · '}
-                              </span>
-                              {cohorts.find((c) => c.id === p.cohort_id)?.name || '—'}
-                              <span className="lg:hidden">{(p.payment_date || p.created_at) ? ` · ${new Date(p.payment_date || p.created_at!).toLocaleDateString()}` : ''}</span>
-                            </span>
-                          </TableCell>
-                          <TableCell className="hidden text-xs xl:table-cell">{cohorts.find((c) => c.id === p.cohort_id)?.name || '—'}</TableCell>
-                          <TableCell className="hidden text-xs md:table-cell">
-                            <button onClick={() => openReassign(p)} className="hover:underline text-left">
-                              {p.fee_name || <span className="text-destructive">Not assigned — set fee</span>}
-                            </button>
-                          </TableCell>
-                          <TableCell className="text-right">₦{Number(p.amount_paid).toLocaleString()}</TableCell>
-                          <TableCell className="hidden lg:table-cell">{(p.payment_date || p.created_at) ? new Date(p.payment_date || p.created_at!).toLocaleDateString() : ''}</TableCell>
-                          <TableCell>
-                            {(p.payment_proof_url || p.storage_path) ? (
-                              <button onClick={() => openReceipt(p)} className="text-primary hover:underline flex items-center gap-1">
-                                <Eye className="h-4 w-4" /> View
-                              </button>
-                            ) : p.is_manual_record ? (
-                              <Badge variant="outline" className="text-xs">Manual entry</Badge>
-                            ) : <span className="text-muted-foreground text-sm">No receipt</span>}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex gap-1 justify-end">
-                              <Button size="sm" variant="outline" onClick={() => openReassign(p)} disabled={isProcessing} title="Change fee">
-                                <ArrowLeftRight className="h-4 w-4" />
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(p)} disabled={isProcessing}>
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </>
-      )}
-
-      {tab === 'manual' && (
+      {/* ===== Record payment ===== */}
+      <TabsContent value="manual" className="mt-5">
         <ManualPaymentPanel
           cohorts={cohorts}
           feeStructures={feeStructures}
-          onRecorded={fetchPaymentsWithStudents}
+          onRecorded={refreshMoney}
         />
-      )}
+      </TabsContent>
 
       {/* Receipt viewer (always mounted) */}
       <Dialog open={receiptOpen} onOpenChange={setReceiptOpen}>
@@ -815,18 +1163,9 @@ const AdminFees = () => {
                     {reassignOptions.map((o) => (
                       <SelectItem key={o.value} value={o.value}>
                         <span className="inline-flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className={
-                              o.status === 'Paid' || o.status === 'Waived'
-                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                                : o.status === 'Partial'
-                                  ? 'bg-amber-100 text-amber-800 border-amber-300'
-                                  : 'bg-red-100 text-red-800 border-red-300'
-                            }
-                          >
+                          <StatusPill tone={STATUS_TONE[o.status] === 'neutral' ? 'good' : STATUS_TONE[o.status]}>
                             {o.status}
-                          </Badge>
+                          </StatusPill>
                           {o.label}
                         </span>
                       </SelectItem>
@@ -869,8 +1208,9 @@ const AdminFees = () => {
               </p>
             </div>
             <div>
-              <Label>Amount (₦)</Label>
+              <Label htmlFor="edit-fee-amount">Amount (₦)</Label>
               <Input
+                id="edit-fee-amount"
                 type="number"
                 step="0.01"
                 value={editAmount}
@@ -917,7 +1257,7 @@ const AdminFees = () => {
         variant="destructive"
         onConfirm={confirmDeleteFee}
       />
-    </div>
+    </Tabs>
   );
 };
 

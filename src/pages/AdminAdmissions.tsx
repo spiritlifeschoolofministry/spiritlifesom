@@ -1,19 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesUpdate } from '@/integrations/supabase/types';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Check, X, Eye, Search, Users, Clock, Loader2, UserCheck, Mail, Filter, FileJson, CheckCircle2, XCircle, MailCheck, BookOpen } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Check, X, Search, Users, Loader2, Mail, Filter, FileJson, CheckCircle2, XCircle, MailCheck, AlertTriangle, ChevronDown, Send } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -26,6 +27,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { cn } from "@/lib/utils";
+import { AdminPageHeader, Panel, StatusPill, InitialsBadge } from "@/components/redesign/admin/primitives";
+import { queueRowClass, APPROVE_BUTTON, REJECT_BUTTON, QUIET_BUTTON } from "@/components/redesign/admin/styles";
 
 interface Application {
   id: string;
@@ -48,6 +52,8 @@ interface Application {
     middle_name: string | null;
     email: string;
     phone: string | null;
+    /** Generated column: null = usable, 'ambiguous' or 'unusable'. */
+    whatsapp_number_issue: string | null;
   };
 }
 
@@ -81,10 +87,65 @@ interface CohortOption {
   name: string;
 }
 
+type View = "pending" | "requests" | "admitted" | "rejected";
+type DecidedView = "admitted" | "rejected";
+
+/** One select for every application list, pending or decided. */
+const APPLICATION_SELECT = `
+  id,
+  admission_status,
+  created_at,
+  learning_mode,
+  is_born_again,
+  has_discovered_ministry,
+  gender,
+  age,
+  address,
+  educational_background,
+  preferred_language,
+  ministry_description,
+  marital_status,
+  cohort_id,
+  profile:profiles(first_name, last_name, middle_name, email, phone, whatsapp_number_issue)
+`;
+
+const DECIDED_STATUSES: Record<DecidedView, string[]> = {
+  admitted: ["ADMITTED", "Admitted"],
+  rejected: ["REJECTED", "Rejected"],
+};
+
+/** Why a phone number will not work on WhatsApp, in words staff can act on. */
+const WHATSAPP_ISSUE: Record<string, string> = {
+  ambiguous:
+    "The phone field holds more than one number, so WhatsApp messages can't tell which one to use. Message them to ask which number is on WhatsApp.",
+  unusable:
+    "This phone number can't be read as a WhatsApp number, so WhatsApp messages won't reach them. Email still works; message them to ask for a working number.",
+};
+
+const isTypingTarget = (target: EventTarget | null) => {
+  const el = target as HTMLElement | null;
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
+};
+
+const Kbd = ({ children, onDark = false }: { children: string; onDark?: boolean }) => (
+  <kbd
+    aria-hidden="true"
+    className={cn(
+      "ml-1 hidden rounded px-1.5 py-px font-sans text-[11px] font-semibold sm:inline",
+      onDark ? "bg-white/20" : "bg-muted text-muted-foreground",
+    )}
+  >
+    {children}
+  </kbd>
+);
+
 const AdminAdmissions = () => {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
+  const [view, setView] = useState<View>("pending");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkApproving, setBulkApproving] = useState(false);
@@ -103,6 +164,28 @@ const AdminAdmissions = () => {
   const [previewApp, setPreviewApp] = useState<Application | null>(null);
   // Client-side throttle: minimum 1.5s between sends
   const lastSendAtRef = useState<{ t: number }>({ t: 0 })[0];
+
+  // Admitted / rejected lists load only when their tab is first opened.
+  const [decided, setDecided] = useState<Record<DecidedView, Application[] | null>>({
+    admitted: null,
+    rejected: null,
+  });
+  const [decidedLoading, setDecidedLoading] = useState(false);
+
+  // Note box in the detail panel, and the message dialog it feeds.
+  const [note, setNote] = useState("");
+  const [messageTargets, setMessageTargets] = useState<Application[]>([]);
+  const [messageSubject, setMessageSubject] = useState("");
+  const [messageBody, setMessageBody] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
+
+  const detailRef = useRef<HTMLElement>(null);
+  const tabRefs = useRef<Record<View, HTMLButtonElement | null>>({
+    pending: null,
+    requests: null,
+    admitted: null,
+    rejected: null,
+  });
 
   const resendEmail = async (
     studentId: string,
@@ -209,23 +292,7 @@ const AdminAdmissions = () => {
       const [appsRes, cohortsRes, lmRes, certRes] = await Promise.all([
         supabase
           .from("students")
-          .select(`
-            id,
-            admission_status,
-            created_at,
-            learning_mode,
-            is_born_again,
-            has_discovered_ministry,
-            gender,
-            age,
-            address,
-            educational_background,
-            preferred_language,
-            ministry_description,
-            marital_status,
-            cohort_id,
-            profile:profiles(first_name, last_name, middle_name, email, phone)
-          `)
+          .select(APPLICATION_SELECT)
           .eq("is_staff_preview", false)
           .in("admission_status", ["Pending", "PENDING"])
           .order("created_at", { ascending: false }),
@@ -245,7 +312,7 @@ const AdminAdmissions = () => {
       ]);
 
       if (appsRes.error) throw appsRes.error;
-      setApplications(appsRes.data || []);
+      setApplications((appsRes.data || []) as unknown as Application[]);
       if (cohortsRes.data) setCohorts(cohortsRes.data as CohortOption[]);
       if (lmRes?.data) setLearningModeRequests(lmRes.data || []);
       if (certRes?.data) setCertificateRequests(certRes.data || []);
@@ -256,6 +323,34 @@ const AdminAdmissions = () => {
       setLoading(false);
     }
   };
+
+  const loadDecided = async (kind: DecidedView) => {
+    setDecidedLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("students")
+        .select(APPLICATION_SELECT)
+        .eq("is_staff_preview", false)
+        .in("admission_status", DECIDED_STATUSES[kind])
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      setDecided((prev) => ({ ...prev, [kind]: (data || []) as unknown as Application[] }));
+    } catch (err) {
+      console.error(`Load ${kind} applications error:`, err);
+      toast.error(`Failed to load ${kind} applications`);
+      setDecided((prev) => ({ ...prev, [kind]: [] }));
+    } finally {
+      setDecidedLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if ((view === "admitted" || view === "rejected") && decided[view] === null && !decidedLoading) {
+      loadDecided(view);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, decided]);
 
   const handleLearningModeRequest = async (studentId: string, action: "approve" | "reject") => {
     try {
@@ -341,22 +436,38 @@ const AdminAdmissions = () => {
     }
   };
 
+  /** The one write that admits a student; single and bulk approve both use it. */
+  const admitOne = (studentId: string) =>
+    supabase
+      .from("students")
+      .update({ admission_status: "ADMITTED", is_approved: true })
+      .eq("id", studentId);
+
+  /** After a decision the next application in the list opens automatically. */
+  const nextIdAfter = (studentId: string) => {
+    const index = filteredApplications.findIndex((a) => a.id === studentId);
+    if (index === -1) return null;
+    return (filteredApplications[index + 1] ?? filteredApplications[index - 1])?.id ?? null;
+  };
+
+  /** Decided lists are stale after a decision; reload them next time they open. */
+  const invalidateDecided = () => setDecided({ admitted: null, rejected: null });
+
   const handleApprove = async (studentId: string) => {
     try {
       setActionLoading(true);
-      const { error } = await supabase
-        .from("students")
-        .update({ admission_status: "ADMITTED", is_approved: true })
-        .eq("id", studentId);
+      const next = nextIdAfter(studentId);
+      const { error } = await admitOne(studentId);
 
       if (error) throw error;
       toast.success("Student Admitted Successfully");
       // Fire-and-forget automatic admission approval email
       sendAutomaticApprovalEmail(studentId);
       await loadApplications();
+      invalidateDecided();
       // Webhook fires from DB trigger; refresh email statuses after a short delay
       setTimeout(loadEmailStatuses, 1500);
-      setSelectedApp(null);
+      setSelectedId(next);
       setSelectedIds((prev) => { const n = new Set(prev); n.delete(studentId); return n; });
       setConfirmAction(null);
     } catch (err: unknown) {
@@ -370,6 +481,7 @@ const AdminAdmissions = () => {
   const handleReject = async (studentId: string) => {
     try {
       setActionLoading(true);
+      const next = nextIdAfter(studentId);
       const { error } = await supabase
         .from("students")
         .update({ admission_status: "REJECTED", is_approved: false })
@@ -378,8 +490,9 @@ const AdminAdmissions = () => {
       if (error) throw error;
       toast.success("Application rejected");
       await loadApplications();
+      invalidateDecided();
       setTimeout(loadEmailStatuses, 1500);
-      setSelectedApp(null);
+      setSelectedId(next);
       setSelectedIds((prev) => { const n = new Set(prev); n.delete(studentId); return n; });
       setConfirmAction(null);
     } catch (err: unknown) {
@@ -390,23 +503,36 @@ const AdminAdmissions = () => {
     }
   };
 
+  // Bulk approve walks the selection through the same single-student write, so
+  // one failure does not take the rest of the batch down with it.
   const handleBulkApprove = async () => {
     if (selectedIds.size === 0) return;
     setBulkApproving(true);
     setActionLoading(true);
     try {
       const ids = Array.from(selectedIds);
-      const { error } = await supabase
-        .from("students")
-        .update({ admission_status: "ADMITTED", is_approved: true })
-        .in("id", ids);
-
-      if (error) throw error;
-      toast.success(`${ids.length} student(s) admitted successfully`);
-      // Fire-and-forget automatic approval emails for each
-      ids.forEach((id, i) => setTimeout(() => sendAutomaticApprovalEmail(id), i * 1600));
-      setSelectedIds(new Set());
+      const failed: string[] = [];
+      let admitted = 0;
+      for (const id of ids) {
+        const { error } = await admitOne(id);
+        if (error) {
+          console.error("Bulk approve failed for", id, error);
+          failed.push(id);
+        } else {
+          // Fire-and-forget automatic approval emails for each
+          setTimeout(() => sendAutomaticApprovalEmail(id), admitted * 1600);
+          admitted++;
+        }
+      }
+      if (failed.length > 0) {
+        toast.warning(`${admitted} student(s) admitted, ${failed.length} failed`);
+      } else {
+        toast.success(`${admitted} student(s) admitted successfully`);
+      }
+      // Leave the failures selected so they can be retried.
+      setSelectedIds(new Set(failed));
       await loadApplications();
+      invalidateDecided();
       setTimeout(loadEmailStatuses, 1500);
       setConfirmAction(null);
     } catch (err: unknown) {
@@ -425,6 +551,41 @@ const AdminAdmissions = () => {
     else if (confirmAction.type === "bulkApprove") handleBulkApprove();
   };
 
+  // ===== Message (email, through the same sender the Students page uses) =====
+  const openMessage = (targets: Application[], body = "") => {
+    if (targets.length === 0) return;
+    setMessageTargets(targets);
+    setMessageSubject("");
+    setMessageBody(body);
+  };
+
+  const handleSendMessage = async () => {
+    if (!messageSubject.trim() || !messageBody.trim()) { toast.error("Subject and body required"); return; }
+    try {
+      setSendingMessage(true);
+      // The id travels with the address so the sender can fill this student's
+      // own figures into any {{token}} the body carries.
+      const recipients = messageTargets.map((a) => ({
+        student_id: a.id,
+        email: a.profile.email,
+        name: `${a.profile.first_name} ${a.profile.last_name}`.trim(),
+      }));
+      const { data, error } = await supabase.functions.invoke("send-student-email", {
+        body: { recipients, subject: messageSubject, body: messageBody },
+      });
+      if (error) throw error;
+      if (data.failCount > 0) toast.warning(`${data.successCount} sent, ${data.failCount} failed`);
+      else toast.success(`Email sent to ${data.successCount} applicant(s)`);
+      setMessageTargets([]);
+      setNote("");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to send email.");
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const n = new Set(prev);
@@ -433,23 +594,15 @@ const AdminAdmissions = () => {
       return n;
     });
   };
-  const toggleSelectAll = () => {
-    const filtered = filteredApplications;
-    setSelectedIds(
-      selectedIds.size === filtered.length
-        ? new Set<string>()
-        : new Set(filtered.map((a) => a.id)),
-    );
-  };
 
-  const filteredApplications = applications.filter((app) => {
+  const matchesFilters = (app: Application) => {
     // Search
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       const matchesQ =
-        app.profile.first_name.toLowerCase().includes(q) ||
-        app.profile.last_name.toLowerCase().includes(q) ||
-        app.profile.email.toLowerCase().includes(q);
+        (app.profile?.first_name || "").toLowerCase().includes(q) ||
+        (app.profile?.last_name || "").toLowerCase().includes(q) ||
+        (app.profile?.email || "").toLowerCase().includes(q);
       if (!matchesQ) return false;
     }
     // Learning mode
@@ -478,7 +631,80 @@ const AdminAdmissions = () => {
       if (new Date(app.created_at) > new Date(filterTo + "T23:59:59")) return false;
     }
     return true;
+  };
+
+  const filteredApplications = applications.filter(matchesFilters);
+
+  const sourceList: Application[] =
+    view === "pending" ? applications : view === "requests" ? [] : decided[view] ?? [];
+  const visibleList: Application[] =
+    view === "pending" ? filteredApplications : sourceList.filter(matchesFilters);
+  const current: Application | null =
+    visibleList.find((a) => a.id === selectedId) ?? visibleList[0] ?? null;
+
+  // Everything ticked in this view, even rows a filter is currently hiding, so
+  // the bulk buttons always say exactly how many they will act on.
+  const selectedVisible = sourceList.filter((a) => selectedIds.has(a.id));
+  const allVisibleSelected = visibleList.length > 0 && visibleList.every((a) => selectedIds.has(a.id));
+
+  const toggleSelectAll = () => {
+    setSelectedIds(allVisibleSelected ? new Set<string>() : new Set(visibleList.map((a) => a.id)));
+  };
+
+  // A fresh applicant gets a fresh note box.
+  useEffect(() => {
+    setNote("");
+  }, [current?.id]);
+
+  const switchView = (next: View) => {
+    setView(next);
+    setSelectedIds(new Set());
+    setSelectedId(null);
+  };
+
+  const pickApplicant = (id: string) => {
+    setSelectedId(id);
+    // On a phone the panel sits under the list, so bring it into view.
+    if (typeof window !== "undefined" && window.matchMedia?.("(max-width: 1023px)").matches) {
+      requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
+  };
+
+  // Keyboard: J/K move, A approve, M message, R reject. Held in a ref so the
+  // listener is registered once but always sees the current list.
+  const keyHandlerRef = useRef<(event: KeyboardEvent) => void>(() => {});
+  useEffect(() => {
+    keyHandlerRef.current = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (isTypingTarget(event.target)) return;
+      if (confirmAction || previewApp || messageTargets.length > 0) return;
+      if (document.querySelector('[role="dialog"], [role="menu"], [role="listbox"]')) return;
+      if (view === "requests" || !current) return;
+      const key = event.key.toLowerCase();
+      const index = visibleList.findIndex((a) => a.id === current.id);
+      if (key === "j" || key === "k") {
+        const target = visibleList[key === "j" ? index + 1 : index - 1];
+        if (target) {
+          event.preventDefault();
+          setSelectedId(target.id);
+        }
+      } else if (key === "m") {
+        event.preventDefault();
+        openMessage([current], note);
+      } else if (view === "pending" && key === "a") {
+        event.preventDefault();
+        setConfirmAction({ type: "approve", student: current });
+      } else if (view === "pending" && key === "r") {
+        event.preventDefault();
+        setConfirmAction({ type: "reject", student: current });
+      }
+    };
   });
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => keyHandlerRef.current(event);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, []);
 
   const STATIC_LANGUAGES = ["English", "French", "Yoruba", "Igbo", "Hausa", "Other"];
   const languageOptions = Array.from(
@@ -508,7 +734,7 @@ const AdminAdmissions = () => {
   };
 
   const getFullName = (app: Application) => {
-    return [app.profile.first_name, app.profile.middle_name, app.profile.last_name].filter(Boolean).join(" ");
+    return [app.profile?.first_name, app.profile?.middle_name, app.profile?.last_name].filter(Boolean).join(" ") || "Unknown applicant";
   };
 
   const timeAgo = (dateStr: string | null) => {
@@ -522,415 +748,563 @@ const AdminAdmissions = () => {
     return `${days}d ago`;
   };
 
+  const yesNo = (value: boolean | null) => (value === null ? null : value ? "Yes" : "No");
+
+  const requestCount = learningModeRequests.length + certificateRequests.length;
+
+  const TABS: { id: View; label: string }[] = [
+    { id: "pending", label: `Pending · ${applications.length}` },
+    { id: "requests", label: `Requests · ${requestCount}` },
+    { id: "admitted", label: "Admitted" },
+    { id: "rejected", label: "Rejected" },
+  ];
+
+  const onTabKeyDown = (event: React.KeyboardEvent, index: number) => {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+    event.preventDefault();
+    const nextIndex = (index + (event.key === "ArrowRight" ? 1 : -1) + TABS.length) % TABS.length;
+    const next = TABS[nextIndex].id;
+    switchView(next);
+    tabRefs.current[next]?.focus();
+  };
+
+  const renderEmailStatus = (app: Application) => {
+    const e = emailStatusByStudent[app.id];
+    if (!e) {
+      return (
+        <span className="flex flex-wrap items-center gap-2">
+          <StatusPill tone="neutral"><Mail className="mr-1 h-3 w-3" aria-hidden="true" /> Not sent</StatusPill>
+        </span>
+      );
+    }
+    return (
+      <span className="flex flex-wrap items-center gap-2">
+        {e.status === "sent" ? (
+          <StatusPill tone="good"><CheckCircle2 className="mr-1 h-3 w-3" aria-hidden="true" /> Sent</StatusPill>
+        ) : (
+          <StatusPill tone="bad"><XCircle className="mr-1 h-3 w-3" aria-hidden="true" /> Failed</StatusPill>
+        )}
+        {e.sent_at && <span className="text-xs text-muted-foreground">{new Date(e.sent_at).toLocaleString()}</span>}
+      </span>
+    );
+  };
+
+  const renderEmailMenu = (app: Application) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          className={cn("h-11 gap-1.5 rounded-xl px-4 text-[15px] font-semibold", QUIET_BUTTON)}
+          disabled={resendingId === app.id}
+        >
+          {resendingId === app.id ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Mail className="h-4 w-4" />
+          )}
+          Re-send email
+          <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>Re-send email</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => resendEmail(app.id, "welcome", "Welcome email")}>
+          Welcome / Registration
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => resendEmail(app.id, "admission_approved", "Admission approval email")}>
+          Admission Approved
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => resendEmail(app.id, "admission_rejected", "Admission rejection email")}>
+          Admission Rejected
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => setPreviewApp(app)}>
+          <FileJson className="w-4 h-4 mr-2" /> Preview approval email
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  const renderDetail = (app: Application) => {
+    const isPending = view === "pending";
+    const issue = app.profile?.whatsapp_number_issue;
+    const cohortName = cohorts.find((c) => c.id === app.cohort_id)?.name || null;
+    const fields: { k: string; v: string | null | undefined }[] = [
+      { k: "Learning mode", v: app.learning_mode },
+      { k: "Age", v: app.age?.toString() },
+      { k: "Gender", v: app.gender },
+      { k: "WhatsApp / phone", v: app.profile?.phone },
+      { k: "Email", v: app.profile?.email },
+      { k: "Born again", v: yesNo(app.is_born_again) },
+      { k: "Discovered ministry", v: yesNo(app.has_discovered_ministry) },
+      { k: "Marital status", v: app.marital_status },
+      { k: "Education", v: app.educational_background },
+      { k: "Cohort", v: cohortName },
+      { k: "Preferred language", v: app.preferred_language },
+    ];
+    const firstName = app.profile?.first_name || "the applicant";
+
+    return (
+      <section
+        ref={detailRef}
+        aria-labelledby="applicant-name"
+        className="flex min-w-0 scroll-mt-4 flex-col gap-5 rounded-[18px] border border-border bg-card p-5 sm:p-6"
+      >
+        <div className="flex flex-wrap items-center gap-3.5">
+          <InitialsBadge name={getFullName(app)} size="lg" strong />
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <h2 id="applicant-name" className="break-words text-[22px] font-extrabold tracking-tight text-foreground">
+              {getFullName(app)}
+            </h2>
+            <span className="text-sm text-muted-foreground">
+              Applied {app.created_at ? new Date(app.created_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "—"}
+              {app.created_at ? ` · ${timeAgo(app.created_at)}` : ""}
+            </span>
+          </div>
+          {view === "admitted" && <StatusPill tone="good">Admitted</StatusPill>}
+          {view === "rejected" && <StatusPill tone="bad">Rejected</StatusPill>}
+        </div>
+
+        {issue && (
+          <div
+            role="note"
+            className="flex gap-2.5 rounded-xl bg-amber-50 px-3.5 py-3 text-sm leading-relaxed text-amber-900 dark:bg-amber-900/30 dark:text-amber-100"
+          >
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <p>
+              <strong className="font-semibold">WhatsApp number issue. </strong>
+              {WHATSAPP_ISSUE[issue] ?? "This phone number may not work on WhatsApp. Message them to check."}
+            </p>
+          </div>
+        )}
+
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-3.5 sm:grid-cols-2">
+          {fields.map((f) => (
+            <div key={f.k} className="flex min-w-0 flex-col gap-0.5">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{f.k}</dt>
+              <dd className="break-words text-[15px] text-foreground">{f.v || "Not given"}</dd>
+            </div>
+          ))}
+          {app.address && (
+            <div className="flex min-w-0 flex-col gap-0.5 sm:col-span-2">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Address</dt>
+              <dd className="break-words text-[15px] text-foreground">{app.address}</dd>
+            </div>
+          )}
+          {app.ministry_description && (
+            <div className="flex min-w-0 flex-col gap-0.5 sm:col-span-2">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ministry description</dt>
+              <dd className="whitespace-pre-line break-words text-[15px] text-foreground">{app.ministry_description}</dd>
+            </div>
+          )}
+          <div className="flex min-w-0 flex-col gap-1 sm:col-span-2">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Decision email</dt>
+            <dd>{renderEmailStatus(app)}</dd>
+          </div>
+        </dl>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="applicant-note" className="text-[13px] font-semibold">
+            Message to {firstName} (sent by email)
+          </Label>
+          <Textarea
+            id="applicant-note"
+            rows={3}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Optional. Opens in the message window when you press Message."
+            className="rounded-xl"
+          />
+          <p className="text-xs text-muted-foreground">
+            The admission decision email goes out automatically when you approve or reject, and
+            cannot carry this note. Use Message to send it as its own email.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2.5">
+          {isPending && (
+            <Button
+              className={cn("h-11 rounded-xl px-5 text-[15px] font-bold", APPROVE_BUTTON)}
+              onClick={() => setConfirmAction({ type: "approve", student: app })}
+              aria-keyshortcuts="A"
+            >
+              <Check className="h-4 w-4" aria-hidden="true" /> Approve <Kbd onDark>A</Kbd>
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            className={cn("h-11 rounded-xl px-4 text-[15px] font-semibold", QUIET_BUTTON)}
+            onClick={() => openMessage([app], note)}
+            aria-keyshortcuts="M"
+          >
+            <Send className="h-4 w-4" aria-hidden="true" /> Message <Kbd>M</Kbd>
+          </Button>
+          {isPending && (
+            <Button
+              variant="outline"
+              className={cn("h-11 rounded-xl px-4 text-[15px] font-semibold", REJECT_BUTTON)}
+              onClick={() => setConfirmAction({ type: "reject", student: app })}
+              aria-keyshortcuts="R"
+            >
+              <X className="h-4 w-4" aria-hidden="true" /> Reject <Kbd>R</Kbd>
+            </Button>
+          )}
+          {renderEmailMenu(app)}
+        </div>
+        <p className="hidden text-[13px] text-muted-foreground sm:block">
+          {isPending
+            ? "After a decision the next application opens automatically. J and K move up and down the list."
+            : "J and K move up and down the list."}
+        </p>
+      </section>
+    );
+  };
+
+  const filterBar = (
+    <div className="flex flex-col gap-3">
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Input
+          placeholder="Search by name or email..."
+          aria-label="Search applications by name or email"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="h-11 rounded-xl pl-9 sm:h-10"
+        />
+      </div>
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="flex items-center gap-1.5 self-center text-xs text-muted-foreground">
+          <Filter className="h-3.5 w-3.5" aria-hidden="true" /> Filters:
+        </div>
+        <div className="min-w-[8.5rem] flex-1 space-y-1 sm:flex-none">
+          <label id="filter-mode-label" className="block text-[10px] uppercase tracking-wide text-muted-foreground">Mode</label>
+          <Select value={filterMode} onValueChange={setFilterMode}>
+            <SelectTrigger aria-labelledby="filter-mode-label" className="h-11 w-full text-xs sm:h-9 sm:w-[130px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All modes</SelectItem>
+              <SelectItem value="physical">Physical</SelectItem>
+              <SelectItem value="online">Online</SelectItem>
+              <SelectItem value="hybrid">Hybrid</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="min-w-[8.5rem] flex-1 space-y-1 sm:flex-none">
+          <label id="filter-cohort-label" className="block text-[10px] uppercase tracking-wide text-muted-foreground">Cohort</label>
+          <Select value={filterCohort} onValueChange={setFilterCohort}>
+            <SelectTrigger aria-labelledby="filter-cohort-label" className="h-11 w-full text-xs sm:h-9 sm:w-[160px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All cohorts</SelectItem>
+              {cohorts.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="min-w-[8.5rem] flex-1 space-y-1 sm:flex-none">
+          <label id="filter-language-label" className="block text-[10px] uppercase tracking-wide text-muted-foreground">Language</label>
+          <Select value={filterLanguage} onValueChange={setFilterLanguage}>
+            <SelectTrigger aria-labelledby="filter-language-label" className="h-11 w-full text-xs sm:h-9 sm:w-[150px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All languages</SelectItem>
+              {languageOptions.map((lang) => (
+                <SelectItem key={lang} value={lang}>{lang}</SelectItem>
+              ))}
+              {hasUnspecifiedLanguage && (
+                <SelectItem value="__none__">Not specified</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="min-w-[8.5rem] flex-1 space-y-1 sm:flex-none">
+          <label htmlFor="filter-from" className="block text-[10px] uppercase tracking-wide text-muted-foreground">From</label>
+          <Input id="filter-from" type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} className="h-11 w-full text-xs sm:h-9 sm:w-[140px]" />
+        </div>
+        <div className="min-w-[8.5rem] flex-1 space-y-1 sm:flex-none">
+          <label htmlFor="filter-to" className="block text-[10px] uppercase tracking-wide text-muted-foreground">To</label>
+          <Input id="filter-to" type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} className="h-11 w-full text-xs sm:h-9 sm:w-[140px]" />
+        </div>
+        {activeFilterCount > 0 && (
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="h-11 gap-1 text-xs sm:h-9">
+            <X className="h-3.5 w-3.5" /> Clear ({activeFilterCount})
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderList = () => {
+    const isPending = view === "pending";
+    const listLoading = !isPending && (decided[view as DecidedView] === null || decidedLoading);
+    const total = sourceList.length;
+
+    return (
+      <section
+        aria-label={`${view === "pending" ? "Pending" : view === "admitted" ? "Admitted" : "Rejected"} applications`}
+        className="min-w-0 overflow-hidden rounded-[18px] border border-border bg-card"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-border bg-secondary/60 px-4 py-2.5">
+          <label className="flex min-h-[44px] items-center gap-2.5 text-sm font-semibold text-foreground">
+            <Checkbox
+              checked={allVisibleSelected}
+              onCheckedChange={toggleSelectAll}
+              disabled={visibleList.length === 0}
+              aria-label="Select all applications in this list"
+              className="h-[18px] w-[18px]"
+            />
+            {selectedVisible.length > 0 ? `${selectedVisible.length} selected` : "Select all"}
+          </label>
+          <span className="flex flex-wrap gap-2">
+            {isPending && selectedVisible.length > 0 && (
+              <Button
+                size="sm"
+                onClick={() => setConfirmAction({ type: "bulkApprove" })}
+                disabled={bulkApproving}
+                className={cn("h-11 rounded-[10px] px-3 text-[13px] font-bold sm:h-9", APPROVE_BUTTON)}
+              >
+                {bulkApproving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                {bulkApproving ? "Approving..." : `Approve ${selectedVisible.length}`}
+              </Button>
+            )}
+            {selectedVisible.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => openMessage(selectedVisible)}
+                className={cn("h-11 rounded-[10px] px-3 text-[13px] font-semibold sm:h-9", QUIET_BUTTON)}
+              >
+                Message {selectedVisible.length}
+              </Button>
+            )}
+            {selectedVisible.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())} className="h-11 text-xs text-muted-foreground sm:h-9">
+                Clear
+              </Button>
+            )}
+          </span>
+        </div>
+        <p className="border-b border-border/60 px-4 py-2 text-xs text-muted-foreground">
+          {listLoading
+            ? "Loading…"
+            : visibleList.length === total
+              ? `${total} ${total === 1 ? "application" : "applications"}${!isPending && total === 200 ? " (most recent 200)" : ""}`
+              : `Showing ${visibleList.length} of ${total}`}
+        </p>
+
+        {listLoading ? (
+          <div className="space-y-2 p-4">
+            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
+          </div>
+        ) : visibleList.length === 0 ? (
+          <div className="px-4 py-12 text-center">
+            <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" aria-hidden="true" />
+            <p className="font-medium text-foreground">
+              {total > 0
+                ? "No applications match these filters"
+                : isPending
+                  ? "No pending applications"
+                  : view === "admitted"
+                    ? "No admitted applications"
+                    : "No rejected applications"}
+            </p>
+            {isPending && total === 0 && (
+              <p className="mt-1 text-sm text-muted-foreground">New registrations will appear here automatically</p>
+            )}
+          </div>
+        ) : (
+          <ul>
+            {visibleList.map((app) => {
+              const name = getFullName(app);
+              const selected = current?.id === app.id;
+              return (
+                <li key={app.id} className={queueRowClass(selected)}>
+                  <div className="flex items-center gap-1 py-1 pl-2 pr-4">
+                    <label className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center">
+                      <Checkbox
+                        checked={selectedIds.has(app.id)}
+                        onCheckedChange={() => toggleSelect(app.id)}
+                        aria-label={`Select ${name}`}
+                        className="h-[18px] w-[18px]"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => pickApplicant(app.id)}
+                      aria-current={selected ? "true" : undefined}
+                      className="flex min-h-[44px] min-w-0 flex-1 items-center gap-3 rounded-lg py-1.5 text-left text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <InitialsBadge name={name} />
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <strong className="truncate text-sm font-semibold">{name}</strong>
+                        <span className="truncate text-xs text-muted-foreground">
+                          {app.learning_mode || "Mode not given"}
+                          {app.created_at ? ` · ${timeAgo(app.created_at)}` : ""}
+                        </span>
+                      </span>
+                      {app.profile?.whatsapp_number_issue && (
+                        <StatusPill tone="warn" className="shrink-0">WhatsApp issue</StatusPill>
+                      )}
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+    );
+  };
+
+  const renderRequests = () => (
+    <div className="flex flex-col gap-5">
+      {requestCount === 0 && (
+        <Panel>
+          <div className="px-4 py-12 text-center">
+            <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-emerald-600/70" aria-hidden="true" />
+            <p className="font-medium text-foreground">No requests waiting</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Learning-mode changes and certificate name corrections appear here.
+            </p>
+          </div>
+        </Panel>
+      )}
+
+      {certificateRequests.length > 0 && (
+        <Panel title={`Certificate name changes · ${certificateRequests.length}`} titleId="cert-requests">
+          <ul>
+            {certificateRequests.map((s) => {
+              const name = `${s.profile?.first_name || "Unknown"} ${s.profile?.last_name || "User"}`;
+              return (
+                <li key={s.id} className="flex flex-wrap items-center gap-3.5 border-b border-border/60 px-5 py-3 last:border-b-0">
+                  <InitialsBadge name={name} />
+                  <span className="flex min-w-[12rem] flex-1 flex-col gap-0.5">
+                    <strong className="text-[15px] font-semibold text-foreground">{name}</strong>
+                    <span className="text-[13px] text-muted-foreground">
+                      Wants: <span className="font-medium text-foreground">{s.pending_name_change}</span>
+                      {s.created_at ? ` · ${timeAgo(s.created_at)}` : ""}
+                    </span>
+                  </span>
+                  <span className="flex gap-2">
+                    <Button className={cn("h-11 rounded-[10px] px-3.5 font-bold sm:h-10", APPROVE_BUTTON)} onClick={() => handleCertificateRequest(s.id, 'approve')} aria-label={`Approve certificate name for ${name}`}>
+                      <Check className="h-4 w-4" aria-hidden="true" /> Approve
+                    </Button>
+                    <Button variant="outline" className={cn("h-11 rounded-[10px] px-3.5 font-semibold sm:h-10", REJECT_BUTTON)} onClick={() => handleCertificateRequest(s.id, 'reject')} aria-label={`Reject certificate name for ${name}`}>
+                      <X className="h-4 w-4" aria-hidden="true" /> Reject
+                    </Button>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </Panel>
+      )}
+
+      {learningModeRequests.length > 0 && (
+        <Panel title={`Learning mode changes · ${learningModeRequests.length}`} titleId="mode-requests">
+          <ul>
+            {learningModeRequests.map((s) => {
+              const name = `${s.profile?.first_name || "Unknown"} ${s.profile?.last_name || "User"}`;
+              return (
+                <li key={s.id} className="flex flex-wrap items-center gap-3.5 border-b border-border/60 px-5 py-3 last:border-b-0">
+                  <InitialsBadge name={name} />
+                  <span className="flex min-w-[12rem] flex-1 flex-col gap-0.5">
+                    <strong className="text-[15px] font-semibold text-foreground">{name}</strong>
+                    <span className="text-[13px] text-muted-foreground">
+                      Current: {s.learning_mode || "—"} · Requested:{" "}
+                      <span className="font-medium text-foreground">{s.requested_learning_mode}</span>
+                      {s.created_at ? ` · ${timeAgo(s.created_at)}` : ""}
+                    </span>
+                  </span>
+                  <span className="flex gap-2">
+                    <Button className={cn("h-11 rounded-[10px] px-3.5 font-bold sm:h-10", APPROVE_BUTTON)} onClick={() => handleLearningModeRequest(s.id, 'approve')} aria-label={`Approve learning mode change for ${name}`}>
+                      <Check className="h-4 w-4" aria-hidden="true" /> Approve
+                    </Button>
+                    <Button variant="outline" className={cn("h-11 rounded-[10px] px-3.5 font-semibold sm:h-10", REJECT_BUTTON)} onClick={() => handleLearningModeRequest(s.id, 'reject')} aria-label={`Reject learning mode change for ${name}`}>
+                      <X className="h-4 w-4" aria-hidden="true" /> Reject
+                    </Button>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </Panel>
+      )}
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-10 w-64" />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <Skeleton className="h-96 rounded-[18px]" />
+          <Skeleton className="h-96 rounded-[18px]" />
         </div>
-        <Skeleton className="h-96 rounded-xl" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Admissions/Requests</h1>
-        <p className="text-muted-foreground text-sm mt-1">Review and process new applications and learning-mode requests</p>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20">
-              <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Pending</p>
-              <p className="text-2xl font-bold text-foreground">{applications.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/5">
-              <Users className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Showing</p>
-              <p className="text-2xl font-bold text-foreground">{filteredApplications.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20">
-              <UserCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Selected</p>
-              <p className="text-2xl font-bold text-foreground">{selectedIds.size}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Bulk action bar */}
-      {selectedIds.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
-          <span className="text-sm font-medium text-foreground mr-1">{selectedIds.size} selected</span>
-          <Button
-            size="sm"
-            onClick={() => setConfirmAction({ type: "bulkApprove" })}
-            disabled={bulkApproving}
-            className="gap-1.5 text-xs h-8 bg-emerald-600 hover:bg-emerald-700"
-          >
-            {bulkApproving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-            {bulkApproving ? "Approving..." : "Approve All Selected"}
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())} className="text-xs h-8 ml-auto text-muted-foreground">
-            Clear
-          </Button>
-        </div>
-      )}
-
-      {/* Search + Filters */}
-      <div className="space-y-3">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name or email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Filter className="w-3.5 h-3.5" /> Filters:
-          </div>
-          <div className="min-w-[8.5rem] flex-1 space-y-1 sm:flex-none">
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">Mode</label>
-            <Select value={filterMode} onValueChange={setFilterMode}>
-              <SelectTrigger className="h-8 w-full text-xs sm:w-[130px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All modes</SelectItem>
-                <SelectItem value="physical">Physical</SelectItem>
-                <SelectItem value="online">Online</SelectItem>
-                <SelectItem value="hybrid">Hybrid</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="min-w-[8.5rem] flex-1 space-y-1 sm:flex-none">
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">Cohort</label>
-            <Select value={filterCohort} onValueChange={setFilterCohort}>
-              <SelectTrigger className="h-8 w-full text-xs sm:w-[160px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All cohorts</SelectItem>
-                {cohorts.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="min-w-[8.5rem] flex-1 space-y-1 sm:flex-none">
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">Language</label>
-            <Select value={filterLanguage} onValueChange={setFilterLanguage}>
-              <SelectTrigger className="h-8 w-full text-xs sm:w-[150px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All languages</SelectItem>
-                {languageOptions.map((lang) => (
-                  <SelectItem key={lang} value={lang}>{lang}</SelectItem>
-                ))}
-                {hasUnspecifiedLanguage && (
-                  <SelectItem value="__none__">Not specified</SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="min-w-[8.5rem] flex-1 space-y-1 sm:flex-none">
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">From</label>
-            <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} className="h-8 w-full text-xs sm:w-[140px]" />
-          </div>
-          <div className="min-w-[8.5rem] flex-1 space-y-1 sm:flex-none">
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground block">To</label>
-            <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} className="h-8 w-full text-xs sm:w-[140px]" />
-          </div>
-          {activeFilterCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs gap-1">
-              <X className="w-3.5 h-3.5" /> Clear ({activeFilterCount})
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Applications list */}
-      {certificateRequests.length > 0 && (
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Certificate Name Change Requests ({certificateRequests.length})</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {certificateRequests.map((s) => (
-              <div key={s.id} className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border transition-colors bg-card`}> 
-                <div className="flex items-start gap-3 flex-1">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-foreground">{s.profile?.first_name || 'Unknown'} {s.profile?.last_name || 'User'}</h3>
-                    <p className="text-sm text-muted-foreground">Requested name: <span className="font-medium">{s.pending_name_change}</span></p>
-                    {s.created_at && <p className="text-[11px] text-muted-foreground mt-1">{timeAgo(s.created_at)}</p>}
-                  </div>
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <Button size="sm" className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-primary-foreground" onClick={() => handleCertificateRequest(s.id, 'approve')}>
-                    <Check className="w-4 h-4" /> Approve
-                  </Button>
-                  <Button variant="outline" size="sm" className="gap-1 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => handleCertificateRequest(s.id, 'reject')}>
-                    <X className="w-4 h-4" /> Reject
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {learningModeRequests.length > 0 && (
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2"><BookOpen className="w-4 h-4 text-sky-600" /> Learning Mode Change Requests ({learningModeRequests.length})</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {learningModeRequests.map((s) => (
-              <div key={s.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{s.profile?.first_name || 'Unknown'} {s.profile?.last_name || 'User'}</p>
-                  <p className="text-xs text-muted-foreground">Current: {s.learning_mode || '—'} • Requested: {s.requested_learning_mode}</p>
-                </div>
-                <div className="flex gap-1.5 shrink-0">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
-                    onClick={() => handleLearningModeRequest(s.id, 'approve')}
-                    title="Approve"
-                  >
-                    <Check className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                    onClick={() => handleLearningModeRequest(s.id, 'reject')}
-                    title="Reject"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-      <Card className="shadow-[var(--shadow-card)] border-border">
-        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-3">
-          <CardTitle className="text-base">Pending Applications ({filteredApplications.length})</CardTitle>
-          {filteredApplications.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Checkbox
-                checked={filteredApplications.length > 0 && selectedIds.size === filteredApplications.length}
-                onCheckedChange={toggleSelectAll}
-              />
-              <span className="text-xs text-muted-foreground">Select all</span>
-            </div>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {filteredApplications.length === 0 ? (
-            <div className="text-center py-12">
-              <Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
-              <p className="font-medium text-foreground">No pending applications</p>
-              <p className="text-sm text-muted-foreground mt-1">New registrations will appear here automatically</p>
-            </div>
-          ) : (
-            filteredApplications.map((app) => (
-              <div
-                key={app.id}
-                className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border transition-colors ${
-                  selectedIds.has(app.id) ? "border-primary/40 bg-primary/5" : "border-border bg-card hover:bg-muted/30"
-                }`}
-              >
-                <div className="flex items-start gap-3 flex-1">
-                  <Checkbox
-                    checked={selectedIds.has(app.id)}
-                    onCheckedChange={() => toggleSelect(app.id)}
-                    className="mt-1"
-                  />
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-foreground">{getFullName(app)}</h3>
-                    <p className="text-sm text-muted-foreground">{app.profile.email}</p>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800">
-                        <Clock className="w-3 h-3 mr-1" /> Pending
-                      </Badge>
-                      {app.learning_mode && (
-                        <Badge variant="outline" className="text-xs">{app.learning_mode}</Badge>
-                      )}
-                      {app.is_born_again && (
-                        <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200">Born Again</Badge>
-                      )}
-                      {app.created_at && (
-                        <span className="text-[11px] text-muted-foreground self-center">{timeAgo(app.created_at)}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                {/* Admission email status column */}
-                <div className="flex flex-col items-start sm:items-center gap-0.5 sm:min-w-[150px] sm:px-2 sm:border-l sm:border-border sm:py-1">
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Approval email</span>
-                  {(() => {
-                    const e = emailStatusByStudent[app.id];
-                    if (!e) {
-                      return (
-                        <>
-                          <Badge variant="outline" className="text-xs text-muted-foreground">
-                            <Mail className="w-3 h-3 mr-1" /> Not sent
-                          </Badge>
-                          <span className="text-[10px] text-muted-foreground">—</span>
-                        </>
-                      );
-                    }
-                    if (e.status === "sent") {
-                      return (
-                        <>
-                          <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800">
-                            <CheckCircle2 className="w-3 h-3 mr-1" /> Sent
-                          </Badge>
-                          {e.sent_at && (
-                            <span className="text-[10px] text-muted-foreground">{new Date(e.sent_at).toLocaleString()}</span>
-                          )}
-                        </>
-                      );
-                    }
-                    return (
-                      <>
-                        <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800">
-                          <XCircle className="w-3 h-3 mr-1" /> Failed
-                        </Badge>
-                        {e.sent_at && (
-                          <span className="text-[10px] text-muted-foreground">{new Date(e.sent_at).toLocaleString()}</span>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-                <div className="flex gap-2 shrink-0 flex-wrap">
-                  <Button variant="outline" size="sm" onClick={() => setSelectedApp(app)} className="gap-1">
-                    <Eye className="w-4 h-4" /> View
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-primary-foreground"
-                    onClick={() => setConfirmAction({ type: "approve", student: app })}
-                  >
-                    <Check className="w-4 h-4" /> Admit
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10"
-                    onClick={() => setConfirmAction({ type: "reject", student: app })}
-                  >
-                    <X className="w-4 h-4" /> Reject
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1"
-                        disabled={resendingId === app.id}
-                        title="Re-send email"
-                      >
-                        {resendingId === app.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Mail className="w-4 h-4" />
-                        )}
-                        Email
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuLabel>Re-send email</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => resendEmail(app.id, "welcome", "Welcome email")}>
-                        Welcome / Registration
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => resendEmail(app.id, "admission_approved", "Admission approval email")}>
-                        Admission Approved
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => resendEmail(app.id, "admission_rejected", "Admission rejection email")}>
-                        Admission Rejected
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setPreviewApp(app)}>
-                        <FileJson className="w-4 h-4 mr-2" /> Preview approval email
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Detail Dialog */}
-      <Dialog open={!!selectedApp} onOpenChange={() => setSelectedApp(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Application Details</DialogTitle>
-            <DialogDescription>Review the full application information</DialogDescription>
-          </DialogHeader>
-          {selectedApp && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <InfoField label="Full Name" value={getFullName(selectedApp)} />
-                <InfoField label="Email" value={selectedApp.profile.email} />
-                <InfoField label="Phone" value={selectedApp.profile.phone} />
-                <InfoField label="Gender" value={selectedApp.gender} />
-                <InfoField label="Age" value={selectedApp.age?.toString()} />
-                <InfoField label="Marital Status" value={selectedApp.marital_status} />
-                <InfoField label="Learning Mode" value={selectedApp.learning_mode} />
-                <InfoField label="Language" value={selectedApp.preferred_language} />
-                <InfoField label="Born Again" value={selectedApp.is_born_again ? "Yes" : "No"} />
-                <InfoField label="Discovered Ministry" value={selectedApp.has_discovered_ministry ? "Yes" : "No"} />
-              </div>
-              {selectedApp.address && <InfoField label="Address" value={selectedApp.address} />}
-              {selectedApp.educational_background && <InfoField label="Education" value={selectedApp.educational_background} />}
-              {selectedApp.ministry_description && <InfoField label="Ministry Description" value={selectedApp.ministry_description} />}
-              <div className="flex gap-2 pt-4 border-t border-border">
-                <Button
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                  onClick={() => setConfirmAction({ type: "approve", student: selectedApp })}
+    <div className="pb-6">
+      <AdminPageHeader
+        section="People"
+        title="Applications"
+        description="Admissions: review applications, learning-mode and certificate-name requests."
+        actions={
+          <div role="tablist" aria-label="Filter applications" className="flex flex-wrap gap-1.5">
+            {TABS.map((tab, index) => {
+              const selected = view === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  ref={(el) => { tabRefs.current[tab.id] = el; }}
+                  type="button"
+                  role="tab"
+                  id={`admissions-tab-${tab.id}`}
+                  aria-selected={selected}
+                  aria-controls="admissions-panel"
+                  tabIndex={selected ? 0 : -1}
+                  onClick={() => switchView(tab.id)}
+                  onKeyDown={(e) => onTabKeyDown(e, index)}
+                  className={cn(
+                    "h-11 rounded-full border px-3.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:h-[38px]",
+                    selected
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border bg-card text-foreground/80 hover:bg-secondary",
+                  )}
                 >
-                  <Check className="w-4 h-4 mr-2" /> Admit Student
-                </Button>
-                <Button
-                  variant="destructive"
-                  className="flex-1"
-                  onClick={() => setConfirmAction({ type: "reject", student: selectedApp })}
-                >
-                  <X className="w-4 h-4 mr-2" /> Reject Application
-                </Button>
-              </div>
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        }
+      />
+
+      <div
+        id="admissions-panel"
+        role="tabpanel"
+        aria-labelledby={`admissions-tab-${view}`}
+        className="flex flex-col gap-5"
+      >
+        {view === "requests" ? (
+          renderRequests()
+        ) : (
+          <>
+            {filterBar}
+            <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
+              {renderList()}
+              {current ? (
+                renderDetail(current)
+              ) : (
+                <div className="hidden rounded-[18px] border border-dashed border-border p-10 text-center text-sm text-muted-foreground lg:block">
+                  Pick an application to read it in full.
+                </div>
+              )}
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </>
+        )}
+      </div>
 
       {/* Confirmation dialog for sensitive actions */}
       <ConfirmDialog
@@ -957,6 +1331,58 @@ const AdminAdmissions = () => {
         variant={confirmAction?.type === "reject" ? "destructive" : "default"}
         onConfirm={runConfirmedAction}
       />
+
+      {/* Message dialog — an email through the same sender the Students page uses. */}
+      <Dialog open={messageTargets.length > 0} onOpenChange={(open) => { if (!open && !sendingMessage) setMessageTargets([]); }}>
+        <DialogContent className="max-h-[90vh] w-[95vw] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {messageTargets.length === 1
+                ? `Message ${getFullName(messageTargets[0])}`
+                : `Message ${messageTargets.length} applicants`}
+            </DialogTitle>
+            <DialogDescription>
+              Sent by email
+              {messageTargets.length === 1 ? ` to ${messageTargets[0].profile?.email}` : " to each applicant separately"}.
+              This does not change their application.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="message-subject">Subject</Label>
+              <Input
+                id="message-subject"
+                value={messageSubject}
+                onChange={(e) => setMessageSubject(e.target.value)}
+                placeholder="Email subject..."
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="message-body">Message</Label>
+              <Textarea
+                id="message-body"
+                value={messageBody}
+                onChange={(e) => setMessageBody(e.target.value)}
+                placeholder="Write your message here..."
+                rows={6}
+                className="mt-1"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setMessageTargets([])} disabled={sendingMessage}>Cancel</Button>
+            <Button
+              onClick={handleSendMessage}
+              disabled={sendingMessage || !messageSubject.trim() || !messageBody.trim()}
+              className="gap-2"
+            >
+              {sendingMessage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Send email
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Email Preview Dialog — shows the JSON payload that will be sent to Make.com */}
       <Dialog open={!!previewApp} onOpenChange={(open) => { if (!open) setPreviewApp(null); }}>
@@ -1023,12 +1449,5 @@ const AdminAdmissions = () => {
     </div>
   );
 };
-
-const InfoField = ({ label, value }: { label: string; value?: string | null }) => (
-  <div>
-    <p className="text-xs font-semibold text-muted-foreground">{label}</p>
-    <p className="text-sm text-foreground">{value || "N/A"}</p>
-  </div>
-);
 
 export default AdminAdmissions;

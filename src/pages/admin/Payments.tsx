@@ -1,23 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { withRejectionReason } from "@/lib/rejection-note";
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { r2Storage } from '@/lib/r2-storage';
-import { resolveReceiptUrl } from '@/lib/receipt-url';
-import ReceiptViewer from '@/components/admin/ReceiptViewer';
-import { Loader2, CheckCircle, XCircle, Eye, Plus } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Plus, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { PageSkeleton } from '@/components/portal/PageSkeleton';
+import { AdminPageHeader, StatusPill } from '@/components/redesign/admin/primitives';
+import { APPROVE_BUTTON, QUIET_BUTTON, REJECT_BUTTON } from '@/components/redesign/admin/styles';
+import {
+  DetailField,
+  ReceiptDetail,
+  ReceiptQueueList,
+} from '@/components/redesign/admin/fees/ReceiptQueue';
+import { paymentTypeLabel, submittedLabel } from '@/components/redesign/admin/fees/receipt-labels';
 
 type PaymentReview = Tables<'payments'> & {
   student_name?: string;
@@ -34,14 +38,14 @@ const AdminPayments = () => {
   const [pendingPayments, setPendingPayments] = useState<PaymentReview[]>([]);
   const [cohorts, setCohorts] = useState<Tables<'cohorts'>[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPayment, setSelectedPayment] = useState<PaymentReview | null>(null);
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  // The receipt open in the detail panel. When it is decided and leaves the
+  // queue, the one that took its place opens next.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const [isAddFeeModalOpen, setIsAddFeeModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [pendingConfirm, setPendingConfirm] = useState<null | "approve" | "reject">(null);
-  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
-  const [receiptLoading, setReceiptLoading] = useState(false);
 
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<AddFeeFormData>({
     defaultValues: { cohort_id: '', fee_name: '', amount: '' },
@@ -99,22 +103,23 @@ const AdminPayments = () => {
     fetchData();
   }, []);
 
+  const selectedPayment = useMemo(() => {
+    if (pendingPayments.length === 0) return null;
+    return (
+      pendingPayments.find((p) => p.id === selectedId) ??
+      pendingPayments[Math.min(selectedIndex, pendingPayments.length - 1)]
+    );
+  }, [pendingPayments, selectedId, selectedIndex]);
+
+  const selectPayment = (id: string) => {
+    setSelectedId(id);
+    setSelectedIndex(Math.max(0, pendingPayments.findIndex((p) => p.id === id)));
+  };
+
+  // A new receipt starts with an empty reason.
   useEffect(() => {
-    if (!selectedPayment) { setReceiptUrl(null); return; }
-    const resolve = async () => {
-      try {
-        setReceiptLoading(true);
-        const url = await resolveReceiptUrl(selectedPayment);
-        setReceiptUrl(url);
-      } catch (err) {
-        console.error('Failed to resolve receipt URL', err);
-        setReceiptUrl(null);
-      } finally {
-        setReceiptLoading(false);
-      }
-    };
-    resolve();
-  }, [selectedPayment]);
+    setRejectionReason('');
+  }, [selectedPayment?.id]);
 
   const approvePayment = async (payment: PaymentReview) => {
     try {
@@ -126,8 +131,7 @@ const AdminPayments = () => {
       const { error } = await supabase.rpc('admin_approve_payment', { p_payment_id: payment.id });
       if (error) { toast.error('Failed to approve payment: ' + error.message); return; }
       toast.success('Payment approved');
-      setIsReviewModalOpen(false);
-      setSelectedPayment(null);
+      setSelectedId(null);
       await fetchPayments();
     } catch (error) {
       console.error(error);
@@ -140,11 +144,10 @@ const AdminPayments = () => {
     if (!rejectionReason.trim()) { toast.error('Please provide a rejection reason'); return; }
     try {
       setIsProcessing(true);
-      const { error } = await supabase.from('payments').update({ status: 'REJECTED', admin_notes: rejectionReason }).eq('id', payment.id);
+      const { error } = await supabase.from('payments').update({ status: 'REJECTED', admin_notes: withRejectionReason(payment.admin_notes, rejectionReason) }).eq('id', payment.id);
       if (error) { toast.error('Failed to reject payment'); return; }
       toast.success('Payment rejected');
-      setIsReviewModalOpen(false);
-      setSelectedPayment(null);
+      setSelectedId(null);
       setRejectionReason('');
       await fetchPayments();
     } catch (error) {
@@ -179,186 +182,121 @@ const AdminPayments = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold mb-2 sm:text-3xl">Payments & Fees</h1>
-          <p className="text-muted-foreground">Verify student payments and manage fee structures</p>
-        </div>
-        <Dialog open={isAddFeeModalOpen} onOpenChange={setIsAddFeeModalOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2"><Plus className="h-4 w-4" /> Add New Fee</Button>
-          </DialogTrigger>
-          <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto">
-            <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
-              <DialogTitle>Add New Fee</DialogTitle>
-              <DialogDescription>Create a new fee structure for a cohort</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit(onAddFeeSubmit)} className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label>Cohort</Label>
-                <Select value={selectedCohort} onValueChange={(value) => setValue('cohort_id', value)}>
-                  <SelectTrigger><SelectValue placeholder="Select cohort" /></SelectTrigger>
-                  <SelectContent>
-                    {cohorts.map((cohort) => (<SelectItem key={cohort.id} value={cohort.id}>{cohort.name}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Fee Name</Label>
-                <Input placeholder="e.g., Tuition, Graduation Fee" {...register('fee_name', { required: 'Fee name is required' })} />
-                {errors.fee_name && <p className="text-sm text-destructive">{errors.fee_name.message}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label>Amount (₦)</Label>
-                <Input type="number" step="0.01" placeholder="0.00" {...register('amount', { required: 'Amount is required' })} />
-                {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
-              </div>
-              <div className="sticky bottom-0 bg-background pt-4 border-t">
-                <Button type="submit" disabled={isProcessing} className="w-full">
-                  {isProcessing ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Adding...</>) : 'Add Fee'}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+    <div className="space-y-5 pb-6">
+      <AdminPageHeader
+        section="Money"
+        title="Payments"
+        description={`${pendingPayments.length} pending payment${pendingPayments.length !== 1 ? 's' : ''} to verify`}
+        actions={
+          <>
+            <Button asChild variant="outline" className={`h-11 gap-2 rounded-[10px] font-semibold sm:h-10 ${QUIET_BUTTON}`}>
+              <Link to="/admin/fees">
+                Open Fees and payments <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+            <Dialog open={isAddFeeModalOpen} onOpenChange={setIsAddFeeModalOpen}>
+              <DialogTrigger asChild>
+                <Button className="h-11 gap-2 rounded-[10px] font-bold sm:h-10"><Plus className="h-4 w-4" /> Add new fee</Button>
+              </DialogTrigger>
+              <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto">
+                <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
+                  <DialogTitle>Add New Fee</DialogTitle>
+                  <DialogDescription>Create a new fee structure for a cohort</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit(onAddFeeSubmit)} className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="pay-fee-cohort">Cohort</Label>
+                    <Select value={selectedCohort} onValueChange={(value) => setValue('cohort_id', value)}>
+                      <SelectTrigger id="pay-fee-cohort"><SelectValue placeholder="Select cohort" /></SelectTrigger>
+                      <SelectContent>
+                        {cohorts.map((cohort) => (<SelectItem key={cohort.id} value={cohort.id}>{cohort.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pay-fee-name">Fee Name</Label>
+                    <Input id="pay-fee-name" placeholder="e.g., Tuition, Graduation Fee" {...register('fee_name', { required: 'Fee name is required' })} />
+                    {errors.fee_name && <p className="text-sm text-destructive">{errors.fee_name.message}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pay-fee-amount">Amount (₦)</Label>
+                    <Input id="pay-fee-amount" type="number" step="0.01" placeholder="0.00" {...register('amount', { required: 'Amount is required' })} />
+                    {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
+                  </div>
+                  <div className="sticky bottom-0 bg-background pt-4 border-t">
+                    <Button type="submit" disabled={isProcessing} className="w-full">
+                      {isProcessing ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Adding...</>) : 'Add Fee'}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </>
+        }
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Payment Verification Queue</CardTitle>
-          <CardDescription>{pendingPayments.length} pending payment{pendingPayments.length !== 1 ? 's' : ''}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {pendingPayments.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground">No pending payments to verify</p>
-          ) : (
-            <div className="overflow-x-auto rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Student</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="hidden sm:table-cell">Type</TableHead>
-                    <TableHead className="hidden md:table-cell">Date</TableHead>
-                    <TableHead>Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pendingPayments.map((payment) => (
-                    <TableRow key={payment.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{payment.student_name}</p>
-                          <p className="break-anywhere text-xs text-muted-foreground">{payment.student_email}</p>
-                          {/* Payment type and date lose their columns on a phone. */}
-                          <p className="text-xs text-muted-foreground md:hidden">
-                            <span className="sm:hidden">
-                              {payment.payment_type === 'FULL' ? 'Full payment' : payment.payment_type === 'PART' ? 'Part payment' : 'Type not stated'}
-                              {' · '}
-                            </span>
-                            {payment.created_at ? new Date(payment.created_at).toLocaleDateString() : 'No date'}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">₦{Number(payment.amount_paid).toLocaleString()}</TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        {payment.payment_type === 'FULL' ? (
-                          <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-300">Full</Badge>
-                        ) : payment.payment_type === 'PART' ? (
-                          <Badge variant="outline" className="bg-sky-50 text-sky-800 border-sky-300">Part</Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Not stated</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">{payment.created_at ? new Date(payment.created_at).toLocaleDateString() : ''}</TableCell>
-                      <TableCell>
-                        <Dialog open={isReviewModalOpen && selectedPayment?.id === payment.id} onOpenChange={setIsReviewModalOpen}>
-                          <DialogTrigger asChild>
-                            <Button variant="outline" size="sm" onClick={() => setSelectedPayment(payment)} className="flex items-center gap-2">
-                              <Eye className="h-4 w-4" /> Review
-                            </Button>
-                          </DialogTrigger>
-                          {selectedPayment && (
-                            <DialogContent className="max-h-[90vh] w-[95vw] max-w-2xl overflow-y-auto">
-                              <DialogHeader className="sticky top-0 bg-background pb-4 border-b">
-                                <DialogTitle>Review Payment</DialogTitle>
-                                <DialogDescription>Student: {selectedPayment.student_name} ({selectedPayment.student_email})</DialogDescription>
-                              </DialogHeader>
-                              <div className="space-y-4 pt-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <Label className="text-xs text-muted-foreground">Amount</Label>
-                                    <p className="font-medium">₦{Number(selectedPayment.amount_paid).toLocaleString()}</p>
-                                  </div>
-                                  <div>
-                                    <Label className="text-xs text-muted-foreground">Submitted</Label>
-                                    <p className="font-medium">{selectedPayment.created_at ? new Date(selectedPayment.created_at).toLocaleDateString() : ''}</p>
-                                  </div>
-                                  <div>
-                                    <Label className="text-xs text-muted-foreground">Status</Label>
-                                    <Badge>{selectedPayment.status}</Badge>
-                                  </div>
-                                  <div>
-                                    <Label className="text-xs text-muted-foreground">Student says this is</Label>
-                                    <p className="font-medium">
-                                      {selectedPayment.payment_type === 'FULL'
-                                        ? 'Full payment — settles this fee'
-                                        : selectedPayment.payment_type === 'PART'
-                                          ? 'Part payment — an instalment'
-                                          : 'Not stated'}
-                                    </p>
-                                  </div>
-                                </div>
+      <div className="flex flex-wrap items-start gap-5">
+        <ReceiptQueueList
+          title={`Receipts to verify · ${pendingPayments.length}`}
+          payments={pendingPayments}
+          selectedId={selectedPayment?.id ?? null}
+          onSelect={selectPayment}
+          showFee={false}
+        />
+        {selectedPayment && (
+          <ReceiptDetail payment={selectedPayment}>
+            <dl className="grid grid-cols-1 gap-x-5 gap-y-3 sm:grid-cols-2">
+              <DetailField label="Student says">{paymentTypeLabel(selectedPayment.payment_type, true)}</DetailField>
+              <DetailField label="Submitted">{submittedLabel(selectedPayment.created_at)}</DetailField>
+              <DetailField label="Status">
+                <StatusPill tone="warn">{selectedPayment.status || 'PENDING'}</StatusPill>
+              </DetailField>
+              <DetailField label="Fee">
+                {selectedPayment.student_fee_id ? (
+                  'Assigned'
+                ) : (
+                  <Link to="/admin/fees" className="font-semibold text-primary underline-offset-4 hover:underline">
+                    Not set. Assign it in Fees and payments
+                  </Link>
+                )}
+              </DetailField>
+            </dl>
 
-                                {selectedPayment.admin_notes && (
-                                  <div>
-                                    <Label className="text-xs text-muted-foreground">Notes</Label>
-                                    <p className="text-sm">{selectedPayment.admin_notes}</p>
-                                  </div>
-                                )}
+            {selectedPayment.admin_notes && (
+              <DetailField label="Notes">{selectedPayment.admin_notes}</DetailField>
+            )}
 
-                                {(receiptLoading || receiptUrl || selectedPayment?.payment_proof_url) && (
-                                  <div>
-                                    <Label className="text-xs text-muted-foreground">Receipt</Label>
-                                    <div className="mt-2">
-                                      <ReceiptViewer
-                                        payment={selectedPayment}
-                                        url={receiptUrl || selectedPayment?.payment_proof_url || null}
-                                        loading={receiptLoading}
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-
-                                <div>
-                                  <Label>Rejection Reason (if rejecting)</Label>
-                                  <Textarea placeholder="Provide reason for rejection..." value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} className="min-h-[80px]" />
-                                </div>
-
-                                <div className="sticky bottom-0 bg-background pt-4 border-t">
-                                  <div className="flex gap-2 sm:gap-4">
-                                    <Button onClick={() => setPendingConfirm("approve")} disabled={isProcessing} className="flex-1">
-                                      <CheckCircle className="mr-2 h-4 w-4" /> Approve
-                                    </Button>
-                                    <Button variant="destructive" onClick={() => setPendingConfirm("reject")} disabled={isProcessing} className="flex-1">
-                                      <XCircle className="mr-2 h-4 w-4" /> Reject
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            </DialogContent>
-                          )}
-                        </Dialog>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="payments-reject-reason" className="text-sm font-semibold">Rejection reason (if rejecting)</Label>
+              <Textarea
+                id="payments-reject-reason"
+                placeholder="Provide reason for rejection..."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                className="min-h-[80px] rounded-[10px]"
+              />
             </div>
-          )}
-        </CardContent>
-      </Card>
+
+            <div className="flex flex-wrap gap-2.5">
+              <Button
+                onClick={() => setPendingConfirm("approve")}
+                disabled={isProcessing}
+                className={`h-[46px] gap-2 rounded-xl px-5 text-[15px] font-bold ${APPROVE_BUTTON}`}
+              >
+                <CheckCircle className="h-4 w-4" /> Approve payment
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setPendingConfirm("reject")}
+                disabled={isProcessing}
+                className={`h-[46px] gap-2 rounded-xl px-[18px] text-[15px] font-semibold ${REJECT_BUTTON}`}
+              >
+                <XCircle className="h-4 w-4" /> Reject
+              </Button>
+            </div>
+          </ReceiptDetail>
+        )}
+      </div>
 
       {/* Confirmation dialog for verify / reject */}
       <ConfirmDialog

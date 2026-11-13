@@ -5,11 +5,10 @@ import { AnimatePresence, LazyMotion, MotionConfig, domAnimation, m } from "fram
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import { downloadCSV } from "@/lib/csv-export";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -22,20 +21,16 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import {
-  CalendarCheck,
-  AlertTriangle,
-  Users,
   CheckCircle,
   XCircle,
   Search,
   Loader2,
-  Power,
-  Clock,
   Download,
   Plus,
   Edit2,
@@ -43,6 +38,15 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Json } from "@/integrations/supabase/types";
+import { cn } from "@/lib/utils";
+import { AdminPageHeader, InitialsBadge, KpiTile, Panel, StatusPill, type Tone } from "@/components/redesign/admin/primitives";
+import { APPROVE_BUTTON, QUIET_BUTTON, REJECT_BUTTON, TONE_TEXT } from "@/components/redesign/admin/styles";
+
+/** 44px touch targets on phones, the board's 40px from sm up. */
+const TAP = "h-11 sm:h-10";
+const TAP_SM = "h-11 px-3 text-[13px] sm:h-[34px]";
+const SELECT_CLASS =
+  "h-11 rounded-[10px] border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-10";
 
 const todayDateString = () => new Date().toISOString().split("T")[0];
 
@@ -74,6 +78,8 @@ interface PendingRow {
   cohort_id: string | null;
   cohort_name: string;
   is_verified?: boolean | null;
+  /** Present or Late, as the server stamped it at check-in. */
+  status: string | null;
 }
 
 interface StudentStat {
@@ -262,6 +268,10 @@ const AdminAttendance = () => {
   const [newDate, setNewDate] = useState<string>("");
   const [newStatus, setNewStatus] = useState<string>("Present");
   const [newVerified, setNewVerified] = useState<boolean>(false);
+  // "+ Add record" in the header: pick a student, then the history dialog's
+  // own add form does the work.
+  const [addPickerOpen, setAddPickerOpen] = useState(false);
+  const [addPickerQuery, setAddPickerQuery] = useState("");
 
   const loadCohorts = useCallback(async () => {
     const { data } = await supabase
@@ -395,7 +405,7 @@ const AdminAttendance = () => {
     try {
       const { data: attendanceData, error: attError } = await supabase
         .from("attendance")
-        .select("id, marked_at, student_id, is_verified, check_in_time")
+        .select("id, marked_at, student_id, is_verified, check_in_time, status")
         .eq("is_verified", false)
         .order("marked_at", { ascending: false });
 
@@ -409,6 +419,7 @@ const AdminAttendance = () => {
         cohort_id: null as string | null,
         cohort_name: "",
         is_verified: a.is_verified,
+        status: a.status ?? null,
       }));
       const studentIds = [...new Set(list.map((x) => x.student_id))];
       if (studentIds.length === 0) {
@@ -858,13 +869,32 @@ const AdminAttendance = () => {
     setStatsTo("");
   };
 
-  const pctColor = (pct: number) => {
-    if (pct < 70) return "text-red-600 font-semibold";
-    if (pct <= 85) return "text-amber-600 font-semibold";
-    return "text-emerald-600 font-semibold";
+  // Same bands as before: under 70 red, up to 85 amber, above that green.
+  const pctTone = (pct: number): Tone => (pct < 70 ? "bad" : pct <= 85 ? "warn" : "good");
+
+  const checkInTone = (status: string | null): { tone: Tone; label: string } => {
+    const s = (status || "").toUpperCase();
+    if (s === "LATE") return { tone: "warn", label: "Late" };
+    if (s === "PRESENT") return { tone: "good", label: "Present" };
+    return { tone: "neutral", label: status || "Checked in" };
   };
 
-  const anyEnabled = Object.values(cohortToggles).some(t => t.enabled);
+  // Average over the students the table is showing who have had a class.
+  const averageBase = filteredStats.filter((s) => s.total_classes > 0);
+  const averagePct =
+    averageBase.length > 0
+      ? Math.round(averageBase.reduce((sum, s) => sum + s.attendance_pct, 0) / averageBase.length)
+      : null;
+
+  const pickerMatches = rawStudents
+    .filter((s) => {
+      const q = addPickerQuery.trim().toLowerCase();
+      return !q || s.name.toLowerCase().includes(q) || s.cohort_name.toLowerCase().includes(q);
+    })
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .slice(0, 50);
+
+  const queueFiltered = queueCohortFilter !== "all" || Boolean(queueDate);
 
   if (loading) {
     return (
@@ -881,201 +911,135 @@ const AdminAttendance = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-            Attendance Command Center
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Verify check-ins and view student attendance statistics.
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={handleExportAllAttendance} className="gap-2 self-start">
-          <Download className="h-4 w-4" /> Export Everything
-        </Button>
-      </div>
+    <div className="space-y-5">
+      <AdminPageHeader
+        section="Teaching"
+        title="Attendance"
+        actions={
+          <>
+            <Button type="button" variant="outline" onClick={handleExportFilteredStats} className={cn(TAP, QUIET_BUTTON, "rounded-[10px] font-semibold")}>
+              <Download className="h-4 w-4" aria-hidden="true" /> Export this view
+            </Button>
+            <Button type="button" variant="outline" onClick={handleExportAllAttendance} className={cn(TAP, QUIET_BUTTON, "rounded-[10px] font-semibold")}>
+              <Download className="h-4 w-4" aria-hidden="true" /> Export everything
+            </Button>
+            <Button
+              type="button"
+              onClick={() => { setAddPickerQuery(""); setAddPickerOpen(true); }}
+              className={cn(TAP, "rounded-[10px] font-bold")}
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" /> Add record
+            </Button>
+          </>
+        }
+      />
 
-      {/* Per-Cohort Class Toggles */}
-      <Card className="shadow-[var(--shadow-card)] border-border">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Power className={`w-4 h-4 ${anyEnabled ? 'text-emerald-600' : 'text-muted-foreground'}`} />
-            Class Today — Per Cohort
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Enable class and set the check-in window for each cohort. Set "Late after" each
-            session, measured in Nigerian time on the server. Leave it blank and nobody is
-            marked late - which is the right choice if you open the register when class starts.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <div className="flex flex-wrap items-stretch gap-5">
+        {/* Per-cohort class switches */}
+        <section
+          aria-labelledby="class-today-title"
+          className="flex min-w-0 flex-[3_1_560px] flex-col gap-3.5 rounded-[18px] border border-border bg-card px-5 py-[18px]"
+        >
+          <div className="flex flex-col gap-0.5">
+            <h2 id="class-today-title" className="text-[17px] font-bold text-foreground">Class today, per cohort</h2>
+            <p className="text-[13px] text-muted-foreground">
+              Turn a cohort on to let its students check in. Check-ins after "Late after" are marked Late by the
+              server, in Nigerian (Lagos) time. Leave it blank and nobody is marked late, which is right if you
+              open the register when class starts.
+            </p>
+          </div>
           {cohorts.length === 0 ? (
             <p className="text-sm text-muted-foreground">No active cohorts found.</p>
           ) : (
             cohorts.map((cohort) => {
               const toggle = cohortToggles[cohort.id] || { enabled: false, start_time: "09:00", end_time: "12:00", late_after: "" };
               const isToggling = togglingCohort === cohort.id;
+              const fieldId = (field: string) => `class-${cohort.id}-${field}`;
               return (
                 <div
                   key={cohort.id}
-                  className={`rounded-lg border p-4 transition-colors ${toggle.enabled ? 'border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-800' : 'border-border bg-secondary/30'}`}
+                  className={cn(
+                    "flex flex-wrap items-center gap-3.5 rounded-2xl border px-3.5 py-3 transition-colors",
+                    toggle.enabled ? "border-primary/30 bg-secondary/60" : "border-border bg-card",
+                  )}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${toggle.enabled ? 'bg-emerald-100 dark:bg-emerald-900' : 'bg-muted'}`}>
-                        <CalendarCheck className={`w-4 h-4 ${toggle.enabled ? 'text-emerald-600' : 'text-muted-foreground'}`} />
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground text-sm">{cohort.name}</p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {toggle.enabled ? "Check-in open" : "Check-in disabled"}
-                        </p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={toggle.enabled}
-                      onCheckedChange={(checked) => toggleCohortClass(cohort.id, checked)}
-                      disabled={isToggling}
-                    />
-                  </div>
+                  <Switch
+                    checked={toggle.enabled}
+                    onCheckedChange={(checked) => toggleCohortClass(cohort.id, checked)}
+                    disabled={isToggling}
+                    aria-label={`Class today for ${cohort.name}`}
+                  />
+                  <span className="flex min-w-0 flex-[1_1_160px] flex-col gap-0.5">
+                    <strong className="text-[15px] font-semibold text-foreground">{cohort.name}</strong>
+                    <span className="text-xs text-muted-foreground">
+                      {isToggling
+                        ? "Saving…"
+                        : toggle.enabled
+                          ? `Check-in open ${toggle.start_time} – ${toggle.end_time}`
+                          : "No class today"}
+                    </span>
+                  </span>
                   {toggle.enabled && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:pl-12">
-                      <div>
-                        <label className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mb-1">
-                          <Clock className="w-3 h-3" /> Start Time
-                        </label>
-                        <Input
-                          type="time"
-                          value={toggle.start_time}
-                          onChange={(e) => updateCohortTime(cohort.id, "start_time", e.target.value)}
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mb-1">
-                          <Clock className="w-3 h-3" /> End Time
-                        </label>
-                        <Input
-                          type="time"
-                          value={toggle.end_time}
-                          onChange={(e) => updateCohortTime(cohort.id, "end_time", e.target.value)}
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] text-muted-foreground font-medium flex items-center gap-1 mb-1">
-                          <AlertTriangle className="w-3 h-3 text-amber-500" /> Late After
-                          <span className="text-muted-foreground/70">(blank = nobody late)</span>
-                        </label>
-                        <Input
-                          type="time"
-                          value={toggle.late_after}
-                          onChange={(e) => updateCohortTime(cohort.id, "late_after", e.target.value)}
-                          className="h-8 text-sm"
-                        />
-                      </div>
+                    <div className="flex flex-wrap gap-3">
+                      {([
+                        ["start_time", "Opens"],
+                        ["end_time", "Closes"],
+                        ["late_after", "Late after"],
+                      ] as const).map(([field, label]) => (
+                        <div key={field} className="flex flex-col gap-1">
+                          <label htmlFor={fieldId(field)} className="text-xs font-semibold text-muted-foreground">
+                            {label}
+                            {field === "late_after" && <span className="sr-only"> (blank means nobody is late)</span>}
+                          </label>
+                          <Input
+                            id={fieldId(field)}
+                            type="time"
+                            value={toggle[field]}
+                            onChange={(e) => updateCohortTime(cohort.id, field, e.target.value)}
+                            className="h-11 w-[8.5rem] rounded-[10px] text-sm sm:h-[38px]"
+                          />
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
               );
             })
           )}
-        </CardContent>
-      </Card>
+        </section>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center">
-              <CalendarCheck className="w-6 h-6 text-amber-600" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">Total Pending</p>
-              <p className="text-2xl font-bold text-foreground">{totalPending}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card
-          role="button"
-          tabIndex={0}
-          aria-pressed={belowThresholdOnly}
-          onClick={() => setBelowThresholdOnly((v) => !v)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              setBelowThresholdOnly((v) => !v);
-            }
-          }}
-          className={`shadow-[var(--shadow-card)] cursor-pointer transition-colors hover:bg-red-50/50 ${
-            belowThresholdOnly ? "border-red-400 ring-2 ring-red-200 bg-red-50/50" : "border-border"
-          }`}
-        >
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center">
-              <AlertTriangle className="w-6 h-6 text-red-600" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">Low Attendance Alert</p>
-              <p className="text-2xl font-bold text-foreground">
-                {lowAttendanceCount}
-                <span className="text-sm font-normal text-muted-foreground"> below {LOW_ATTENDANCE_THRESHOLD}%</span>
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                {belowThresholdOnly ? "Filtering — click to clear" : "Click to filter the table"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center">
-              <Users className="w-6 h-6 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">Today's Turnout</p>
-              <p className="text-2xl font-bold text-foreground">{todayTurnout}</p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid min-w-0 flex-[2_1_320px] grid-cols-2 gap-3">
+          <KpiTile label="Today's turnout" value={todayTurnout} note="Check-ins today" tone="good" />
+          <KpiTile label="Waiting to verify" value={totalPending} note="Self check-ins" tone="warn" />
+          <KpiTile
+            label="Low attendance"
+            value={lowAttendanceCount}
+            note={belowThresholdOnly ? "Filtering the table. Click to clear" : `Students under ${LOW_ATTENDANCE_THRESHOLD}%`}
+            tone="bad"
+            onClick={() => setBelowThresholdOnly((v) => !v)}
+            pressed={belowThresholdOnly}
+          />
+          <KpiTile
+            label={statsCohortFilter === "all" ? "Average attendance" : "Cohort average"}
+            value={averagePct === null ? "—" : `${averagePct}%`}
+            note={`Across ${averageBase.length} ${averageBase.length === 1 ? "student" : "students"}`}
+          />
+        </div>
       </div>
 
-      {/* Verification Queue */}
-      <Card className="shadow-[var(--shadow-card)] border-border">
-        <CardHeader className="pb-3 space-y-3">
-          <div className="flex flex-row items-center justify-between gap-3">
-            <CardTitle className="text-base">
-              Verification Queue
-              <span className="ml-2 text-xs font-normal text-muted-foreground">
-                {filteredPending.length === pending.length
-                  ? `${pending.length} pending`
-                  : `${filteredPending.length} of ${pending.length} pending`}
-              </span>
-            </CardTitle>
-            {filteredPending.length > 0 && (
-              <Button
-                size="sm"
-                onClick={verifyAllPending}
-                disabled={bulkVerifying}
-                className="bg-emerald-600 hover:bg-emerald-700 shrink-0"
-              >
-                {bulkVerifying ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                ) : (
-                  <CheckCircle className="w-4 h-4 mr-1" />
-                )}
-                Verify {filteredPending.length === pending.length ? "All" : `These ${filteredPending.length}`}
-              </Button>
-            )}
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2">
+      {/* Verification queue */}
+      <Panel
+        title={`Check-ins waiting for you · ${queueFiltered ? `${filteredPending.length} of ${pending.length}` : pending.length}`}
+        titleId="checkins-title"
+        actions={
+          <>
             <select
-              className="border border-input bg-background rounded-md px-3 py-2 text-sm"
+              className={SELECT_CLASS}
               value={queueCohortFilter}
               onChange={(e) => setQueueCohortFilter(e.target.value)}
-              aria-label="Filter queue by cohort"
+              aria-label="Filter check-ins by cohort"
             >
-              <option value="all">All Cohorts</option>
+              <option value="all">All cohorts</option>
               {cohorts.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
@@ -1084,268 +1048,302 @@ const AdminAttendance = () => {
               type="date"
               value={queueDate}
               onChange={(e) => setQueueDate(e.target.value)}
-              className="sm:max-w-[180px]"
-              aria-label="Filter queue by date"
+              className="h-11 w-[10.5rem] rounded-[10px] sm:h-10"
+              aria-label="Filter check-ins by date"
             />
-            {(queueCohortFilter !== "all" || queueDate) && (
+            {queueFiltered && (
               <Button
-                size="sm"
+                type="button"
                 variant="ghost"
                 onClick={() => { setQueueCohortFilter("all"); setQueueDate(""); }}
-                className="self-start"
+                className={TAP}
               >
                 Clear
               </Button>
             )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {filteredPending.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              {pending.length === 0 ? "No pending approvals." : "No pending approvals match these filters."}
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Student Name</TableHead>
-                    <TableHead className="hidden sm:table-cell">Cohort</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {/* Verified or declined rows slide out instead of vanishing,
-                      so it is clear which one was handled. */}
-                  <LazyMotion features={domAnimation} strict>
-                  <MotionConfig reducedMotion="user">
-                  <AnimatePresence initial={false}>
-                  {filteredPending.map((row) => (
-                    <m.tr
-                      key={row.id}
-                      layout
-                      exit={{ opacity: 0, x: 48, transition: { duration: 0.25 } }}
-                      className="border-b transition-colors hover:bg-muted/50"
-                    >
-                      <TableCell className="font-medium">
-                        {row.student_name || "—"}
-                        <span className="mt-0.5 block text-xs font-normal text-muted-foreground sm:hidden">
-                          {row.cohort_name}
+            {filteredPending.length > 0 && (
+              <Button
+                type="button"
+                onClick={verifyAllPending}
+                disabled={bulkVerifying}
+                className={cn(TAP, APPROVE_BUTTON, "rounded-[10px] font-bold")}
+              >
+                {bulkVerifying ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <CheckCircle className="h-4 w-4" aria-hidden="true" />}
+                {filteredPending.length === pending.length ? "Verify all" : `Verify these ${filteredPending.length}`}
+              </Button>
+            )}
+          </>
+        }
+      >
+        {filteredPending.length === 0 ? (
+          <p className={cn("px-5 py-[18px] text-sm font-semibold", pending.length === 0 ? TONE_TEXT.good : "text-muted-foreground")}>
+            {pending.length === 0 ? "All check-ins are verified." : "No check-ins match these filters."}
+          </p>
+        ) : (
+          /* Verified or declined rows slide out instead of vanishing, so it is
+             clear which one was handled. */
+          <LazyMotion features={domAnimation} strict>
+            <MotionConfig reducedMotion="user">
+              <ul aria-labelledby="checkins-title">
+                <AnimatePresence initial={false}>
+                  {filteredPending.map((row) => {
+                    const pill = checkInTone(row.status);
+                    const name = row.student_name || "—";
+                    return (
+                      <m.li
+                        key={row.id}
+                        layout
+                        exit={{ opacity: 0, x: 48, transition: { duration: 0.25 } }}
+                        className="flex flex-wrap items-center gap-3.5 border-t border-border/60 px-5 py-3 first:border-t-0"
+                      >
+                        <InitialsBadge name={name} />
+                        <span className="flex min-w-0 flex-[1_1_200px] flex-col gap-0.5">
+                          <strong className="truncate text-sm font-semibold text-foreground">{name}</strong>
+                          <span className="text-xs text-muted-foreground">{row.cohort_name}</span>
                         </span>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">{row.cohort_name}</TableCell>
-                      <TableCell>
-                        {row.marked_at ? new Date(row.marked_at).toLocaleString() : "—"}
-                      </TableCell>
-                      <TableCell className="text-right flex gap-2 justify-end">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
-                          onClick={() => verifyOne(row.id)}
-                          disabled={verifyingId === row.id}
-                        >
-                          {verifyingId === row.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <>Verify</>
-                          )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-destructive border-destructive/30 hover:bg-destructive/10"
-                          onClick={() => declineOne(row.id)}
-                          disabled={verifyingId === row.id}
-                        >
-                          <XCircle className="w-4 h-4 mr-1" /> Decline
-                        </Button>
-                      </TableCell>
-                    </m.tr>
-                  ))}
-                  </AnimatePresence>
-                  </MotionConfig>
-                  </LazyMotion>
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                        <span className="text-sm text-muted-foreground sm:w-48">{formatAttendanceDate(row.marked_at)}</span>
+                        <StatusPill tone={pill.tone}>{pill.label}</StatusPill>
+                        <span className="ml-auto flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => verifyOne(row.id)}
+                            disabled={verifyingId === row.id}
+                            className={cn(TAP, QUIET_BUTTON, "rounded-[10px] font-semibold")}
+                          >
+                            {verifyingId === row.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" aria-label="Working" />
+                            ) : (
+                              <>Verify<span className="sr-only"> {name}</span></>
+                            )}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => declineOne(row.id)}
+                            disabled={verifyingId === row.id}
+                            className={cn(TAP, REJECT_BUTTON, "rounded-[10px] font-semibold")}
+                          >
+                            <XCircle className="h-4 w-4" aria-hidden="true" /> Decline<span className="sr-only"> {name}</span>
+                          </Button>
+                        </span>
+                      </m.li>
+                    );
+                  })}
+                </AnimatePresence>
+              </ul>
+            </MotionConfig>
+          </LazyMotion>
+        )}
+      </Panel>
 
       {/* Who is attending, class by class. Same cohort filter as the
           statistics below; lowest attendance first. */}
-      <Card className="shadow-[var(--shadow-card)] border-border">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Attendance heatmap</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <Panel title="Attendance heatmap" titleId="heatmap-title">
+        <div className="p-5">
           <AttendanceHeatmap data={heatmap} />
-        </CardContent>
-      </Card>
+        </div>
+      </Panel>
 
-      {/* Student Statistics */}
-      <Card className="shadow-[var(--shadow-card)] border-border">
-        <CardHeader className="pb-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <CardTitle className="text-base">
-              Student Statistics
-              <span className="ml-2 text-xs font-normal text-muted-foreground">
-                {filteredStats.length === stats.length
-                  ? `${stats.length} students`
-                  : `${filteredStats.length} of ${stats.length} students`}
-              </span>
-            </CardTitle>
-            <Button variant="outline" size="sm" onClick={handleExportFilteredStats} className="gap-2">
-              <Download className="h-4 w-4" /> Export This View
+      {/* Student statistics */}
+      <Panel
+        title={
+          <>
+            Students
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              {filteredStats.length === stats.length
+                ? `${stats.length} students`
+                : `${filteredStats.length} of ${stats.length} students`}
+            </span>
+          </>
+        }
+        titleId="students-title"
+      >
+        <div className="flex flex-col gap-2.5 border-b border-border px-5 py-3.5 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="relative min-w-0 sm:w-[220px]">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              placeholder="Search by name…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-11 rounded-[10px] pl-9 sm:h-[38px]"
+              aria-label="Search students by name or cohort"
+            />
+          </div>
+          <select
+            className={SELECT_CLASS}
+            value={statsCohortFilter}
+            onChange={(e) => setStatsCohortFilter(e.target.value)}
+            aria-label="Filter by cohort"
+          >
+            <option value="all">All cohorts</option>
+            {cohorts.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <select
+            className={SELECT_CLASS}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Filter by status"
+          >
+            <option value="all">Any status</option>
+            <option value="present">Has present</option>
+            <option value="late">Has late</option>
+            <option value="absent">Has missed class</option>
+          </select>
+          <div className="flex min-w-0 items-center gap-2">
+            <Input
+              type="date"
+              value={statsFrom}
+              max={statsTo || undefined}
+              onChange={(e) => setStatsFrom(e.target.value)}
+              className="h-11 min-w-0 flex-1 rounded-[10px] sm:h-[38px] sm:max-w-[160px]"
+              aria-label="Statistics from date"
+            />
+            <span className="text-xs text-muted-foreground">to</span>
+            <Input
+              type="date"
+              value={statsTo}
+              min={statsFrom || undefined}
+              onChange={(e) => setStatsTo(e.target.value)}
+              className="h-11 min-w-0 flex-1 rounded-[10px] sm:h-[38px] sm:max-w-[160px]"
+              aria-label="Statistics to date"
+            />
+          </div>
+          {statsFiltersActive && (
+            <Button type="button" variant="ghost" onClick={clearStatsFilters} className={TAP}>
+              Clear filters
             </Button>
-          </div>
-          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 mt-2">
-            <div className="relative flex-1 min-w-[200px] max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <select
-              className="border border-input bg-background rounded-md px-3 py-2 text-sm"
-              value={statsCohortFilter}
-              onChange={(e) => setStatsCohortFilter(e.target.value)}
-              aria-label="Filter by cohort"
-            >
-              <option value="all">All Cohorts</option>
-              {cohorts.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-            <select
-              className="border border-input bg-background rounded-md px-3 py-2 text-sm"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              aria-label="Filter by status"
-            >
-              <option value="all">Any Status</option>
-              <option value="present">Has Present</option>
-              <option value="late">Has Late</option>
-              <option value="absent">Has Missed Class</option>
-            </select>
-            <div className="flex min-w-0 items-center gap-2">
-              <Input
-                type="date"
-                value={statsFrom}
-                max={statsTo || undefined}
-                onChange={(e) => setStatsFrom(e.target.value)}
-                className="min-w-0 flex-1 sm:max-w-[160px]"
-                aria-label="Statistics from date"
-              />
-              <span className="text-xs text-muted-foreground">to</span>
-              <Input
-                type="date"
-                value={statsTo}
-                min={statsFrom || undefined}
-                onChange={(e) => setStatsTo(e.target.value)}
-                className="min-w-0 flex-1 sm:max-w-[160px]"
-                aria-label="Statistics to date"
-              />
-            </div>
-            {statsFiltersActive && (
-              <Button size="sm" variant="ghost" onClick={clearStatsFilters}>Clear filters</Button>
-            )}
-          </div>
+          )}
           {(statsFrom || statsTo) && (
-            <p className="text-xs text-muted-foreground mt-2">
-              Percentages are recalculated over the selected period — "Classes Held" counts only
-              sessions in range.
+            <p className="w-full text-xs text-muted-foreground">
+              Percentages are recalculated over the selected period. "Classes held" counts only sessions in range.
             </p>
           )}
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
+        </div>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="text-xs uppercase tracking-wide">
+                <TableHead className="pl-5">Name</TableHead>
+                <TableHead className="hidden lg:table-cell">Cohort</TableHead>
+                <TableHead className="hidden md:table-cell">Classes held</TableHead>
+                <TableHead className="hidden md:table-cell">Attended</TableHead>
+                <TableHead className="hidden md:table-cell">Late</TableHead>
+                <TableHead className="hidden md:table-cell">Missed</TableHead>
+                <TableHead>Attendance</TableHead>
+                <TableHead className="pr-5 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredStats.length === 0 ? (
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="hidden lg:table-cell">Cohort</TableHead>
-                  <TableHead className="hidden md:table-cell">Classes Held</TableHead>
-                  <TableHead className="hidden md:table-cell">Attended</TableHead>
-                  <TableHead className="hidden md:table-cell">Late</TableHead>
-                  <TableHead className="hidden md:table-cell">Missed</TableHead>
-                  <TableHead>Attendance %</TableHead>
-                  <TableHead className="text-right">Edit</TableHead>
+                  <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                    No students found.
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredStats.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                      No students found.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredStats.map((s) => (
-                    <TableRow key={s.student_id}>
-                      <TableCell>
-                        <button
-                          type="button"
-                          className="font-medium text-primary hover:underline text-left"
-                          onClick={() => openDetail(s.student_id)}
-                        >
-                          {s.name || "—"}
-                        </button>
-                        {/* The counts that lose their own column on a narrow
-                            screen still have to be readable somewhere. */}
-                        <span className="mt-0.5 block text-xs text-muted-foreground lg:hidden">
-                          {s.cohort_name}
-                          <span className="md:hidden">
-                            {" · "}{s.verified_present}/{s.total_classes} attended · {s.late_count} late · {s.absent_count} missed
-                          </span>
+              ) : (
+                filteredStats.map((s) => (
+                  <TableRow key={s.student_id}>
+                    <TableCell className="pl-5">
+                      <button
+                        type="button"
+                        className="min-h-11 rounded-sm text-left font-semibold text-foreground hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-0"
+                        onClick={() => openDetail(s.student_id)}
+                      >
+                        {s.name || "—"}
+                      </button>
+                      {/* The counts that lose their own column on a narrow
+                          screen still have to be readable somewhere. */}
+                      <span className="mt-0.5 block text-xs text-muted-foreground lg:hidden">
+                        {s.cohort_name}
+                        <span className="md:hidden">
+                          {" · "}{s.verified_present}/{s.total_classes} attended · {s.late_count} late · {s.absent_count} missed
                         </span>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">{s.cohort_name}</TableCell>
-                      <TableCell className="hidden md:table-cell">{s.total_classes}</TableCell>
-                      <TableCell className="hidden md:table-cell">{s.verified_present}</TableCell>
-                      <TableCell className={`hidden md:table-cell ${s.late_count > 0 ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
-                        {s.late_count}
-                      </TableCell>
-                      <TableCell className={`hidden md:table-cell ${s.absent_count > 0 ? "text-red-600 font-medium" : "text-muted-foreground"}`}>
-                        {s.absent_count}
-                      </TableCell>
-                      <TableCell>
-                        <span className={pctColor(s.attendance_pct)}>{s.attendance_pct}%</span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex flex-col items-end gap-1 sm:flex-row sm:justify-end">
+                      </span>
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">{s.cohort_name}</TableCell>
+                    <TableCell className="hidden md:table-cell">{s.total_classes}</TableCell>
+                    <TableCell className="hidden md:table-cell">{s.verified_present}</TableCell>
+                    <TableCell className={`hidden md:table-cell ${s.late_count > 0 ? `${TONE_TEXT.warn} font-medium` : "text-muted-foreground"}`}>
+                      {s.late_count}
+                    </TableCell>
+                    <TableCell className={`hidden md:table-cell ${s.absent_count > 0 ? `${TONE_TEXT.bad} font-medium` : "text-muted-foreground"}`}>
+                      {s.absent_count}
+                    </TableCell>
+                    <TableCell>
+                      <StatusPill tone={pctTone(s.attendance_pct)}>{s.attendance_pct}%</StatusPill>
+                    </TableCell>
+                    <TableCell className="pr-5 text-right">
+                      <div className="flex flex-col items-end gap-1.5 sm:flex-row sm:justify-end">
                         <Button
                           type="button"
-                          size="sm"
+                          variant="outline"
+                          onClick={() => openDetail(s.student_id)}
+                          className={cn(TAP_SM, QUIET_BUTTON, "rounded-lg")}
+                        >
+                          History<span className="sr-only"> for {s.name}</span>
+                        </Button>
+                        <Button
+                          type="button"
                           variant="outline"
                           onClick={() => handleExportStudentAttendance(s.student_id, s.name)}
-                          className="gap-1"
+                          className={cn(TAP_SM, QUIET_BUTTON, "rounded-lg")}
                         >
-                          <Download className="h-3.5 w-3.5" /> Export
+                          <Download className="h-3.5 w-3.5" aria-hidden="true" /> Export<span className="sr-only"> {s.name}</span>
                         </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openDetail(s.student_id)}
-                        >
-                          Edit Records
-                        </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        <p className="px-5 pb-4 pt-3 text-[13px] text-muted-foreground">
+          History opens each record to edit: Present, Late, Absent or Excused, and mark as verified.
+        </p>
+      </Panel>
+
+      {/* "+ Add record": choose the student, then add it from their history. */}
+      <Dialog open={addPickerOpen} onOpenChange={setAddPickerOpen}>
+        <DialogContent className="max-h-[85vh] max-w-md overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add an attendance record</DialogTitle>
+            <DialogDescription>Choose the student. Their history opens with the add form at the top.</DialogDescription>
+          </DialogHeader>
+          <Input
+            autoFocus
+            placeholder="Search by name or cohort…"
+            value={addPickerQuery}
+            onChange={(e) => setAddPickerQuery(e.target.value)}
+            aria-label="Search students"
+            className="h-11"
+          />
+          {pickerMatches.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">No students match.</p>
+          ) : (
+            <ul className="divide-y divide-border rounded-xl border border-border">
+              {pickerMatches.map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => { setAddPickerOpen(false); openDetail(s.id); }}
+                    className="flex min-h-11 w-full items-center gap-3 px-3 py-2 text-left hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none"
+                  >
+                    <InitialsBadge name={s.name} />
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate text-sm font-semibold text-foreground">{s.name}</span>
+                      <span className="text-xs text-muted-foreground">{s.cohort_name}</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Detail Dialog */}
       <Dialog open={!!detailStudentId} onOpenChange={() => setDetailStudentId(null)}>

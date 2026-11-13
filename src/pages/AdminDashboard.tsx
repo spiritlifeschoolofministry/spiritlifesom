@@ -1,21 +1,27 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState, type ReactNode } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesUpdate } from '@/integrations/supabase/types';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
-  Users, Clock, BookOpen, Calendar, UserPlus, CheckCircle, XCircle,
-  BadgeDollarSign, Award, GraduationCap, ChevronRight, CalendarCheck,
-  ClipboardCheck, Megaphone, BarChart3, Folder,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Users, BookOpen, Calendar, UserPlus, CheckCircle, XCircle,
+  BadgeDollarSign, Award, ChevronRight, CalendarCheck,
+  ClipboardCheck, Megaphone, BarChart3, Folder, Plus,
   MessageCircle,
 } from "lucide-react";
 import ActionCentre, { type ActionQueue } from "@/components/admin/ActionCentre";
 import PortalPulse from "@/components/admin/PortalPulse";
 import AssistantChat from "@/components/portal/AssistantChat";
-import { Link } from "react-router-dom";
+import { KpiTile, Panel, StatusPill } from "@/components/redesign/admin/primitives";
+import { APPROVE_BUTTON, QUIET_BUTTON, REJECT_BUTTON } from "@/components/redesign/admin/styles";
 import { preloadPath } from "@/routes/lazy-pages";
 import { useAuth } from "@/contexts/useAuth";
 import { toast } from "sonner";
@@ -89,7 +95,9 @@ const QUICK_CREATE = [
   { label: "Announcement", path: "/admin/announcements" },
   { label: "Task", path: "/admin/assignments" },
   { label: "Exam", path: "/admin/exams/new" },
+  { label: "Material", path: "/admin/materials" },
   { label: "Event", path: "/admin/calendar" },
+  { label: "Course", path: "/admin/courses" },
 ];
 
 const AdminDashboard = () => {
@@ -312,15 +320,17 @@ const AdminDashboard = () => {
     stats.pendingCount + learningModeCount + certificateNameCount + stats.pendingPayments;
 
   // Each queue names the page that actually does the work, so the dashboard
-  // stays a way in rather than a second place to approve things.
+  // stays a way in rather than a second place to approve things. Each row has
+  // one explicit verb, as on the AdminHome board.
   const QUEUES: ActionQueue[] = [
     {
-      label: "Admission applications",
+      label: "New applications",
       noun: "application",
       count: stats.pendingCount,
       icon: UserPlus,
       path: "/admin/admissions",
-      tone: "amber",
+      tone: "violet",
+      cta: "Review",
     },
     {
       label: "Payments to verify",
@@ -328,26 +338,30 @@ const AdminDashboard = () => {
       count: stats.pendingPayments,
       icon: BadgeDollarSign,
       path: "/admin/payments",
-      tone: "emerald",
+      tone: "amber",
+      cta: "Verify",
+      detail: `${stats.pendingPayments} ${stats.pendingPayments === 1 ? "receipt" : "receipts"} uploaded and waiting`,
     },
     {
-      label: "Learning mode changes",
+      label: "Learning mode change requests",
       noun: "request",
       count: learningModeCount,
       icon: BookOpen,
       path: "/admin/admissions",
-      tone: "sky",
+      tone: "violet",
+      cta: "Open",
     },
     {
       // Previously counted into the dashboard's totals but shown nowhere, so
       // the only way to find these was to already know they were under
       // Admissions.
-      label: "Certificate name changes",
+      label: "Certificate name corrections",
       noun: "request",
       count: certificateNameCount,
       icon: Award,
       path: "/admin/admissions",
       tone: "violet",
+      cta: "Open",
     },
     {
       label: "Check-ins to verify",
@@ -355,15 +369,18 @@ const AdminDashboard = () => {
       count: stats.unverifiedCheckIns,
       icon: CalendarCheck,
       path: "/admin/attendance",
-      tone: "sky",
+      tone: "amber",
+      cta: "Verify",
+      detail: "Student self check-ins nobody has verified yet",
     },
     {
-      label: "Exam papers to mark",
-      noun: "paper",
+      label: "Answers to mark",
+      noun: "exam paper",
       count: stats.papersToMark,
       icon: ClipboardCheck,
       path: "/admin/exams",
-      tone: "amber",
+      tone: "violet",
+      cta: "Mark",
     },
     {
       label: "WhatsApp chats handed to you",
@@ -371,7 +388,9 @@ const AdminDashboard = () => {
       count: stats.openHandovers,
       icon: MessageCircle,
       path: "/admin/whatsapp/log",
-      tone: "emerald",
+      tone: "amber",
+      cta: "Reply",
+      detail: "The bot stopped replying and asked for a person",
     },
   ];
 
@@ -390,337 +409,255 @@ const AdminDashboard = () => {
     { label: "Analytics", icon: BarChart3, path: "/admin/analytics" },
   ];
 
-  const CARDS = [
-    {
-      title: "Total Students",
-      value: String(stats.totalStudents),
-      subtitle: "All registered students",
-      icon: Users,
-      color: "text-primary",
-      bg: "bg-secondary",
-    },
-    {
-      // The queues that used to be added together into one opaque figure are
-      // now itemised, each with its own link, in the action centre below.
-      title: "Awaiting a decision",
-      value: String(pendingTotal),
-      subtitle: "Admissions, requests and receipts",
-      icon: Clock,
-      color: "text-amber-600",
-      bg: "bg-amber-50",
-    },
-    
-    {
-      title: "Active Courses",
-      value: String(stats.activeCourses),
-      // Reads the active cohort rather than naming a session in the source,
-      // which left the card claiming 2025/26 long after that session closed.
-      subtitle: stats.activeCohort ? `${stats.activeCohort} Session` : "Current session",
-      icon: BookOpen,
-      color: "text-emerald-600",
-      bg: "bg-emerald-50",
-    },
-    {
-      title: "Active Cohort",
-      value: stats.activeCohort || "—",
-      subtitle: stats.activeCohort ? "Current session" : "None active",
-      icon: Calendar,
-      color: stats.activeCohort ? "text-primary" : "text-muted-foreground",
-      bg: stats.activeCohort ? "bg-secondary" : "bg-muted",
-    },
-  ];
+  const nameOf = (p: { first_name?: string | null; last_name?: string | null } | null | undefined) =>
+    `${p?.first_name || "Unknown"} ${p?.last_name || "User"}`;
+
+  const personRow = (
+    key: string,
+    profileLike: { first_name?: string | null; last_name?: string | null; avatar_url?: string | null } | null | undefined,
+    sub: ReactNode,
+    trailing?: ReactNode,
+  ) => (
+    <li key={key} className="flex items-center gap-3 border-b border-border/60 px-5 py-3 last:border-b-0">
+      <Avatar className="h-9 w-9">
+        {profileLike?.avatar_url && <AvatarImage src={profileLike.avatar_url} alt="" />}
+        <AvatarFallback className="bg-secondary text-xs font-extrabold text-secondary-foreground">
+          {(profileLike?.first_name?.[0] || "")}{(profileLike?.last_name?.[0] || "")}
+        </AvatarFallback>
+      </Avatar>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-foreground">{nameOf(profileLike)}</p>
+        <div className="truncate text-xs text-muted-foreground">{sub}</div>
+      </div>
+      {trailing}
+    </li>
+  );
+
+  const decisionButtons = (name: string, onApprove: () => void, onReject: () => void) => (
+    <div className="flex shrink-0 gap-1.5">
+      <Button
+        size="sm"
+        className={`h-11 px-3 md:h-9 ${APPROVE_BUTTON}`}
+        onClick={onApprove}
+        aria-label={`Approve ${name}`}
+      >
+        <CheckCircle className="h-4 w-4" aria-hidden="true" /> Approve
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        className={`h-11 px-3 md:h-9 ${REJECT_BUTTON}`}
+        onClick={onReject}
+        aria-label={`Reject ${name}`}
+      >
+        <XCircle className="h-4 w-4" aria-hidden="true" /> Reject
+      </Button>
+    </div>
+  );
+
+  const emptyLine = (text: string) => <p className="px-5 py-4 text-sm text-muted-foreground">{text}</p>;
+
+  const footerButton = (label: string, path: string) => (
+    <div className="border-t border-border/60 px-5 py-3">
+      <Button variant="outline" className={`h-11 w-full md:h-10 ${QUIET_BUTTON}`} onClick={() => navigate(path)}>
+        {label} <ChevronRight className="ml-1 h-3.5 w-3.5" aria-hidden="true" />
+      </Button>
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-[22px]">
       {/* Inbox first: the greeting says how much is waiting before anything else. */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-col gap-0.5">
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-[28px]">
             {greeting()}{profile?.first_name ? `, ${profile.first_name}` : ""}
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">
+          <p className="text-[15px] text-muted-foreground">
             {waitingTotal > 0
               ? `${waitingTotal} ${waitingTotal === 1 ? "thing needs" : "things need"} you. Most take one click.`
               : "Nothing is waiting on you right now."}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2" aria-label="Quick create">
-          {QUICK_CREATE.map((q) => (
-            <Link
-              key={q.path}
-              to={q.path}
-              onMouseEnter={() => preloadPath(q.path)}
-              className="inline-flex h-10 items-center rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-secondary"
-            >
-              + {q.label}
-            </Link>
-          ))}
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button className="h-11 rounded-xl px-4 font-bold">
+              <Plus className="h-4 w-4" aria-hidden="true" /> New
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            {QUICK_CREATE.map((q) => (
+              <DropdownMenuItem key={q.path + q.label} asChild>
+                <Link to={q.path} onMouseEnter={() => preloadPath(q.path)} className="min-h-10">
+                  {q.label}
+                </Link>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {CARDS.map((card) => (
-          <Card key={card.title} className="shadow-[var(--shadow-card)] border-border">
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className={`w-11 h-11 rounded-xl ${card.bg} flex items-center justify-center shrink-0`}>
-                <card.icon className={`w-5 h-5 ${card.color}`} />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">{card.title}</p>
-                <p className={`text-xl font-bold ${card.color}`}>{card.value}</p>
-                <p className="text-[10px] text-muted-foreground">{card.subtitle}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      {/* KPI row: only the figures the dashboard actually loads. */}
+      <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <KpiTile label="Total students" value={stats.totalStudents} note="All registered students" />
+        <KpiTile
+          label="Awaiting a decision"
+          value={pendingTotal}
+          note={pendingTotal > 0 ? "Admissions, requests and receipts" : "Nothing waiting"}
+          tone={pendingTotal > 0 ? "warn" : "good"}
+        />
+        <KpiTile
+          label="Active courses"
+          value={stats.activeCourses}
+          // Reads the active cohort rather than naming a session in the source,
+          // which left the card claiming 2025/26 long after that session closed.
+          note={stats.activeCohort ? `${stats.activeCohort} session` : "Current session"}
+        />
+        <KpiTile
+          label="Active cohort"
+          value={<span className="text-[22px] sm:text-[26px]">{stats.activeCohort || "—"}</span>}
+          note={stats.activeCohort ? "Current session" : "None active"}
+          tone={stats.activeCohort ? "neutral" : "warn"}
+        />
       </div>
 
-      {/* What is waiting, and how the portal is being used. Both are reasons
-          to open a different page, so they sit above the record listings. */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        <div className="lg:col-span-3">
+      {/* What is waiting on the left; asking, creating and portal use on the right. */}
+      <div className="flex flex-wrap items-start gap-5">
+        <div className="min-w-0 flex-[3_1_520px]">
           <ActionCentre queues={QUEUES} loading={loading} />
         </div>
-        <div className="space-y-6 lg:col-span-2">
+        <div className="flex min-w-0 flex-[2_1_320px] flex-col gap-3.5">
           {/* A question is usually faster than finding the page that answers
               it, and most of these cost no model call at all. */}
           <AssistantChat audience="admin" />
+          <Panel title="Quick create" titleId="quick-create-title">
+            <div className="grid grid-cols-2 gap-2 p-4">
+              {QUICK_CREATE.map((q) => (
+                <Link
+                  key={q.path + q.label}
+                  to={q.path}
+                  onMouseEnter={() => preloadPath(q.path)}
+                  onFocus={() => preloadPath(q.path)}
+                  className="flex h-11 items-center justify-center rounded-[10px] border border-input bg-card px-2 text-sm font-semibold text-foreground transition-colors hover:border-primary/40 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {q.label}
+                </Link>
+              ))}
+            </div>
+          </Panel>
           <PortalPulse />
         </div>
       </div>
 
       {/* Quick navigation */}
-      <Card className="shadow-[var(--shadow-card)] border-border">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Jump to</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
-            {SHORTCUTS.map((shortcut) => (
-              <Link
-                key={shortcut.path}
-                to={shortcut.path}
-                onMouseEnter={() => preloadPath(shortcut.path)}
-                onFocus={() => preloadPath(shortcut.path)}
-                className="flex flex-col items-center gap-2 rounded-xl bg-muted/50 p-3 transition-all hover:-translate-y-0.5 hover:bg-muted hover:shadow-sm"
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-                  <shortcut.icon className="h-4 w-4 text-primary" />
-                </div>
-                <span className="text-center text-[11px] font-medium text-foreground">
-                  {shortcut.label}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <Panel title="Jump to" titleId="jump-to-title">
+        <div className="grid grid-cols-4 gap-2 p-4 sm:grid-cols-8">
+          {SHORTCUTS.map((shortcut) => (
+            <Link
+              key={shortcut.path}
+              to={shortcut.path}
+              onMouseEnter={() => preloadPath(shortcut.path)}
+              onFocus={() => preloadPath(shortcut.path)}
+              className="flex min-h-11 flex-col items-center gap-2 rounded-xl bg-muted/50 p-3 transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-card">
+                <shortcut.icon className="h-4 w-4 text-primary" aria-hidden="true" />
+              </span>
+              <span className="text-center text-[11px] font-semibold text-foreground">{shortcut.label}</span>
+            </Link>
+          ))}
+        </div>
+      </Panel>
 
-      {/* Two Column: Recent + Pending */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Registrations */}
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <UserPlus className="w-4 h-4 text-primary" /> Recent Registrations
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {stats.recentStudents.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No recent registrations.</p>
-            ) : (
-              stats.recentStudents.map((s) => (
-                <div key={s.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
-                  <Avatar className="h-8 w-8">
-                    {s.avatar_url && <AvatarImage src={s.avatar_url} />}
-                    <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                      {(s.first_name?.[0] || "")}{(s.last_name?.[0] || "")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {s.first_name || "Unknown"} {s.last_name || "User"}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">{s.email}</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground shrink-0">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <Panel title="Recent registrations" titleId="recent-registrations-title">
+          {stats.recentStudents.length === 0 ? (
+            emptyLine("No recent registrations.")
+          ) : (
+            <ul>
+              {stats.recentStudents.map((s) =>
+                personRow(
+                  s.id,
+                  s,
+                  s.email,
+                  <span className="shrink-0 text-xs text-muted-foreground">
                     {new Date(s.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-              ))
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full mt-2"
-              onClick={() => navigate("/admin/students")}
-            >
-              View All Students
-            </Button>
-          </CardContent>
-        </Card>
+                  </span>,
+                ),
+              )}
+            </ul>
+          )}
+          {footerButton("View all students", "/admin/students")}
+        </Panel>
 
-        {/* Pending Approvals */}
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-600" /> Pending Approvals
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {stats.pendingStudents.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No pending applications. 🎉</p>
-            ) : (
-              stats.pendingStudents.map((s) => (
-                <div key={s.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
-                  <Avatar className="h-8 w-8">
-                    {s.profile?.avatar_url && <AvatarImage src={s.profile.avatar_url} />}
-                    <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                      {(s.profile?.first_name?.[0] || "")}{(s.profile?.last_name?.[0] || "")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {s.profile?.first_name || "Unknown"} {s.profile?.last_name || "User"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{s.learning_mode || "—"}</p>
-                  </div>
-                  <div className="flex gap-1.5 shrink-0">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
-                      onClick={() => handleApproval(s.id, "Admitted")}
-                      title="Approve"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                      onClick={() => handleApproval(s.id, "Rejected")}
-                      title="Reject"
-                    >
-                      <XCircle className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
-            {/* The card shows the first ten; the rest are on the admissions
-                page, which is also where an application can be read in full. */}
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-2 w-full"
-              onClick={() => navigate("/admin/admissions")}
-            >
-              Review admissions <ChevronRight className="ml-1 h-3 w-3" />
-            </Button>
-          </CardContent>
-        </Card>
+        <Panel
+          title="Pending approvals"
+          titleId="pending-approvals-title"
+          actions={stats.pendingCount > 0 ? <StatusPill tone="warn">{stats.pendingCount} pending</StatusPill> : undefined}
+        >
+          {stats.pendingStudents.length === 0 ? (
+            emptyLine("No pending applications.")
+          ) : (
+            <ul>
+              {stats.pendingStudents.map((s) =>
+                personRow(
+                  s.id,
+                  s.profile,
+                  s.learning_mode || "—",
+                  decisionButtons(
+                    nameOf(s.profile),
+                    () => handleApproval(s.id, "Admitted"),
+                    () => handleApproval(s.id, "Rejected"),
+                  ),
+                ),
+              )}
+            </ul>
+          )}
+          {/* The card shows the first ten; the rest are on the admissions
+              page, which is also where an application can be read in full. */}
+          {footerButton("Review admissions", "/admin/admissions")}
+        </Panel>
 
-        {/* Learning Mode Requests */}
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-sky-600" /> Learning Mode Change Requests
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {stats.learningModeRequests.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No pending learning mode requests.</p>
-            ) : (
-              stats.learningModeRequests.map((s) => (
-                <div key={s.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
-                  <Avatar className="h-8 w-8">
-                    {s.profile?.avatar_url && <AvatarImage src={s.profile.avatar_url} />}
-                    <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                      {(s.profile?.first_name?.[0] || "")}{(s.profile?.last_name?.[0] || "")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {s.profile?.first_name || "Unknown"} {s.profile?.last_name || "User"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Current: {s.learning_mode || "—"} • Requested: {s.requested_learning_mode}
-                    </p>
-                  </div>
-                  <div className="flex gap-1.5 shrink-0">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
-                      onClick={() => handleLearningModeRequest(s.id, "approve")}
-                      title="Approve"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                      onClick={() => handleLearningModeRequest(s.id, "reject")}
-                      title="Reject"
-                    >
-                      <XCircle className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+        <Panel title="Learning mode change requests" titleId="learning-mode-title">
+          {stats.learningModeRequests.length === 0 ? (
+            emptyLine("No pending learning mode requests.")
+          ) : (
+            <ul>
+              {stats.learningModeRequests.map((s) =>
+                personRow(
+                  s.id,
+                  s.profile,
+                  <>Current: {s.learning_mode || "—"} · Requested: {s.requested_learning_mode}</>,
+                  decisionButtons(
+                    nameOf(s.profile),
+                    () => handleLearningModeRequest(s.id, "approve"),
+                    () => handleLearningModeRequest(s.id, "reject"),
+                  ),
+                ),
+              )}
+            </ul>
+          )}
+        </Panel>
 
         {/* Certificate Name Requests. These were being fetched and counted into
             the dashboard's totals while appearing nowhere on the page, so a
             waiting request was invisible unless staff already knew to look
             under Admissions. Approving one needs the certificate in front of
             you, so this lists them and links there rather than deciding here. */}
-        <Card className="shadow-[var(--shadow-card)] border-border">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <GraduationCap className="w-4 h-4 text-violet-600" /> Certificate Name Requests
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {stats.certificateNameRequests.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No pending certificate name changes.</p>
-            ) : (
-              <>
-                {stats.certificateNameRequests.map((s) => (
-                  <div key={s.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
-                    <Avatar className="h-8 w-8">
-                      {s.profile?.avatar_url && <AvatarImage src={s.profile.avatar_url} />}
-                      <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                        {(s.profile?.first_name?.[0] || "")}{(s.profile?.last_name?.[0] || "")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {s.profile?.first_name || "Unknown"} {s.profile?.last_name || "User"}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        Wants: {s.pending_name_change}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-2 w-full"
-                  onClick={() => navigate("/admin/admissions")}
-                >
-                  Review name changes <ChevronRight className="ml-1 h-3 w-3" />
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
+        <Panel title="Certificate name requests" titleId="certificate-name-title">
+          {stats.certificateNameRequests.length === 0 ? (
+            emptyLine("No pending certificate name changes.")
+          ) : (
+            <>
+              <ul>
+                {stats.certificateNameRequests.map((s) =>
+                  personRow(s.id, s.profile, <>Wants: {s.pending_name_change}</>),
+                )}
+              </ul>
+              {footerButton("Review name changes", "/admin/admissions")}
+            </>
+          )}
+        </Panel>
       </div>
     </div>
   );

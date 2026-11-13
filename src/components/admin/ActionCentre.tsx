@@ -1,10 +1,9 @@
 import { Link } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronRight, CheckCircle2, ClipboardList } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { preloadPath } from '@/routes/lazy-pages';
+import { Panel } from '@/components/redesign/admin/primitives';
 
 export interface ActionQueue {
   label: string;
@@ -14,25 +13,26 @@ export interface ActionQueue {
   icon: LucideIcon;
   /** Where the work is actually done. */
   path: string;
-  tone: 'amber' | 'sky' | 'violet' | 'emerald';
+  tone: 'amber' | 'sky' | 'violet' | 'emerald' | 'ink';
+  /** The verb on the row's button ("Review", "Verify", "Mark"…). */
+  cta?: string;
+  /** One line under the label; defaults to "n things waiting". */
+  detail?: string;
 }
 
-const TONES: Record<ActionQueue['tone'], { bg: string; text: string }> = {
-  amber: { bg: 'bg-amber-100 dark:bg-amber-900/40', text: 'text-amber-600 dark:text-amber-400' },
-  sky: { bg: 'bg-sky-100 dark:bg-sky-900/40', text: 'text-sky-600 dark:text-sky-400' },
-  violet: {
-    bg: 'bg-violet-100 dark:bg-violet-900/40',
-    text: 'text-violet-600 dark:text-violet-400',
-  },
-  emerald: {
-    bg: 'bg-emerald-100 dark:bg-emerald-900/40',
-    text: 'text-emerald-600 dark:text-emerald-400',
-  },
+/** Count tiles from the AdminHome board: violet, amber, or ink for live work. */
+const TONES: Record<ActionQueue['tone'], string> = {
+  amber: 'bg-amber-50 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200',
+  sky: 'bg-secondary text-secondary-foreground',
+  violet: 'bg-secondary text-secondary-foreground',
+  emerald: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
+  ink: 'bg-[#17112B] text-white dark:bg-[#2A1F4A]',
 };
 
 /**
  * Everything waiting on a member of staff, in one place, each row a link to
- * the page where that work is done.
+ * the page where that work is done — the "Needs you" inbox on the AdminHome
+ * board.
  *
  * The dashboard used to add these queues together into a single
  * "Admissions/Requests" number. That told an admin something was waiting
@@ -42,69 +42,76 @@ const TONES: Record<ActionQueue['tone'], { bg: string; text: string }> = {
  *
  * Nothing is approved from here. Each queue has a page that does it properly,
  * with the record in front of you; a second approve button on a dashboard row
- * is how a name change gets waved through without anyone reading it.
+ * is how a name change gets waved through without anyone reading it. So each
+ * row's one explicit button opens that page.
  */
 const ActionCentre = ({ queues, loading }: { queues: ActionQueue[]; loading?: boolean }) => {
   const outstanding = queues.filter((queue) => queue.count > 0);
   const total = outstanding.reduce((sum, queue) => sum + queue.count, 0);
 
   return (
-    <Card className="border-border shadow-[var(--shadow-card)]">
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <ClipboardList className="h-4 w-4 text-primary" /> Needs your attention
-        </CardTitle>
-        {!loading && total > 0 && (
-          <Badge className="bg-destructive text-destructive-foreground hover:bg-destructive">
-            {total}
-          </Badge>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {loading ? (
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-14 w-full rounded-lg" />
-            ))}
-          </div>
-        ) : outstanding.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-8 text-center">
-            <CheckCircle2 className="h-10 w-10 text-emerald-500/70" />
-            <p className="text-sm font-medium text-foreground">Nothing waiting</p>
-            <p className="text-xs text-muted-foreground">
-              No admissions, requests or payments need a decision right now.
-            </p>
-          </div>
-        ) : (
-          outstanding.map((queue) => {
-            const tone = TONES[queue.tone];
+    <Panel
+      title="Needs you"
+      titleId="needs-you-title"
+      actions={
+        !loading && total > 0 ? (
+          <span className="text-[13px] text-muted-foreground">
+            {total} waiting across {outstanding.length} {outstanding.length === 1 ? 'queue' : 'queues'}
+          </span>
+        ) : undefined
+      }
+    >
+      {loading ? (
+        <div className="space-y-2 p-5">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-14 w-full rounded-lg" />
+          ))}
+        </div>
+      ) : outstanding.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
+          <CheckCircle2 className="h-10 w-10 text-emerald-600/70" aria-hidden="true" />
+          <p className="text-sm font-semibold text-foreground">Nothing waiting</p>
+          <p className="text-[13px] text-muted-foreground">
+            No admissions, requests or payments need a decision right now.
+          </p>
+        </div>
+      ) : (
+        <ul>
+          {outstanding.map((queue) => {
+            const cta = queue.cta ?? 'Open';
             return (
-              <Link
+              <li
                 key={queue.label}
-                to={queue.path}
-                onMouseEnter={() => preloadPath(queue.path)}
-                onFocus={() => preloadPath(queue.path)}
-                className="flex items-center gap-3 rounded-lg bg-secondary/50 p-3 transition-colors hover:bg-secondary"
+                className="flex flex-wrap items-center gap-3.5 border-b border-border/60 px-5 py-3.5 last:border-b-0"
               >
-                <div
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tone.bg}`}
+                <span
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-extrabold ${TONES[queue.tone]}`}
+                  aria-hidden="true"
                 >
-                  <queue.icon className={`h-4 w-4 ${tone.text}`} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">{queue.label}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {queue.count} {queue.count === 1 ? queue.noun : `${queue.noun}s`} waiting
-                  </p>
-                </div>
-                <span className={`text-lg font-bold ${tone.text}`}>{queue.count}</span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </Link>
+                  {queue.count}
+                </span>
+                <span className="flex min-w-0 flex-[1_1_220px] flex-col gap-0.5">
+                  <strong className="text-[15px] font-bold text-foreground">{queue.label}</strong>
+                  <span className="text-[13px] text-muted-foreground">
+                    {queue.detail ??
+                      `${queue.count} ${queue.count === 1 ? queue.noun : `${queue.noun}s`} waiting`}
+                  </span>
+                </span>
+                <Link
+                  to={queue.path}
+                  onMouseEnter={() => preloadPath(queue.path)}
+                  onFocus={() => preloadPath(queue.path)}
+                  aria-label={`${cta}: ${queue.label} (${queue.count})`}
+                  className="inline-flex h-11 items-center rounded-[10px] bg-secondary px-3.5 text-sm font-bold text-secondary-foreground transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-10"
+                >
+                  {cta}
+                </Link>
+              </li>
             );
-          })
-        )}
-      </CardContent>
-    </Card>
+          })}
+        </ul>
+      )}
+    </Panel>
   );
 };
 
