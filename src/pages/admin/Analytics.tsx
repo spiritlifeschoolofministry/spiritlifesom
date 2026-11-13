@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
+import CohortFunnel from "@/components/charts/CohortFunnel";
+import { cohortFunnel, type FunnelStage } from "@/lib/cohort-funnel";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -94,6 +96,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
 
   const [enrollmentData, setEnrollmentData] = useState<EnrollmentPoint[]>([]);
   const [enrollmentPie, setEnrollmentPie] = useState<NameValuePoint[]>([]);
+  const [funnel, setFunnel] = useState<FunnelStage[]>([]);
   const [revenueData, setRevenueData] = useState<RevenuePoint[]>([]);
   const [attendanceData, setAttendanceData] = useState<AttendancePoint[]>([]);
   const [assignmentData, setAssignmentData] = useState<AssignmentPoint[]>([]);
@@ -180,6 +183,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
       { name: "Graduated", value: graduated },
     ].filter((d) => d.value > 0));
 
+    setFunnel(cohortFunnel(data));
     setGenderData(Object.entries(genderMap).map(([name, value]) => ({ name, value })));
     setLearningModeData(Object.entries(modeMap).map(([name, value]) => ({ name, value })));
 
@@ -735,6 +739,14 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
                   <Bar dataKey="rejected" name="Rejected" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* Applied → admitted → graduated for the cohort filter above. */}
+          <Card className="shadow-[var(--shadow-card)] border-border">
+            <CardHeader className="pb-2"><CardTitle className="text-base">Cohort Funnel</CardTitle></CardHeader>
+            <CardContent>
+              <CohortFunnel stages={funnel} />
             </CardContent>
           </Card>
 

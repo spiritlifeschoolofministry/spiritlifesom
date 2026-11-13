@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import AttendanceHeatmap from "@/components/charts/AttendanceHeatmap";
+import { shapeHeatmap } from "@/lib/attendance-heatmap";
+import { AnimatePresence, LazyMotion, MotionConfig, domAnimation, m } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import { downloadCSV } from "@/lib/csv-export";
@@ -806,6 +809,11 @@ const AdminAttendance = () => {
     }
   };
 
+  const heatmap = useMemo(
+    () => shapeHeatmap(rawStudents, rawSessions, rawAttendance, statsCohortFilter === "all" ? null : statsCohortFilter),
+    [rawStudents, rawSessions, rawAttendance, statsCohortFilter],
+  );
+
   const filteredStats = useMemo(
     () =>
       stats.filter((s) => {
@@ -1108,8 +1116,18 @@ const AdminAttendance = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {/* Verified or declined rows slide out instead of vanishing,
+                      so it is clear which one was handled. */}
+                  <LazyMotion features={domAnimation} strict>
+                  <MotionConfig reducedMotion="user">
+                  <AnimatePresence initial={false}>
                   {filteredPending.map((row) => (
-                    <TableRow key={row.id}>
+                    <m.tr
+                      key={row.id}
+                      layout
+                      exit={{ opacity: 0, x: 48, transition: { duration: 0.25 } }}
+                      className="border-b transition-colors hover:bg-muted/50"
+                    >
                       <TableCell className="font-medium">
                         {row.student_name || "—"}
                         <span className="mt-0.5 block text-xs font-normal text-muted-foreground sm:hidden">
@@ -1144,12 +1162,26 @@ const AdminAttendance = () => {
                           <XCircle className="w-4 h-4 mr-1" /> Decline
                         </Button>
                       </TableCell>
-                    </TableRow>
+                    </m.tr>
                   ))}
+                  </AnimatePresence>
+                  </MotionConfig>
+                  </LazyMotion>
                 </TableBody>
               </Table>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Who is attending, class by class. Same cohort filter as the
+          statistics below; lowest attendance first. */}
+      <Card className="shadow-[var(--shadow-card)] border-border">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Attendance heatmap</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AttendanceHeatmap data={heatmap} />
         </CardContent>
       </Card>
 
