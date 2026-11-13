@@ -16,6 +16,8 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        // Home page headings (Fraunces, from @fontsource/fraunces, imported by pages/Home).
+        display: ['Fraunces', 'Georgia', 'serif'],
       },
       colors: {
         flame: {

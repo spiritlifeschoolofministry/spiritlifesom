@@ -25,12 +25,16 @@ const ScrollToTop = () => {
     });
   };
 
+  // Rendered outside the router, so read the path directly. On phones the home
+  // page pins an action bar to the bottom; sit above it rather than on it.
+  const onHome = typeof window !== "undefined" && window.location.pathname === "/";
+
   return (
     <>
       {isVisible && (
         <Button
           onClick={scrollToTop}
-          className="fixed bottom-5 left-5 z-50 h-11 w-11 rounded-full shadow-lg transition-all duration-300 hover:scale-110 print:hidden"
+          className={`fixed ${onHome ? "bottom-28 md:bottom-5" : "bottom-5"} left-5 z-50 h-11 w-11 rounded-full shadow-lg transition-all duration-300 hover:scale-110 print:hidden`}
           aria-label="Scroll to top"
           size="icon"
         >

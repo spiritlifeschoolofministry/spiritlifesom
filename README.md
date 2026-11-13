@@ -130,7 +130,7 @@ Import the heavy ones only from pages loaded with `React.lazy`, or with a dynami
 | Area | Package | Version | Where it is used |
 | --- | --- | --- | --- |
 | Animation | `framer-motion` | ^14.13 | Page transitions in the portals (see "Portal navigation"); list changes planned |
-| Animation | `gsap` + `@gsap/react` | ^3.15 / ^2.1 | Home page scroll effects. Planned (homepage redesign, on the `homepage-redesign` branch). |
+| Animation | `gsap` + `@gsap/react` | ^3.15 / ^2.1 | Not used on `main`: the home page that shipped uses CSS and `Reveal`. Only the unmerged `homepage-redesign` branch uses it. |
 | Charts | `recharts` | ^3.10 | Dashboard charts (admin Analytics) |
 | Charts | `d3` (+ `@types/d3`, dev) | ^7.9 | Cohort funnel scale (admin Analytics) |
 | 2D | `konva` + `react-konva` | ^10.9 / ^19.3 | Certificate layout editor (see "Certificate layout editor"), in its own lazy chunk |
@@ -155,9 +155,9 @@ The portal follows the redesign canvas ("SLSOM Redesign" artifact). Colours are 
 
 ## Redesigned screens
 
-Built to the boards on the "SLSOM Redesign" canvas (everything except the home page, which is unchanged). Shared pieces live under `src/components/redesign/`:
+Built to the boards on the "SLSOM Redesign" canvas; the home page follows Option A of the "SLSOM Homepage Options" canvas (see "Home page"). Shared pieces live under `src/components/redesign/`:
 
-- **Public** (`public/`): every public page except `/` uses the new white header (Home, About, Courses, Faculty, Contact, Verify, Log in, Apply now) and footer. `/` keeps its original header and footer, copied in `HomeChrome.tsx`. Login, Forgot and Reset password share the card style in `auth.tsx`.
+- **Public** (`public/`): every public page except `/` uses the white header (Home, About, Courses, Faculty, Contact, Verify, Log in, Apply now) and footer from `PublicLayout`; `/` draws its own (see "Home page"). The page list, social links and WhatsApp number are shared from `public-links.ts`. Login, Forgot and Reset password share the card style in `auth.tsx`.
 - **Apply** (`apply/`): Register and Complete profile use one frame (back button, thin progress bar, "Step n of m", pinned Back/Continue footer). It also has the admissions-closed screen.
 - **Student**:
   - `student/`: the More sheet, the application tracker for pending students, and Today's timetable (`useTodayPlan`).
@@ -184,14 +184,27 @@ Built to the boards on the "SLSOM Redesign" canvas (everything except the home p
 - **Cohort funnel** (admin Analytics, Records tab, `src/components/charts/CohortFunnel.tsx`): Applied → Admitted (admitted + graduates) → Graduated, with conversion, using a d3 scale for bar widths. Counting in `src/lib/cohort-funnel.ts` (tested).
 - **Barnabas' page map** (`src/lib/portal-map.ts`) uses the same section names, so "where is…" answers match the sidebar.
 
+## Home page
+
+`src/pages/Home.tsx`, laid out phone first and adapting at the `md` (tablet) and `lg` (desktop) breakpoints. It links to the other public pages but never repeats their content.
+
+- **Top bar** (sticky): logo, Log in and a Menu button that opens a bottom sheet with About, Courses, Faculty, Contact, Verify a certificate, and Log in / Register side by side. On desktop the links and a gold Register button sit in the bar instead.
+- **Headline and scripture reference**, from Site content `home` › `hero_headline` and `hero_reference` (defaults "Equipping the saints for the work of ministry." and "Ephesians 4:12"). Migration `20261115090000_home_hero_headline.sql` adds those two rows so admins can edit them. From tablet up, the buttons sit under the headline: "Ask about the next intake" (WhatsApp) while admissions are closed, "Apply now" while they are open (`system_settings.accepting_applications`), and "See the courses".
+- **Photo carousel** (`src/components/home/HeroCarousel.tsx`): a scroll-snap track you can swipe, with dots, a purple wash over each photo (as on the previous home page) and a slow zoom on the current one. It auto-advances every 6 seconds once the first photo has loaded, pauses while touched, hovered or focused or when the tab is hidden, and doesn't auto-advance for people who ask for reduced motion. Only the first photo is in the page at first (it is the largest paint); the next one joins once it has loaded (tested in `src/test/home-hero.test.tsx`).
+- **Four big actions**: Ask about the next intake, See the courses, Register, Student portal.
+- **How you can study**: a Physical / Online switch with the price and what is included (see "Fees on the home page"), next to the three joining steps (Site content `journey_title`, `step1_title` … `step3_desc`). Sections fade up as they scroll in (`Reveal`).
+- **Footer**: copyright and social links only.
+- **Phones only**: a gold "Ask about the next intake" (or "Apply now") button pinned to the bottom. The floating WhatsApp button is hidden there on phones, and the back-to-top button sits above the bar.
+- **Font**: headings use Fraunces from `@fontsource/fraunces` (^5.3, self-hosted, only the Latin 500, 700 and 500-italic files, imported by `Home.tsx`), available as Tailwind's `font-display`.
+
 ## Fees on the home page
 
-The "Begin Your Ministry Journey" section on `/` shows what the programme costs, from one of two sources:
+The "How you can study" card on `/` shows what the programme costs. Physical is always "Free". The Online price comes from one of two sources:
 
-1. **An admin's note.** Admin › Settings › Site content › `home` › "Fees line on the home page". Whatever is written there is shown as is (for example "₦50,000, payable in two instalments").
-2. **Live fees**, when that note is empty. The `public_fee_summary()` database function returns the fee structures of the active cohort (the one Register uses): fee name, amount and learning modes, and nothing about any student. The page totals the Online fees (counting `All`) and quotes that, followed by "free for physical students": studying in person is free, and Physical-only rows are course handouts, not school fees. For example "₦30,000 online · free for physical students". With no Online fees it reads "Free for physical students". Hybrid is assigned by admins, so it isn't quoted.
+1. **An admin's note.** Admin › Settings › Site content › `home` › "Fees line on the home page". Whatever is written there is shown as is under Online (for example "₦50,000, payable in two instalments").
+2. **Live fees**, when that note is empty. The `public_fee_summary()` database function returns the fee structures of the active cohort (the one Register uses): fee name, amount and learning modes, and nothing about any student. The page totals the Online fees (counting `All`) and shows that total with the cohort, for example "₦30,000 school fees, 2026/2027". Studying in person is free, and Physical-only rows are course handouts, not school fees. `summarisePublicFees` also returns a one-line text ("₦30,000 online · free for physical students", or "Free for physical students" with no Online fees) and `onlineTotal`. Hybrid is assigned by admins, so it isn't quoted.
 
-`fee_structures` itself stays closed to visitors. The function is the only public way in. It ships in `supabase/migrations/20261113100000_public_fee_summary.sql`, which also adds the empty site-content row. If neither source has anything, the line is hidden. The logic is in `src/lib/public-fees.ts` (tested in `src/test/public-fees.test.ts`) and `src/hooks/use-public-fees.ts`.
+`fee_structures` itself stays closed to visitors. The function is the only public way in. It ships in `supabase/migrations/20261113100000_public_fee_summary.sql`, which also adds the empty site-content row. If neither source has anything, Online shows "school fees" without a price. The logic is in `src/lib/public-fees.ts` (tested in `src/test/public-fees.test.ts`) and `src/hooks/use-public-fees.ts`.
 
 ## Dependency notes
 

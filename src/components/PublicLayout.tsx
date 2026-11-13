@@ -1,27 +1,10 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { Menu, X, Facebook, Youtube, Instagram, Twitter, Music2 } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { preloadPath } from "@/routes/lazy-pages";
 import { cn } from "@/lib/utils";
-import { HomeHeader, HomeFooter } from "@/components/redesign/public/HomeChrome";
-
-const navLinks = [
-  { label: "Home", to: "/" },
-  { label: "About", to: "/about" },
-  { label: "Courses", to: "/courses" },
-  { label: "Faculty", to: "/faculty" },
-  { label: "Contact", to: "/contact" },
-  { label: "Verify", to: "/verify" },
-];
-
-const socialLinks = [
-  { label: "Facebook", href: "https://www.facebook.com/spiritlifeschoolofministry", Icon: Facebook },
-  { label: "YouTube", href: "https://www.youtube.com/@SpiritLifeSchoolofMinistry", Icon: Youtube },
-  { label: "Instagram", href: "https://www.instagram.com/spiritlifeschoolofministry", Icon: Instagram },
-  { label: "X (Twitter)", href: "https://x.com/spiritlifesom", Icon: Twitter },
-  { label: "TikTok", href: "https://tiktok.com/@spiritlifesom", Icon: Music2 },
-];
+import { publicNavLinks as navLinks, socialLinks } from "@/components/redesign/public/public-links";
 
 /** Warm a lazy page's chunk on hover / focus / touch, before the click lands. */
 const prefetch = (path: string) => ({
@@ -42,7 +25,7 @@ const PublicLayout = () => {
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
   const onLogin = location.pathname === "/login";
-  // The home page keeps its original header and footer for now.
+  // The home page draws its own top bar, menu and footer (pages/Home.tsx).
   const isHome = location.pathname === "/";
 
   useEffect(() => {
@@ -59,9 +42,7 @@ const PublicLayout = () => {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* ========== HEADER ========== */}
-      {isHome ? (
-        <HomeHeader menuOpen={menuOpen} setMenuOpen={setMenuOpen} scrolled={scrolled} location={location} />
-      ) : (
+      {isHome ? null : (
         <header
           className={cn(
             "fixed top-0 inset-x-0 z-50 border-b border-border transition-all duration-300",
@@ -202,14 +183,12 @@ const PublicLayout = () => {
       )}
 
       {/* ========== PAGE CONTENT ========== */}
-      <main className="pt-16">
+      <main className={isHome ? undefined : "pt-16"}>
         <Outlet />
       </main>
 
       {/* ========== FOOTER ========== */}
-      {isHome ? (
-        <HomeFooter />
-      ) : (
+      {isHome ? null : (
         <footer className="bg-[#120B24] text-white/80 pt-12 pb-6 px-4 sm:px-6">
           <div className="max-w-[1200px] mx-auto space-y-8">
             <div className="flex flex-col lg:flex-row items-center justify-between gap-6">

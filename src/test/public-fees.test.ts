@@ -16,7 +16,7 @@ describe("summarisePublicFees", () => {
 
   it("ignores a blank note and falls back to live amounts", () => {
     const s = summarisePublicFees([row("Tuition", 50000, ["All"])], "   ");
-    expect(s).toEqual({ kind: "live", text: "₦50,000 online · free for physical students", cohortName: "Cohort 2026" });
+    expect(s).toEqual({ kind: "live", text: "₦50,000 online · free for physical students", cohortName: "Cohort 2026", onlineTotal: 50000 });
   });
 
   it("quotes the Online total (counting 'All') and Physical as free", () => {
@@ -24,22 +24,22 @@ describe("summarisePublicFees", () => {
       [row("Tuition", 40000, ["All"]), row("Hall levy", 10000, ["Physical"]), row("Data support", 5000, ["Online"])],
       "",
     );
-    expect(s).toEqual({ kind: "live", text: "₦45,000 online · free for physical students", cohortName: "Cohort 2026" });
+    expect(s).toEqual({ kind: "live", text: "₦45,000 online · free for physical students", cohortName: "Cohort 2026", onlineTotal: 45000 });
   });
 
   it("does not quote Hybrid-only fees, since applicants cannot choose Hybrid", () => {
     const s = summarisePublicFees([row("Tuition", 40000, ["Physical", "Online"]), row("Hybrid kit", 7000, ["Hybrid"])], null);
-    expect(s).toEqual({ kind: "live", text: "₦40,000 online · free for physical students", cohortName: "Cohort 2026" });
+    expect(s).toEqual({ kind: "live", text: "₦40,000 online · free for physical students", cohortName: "Cohort 2026", onlineTotal: 40000 });
   });
 
   it("quotes Online and says Physical is free", () => {
     const s = summarisePublicFees([row("Tuition", 30000, ["Online"])], undefined);
-    expect(s).toEqual({ kind: "live", text: "₦30,000 online · free for physical students", cohortName: "Cohort 2026" });
+    expect(s).toEqual({ kind: "live", text: "₦30,000 online · free for physical students", cohortName: "Cohort 2026", onlineTotal: 30000 });
   });
 
   it("says free when only Physical handouts are listed", () => {
     const s = summarisePublicFees([row("Handout", 350, ["Physical"])], null);
-    expect(s).toEqual({ kind: "live", text: "Free for physical students", cohortName: "Cohort 2026" });
+    expect(s).toEqual({ kind: "live", text: "Free for physical students", cohortName: "Cohort 2026", onlineTotal: null });
   });
 
   it("returns none when there is nothing to show", () => {

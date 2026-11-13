@@ -62,11 +62,19 @@ describe("Home hero", () => {
     await renderHome();
     const first = heroImgs()[0];
     expect(first.getAttribute("srcset")).toContain("/images/som3-800.webp 800w");
-    expect(first.getAttribute("sizes")).toBe("100vw");
+    // The photo is 85% of a phone's width, 62% on tablets, a fixed column on desktop.
+    expect(first.getAttribute("sizes")).toContain("85vw");
     expect(first.getAttribute("fetchpriority")).toBe("high");
     // Explicit dimensions keep the hero from shifting layout as it decodes.
     expect(first.getAttribute("width")).toBe("1439");
     expect(first.getAttribute("height")).toBe("957");
+  });
+
+  it("puts the school's purple wash over every photo", async () => {
+    await renderHome();
+    const slides = document.querySelectorAll('[aria-roledescription="slide"]');
+    expect(slides.length).toBe(7);
+    slides.forEach((slide) => expect(slide.querySelector(".bg-primary\\/35")).not.toBeNull());
   });
 
   it("holds off on later slides until the first one has loaded", async () => {

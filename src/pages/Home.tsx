@@ -1,97 +1,193 @@
 import { Link } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { MapPin, Phone, Mail, ChevronRight, ArrowRight, Lock } from "lucide-react";
+import { useEffect, useState } from "react";
+import { BookOpen, Check, FilePlus2, LogIn, Menu, MessageCircle } from "lucide-react";
+import "@fontsource/fraunces/latin-500.css";
+import "@fontsource/fraunces/latin-700.css";
+import "@fontsource/fraunces/latin-500-italic.css";
 import { supabase } from "@/integrations/supabase/client";
 import Reveal from "@/components/Reveal";
+import SEO from "@/components/SEO";
+import HeroCarousel from "@/components/home/HeroCarousel";
+import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useSiteContent } from "@/hooks/use-site-content";
 import { usePublicFees } from "@/hooks/use-public-fees";
-import SEO from "@/components/SEO";
+import { formatNaira } from "@/lib/public-fees";
+import { preloadPath } from "@/routes/lazy-pages";
+import { cn } from "@/lib/utils";
+import { publicNavLinks, socialLinks, whatsappHref } from "@/components/redesign/public/public-links";
 
-// Hero slides, as base names. Each ships a 1439px and an 800px WebP variant so
-// a phone downloads ~55 KB for the largest-contentful paint instead of ~215 KB.
-const heroImages = ["som3", "som4", "som5", "som7", "som8", "som1", "som2"];
+/**
+ * The home page, phone first. A sticky top bar (links in a bottom-sheet menu on
+ * phones and tablets, inline on desktop), the headline and photo carousel, four
+ * big actions, how you can study, how to join, and on phones an action bar in
+ * the thumb zone. The other public pages are only linked from here, never
+ * repeated. Wording comes from Admin › Settings › Site content › home.
+ */
 
-// React 18 only forwards this attribute to the DOM when it is spelled in
-// lowercase, while the JSX types only accept the camelCase spelling — hence the
-// cast. It tells the browser to fetch the first slide ahead of everything else.
-const fetchPriorityAttr = (value: "high" | "low") =>
-  ({ fetchpriority: value }) as unknown as { fetchPriority: "high" | "low" };
+const INTAKE_MESSAGE = "Hello Spirit Life SOM, I'd like to know when the next intake opens.";
 
-const heroSrc = (name: string) => `/images/${name}.webp`;
-const heroSrcSet = (name: string) =>
-  `/images/${name}-800.webp 800w, /images/${name}.webp 1439w`;
+const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+const gold = "bg-[#E0A526] text-[#17112B] hover:bg-[#d39a1f]";
+
+/** Warm a lazy page's chunk on hover / focus / touch, before the click lands. */
+const prefetch = (path: string) => ({
+  onMouseEnter: () => preloadPath(path),
+  onFocus: () => preloadPath(path),
+  onTouchStart: () => preloadPath(path),
+});
+
+const menuLinks = [
+  ...publicNavLinks.filter((l) => l.to !== "/" && l.to !== "/verify"),
+  { label: "Verify a certificate", to: "/verify" },
+];
+
+const HomeTopBar = () => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  return (
+    <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
+      <div className="mx-auto flex h-[60px] max-w-[1200px] items-center gap-2 px-4 md:px-8 lg:h-[72px]">
+        <Link to="/" className={cn("mr-auto flex min-w-0 items-center gap-2 rounded-lg", focusRing)}>
+          <img src="/images/school-logo.png" alt="" className="h-9 w-9 shrink-0 object-contain" />
+          <span className="truncate font-display text-lg font-bold">Spirit Life SOM</span>
+        </Link>
+
+        <nav aria-label="Main" className="hidden items-center gap-6 lg:flex">
+          {publicNavLinks
+            .filter((l) => l.to !== "/")
+            .map((l) => (
+              <Link
+                key={l.to}
+                to={l.to}
+                {...prefetch(l.to)}
+                className={cn("inline-flex min-h-11 items-center rounded-md font-medium text-foreground/80 hover:text-foreground", focusRing)}
+              >
+                {l.label}
+              </Link>
+            ))}
+        </nav>
+
+        <Link
+          to="/login"
+          {...prefetch("/login")}
+          className={cn("inline-flex min-h-11 items-center rounded-xl px-3 text-[15px] font-bold text-primary dark:text-foreground", focusRing)}
+        >
+          Log in
+        </Link>
+        <Link
+          to="/register"
+          {...prefetch("/register")}
+          className={cn("hidden min-h-11 items-center rounded-xl px-5 font-bold lg:inline-flex", gold, focusRing)}
+        >
+          Register
+        </Link>
+
+        <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+          <SheetTrigger asChild>
+            <button
+              type="button"
+              aria-label="Open menu"
+              className={cn("inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-foreground text-background lg:hidden", focusRing)}
+            >
+              <Menu className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="rounded-t-3xl px-4 pb-[max(1.75rem,env(safe-area-inset-bottom))] pt-4">
+            <SheetTitle className="font-display text-xl font-bold">Menu</SheetTitle>
+            <SheetDescription className="sr-only">Pages of the Spirit Life School of Ministry website</SheetDescription>
+            <nav aria-label="Menu" className="mt-3 flex flex-col">
+              {menuLinks.map((l) => (
+                <Link
+                  key={l.to}
+                  to={l.to}
+                  {...prefetch(l.to)}
+                  onClick={() => setMenuOpen(false)}
+                  className={cn("flex min-h-14 items-center border-t border-border px-1 text-[17px] font-semibold", focusRing)}
+                >
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
+            <div className="mt-3 grid grid-cols-2 gap-2.5">
+              <Link
+                to="/login"
+                onClick={() => setMenuOpen(false)}
+                className={cn("flex min-h-[52px] items-center justify-center rounded-2xl border-[1.5px] border-foreground font-bold", focusRing)}
+              >
+                Log in
+              </Link>
+              <Link
+                to="/register"
+                onClick={() => setMenuOpen(false)}
+                className={cn("flex min-h-[52px] items-center justify-center rounded-2xl font-bold", gold, focusRing)}
+              >
+                Register
+              </Link>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </header>
+  );
+};
+
+type Mode = "physical" | "online";
 
 const Home = () => {
-  const [acceptingApplications, setAcceptingApplications] = useState(true);
-  const [currentSlide, setCurrentSlide] = useState(0);
-  // Mounting all seven slides at once pulled ~1.2 MB down before first paint
-  // when only one is ever visible. Mount the current slide, then let each
-  // upcoming one join the set so its fade-in still has the image ready.
-  const [mountedSlides, setMountedSlides] = useState<number[]>([0]);
-  // Gate the preloading of later slides on the first one finishing, so nothing
-  // competes with the largest-contentful paint for bandwidth.
-  const [heroReady, setHeroReady] = useState(false);
+  // null until system_settings answers; treated as closed so a closed school
+  // never flashes an Apply button.
+  const [acceptingApplications, setAcceptingApplications] = useState<boolean | null>(null);
+  const [mode, setMode] = useState<Mode>("physical");
   const { get } = useSiteContent("home");
   const fees = usePublicFees(get("fees_note", ""));
+  const intakeHref = whatsappHref(INTAKE_MESSAGE);
+  const open = acceptingApplications === true;
 
   useEffect(() => {
-    const fetchEnrollmentStatus = async () => {
-      try {
-        const { data } = await supabase
-          .from('system_settings')
-          .select('value')
-          .eq('key', 'accepting_applications')
-          .single();
-
-        if (data) {
-          const val = data.value;
-          setAcceptingApplications(val === true || val === 'true');
-        }
-      } catch (err) {
-        console.error('Error fetching enrollment status:', err);
-      }
-    };
-
-    fetchEnrollmentStatus();
+    supabase
+      .from("system_settings")
+      .select("value")
+      .eq("key", "accepting_applications")
+      .single()
+      .then(({ data }) => {
+        if (data) setAcceptingApplications(data.value === true || data.value === "true");
+      });
   }, []);
 
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % heroImages.length);
-    }, 8000);
-    return () => window.clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (!heroReady) return;
-    const next = (currentSlide + 1) % heroImages.length;
-    setMountedSlides((prev) => (prev.includes(next) ? prev : [...prev, next]));
-  }, [currentSlide, heroReady]);
-
-  const RegisterButtons = () => (
-    <>
-      {acceptingApplications ? (
-        <Button asChild size="lg" className="gradient-flame border-0 text-primary-foreground text-base px-8 hover:opacity-90">
-          <Link to="/register">Register Now</Link>
-        </Button>
-      ) : (
-        <Button disabled size="lg" className="bg-gray-400 text-white text-base px-8 cursor-not-allowed" title="Admissions closed">
-          <Lock className="mr-2 h-4 w-4" />
-          Admissions Closed
-        </Button>
-      )}
-    </>
-  );
+  const onlinePrice =
+    fees.kind === "live" && fees.onlineTotal ? formatNaira(fees.onlineTotal) : null;
+  const modes: Record<Mode, { price: string | null; note: string; points: string[] }> = {
+    physical: {
+      price: "Free",
+      note: "for physical students",
+      points: ["Saturdays, 9AM to 12PM, in Ibadan", "In-person lectures and practicals", "Course handouts are sold separately"],
+    },
+    online: {
+      price: onlinePrice,
+      note:
+        fees.kind === "note"
+          ? fees.text
+          : fees.kind === "live" && fees.cohortName
+            ? `school fees, ${fees.cohortName}`
+            : "school fees",
+      points: [
+        "Live Zoom sessions every Saturday",
+        "Training materials and class recordings included",
+        "Attend in person for project defence and graduation",
+      ],
+    },
+  };
+  const shown = modes[mode];
 
   const steps = [
-    { step: "1", title: get("step1_title", "Apply"), desc: get("step1_desc", "Fill in the registration form online") },
-    { step: "2", title: get("step2_title", "Get Admitted"), desc: get("step2_desc", "Await your admission decision") },
-    { step: "3", title: get("step3_title", "Start Learning"), desc: get("step3_desc", "Begin your transformation") },
+    { n: 1, title: get("step1_title", "Apply"), desc: get("step1_desc", "Fill in the registration form online"), dot: "bg-[#E0A526] text-[#17112B]" },
+    { n: 2, title: get("step2_title", "Get Admitted"), desc: get("step2_desc", "Await your admission decision"), dot: "bg-primary text-primary-foreground" },
+    { n: 3, title: get("step3_title", "Start Learning"), desc: get("step3_desc", "Begin your transformation"), dot: "bg-foreground text-background" },
   ];
 
+  const quickTile = "flex min-h-[100px] flex-col justify-between gap-3 rounded-[18px] p-4 transition-transform hover:-translate-y-0.5";
+
   return (
-    <div>
+    <div className="bg-background text-foreground">
       <SEO
         title="Spirit Life School of Ministry | SLSOM Official"
         description="A Spirit-led ministry training school in Ibadan, Nigeria, equipping believers for effective Christian ministry through biblical, practical and pastoral training."
@@ -108,133 +204,159 @@ const Home = () => {
           },
         }}
       />
-    {/* ========== HERO ========== */}
-    <section className="relative min-h-[calc(100vh-4rem)] supports-[min-height:100dvh]:min-h-[calc(100dvh-4rem)] flex items-center justify-center text-center text-primary-foreground overflow-hidden">
-      {heroImages.map((name, index) =>
-        mountedSlides.includes(index) ? (
-          <img
-            key={name}
-            src={heroSrc(name)}
-            srcSet={heroSrcSet(name)}
-            sizes="100vw"
-            alt=""
-            width={1439}
-            height={957}
-            {...fetchPriorityAttr(index === 0 ? "high" : "low")}
-            decoding={index === 0 ? undefined : "async"}
-            onLoad={index === 0 ? () => setHeroReady(true) : undefined}
-            // Don't strand the carousel on a slide that failed to load.
-            onError={index === 0 ? () => setHeroReady(true) : undefined}
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-in-out ${index === currentSlide ? "opacity-100 animate-ken-burns" : "opacity-0"}`}
-          />
-        ) : null,
-      )}
-      <div className="absolute inset-0 bg-primary/70" />
-      <Reveal className="relative z-10 max-w-3xl px-6 space-y-6">
-        <div className="flex items-center justify-center gap-2 pt-4">
-          {heroImages.map((_, index) => (
-            <button
-              key={index}
-              type="button"
-              onClick={() => setCurrentSlide(index)}
-              className={`h-2.5 w-2.5 rounded-full transition-all ${currentSlide === index ? "bg-primary" : "bg-primary/40 hover:bg-primary/70"}`}
-              aria-label={`Go to slide ${index + 1}`}
-            />
-          ))}
+
+      <HomeTopBar />
+
+      {/* Headline + photos */}
+      <section className="mx-auto grid max-w-[1200px] gap-[18px] px-4 pb-2 pt-[22px] md:px-8 lg:grid-cols-[5fr_6fr] lg:items-center lg:gap-14 lg:pb-10 lg:pt-14">
+        <div className="flex min-w-0 flex-col gap-3.5">
+          <h1 className="font-display text-[36px] font-medium leading-[1.06] tracking-[-0.02em] md:text-[52px] lg:text-[62px]">
+            {get("hero_headline", "Equipping the saints for the work of ministry.")}
+          </h1>
+          <p className="font-display text-[17px] italic text-muted-foreground">{get("hero_reference", "Ephesians 4:12")}</p>
+          <div className="mt-1 hidden flex-wrap gap-2.5 md:flex">
+            {open ? (
+              <Link to="/register" className={cn("inline-flex min-h-[52px] items-center rounded-2xl px-6 font-extrabold", gold, focusRing)}>
+                Apply now
+              </Link>
+            ) : (
+              <a href={intakeHref} target="_blank" rel="noopener noreferrer" className={cn("inline-flex min-h-[52px] items-center rounded-2xl px-6 font-extrabold", gold, focusRing)}>
+                Ask about the next intake
+              </a>
+            )}
+            <Link
+              to="/courses"
+              {...prefetch("/courses")}
+              className={cn("inline-flex min-h-[52px] items-center rounded-2xl border-[1.5px] border-foreground px-5 font-bold", focusRing)}
+            >
+              See the courses
+            </Link>
+          </div>
         </div>
-        <img src="/images/school-logo.png" alt="" className="h-24 w-24 object-contain mx-auto" />
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight">
-          {get("hero_title", "Spirit Life School of Ministry")}
-        </h1>
-        <p className="text-xl sm:text-2xl font-medium italic text-primary-foreground/90">
-          {get("hero_subtitle", '"Equipping The Saints..."')}
-        </p>
-        <p className="text-base sm:text-lg text-primary-foreground/80 max-w-xl mx-auto">
-          {get("hero_scripture", '"...for the work of ministry, for building up the body of Christ" — Ephesians 4:12')}
-        </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-          <RegisterButtons />
-          <Button asChild size="lg" variant="outline" className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10 text-base px-8">
-            <Link to="/about">Learn More</Link>
-          </Button>
-        </div>
+        <HeroCarousel />
+      </section>
+
+      {/* Quick actions: links only */}
+      <Reveal className="mx-auto max-w-[1200px] px-4 pb-7 pt-2 md:px-8">
+        <nav aria-label="Quick actions" className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-3">
+          <a href={intakeHref} target="_blank" rel="noopener noreferrer" className={cn(quickTile, "bg-[#17112B] text-white", focusRing)}>
+            <MessageCircle className="h-6 w-6 text-[#E0A526]" aria-hidden="true" />
+            <span className="text-[15px] font-bold leading-tight">Ask about the next intake</span>
+          </a>
+          <Link to="/courses" {...prefetch("/courses")} className={cn(quickTile, "border border-border bg-card", focusRing)}>
+            <BookOpen className="h-6 w-6 text-primary" aria-hidden="true" />
+            <span className="text-[15px] font-bold leading-tight">See the courses</span>
+          </Link>
+          <Link to="/register" {...prefetch("/register")} className={cn(quickTile, gold, focusRing)}>
+            <FilePlus2 className="h-6 w-6" aria-hidden="true" />
+            <span className="text-[15px] font-bold leading-tight">Register</span>
+          </Link>
+          <Link to="/login" {...prefetch("/login")} className={cn(quickTile, "border border-border bg-card", focusRing)}>
+            <LogIn className="h-6 w-6 text-primary" aria-hidden="true" />
+            <span className="text-[15px] font-bold leading-tight">Student portal</span>
+          </Link>
+        </nav>
       </Reveal>
-    </section>
 
-    {/* ========== BRIEF ABOUT ========== */}
-    <Reveal className="py-20 px-4 sm:px-6 bg-background">
-      <div className="max-w-4xl mx-auto text-center space-y-6">
-        <h2 className="text-3xl sm:text-4xl font-bold text-primary">{get("about_title", "About Spirit Life SOM")}</h2>
-        <p className="text-muted-foreground leading-relaxed text-lg">
-          {get("about_text", "Spirit Life School of Ministry exists to thoroughly equip men, women and brethren who are genuinely called by God into Ministry with the accurate Word of God. Rooted in Scripture and led by the Holy Spirit, we are committed to raising men and women who are grounded in biblical truth and prepared for effective service in God's vineyard.")}
-        </p>
-        <Button asChild variant="outline" className="border-primary text-primary hover:bg-primary/10">
-          <Link to="/about" className="flex items-center gap-2">Learn More <ArrowRight size={16} /></Link>
-        </Button>
+      <div className="mx-auto grid max-w-[1200px] gap-8 px-4 md:px-8 lg:grid-cols-2 lg:items-start">
+        {/* How you can study */}
+        <Reveal>
+          <section aria-labelledby="home-study" className="flex flex-col gap-4 rounded-3xl border border-border bg-card px-5 py-6">
+            <h2 id="home-study" className="font-display text-[28px] font-medium leading-tight">How you can study</h2>
+            <div role="group" aria-label="Learning mode" className="grid grid-cols-2 gap-1 rounded-[14px] bg-muted p-1">
+              {(["physical", "online"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  aria-pressed={mode === m}
+                  className={cn(
+                    "min-h-11 rounded-[11px] text-[15px] font-bold transition-colors",
+                    mode === m ? "bg-foreground text-background" : "text-foreground/75 hover:text-foreground",
+                    focusRing,
+                  )}
+                >
+                  {m === "physical" ? "Physical" : "Online"}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1" aria-live="polite">
+              {shown.price && <span className="font-display text-[46px] font-bold leading-none text-primary">{shown.price}</span>}
+              <span className={cn("text-sm text-muted-foreground", !shown.price && "text-base text-foreground")}>{shown.note}</span>
+            </div>
+            <ul className="flex flex-col gap-2.5">
+              {shown.points.map((p) => (
+                <li key={p} className="flex items-start gap-2.5 text-[15px] leading-snug">
+                  <Check className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+                  {p}
+                </li>
+              ))}
+            </ul>
+          </section>
+        </Reveal>
+
+        {/* How to join */}
+        <section aria-labelledby="home-join" className="flex flex-col gap-4">
+          <Reveal>
+            <h2 id="home-join" className="font-display text-[28px] font-medium leading-tight">
+              {get("journey_title", "Begin Your Ministry Journey")}
+            </h2>
+          </Reveal>
+          <ol className="flex flex-col">
+            {steps.map((s, i) => (
+              <li key={s.n}>
+                <Reveal delay={i * 80} className="flex gap-3.5">
+                  <div className="flex flex-col items-center">
+                    <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full font-extrabold", s.dot)}>{s.n}</span>
+                    {i < steps.length - 1 && <span aria-hidden="true" className="my-1 w-0.5 flex-1 bg-border" />}
+                  </div>
+                  <div className={i < steps.length - 1 ? "pb-6 pt-2" : "pt-2"}>
+                    <strong className="text-[17px]">{s.title}</strong>
+                    <p className="mt-1 text-[15px] text-muted-foreground">{s.desc}</p>
+                  </div>
+                </Reveal>
+              </li>
+            ))}
+          </ol>
+        </section>
       </div>
-    </Reveal>
 
-    {/* ========== BRIEF COURSES ========== */}
-    <Reveal className="py-20 px-4 sm:px-6 bg-secondary/50">
-      <div className="max-w-4xl mx-auto text-center space-y-6">
-        <h2 className="text-3xl sm:text-4xl font-bold text-primary">{get("programme_title", "Our Programme")}</h2>
-        <p className="text-muted-foreground text-lg">
-          {get("programme_text", "Detailed comprehensive courses designed to ground you in biblical truth and prepare you for ministry.")}
-        </p>
-        <Button asChild variant="outline" className="border-primary text-primary hover:bg-primary/10">
-          <Link to="/courses" className="flex items-center gap-2">View All Courses <ArrowRight size={16} /></Link>
-        </Button>
-      </div>
-    </Reveal>
-
-    {/* ========== HOW TO APPLY ========== */}
-    <Reveal className="py-20 px-4 sm:px-6 bg-primary/5">
-      <div className="max-w-4xl mx-auto text-center space-y-12">
-        <h2 className="text-3xl sm:text-4xl font-bold text-primary">{get("journey_title", "Begin Your Ministry Journey")}</h2>
-        <div className="grid sm:grid-cols-3 gap-6">
-          {steps.map((s, i) => (
-            <Reveal key={s.step} delay={i * 80} className="flex flex-col items-center gap-3 relative">
-              <div className="w-14 h-14 rounded-full gradient-flame text-primary-foreground flex items-center justify-center text-xl font-bold">
-                {s.step}
-              </div>
-              <h3 className="font-semibold text-lg text-foreground">{s.title}</h3>
-              <p className="text-muted-foreground text-sm">{s.desc}</p>
-              {i < 2 && (
-                <ChevronRight className="hidden sm:block absolute -right-3 top-4 text-primary/40" size={28} />
-              )}
-            </Reveal>
+      <footer className="mx-auto mt-10 flex max-w-[1200px] flex-wrap items-center justify-between gap-2 border-t border-border px-4 pb-6 pt-4 text-[13px] text-muted-foreground md:px-8">
+        <span>© 2026 Spirit Life Cherubim &amp; Seraphim Church. All rights reserved.</span>
+        <div className="flex gap-0.5">
+          {socialLinks.map(({ label, href, Icon }) => (
+            <a
+              key={label}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={label}
+              className={cn("inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-muted hover:text-foreground", focusRing)}
+            >
+              <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
+            </a>
           ))}
         </div>
-        {fees.kind !== "none" && (
-          <p className="text-foreground text-base">
-            <span className="font-semibold">Fees{fees.kind === "live" && fees.cohortName ? ` for ${fees.cohortName}` : ""}:</span>{" "}
-            {fees.text}
-          </p>
-        )}
-        <RegisterButtons />
-      </div>
-    </Reveal>
+      </footer>
 
-    {/* ========== CONTACT INFO ========== */}
-    <Reveal className="py-16 px-4 sm:px-6 bg-background">
-      <div className="max-w-4xl mx-auto">
-        <h2 className="text-2xl font-bold text-primary text-center mb-8">Contact Us</h2>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-muted-foreground text-sm">
-          <div className="flex items-center gap-2">
-            <MapPin className="text-accent shrink-0" size={18} />
-            <span>{get("contact_address", "Ibadan, Nigeria")}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Phone className="text-accent shrink-0" size={18} />
-            <span>{get("contact_phone", "+234 916 582 2262")}</span>
-          </div>
-          <div className="flex items-center gap-2 min-w-0">
-            <Mail className="text-accent shrink-0" size={18} />
-            <span className="truncate">{get("contact_email", "spiritlifeschoolofministry@gmail.com")}</span>
-          </div>
-        </div>
+      {/* Phones: one action in the thumb zone */}
+      <div className="sticky bottom-0 z-30 border-t border-border bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 md:hidden">
+        {open ? (
+          <Link to="/register" className={cn("flex min-h-[54px] items-center justify-center rounded-2xl text-base font-extrabold", gold, focusRing)}>
+            Apply now
+          </Link>
+        ) : (
+          <a
+            href={intakeHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn("flex min-h-[54px] items-center justify-center gap-2.5 rounded-2xl text-base font-extrabold", gold, focusRing)}
+          >
+            <MessageCircle className="h-5 w-5" aria-hidden="true" />
+            Ask about the next intake
+          </a>
+        )}
       </div>
-    </Reveal>
     </div>
   );
 };

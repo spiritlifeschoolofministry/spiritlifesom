@@ -20,7 +20,13 @@ export interface PublicFeeRow {
 
 export type PublicFeeSummary =
   | { kind: "note"; text: string }
-  | { kind: "live"; text: string; cohortName: string | null }
+  | {
+      kind: "live";
+      text: string;
+      cohortName: string | null;
+      /** What a new Online student is billed in total, or null when Online has no fees. */
+      onlineTotal: number | null;
+    }
   | { kind: "none" };
 
 /** The modes an applicant can pick. Hybrid is assigned by admins, so it is not quoted. */
@@ -58,5 +64,5 @@ export function summarisePublicFees(
     ? `${formatNaira(online.total)} online · free for physical students`
     : "Free for physical students";
 
-  return { kind: "live", text, cohortName };
+  return { kind: "live", text, cohortName, onlineTotal: online?.total ?? null };
 }

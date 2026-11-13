@@ -45,11 +45,10 @@ const renderAt = (path: string) =>
   );
 
 describe("public header", () => {
-  it("keeps the original header on the home page", () => {
+  it("leaves the home page to draw its own top bar and footer", () => {
     renderAt("/");
-    // The old purple bar's labels; the redesign says "Log in" / "Apply now".
-    expect(screen.getAllByRole("link", { name: "Register Now" }).length).toBeGreaterThan(0);
-    expect(screen.queryByRole("link", { name: "Apply now" })).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Main" })).toBeNull();
+    expect(screen.queryByRole("contentinfo")).toBeNull();
   });
 
   it("marks the current page and offers Log in and Apply now elsewhere", () => {

@@ -3,18 +3,21 @@
 // (page=global, section_key=whatsapp_message).
 import { useLocation } from "react-router-dom";
 import { useSiteContent } from "@/hooks/use-site-content";
+import { whatsappHref } from "@/components/redesign/public/public-links";
 
-const WHATSAPP_NUMBER = "2349165822262";
 const DEFAULT_MESSAGE = "Hello Spirit Life SOM, I'd like to make an enquiry.";
 
 const WhatsAppButton = () => {
   const { get } = useSiteContent("global");
   const message = get("whatsapp_message", DEFAULT_MESSAGE);
-  const href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+  const href = whatsappHref(message);
   // The apply steps pin a Back/Continue bar to the bottom of the screen; on
   // phones the button sits above it instead of covering Continue.
   const { pathname } = useLocation();
   const aboveStepFooter = pathname.startsWith("/register") || pathname.startsWith("/complete-profile");
+  // On phones the home page's own bottom bar is a WhatsApp button, so the
+  // floating one would only cover it.
+  const onHome = pathname === "/";
 
   return (
     <a
@@ -22,7 +25,7 @@ const WhatsAppButton = () => {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with us on WhatsApp"
-      className={`fixed ${aboveStepFooter ? "bottom-28 sm:bottom-5" : "bottom-5"} right-5 z-50 group flex items-center gap-2 bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-full shadow-lg shadow-black/20 transition-all hover:scale-105 active:scale-95 p-3.5 sm:p-4 print:hidden`}
+      className={`fixed ${aboveStepFooter ? "bottom-28 sm:bottom-5" : "bottom-5"} ${onHome ? "hidden md:flex" : "flex"} right-5 z-50 group items-center gap-2 bg-[#25D366] hover:bg-[#1ebe5d] text-white rounded-full shadow-lg shadow-black/20 transition-all hover:scale-105 active:scale-95 p-3.5 sm:p-4 print:hidden`}
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
