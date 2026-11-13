@@ -1,6 +1,6 @@
 {
   "name": "spiritlifesom Codespace",
-  "image": "mcr.microsoft.com/vscode/devcontainers/javascript-node:0-20",
+  "image": "mcr.microsoft.com/vscode/devcontainers/javascript-node:22",
   "forwardPorts": [8080, 5173, 3000],
   "portsAttributes": {
     "8080": {

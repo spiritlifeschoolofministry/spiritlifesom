@@ -110,10 +110,10 @@ const App = () => {
         <InstallPWA />
         <ScrollToTop />
         <DomainRedirect />
-        {/* v7_startTransition: route changes run as transitions, so React keeps
-            the current screen on-screen while the next page's lazy chunk loads
-            instead of unmounting everything to show the Suspense fallback. */}
-        <BrowserRouter future={{ v7_startTransition: true }}>
+        {/* React Router 7 runs route changes as transitions by default, so React
+            keeps the current screen on-screen while the next page's lazy chunk
+            loads instead of unmounting everything to show the Suspense fallback. */}
+        <BrowserRouter>
           <SessionManagerProvider>
           <MaintenanceGate>
         <Suspense fallback={<RouteFallback />}>

@@ -30,10 +30,10 @@ const contactSchema = z.object({
 });
 
 const detailsSchema = z.object({
-  gender: z.enum(["Male", "Female"], { errorMap: () => ({ message: "Select your gender" }) }),
-  age: z.number({ invalid_type_error: "Enter your age" }).int().min(10, "Age must be 10+").max(100),
+  gender: z.enum(["Male", "Female"], { error: "Select your gender" }),
+  age: z.number({ error: (iss) => (iss.code === "invalid_type" ? "Enter your age" : undefined) }).int().min(10, "Age must be 10+").max(100),
   // Hybrid is assigned by admin, not chosen by the student.
-  learningMode: z.enum(["Physical", "Online"], { errorMap: () => ({ message: "Choose a learning mode" }) }),
+  learningMode: z.enum(["Physical", "Online"], { error: "Choose a learning mode" }),
 });
 
 type StepKey = "name" | "contact" | "details";

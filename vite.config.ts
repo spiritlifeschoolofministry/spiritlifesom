@@ -78,27 +78,44 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks: {
-          "vendor-react": ["react", "react-dom", "react-router-dom"],
-          "vendor-supabase": ["@supabase/supabase-js"],
-          // recharts and tiptap are only reached through lazily-loaded pages
-          // (admin Analytics, the exam RichTextEditor). Naming them here made
-          // Rollup treat them as static deps of the entry, so index.html
-          // modulepreloaded ~220 KB gzipped of chart + editor code on every
-          // visit. Left unlisted, they land in the lazy chunks that use them.
-          "vendor-query": ["@tanstack/react-query"],
-          // Only the primitives mounted at startup (TooltipProvider, Toaster)
-          // belong in an eagerly-loaded chunk. Listing dialog/select/tabs here
-          // too dragged them onto the landing page's critical path.
-          "vendor-radix": [
-            "@radix-ui/react-tooltip",
-            "@radix-ui/react-toast",
-          ],
-          "vendor-icons": ["lucide-react"],
+        // Rolldown's code-splitting groups. A group also pulls in the
+        // dependencies of what it captures, so without priorities
+        // vendor-radix swallowed react and react-dom. Earlier entries in
+        // VENDOR_CHUNKS get higher priority and claim their packages first.
+        codeSplitting: {
+          groups: Object.entries(VENDOR_CHUNKS).map(([name, pkgs], i, all) => ({
+            name,
+            priority: all.length - i,
+            test: (id: string) => {
+              const pkg = id.match(/node_modules[\\/]((?:@[^\\/]+[\\/])?[^\\/]+)/)?.[1];
+              return !!pkg && pkgs.includes(pkg.replace("\\", "/"));
+            },
+          })),
         },
       },
     },
   },
 }));
+
+const VENDOR_CHUNKS: Record<string, string[]> = {
+  // React Router 7 keeps its code in `react-router`; `react-router-dom` only
+  // re-exports it.
+  "vendor-react": ["react", "react-dom", "scheduler", "react-router", "react-router-dom"],
+  "vendor-supabase": ["@supabase/supabase-js"],
+  // recharts and tiptap are only reached through lazily-loaded pages
+  // (admin Analytics, the exam RichTextEditor). Naming them here made
+  // Rollup treat them as static deps of the entry, so index.html
+  // modulepreloaded ~220 KB gzipped of chart + editor code on every
+  // visit. Left unlisted, they land in the lazy chunks that use them.
+  "vendor-query": ["@tanstack/react-query"],
+  // Only the primitives mounted at startup (TooltipProvider, Toaster)
+  // belong in an eagerly-loaded chunk. Listing dialog/select/tabs here
+  // too dragged them onto the landing page's critical path.
+  "vendor-radix": [
+    "@radix-ui/react-tooltip",
+    "@radix-ui/react-toast",
+  ],
+  "vendor-icons": ["lucide-react"],
+};
