@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Award, Lock, Edit2, Check, RotateCcw, FileDown, Image as ImageIcon, Printer, Loader2 } from "lucide-react";
+import { Lock, Edit2, Check, RotateCcw, FileDown, Image as ImageIcon, Printer, Loader2, ShieldCheck } from "lucide-react";
+import { EmptyCard, Panel, Pill, ScreenHeader } from "@/components/redesign/student-pages/ui";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -182,187 +182,180 @@ const StudentCertificate = () => {
 
   if (loading) {
     return (
-      <>
-        <div className="space-y-6">
-          <Skeleton className="h-10 w-64" />
-          <Skeleton className="h-[500px] rounded-xl" />
-        </div>
-      </>
+      <div className="mx-auto max-w-5xl space-y-4">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-[500px] rounded-[20px]" />
+      </div>
     );
   }
 
   if (!isGraduate) {
     return (
-      <>
-        <div className="space-y-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
-            <Award className="w-7 h-7" /> Certificate
-          </h1>
-          <Card className="shadow-[var(--shadow-card)] border-border">
-            <CardContent className="py-16 text-center">
-              <Lock className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
-              <h2 className="text-xl font-bold text-foreground mb-2">Certificate Not Available</h2>
-              <p className="text-muted-foreground max-w-md mx-auto">
-                Your certificate of completion will be available here once you have graduated from the program. Keep up the great work!
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </>
+      <div className="mx-auto max-w-3xl space-y-4">
+        <ScreenHeader title="Certificate" />
+        <EmptyCard icon={<Lock className="h-6 w-6" aria-hidden="true" />} title="Certificate not available yet">
+          Your certificate of completion will be available here once you have graduated from the program. Keep up the great work!
+        </EmptyCard>
+      </div>
     );
   }
 
+  const actionButton =
+    "h-11 gap-2 rounded-xl px-4 font-semibold";
+
   return (
-    <>
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 print:hidden">
-          <div className="space-y-4 w-full sm:w-auto">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
-                <Award className="w-7 h-7" /> Certificate of Completion
-              </h1>
-              <p className="text-muted-foreground text-sm mt-1">Download or print your graduation certificate.</p>
-            </div>
-            
-            <div className="flex flex-col gap-2 max-w-sm">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Name on Certificate</label>
-              <div className="flex items-center gap-2">
-                {isEditingName ? (
-                  <>
-                    <Input 
-                      value={customName} 
-                      onChange={(e) => setCustomName(e.target.value)}
-                      placeholder="Enter your full name"
-                      className="h-9"
-                      autoFocus
-                    />
-                    <Button variant="outline" size="sm" onClick={handleResetName} className="shrink-0 h-9" title="Reset to profile name">
-                      <RotateCcw className="w-4 h-4" />
+    <div className="mx-auto max-w-5xl space-y-4">
+      <ScreenHeader
+        title="Certificate of completion"
+        description="Download, print and share your graduation certificate."
+        className="print:hidden"
+      />
+
+      {/* The celebratory moment: the card turns over from its seal to its
+          face. Decorative only; skipped without WebGL and in print. */}
+      <div className="mx-auto max-w-xl print:hidden">
+        <LazyCertificate3D
+          details={{ name: customName || fullName, cohort: cohortData?.name, serial, dateText: graduationDateText }}
+        />
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 print:hidden">
+        {/* Name on certificate */}
+        <Panel className="space-y-3" aria-labelledby="cert-name">
+          <div className="flex items-center justify-between gap-2">
+            <h2 id="cert-name" className="text-base font-bold">Name on certificate</h2>
+            {isPendingVerification
+              ? <Pill tone="info">Awaiting review</Pill>
+              : <Pill tone="success"><Check className="h-3 w-3" aria-hidden="true" /> In use</Pill>}
+          </div>
+          {isEditingName ? (
+            <div className="space-y-2">
+              <label htmlFor="cert-name-input" className="sr-only">Name on certificate</label>
+              <Input
+                id="cert-name-input"
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                placeholder="Enter your full name"
+                className="h-11 rounded-xl text-base"
+                autoFocus
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={handleResetName} className={actionButton} title="Reset to profile name">
+                  <RotateCcw className="h-4 w-4" aria-hidden="true" /> Reset to profile name
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button className={actionButton} disabled={!customName.trim() || customName === originalFullName}>
+                      <Check className="h-4 w-4" aria-hidden="true" /> Request correction
                     </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="sm" className="shrink-0 h-9" disabled={!customName.trim() || customName === originalFullName}>
-                          <Check className="w-4 h-4 mr-2" /> Submit
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Request Name Change?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Your request to change the name on your certificate to <strong>"{customName}"</strong> will be sent to the administration for verification.
-                            You won't be able to edit it again until it's reviewed.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={requestNameChange}>Confirm Request</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </>
-                ) : (
-                  <>
-                    <div className="px-3 py-1.5 bg-muted rounded-md text-sm font-medium border border-border flex-1">
-                      {isPendingVerification ? (
-                        <span className="flex items-center gap-2 italic text-muted-foreground">
-                          {student?.pending_name_change} (Pending Verification)
-                        </span>
-                      ) : (
-                        customName || "Enter name"
-                      )}
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => setIsEditingName(true)} className="shrink-0 h-9" disabled={isPendingVerification}>
-                      <Edit2 className="w-4 h-4 mr-2" /> {isPendingVerification ? 'Verify' : 'Edit'}
-                    </Button>
-                  </>
-                )}
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Request Name Change?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Your request to change the name on your certificate to <strong>"{customName}"</strong> will be sent to the administration for verification.
+                        You won't be able to edit it again until it's reviewed.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={requestNameChange}>Confirm Request</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
-              {isPendingVerification && (
-                <p className="text-[10px] text-amber-600 font-medium">
-                  * An administrator must verify your name change before it appears on the certificate.
-                </p>
-              )}
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2 self-start mt-auto">
-            <Button
-              variant="outline"
-              size="sm"
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="min-w-0 flex-1 text-[15px] font-semibold">
+                {isPendingVerification ? (
+                  <span className="italic text-muted-foreground">
+                    {student?.pending_name_change} (pending verification)
+                  </span>
+                ) : (
+                  customName || "Enter name"
+                )}
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => setIsEditingName(true)}
+                className={actionButton}
+                disabled={isPendingVerification}
+              >
+                <Edit2 className="h-4 w-4" aria-hidden="true" /> {isPendingVerification ? "Awaiting review" : "Request a correction"}
+              </Button>
+            </div>
+          )}
+          {isPendingVerification && (
+            <p className="text-xs font-medium text-[#8A3F05] dark:text-amber-300">
+              An administrator must verify your name change before it appears on the certificate.
+            </p>
+          )}
+        </Panel>
+
+        {/* Save and print */}
+        <Panel className="space-y-3" aria-labelledby="cert-save">
+          <h2 id="cert-save" className="text-base font-bold">Save or print</h2>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
               onClick={() => handleDownload("pdf")}
-              className="gap-2 h-10 px-4 font-semibold border-primary/20 hover:bg-primary/5"
               disabled={isDownloading}
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#E0A526] px-4 text-sm font-bold text-[#17112B] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-55"
             >
-              {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+              {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <FileDown className="h-4 w-4" aria-hidden="true" />}
               Save PDF
+            </button>
+            <Button variant="outline" onClick={() => handleDownload("png")} className={actionButton} disabled={isDownloading}>
+              <ImageIcon className="h-4 w-4" aria-hidden="true" /> Save PNG
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleDownload("png")}
-              className="gap-2 h-10 px-4 font-semibold border-primary/20 hover:bg-primary/5"
-              disabled={isDownloading}
-            >
-              <ImageIcon className="w-4 h-4" /> Save PNG
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePrint}
-              className="gap-2 h-10 px-4 font-semibold border-primary/20 hover:bg-primary/5"
-            >
-              <Printer className="w-4 h-4" /> Print
+            <Button variant="outline" onClick={handlePrint} className={actionButton}>
+              <Printer className="h-4 w-4" aria-hidden="true" /> Print
             </Button>
           </div>
-        </div>
-
-        {/* The celebratory moment: the card turns over from its seal to its
-            face. Decorative only; skipped without WebGL and in print. */}
-        <div className="mx-auto max-w-xl print:hidden">
-          <LazyCertificate3D
-            details={{ name: customName || fullName, cohort: cohortData?.name, serial, dateText: graduationDateText }}
-          />
-        </div>
-
-        {/* Drawn at A4 print size and scaled down to fit -- see CertificateFrame */}
-        <div className="print:m-0 certificate-container overflow-hidden">
-          <CertificateFrame ref={certificateRef} className="mx-auto max-w-5xl shadow-2xl print:shadow-none">
-            <CertificateArtwork
-              recipientName={customName || fullName}
-              studentCode={student?.student_code}
-              dateText={graduationDateText}
-              mainText={
-                cohortData?.certificate_text_main ||
-                "has successfully completed a year of intensive training and teaching in the School of Ministry"
-              }
-              subText={cohortData?.certificate_text_sub}
-              signatories={signatories}
-              serial={serial}
-              verifyHost={CERTIFICATE_VERIFY_HOST}
-            />
-          </CertificateFrame>
-        </div>
-
-        <div className="text-center space-y-2 print:hidden">
           <p className="text-xs text-muted-foreground">
             Saved and printed copies come out at full A4 landscape size regardless of the screen you are on.
           </p>
-          {serial && (
-            <p className="text-xs text-muted-foreground break-anywhere">
-              Certificate No. <span className="font-mono text-foreground">{serial}</span> — anyone can
-              confirm it at{" "}
-              <a
-                href={certificateVerifyUrl(serial)}
-                className="underline hover:text-foreground"
-                target="_blank"
-                rel="noreferrer"
-              >
-                {CERTIFICATE_VERIFY_HOST}/{serial}
-              </a>
-            </p>
-          )}
-        </div>
+        </Panel>
       </div>
-    </>
+
+      {/* Drawn at A4 print size and scaled down to fit -- see CertificateFrame */}
+      <div className="print:m-0 certificate-container overflow-hidden">
+        <CertificateFrame ref={certificateRef} className="mx-auto max-w-5xl shadow-2xl print:shadow-none">
+          <CertificateArtwork
+            recipientName={customName || fullName}
+            studentCode={student?.student_code}
+            dateText={graduationDateText}
+            mainText={
+              cohortData?.certificate_text_main ||
+              "has successfully completed a year of intensive training and teaching in the School of Ministry"
+            }
+            subText={cohortData?.certificate_text_sub}
+            signatories={signatories}
+            serial={serial}
+            verifyHost={CERTIFICATE_VERIFY_HOST}
+          />
+        </CertificateFrame>
+      </div>
+
+      {serial && (
+        <Panel className="flex items-start gap-3 print:hidden" aria-label="Verification">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#157F5B] dark:text-emerald-400" aria-hidden="true" />
+          <p className="break-anywhere text-sm text-muted-foreground">
+            Certificate No. <span className="font-mono font-semibold text-foreground">{serial}</span> — anyone can
+            confirm it at{" "}
+            <a
+              href={certificateVerifyUrl(serial)}
+              className="font-semibold text-primary underline-offset-2 hover:underline"
+              target="_blank"
+              rel="noreferrer"
+            >
+              {CERTIFICATE_VERIFY_HOST}/{serial}
+            </a>
+          </p>
+        </Panel>
+      )}
+    </div>
   );
 };
 

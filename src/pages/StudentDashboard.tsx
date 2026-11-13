@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { differenceInCalendarDays, format, formatDistanceToNow, isToday, isTomorrow } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchStudentAttendance } from "@/lib/attendance-queries";
 import { useAuth } from "@/contexts/useAuth";
@@ -15,20 +16,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import ProgressSummary from "@/components/student/ProgressSummary";
 import UpNext from "@/components/student/UpNext";
+import TodayTimetable from "@/components/redesign/student/TodayTimetable";
+import ApplicationTracker from "@/components/redesign/student/ApplicationTracker";
+import { useTodayPlan } from "@/components/redesign/student/useTodayPlan";
+import NotificationsBell from "@/components/NotificationsBell";
 import AssistantCard from "@/components/student/AssistantCard";
 import AssistantChat from "@/components/portal/AssistantChat";
 import { useAssistantContext } from "@/lib/assistant-places";
 import { preloadPath } from "@/routes/lazy-pages";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { CalendarCheck, BookOpen, ClipboardList, CreditCard, Calendar, Megaphone, Loader2, AlertCircle, TrendingUp, ChevronRight, Sparkles, GraduationCap, Award, FileText, Zap } from "lucide-react";
+import { ClipboardList, Calendar, Loader2, Sparkles, GraduationCap, Award, FileText } from "lucide-react";
 import { toast } from "sonner";
 import Reveal from "@/components/Reveal";
 import { isStudentProfileComplete } from "@/lib/profile-complete";
@@ -46,13 +48,26 @@ interface DashboardData {
   firstName: string;
   admissionStatus: string | null;
   attendanceRate: number | null;
+  /** Counted sessions attended (present or late) and held, for the tile. */
+  attendanceAttended: number;
+  attendanceHeld: number;
   totalCourses: number;
   completedCourses: number;
   pendingAssignments: number;
   totalAssignments: number;
+  /** The tasks not yet submitted, soonest due first, for "Due soon". */
+  dueTasks: DueTask[];
   fees: FeeBreakdown;
   upcomingEvents: Array<{ id: string; title: string; start_date: string; end_date: string | null; category: string | null }>;
   announcements: Array<{ title: string; body: string; published_at: string | null }>;
+}
+
+interface DueTask {
+  id: string;
+  title: string;
+  due_date: string | null;
+  max_points: number | null;
+  courseCode: string | null;
 }
 
 interface CohortOption {
@@ -67,19 +82,35 @@ const EMPTY_DATA: DashboardData = {
   firstName: "Student",
   admissionStatus: null,
   attendanceRate: null,
+  attendanceAttended: 0,
+  attendanceHeld: 0,
   totalCourses: 0,
   completedCourses: 0,
   pendingAssignments: 0,
   totalAssignments: 0,
+  dueTasks: [],
   fees: { paid: 0, unpaid: 0, partial: 0, total: 0, status: "N/A" },
   upcomingEvents: [],
   announcements: [],
 };
 
 const StudentDashboard = () => {
-  const navigate = useNavigate();
   const { student, user, profile, isProfileResolved, refreshProfile } = useAuth();
   const assistant = useAssistantContext();
+  const plan = useTodayPlan();
+  // "Ask Barnabas" in the More sheet links here with ?ask=1 to open the chat.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const askRequested = searchParams.get("ask") === "1";
+  const clearAsk = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("ask");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [setSearchParams]);
 
   // Identity comes from the auth context, which is the one place that reads and
   // caches these rows. The dashboard used to re-query profiles/students itself,
@@ -183,7 +214,10 @@ const StudentDashboard = () => {
       }
 
       let attendanceRate: number | null = null;
+      let attendanceAttended = 0;
+      let attendanceHeld = 0;
       let pendingAssignments = 0;
+      let dueTasks: DueTask[] = [];
       let totalAssignments = 0;
       let fees: FeeBreakdown = { paid: 0, unpaid: 0, partial: 0, total: 0, status: "N/A" };
       let completedCourses = 0;
@@ -214,7 +248,10 @@ const StudentDashboard = () => {
         try {
           // Measured against the classes the cohort actually held, not the rows
           // on file — see src/lib/attendance.ts.
-          attendanceRate = (await fetchStudentAttendance(studentId, cohortId)).rate;
+          const tally = await fetchStudentAttendance(studentId, cohortId);
+          attendanceRate = tally.rate;
+          attendanceAttended = tally.present + tally.late;
+          attendanceHeld = tally.total;
         } catch (e) {
           console.warn("[Dashboard] Attendance unavailable:", e);
         }
@@ -223,13 +260,36 @@ const StudentDashboard = () => {
           try {
             const [assignRes, submissionRes] = await Promise.all([
               // Offline records are never pending — the work is already done and marked.
-              supabase.from("assignments").select("id").eq("cohort_id", cohortId).eq("is_manual_record", false),
+              supabase
+                .from("assignments")
+                .select("id, title, due_date, max_points, courses(code)")
+                .eq("cohort_id", cohortId)
+                .eq("is_manual_record", false),
               supabase.from("assignment_submissions").select("assignment_id").eq("student_id", studentId),
             ]);
             const allIds = new Set((assignRes.data ?? []).map((a) => a.id));
             const submittedIds = new Set((submissionRes.data ?? []).map((s) => s.assignment_id));
             totalAssignments = allIds.size;
             pendingAssignments = [...allIds].filter((id) => !submittedIds.has(id)).length;
+            // Soonest due first; tasks with no due date go last.
+            dueTasks = (assignRes.data ?? [])
+              .filter((a) => !submittedIds.has(a.id))
+              .map((a) => ({
+                id: a.id,
+                title: a.title,
+                due_date: a.due_date,
+                max_points: a.max_points,
+                courseCode: (a.courses as { code: string } | null)?.code ?? null,
+              }))
+              .sort((a, b) =>
+                a.due_date && b.due_date
+                  ? a.due_date.localeCompare(b.due_date)
+                  : a.due_date
+                    ? -1
+                    : b.due_date
+                      ? 1
+                      : 0,
+              );
           } catch (e) {
             console.warn("[Dashboard] Assignments unavailable:", e);
           }
@@ -282,10 +342,13 @@ const StudentDashboard = () => {
         firstName,
         admissionStatus,
         attendanceRate,
+        attendanceAttended,
+        attendanceHeld,
         totalCourses: cohortCoursesCount,
         completedCourses,
         pendingAssignments,
         totalAssignments,
+        dueTasks,
         fees,
         upcomingEvents,
         announcements: announcementsRes.data ?? [],
@@ -364,15 +427,15 @@ const StudentDashboard = () => {
   const { studyOn } = assistant;
 
   const QUICK_ACTIONS = [
-    { label: "Submit Task", icon: ClipboardList, path: "/student/assignments", color: "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400" },
-    { label: "Exams", icon: FileText, path: "/student/exams", color: "bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400" },
-    { label: "View Grades", icon: Award, path: "/student/grades", color: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400" },
-    { label: "Materials", icon: FileText, path: "/student/materials", color: "bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400" },
+    { label: "Submit Task", icon: ClipboardList, path: "/student/assignments" },
+    { label: "Exams", icon: FileText, path: "/student/exams" },
+    { label: "View Grades", icon: Award, path: "/student/grades" },
+    { label: "Materials", icon: FileText, path: "/student/materials" },
     ...(studyOn
-      ? [{ label: "Study", icon: Sparkles, path: "/student/study", color: "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400" }]
+      ? [{ label: "Study", icon: Sparkles, path: "/student/study" }]
       : []),
-    { label: "Transcript", icon: GraduationCap, path: "/student/transcript", color: "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400" },
-    { label: "Calendar", icon: Calendar, path: "/student/calendar", color: "bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400" },
+    { label: "Transcript", icon: GraduationCap, path: "/student/transcript" },
+    { label: "Calendar", icon: Calendar, path: "/student/calendar" },
   ];
 
   const getGreeting = () => {
@@ -381,6 +444,74 @@ const StudentDashboard = () => {
     if (hour < 17) return "Good afternoon";
     return "Good evening";
   };
+
+  const now = new Date();
+  const firstName = profile?.first_name?.trim() || fullName.split(" ")[0];
+
+  /**
+   * Due soon: the three unsubmitted tasks due first, from the same read that
+   * counts pending tasks. Overdue ones lead — they are the most urgent.
+   */
+  const dueSoon = (data?.dueTasks ?? []).slice(0, 3);
+  const dueBadge = (due: string | null): { text: string; className: string } | null => {
+    if (!due) return null;
+    const d = new Date(due);
+    const soon = "bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100";
+    const later = "bg-muted text-foreground/80";
+    if (d.getTime() < now.getTime()) return { text: "Overdue", className: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200" };
+    if (isToday(d)) return { text: "Today", className: soon };
+    if (isTomorrow(d)) return { text: "Tomorrow", className: soon };
+    if (differenceInCalendarDays(d, now) < 7) return { text: format(d, "EEEE"), className: later };
+    return { text: format(d, "d MMM"), className: later };
+  };
+
+  /** The four record tiles: attendance and fees first, as on the board. */
+  const tiles = (() => {
+    const rate = data?.attendanceRate ?? null;
+    const held = data?.attendanceHeld ?? 0;
+    const f = data?.fees ?? EMPTY_DATA.fees;
+    const totalCourses = data?.totalCourses ?? 0;
+    const completed = data?.completedCourses ?? 0;
+    const pending = data?.pendingAssignments ?? 0;
+    const totalTasks = data?.totalAssignments ?? 0;
+    const good = "text-emerald-700 dark:text-emerald-400";
+    const warn = "text-amber-800 dark:text-amber-300";
+    const bad = "text-red-700 dark:text-red-400";
+    return [
+      {
+        label: "Attendance",
+        path: "/student/attendance",
+        value: rate != null ? `${rate}%` : "—",
+        note: rate == null ? null : rate >= 75 ? "Great standing" : rate >= 50 ? "Needs improvement" : "At risk",
+        noteClass: rate == null ? undefined : rate >= 75 ? good : rate >= 50 ? warn : bad,
+        detail: held > 0 ? `${data?.attendanceAttended ?? 0} of ${held} sessions` : null,
+      },
+      {
+        label: "Fees",
+        path: "/student/fees",
+        value: f.status === "N/A" ? "—" : f.status,
+        note: f.total === 0 ? null : f.status === "Paid" ? "All settled" : "Upload payment proof",
+        noteClass: f.status === "Paid" ? good : f.status === "Unpaid" ? bad : warn,
+        detail: f.total > 0 ? `${f.paid} paid · ${f.unpaid + f.partial} pending` : null,
+      },
+      {
+        label: "Courses",
+        path: "/student/courses",
+        value: String(totalCourses),
+        note: null,
+        noteClass: undefined,
+        detail: totalCourses > 0 ? `${completed} of ${totalCourses} completed` : null,
+      },
+      {
+        label: "Pending tasks",
+        path: "/student/assignments",
+        value: isPending ? "—" : String(pending),
+        note: isPending || totalTasks === 0 ? null : pending === 0 ? "All submitted" : null,
+        noteClass: good,
+        detail: !isPending && totalTasks > 0 ? `${totalTasks - pending} submitted · ${totalTasks} total` : null,
+      },
+    ];
+  })();
 
   const getCategoryColor = (cat: string | null) => {
     switch ((cat || '').toUpperCase()) {
@@ -486,333 +617,254 @@ const StudentDashboard = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="space-y-6">
-        {/* Welcome Banner */}
-        <Reveal>
-          {/* A compact greeting: the first card below it (Up next) is what the
-              student came for, so the banner no longer takes the first screen. */}
-          <div className="text-foreground">
-            <div>
-              {/* Name and status come from the auth context, which already has
-                  them — no reason to hold the greeting behind the stats fetch. */}
-              <div className="flex items-center gap-2 mb-1">
-                <Sparkles className="h-4 w-4 text-primary" />
-                <span className="text-sm text-muted-foreground">{getGreeting()}</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-bold">{fullName}</h1>
-              {admissionStatus && (
-                <div className="mt-2 inline-flex items-center gap-2">
-                  <GraduationCap className="h-4 w-4 text-primary" />
-                  <Badge variant="secondary" className="border-0">
-                    {admissionStatus}
-                  </Badge>
-                </div>
+      <div className="mx-auto flex max-w-5xl flex-col gap-4">
+        {/* Greeting. Name and status come from the auth context, which already
+            has them — no reason to hold the greeting behind the stats fetch. */}
+        <header className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="text-[13px] text-muted-foreground">
+              {format(now, "EEEE · h:mm")} {format(now, "a").toLowerCase()}
+              {admissionStatus && !isPending && (
+                <>
+                  {" · "}
+                  <span className="font-semibold text-secondary-foreground">{admissionStatus}</span>
+                </>
               )}
-            </div>
+            </span>
+            <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+              {getGreeting()}, {firstName}
+            </h1>
           </div>
-        </Reveal>
+          {/* The shell leaves its own bell off on this page; this is the one. */}
+          <div className="shrink-0 [&>button]:h-11 [&>button]:w-11 [&>button]:rounded-full [&>button]:border [&>button]:border-border [&>button]:bg-card">
+            <NotificationsBell />
+          </div>
+        </header>
 
-        {/* What to do next: an open or soon exam window, else the next class. */}
-        <Reveal>
-          <UpNext />
-        </Reveal>
+        {/* A pending applicant's Today leads with where their application is. */}
+        {isPending && (
+          <ApplicationTracker
+            firstName={firstName}
+            email={profile?.email ?? null}
+            detailsComplete={!!student?.cohort_id && isStudentProfileComplete(profile, student)}
+            learningMode={student?.learning_mode ?? null}
+            cohortName={cohortOptions.find((c) => c.id === cohortId)?.name ?? null}
+          />
+        )}
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {/* Attendance Card */}
-          <Reveal delay={0}>
-            {(() => {
-              const rate = data?.attendanceRate;
-              const isGood = rate != null && rate >= 75;
-              const isWarning = rate != null && rate >= 50 && rate < 75;
-              const isDanger = rate != null && rate < 50;
-              return (
-                <Card className="group relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 cursor-pointer" onClick={() => navigate('/student/attendance')}>
-                  <div className={`absolute inset-0 opacity-[0.07] ${isGood ? 'bg-emerald-500' : isWarning ? 'bg-amber-500' : isDanger ? 'bg-red-500' : 'bg-muted'}`} />
-                  <div className={`absolute top-0 left-0 w-1 h-full ${loading ? 'bg-muted' : isGood ? 'bg-emerald-500' : isWarning ? 'bg-amber-500' : isDanger ? 'bg-red-500' : 'bg-muted'}`} />
-                  <CardHeader className="flex flex-row items-center justify-between pb-2 relative">
-                    <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Attendance</CardTitle>
-                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${loading ? 'bg-muted' : isGood ? 'bg-emerald-100 dark:bg-emerald-900/40' : isWarning ? 'bg-amber-100 dark:bg-amber-900/40' : isDanger ? 'bg-red-100 dark:bg-red-900/40' : 'bg-muted'}`}>
-                      <CalendarCheck className={`h-4 w-4 ${loading ? 'text-muted-foreground' : isGood ? 'text-emerald-600 dark:text-emerald-400' : isWarning ? 'text-amber-600 dark:text-amber-400' : isDanger ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`} />
-                    </div>
-                  </CardHeader>
-                  <CardContent className="relative">
-                    <div className={`text-2xl sm:text-3xl font-bold ${loading ? '' : isGood ? 'text-emerald-700 dark:text-emerald-400' : isWarning ? 'text-amber-700 dark:text-amber-400' : isDanger ? 'text-red-700 dark:text-red-400' : ''}`}>
-                      {loading ? <Skeleton className="h-8 w-16" /> : (rate != null ? `${rate}%` : "—")}
-                    </div>
-                    {!loading && rate != null && (
-                      <>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {isGood ? "Great standing ✨" : isWarning ? "Needs improvement" : "At risk ⚠️"}
-                        </p>
-                        <Progress value={rate} className="mt-2 h-1.5" />
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })()}
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)] lg:items-start">
+          {/* What to do: next paper or class, today's timetable, tasks due.
+              Hidden when all three are empty so the other column moves up. */}
+          <div className="flex min-w-0 flex-col gap-4 empty:hidden">
+            <UpNext plan={plan} />
+            <TodayTimetable plan={plan} />
+            {!loading && !isPending && dueSoon.length > 0 && (
+              <section aria-labelledby="due-soon" className="flex flex-col gap-2.5">
+                <div className="flex items-baseline justify-between">
+                  <h2 id="due-soon" className="text-base font-bold text-foreground">
+                    Due soon
+                  </h2>
+                  <Link to="/student/assignments" className="text-sm font-semibold text-primary hover:underline">
+                    All tasks
+                  </Link>
+                </div>
+                <ul className="flex flex-col gap-2.5">
+                  {dueSoon.map((task) => {
+                    const badge = dueBadge(task.due_date);
+                    return (
+                      <li key={task.id}>
+                        <Link
+                          to="/student/assignments"
+                          onMouseEnter={() => preloadPath("/student/assignments")}
+                          onFocus={() => preloadPath("/student/assignments")}
+                          className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3.5 text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-[11px] font-extrabold text-primary"
+                          >
+                            TASK
+                          </span>
+                          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                            <strong className="truncate text-[15px]">{task.title}</strong>
+                            <span className="text-[13px] text-muted-foreground">
+                              {[task.courseCode, task.max_points != null ? `${task.max_points} points` : null]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </span>
+                          </span>
+                          {badge && (
+                            <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-bold ${badge.className}`}>
+                              {badge.text}
+                            </span>
+                          )}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            )}
+          </div>
+
+          <div className="flex min-w-0 flex-col gap-4">
+            {/* The record at a glance. */}
+            <section aria-label="Your record at a glance" className="grid grid-cols-2 gap-2.5">
+              {tiles.map((tile) => (
+                <Link
+                  key={tile.label}
+                  to={tile.path}
+                  onMouseEnter={() => preloadPath(tile.path)}
+                  onFocus={() => preloadPath(tile.path)}
+                  className="flex flex-col gap-1 rounded-2xl border border-border bg-card p-3.5 text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span className="text-[13px] text-muted-foreground">{tile.label}</span>
+                  {loading ? (
+                    <Skeleton className="h-7 w-16" />
+                  ) : (
+                    <strong className="text-[22px] font-extrabold tracking-tight">{tile.value}</strong>
+                  )}
+                  {!loading && tile.note && (
+                    <span className={`text-xs font-semibold ${tile.noteClass ?? "text-muted-foreground"}`}>{tile.note}</span>
+                  )}
+                  {!loading && tile.detail && <span className="text-xs text-muted-foreground">{tile.detail}</span>}
+                </Link>
+              ))}
+            </section>
+
+            {/* A summary of the figures above, so it sits after them rather
+                than where it would look like the record itself. */}
+            <ProgressSummary />
+
+            {/* The dark "Ask Barnabas" card; opens the conversation. "Ask
+                Barnabas" in the More sheet lands here with ?ask=1. */}
+            <AssistantChat audience="student" openRequested={askRequested} onClose={clearAsk} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {/* Announcements: the latest first, as on the board. */}
+          <Reveal>
+            <section aria-labelledby="dash-announcements" className="flex h-full flex-col gap-2.5">
+              <div className="flex items-baseline justify-between">
+                <h2 id="dash-announcements" className="text-base font-bold text-foreground">
+                  Announcements
+                </h2>
+                <Link to="/student/announcements" className="text-sm font-semibold text-primary hover:underline">
+                  View all
+                </Link>
+              </div>
+              {loading ? (
+                <div className="space-y-2.5">{[1, 2].map((i) => <Skeleton key={i} className="h-16 w-full rounded-2xl" />)}</div>
+              ) : data?.announcements && data.announcements.length > 0 ? (
+                <ul className="flex flex-col gap-2.5">
+                  {data.announcements.map((a, i) => (
+                    <li key={i}>
+                      <Link
+                        to="/student/announcements"
+                        className="flex items-start gap-3 rounded-2xl border border-border bg-card p-3.5 text-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`mt-[7px] h-2 w-2 shrink-0 rounded-full ${i === 0 ? "bg-primary" : "bg-border"}`}
+                        />
+                        <span className="flex min-w-0 flex-col gap-0.5">
+                          <strong className="text-sm">{a?.title}</strong>
+                          <span className="line-clamp-2 text-[13px] text-muted-foreground">{a?.body}</span>
+                          {a?.published_at && (
+                            <span className="text-xs text-muted-foreground">
+                              Announcement · {formatDistanceToNow(new Date(a.published_at), { addSuffix: true })}
+                            </span>
+                          )}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                  No announcements at this time.
+                </p>
+              )}
+            </section>
           </Reveal>
 
-          {/* Courses Card */}
+          {/* Upcoming events */}
           <Reveal delay={80}>
-            {(() => {
-              const total = data?.totalCourses ?? 0;
-              const completed = data?.completedCourses ?? 0;
-              const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
-              const allDone = total > 0 && completed === total;
-              return (
-                <Card className="group relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 cursor-pointer" onClick={() => navigate('/student/courses')}>
-                  <div className={`absolute inset-0 opacity-[0.07] ${allDone ? 'bg-emerald-500' : 'bg-primary'}`} />
-                  <div className={`absolute top-0 left-0 w-1 h-full ${!loading && total > 0 ? (allDone ? 'bg-emerald-500' : 'bg-primary') : 'bg-muted'}`} />
-                  <CardHeader className="flex flex-row items-center justify-between pb-2 relative">
-                    <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Courses</CardTitle>
-                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${allDone ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-primary/10'}`}>
-                      <BookOpen className={`h-4 w-4 ${allDone ? 'text-emerald-600 dark:text-emerald-400' : 'text-primary'}`} />
-                    </div>
-                  </CardHeader>
-                  <CardContent className="relative">
-                    <div className="text-2xl sm:text-3xl font-bold">{loading ? <Skeleton className="h-8 w-16" /> : total}</div>
-                    {!loading && total > 0 && (
-                      <>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {completed}/{total} completed
-                        </p>
-                        <Progress value={progress} className="mt-2 h-1.5" />
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })()}
-          </Reveal>
-
-          {/* Pending Tasks Card */}
-          <Reveal delay={160}>
-            {(() => {
-              const pending = data?.pendingAssignments ?? 0;
-              const total = data?.totalAssignments ?? 0;
-              const hasTasks = !loading && !isPending && total > 0;
-              const allDone = hasTasks && pending === 0;
-              const submitted = total - pending;
-              const progress = total > 0 ? Math.round((submitted / total) * 100) : 0;
-              return (
-                <Card className="group relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 cursor-pointer" onClick={() => navigate('/student/assignments')}>
-                  <div className={`absolute inset-0 opacity-[0.07] ${!hasTasks ? 'bg-muted' : allDone ? 'bg-emerald-500' : pending > 3 ? 'bg-red-500' : 'bg-amber-500'}`} />
-                  <div className={`absolute top-0 left-0 w-1 h-full ${!hasTasks ? 'bg-muted' : allDone ? 'bg-emerald-500' : pending > 3 ? 'bg-red-500' : 'bg-amber-500'}`} />
-                  <CardHeader className="flex flex-row items-center justify-between pb-2 relative">
-                    <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Pending Tasks</CardTitle>
-                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${!hasTasks ? 'bg-muted' : allDone ? 'bg-emerald-100 dark:bg-emerald-900/40' : pending > 3 ? 'bg-red-100 dark:bg-red-900/40' : 'bg-amber-100 dark:bg-amber-900/40'}`}>
-                      <ClipboardList className={`h-4 w-4 ${!hasTasks ? 'text-muted-foreground' : allDone ? 'text-emerald-600 dark:text-emerald-400' : pending > 3 ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`} />
-                    </div>
-                  </CardHeader>
-                  <CardContent className="relative">
-                    <div className={`text-2xl sm:text-3xl font-bold ${!hasTasks ? '' : allDone ? 'text-emerald-700 dark:text-emerald-400' : pending > 3 ? 'text-red-700 dark:text-red-400' : 'text-amber-700 dark:text-amber-400'}`}>
-                      {loading ? <Skeleton className="h-8 w-16" /> : (isPending ? "—" : pending)}
-                    </div>
-                    {!loading && !isPending && total > 0 && (
-                      <>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {submitted} submitted · {total} total
-                        </p>
-                        <Progress value={progress} className="mt-2 h-1.5" />
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })()}
-          </Reveal>
-
-          {/* Fees Card */}
-          <Reveal delay={240}>
-            {(() => {
-              const f = data?.fees ?? EMPTY_DATA.fees;
-              const isPaid = f.status === "Paid";
-              const isUnpaid = f.status === "Unpaid";
-              const isPartial = f.status === "Partial";
-              const progress = f.total > 0 ? Math.round((f.paid / f.total) * 100) : 0;
-              return (
-                <Card className="group relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 cursor-pointer" onClick={() => navigate('/student/fees')}>
-                  <div className={`absolute inset-0 opacity-[0.07] ${loading ? 'bg-muted' : isPaid ? 'bg-emerald-500' : isUnpaid ? 'bg-red-500' : isPartial ? 'bg-amber-500' : 'bg-muted'}`} />
-                  <div className={`absolute top-0 left-0 w-1 h-full ${loading ? 'bg-muted' : isPaid ? 'bg-emerald-500' : isUnpaid ? 'bg-red-500' : isPartial ? 'bg-amber-500' : 'bg-muted'}`} />
-                  <CardHeader className="flex flex-row items-center justify-between pb-2 relative">
-                    <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">Fees</CardTitle>
-                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${loading ? 'bg-muted' : isPaid ? 'bg-emerald-100 dark:bg-emerald-900/40' : isUnpaid ? 'bg-red-100 dark:bg-red-900/40' : isPartial ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-muted'}`}>
-                      <CreditCard className={`h-4 w-4 ${loading ? 'text-muted-foreground' : isPaid ? 'text-emerald-600 dark:text-emerald-400' : isUnpaid ? 'text-red-600 dark:text-red-400' : isPartial ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`} />
-                    </div>
-                  </CardHeader>
-                  <CardContent className="relative">
-                    <div className={`text-2xl sm:text-3xl font-bold ${loading ? '' : isPaid ? 'text-emerald-700 dark:text-emerald-400' : isUnpaid ? 'text-red-700 dark:text-red-400' : isPartial ? 'text-amber-700 dark:text-amber-400' : ''}`}>
-                      {loading ? <Skeleton className="h-8 w-16" /> : f.status}
-                    </div>
-                    {!loading && f.total > 0 && (
-                      <>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {f.paid} paid · {f.unpaid + f.partial} pending
-                        </p>
-                        <Progress value={progress} className="mt-2 h-1.5" />
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })()}
+            <section aria-labelledby="dash-events" className="flex h-full flex-col gap-2.5">
+              <div className="flex items-baseline justify-between">
+                <h2 id="dash-events" className="text-base font-bold text-foreground">
+                  Upcoming events
+                </h2>
+                <Link to="/student/calendar" className="text-sm font-semibold text-primary hover:underline">
+                  View all
+                </Link>
+              </div>
+              {loading ? (
+                <div className="space-y-2.5">{[1, 2].map((i) => <Skeleton key={i} className="h-16 w-full rounded-2xl" />)}</div>
+              ) : data?.upcomingEvents && data.upcomingEvents.length > 0 ? (
+                <ul className="overflow-hidden rounded-[18px] border border-border bg-card">
+                  {data.upcomingEvents.map((ev, i) => (
+                    <li key={ev.id} className={`flex items-center gap-3 px-3.5 py-3 ${i > 0 ? "border-t border-border/60" : ""}`}>
+                      <span className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl bg-secondary">
+                        <span className="text-[10px] font-semibold uppercase text-secondary-foreground">
+                          {new Date(ev.start_date).toLocaleDateString("en", { month: "short" })}
+                        </span>
+                        <span className="text-sm font-extrabold leading-none text-secondary-foreground">
+                          {new Date(ev.start_date).getDate()}
+                        </span>
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <strong className="truncate text-sm text-foreground">{ev.title}</strong>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(ev.start_date).toLocaleDateString("en", { weekday: "long" })}
+                        </span>
+                      </span>
+                      <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-bold ${getCategoryColor(ev.category)}`}>
+                        {ev.category || "General"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                  No upcoming events scheduled.
+                </p>
+              )}
+            </section>
           </Reveal>
         </div>
 
-        {/* Placed under the greeting and above the figures: it is a summary of
-            them, so it should not sit where it looks like the record itself. */}
+        {/* Quick actions */}
         <Reveal>
-          <ProgressSummary />
+          <section aria-labelledby="quick-actions" className="flex flex-col gap-2.5">
+            <h2 id="quick-actions" className="text-base font-bold text-foreground">
+              Quick actions
+            </h2>
+            <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-7">
+              {QUICK_ACTIONS.map((action) => (
+                <Link
+                  key={action.label}
+                  to={action.path}
+                  onMouseEnter={() => preloadPath(action.path)}
+                  onFocus={() => preloadPath(action.path)}
+                  className="flex min-h-[76px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-border bg-card p-2.5 text-center transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-secondary text-primary">
+                    <action.icon className="h-[18px] w-[18px]" aria-hidden="true" />
+                  </span>
+                  <span className="text-xs font-semibold text-foreground">{action.label}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
         </Reveal>
 
         {/* Introduces the assistant by name and lists where he turns up.
             Renders nothing while every student-facing AI feature is off. */}
-        <Reveal delay={40}>
+        <Reveal>
           <AssistantCard />
         </Reveal>
-
-        {/* Directly under the introduction, so the name has been explained
-            before the box asking for a question appears. */}
-        <Reveal delay={60}>
-          <AssistantChat audience="student" />
-        </Reveal>
-
-        {/* Quick Actions */}
-        <Reveal delay={300}>
-          <Card className="border-0 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Zap className="h-4 w-4 text-primary" />
-                </div>
-                Quick Actions
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                {QUICK_ACTIONS.map((action) => (
-                  <button
-                    key={action.label}
-                    onClick={() => navigate(action.path)}
-                    onMouseEnter={() => preloadPath(action.path)}
-                    onFocus={() => preloadPath(action.path)}
-                    className="flex flex-col items-center gap-2 p-4 rounded-xl bg-muted/50 hover:bg-muted transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
-                  >
-                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${action.color}`}>
-                      <action.icon className="h-5 w-5" />
-                    </div>
-                    <span className="text-xs font-medium text-foreground">{action.label}</span>
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </Reveal>
-
-        {/* Bottom Section: Events + Announcements */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Upcoming Events */}
-          <Reveal delay={100}>
-            <Card className="border-0 shadow-md h-full">
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Calendar className="h-4 w-4 text-primary" />
-                  </div>
-                  Upcoming Events
-                </CardTitle>
-                <Button variant="ghost" size="sm" className="text-xs gap-1 text-primary hover:text-primary" onClick={() => navigate("/student/calendar")}>
-                  View All <ChevronRight className="h-3 w-3" />
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}</div>
-                ) : data?.upcomingEvents && data.upcomingEvents.length > 0 ? (
-                  <div className="space-y-2">
-                    {data.upcomingEvents.map((ev) => (
-                      <div key={ev.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors">
-                        <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-primary/10 flex flex-col items-center justify-center">
-                          <span className="text-[10px] font-medium text-primary uppercase">
-                            {new Date(ev.start_date).toLocaleDateString('en', { month: 'short' })}
-                          </span>
-                          <span className="text-sm font-bold text-primary leading-none">
-                            {new Date(ev.start_date).getDate()}
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm text-foreground truncate">{ev.title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(ev.start_date).toLocaleDateString('en', { weekday: 'long' })}
-                          </p>
-                        </div>
-                        <Badge variant="secondary" className={`text-[10px] shrink-0 ${getCategoryColor(ev.category)}`}>
-                          {ev.category || "General"}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Calendar className="h-10 w-10 mx-auto text-muted-foreground/40 mb-2" />
-                    <p className="text-sm text-muted-foreground">No upcoming events scheduled.</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </Reveal>
-
-          {/* Announcements */}
-          <Reveal delay={180}>
-            <Card className="border-0 shadow-md h-full">
-              <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                  <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
-                    <Megaphone className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  Announcements
-                </CardTitle>
-                {/* Matches the Upcoming Events card next to it, which had one
-                    while this did not — the only way through was to click an
-                    individual announcement. */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs gap-1 text-primary hover:text-primary"
-                  onClick={() => navigate("/student/announcements")}
-                >
-                  View All <ChevronRight className="h-3 w-3" />
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}</div>
-                ) : data?.announcements && data.announcements.length > 0 ? (
-                  <div className="space-y-2">
-                    {data.announcements.map((a, i) => (
-                      <div key={i} className="p-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors cursor-pointer" onClick={() => navigate('/student/announcements')}>
-                        <p className="font-medium text-sm text-foreground">{a?.title}</p>
-                        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{a?.body}</p>
-                        {a?.published_at && (
-                          <p className="text-[10px] text-muted-foreground/60 mt-1.5">
-                            {new Date(a.published_at).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Megaphone className="h-10 w-10 mx-auto text-muted-foreground/40 mb-2" />
-                    <p className="text-sm text-muted-foreground">No announcements at this time.</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </Reveal>
-        </div>
       </div>
     </>
   );

@@ -1,16 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import { CalendarCheck, Loader2, UserCheck, Clock, XCircle, TrendingUp } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { Bar, ListCard, Panel, Pill, ScreenHeader, SectionTitle, StatTile, type Tone } from "@/components/redesign/student-pages/ui";
 
 interface AttendanceRow {
   id: string;
@@ -42,6 +36,17 @@ interface ClassTodayValue {
 
 const todayDateString = () => new Date().toISOString().split("T")[0];
 
+/** "18:15" → "6:15 pm". Leaves anything it cannot read as it was. */
+const clock = (hhmm: string | null | undefined) => {
+  const m = /^(\d{1,2}):(\d{2})/.exec(hhmm || "");
+  if (!m) return hhmm || "";
+  const h = Number(m[1]);
+  return `${h % 12 || 12}:${m[2]} ${h < 12 ? "am" : "pm"}`;
+};
+
+const timeOf = (iso: string) =>
+  new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }).toLowerCase();
+
 const StudentAttendance = () => {
   const { student } = useAuth();
   const [sessions, setSessions] = useState<SessionRow[]>([]);
@@ -53,6 +58,9 @@ const StudentAttendance = () => {
   const [cohortToggle, setCohortToggle] = useState<CohortToggle | null>(null);
   const [outsideWindow, setOutsideWindow] = useState(false);
   const [windowMessage, setWindowMessage] = useState("");
+  // Today's own record, read from the history already loaded, so the card can
+  // say when the student checked in and how it was recorded.
+  const [todayRecord, setTodayRecord] = useState<AttendanceRow | null>(null);
 
   const loadData = useCallback(async () => {
     if (!student?.id) return;
@@ -139,6 +147,7 @@ const StudentAttendance = () => {
       const todayRecords = (todayAttendanceRes || []).filter((a) => !scheduleId || a.schedule_id === scheduleId);
 
       setCheckedInToday(todayRecords.length > 0);
+      setTodayRecord(rows.find((r) => todayRecords.some((t) => t.id === r.id)) ?? null);
       setPendingToday(todayRecords.some((a) => a.is_verified === false));
     } catch (err) {
       console.error("[StudentAttendance] Load error:", err);
@@ -207,227 +216,171 @@ const StudentAttendance = () => {
     const status = (s.record.status || "").toUpperCase();
     return status === "PRESENT" || status === "LATE" ? status : "ABSENT";
   };
+  /**
+   * The same verdict, but telling an excused absence apart for display. It still
+   * counts as not attended in the rate, exactly as before.
+   */
+  const shownAs = (s: SessionRow) =>
+    countedAs(s) === "ABSENT" && s.record?.is_verified && (s.record.status || "").toUpperCase() === "EXCUSED"
+      ? "EXCUSED"
+      : countedAs(s);
   const presentCount = sessions.filter((s) => countedAs(s) === "PRESENT").length;
   const lateCount = sessions.filter((s) => countedAs(s) === "LATE").length;
-  const absentCount = sessions.filter((s) => countedAs(s) === "ABSENT").length;
+  const excusedCount = sessions.filter((s) => shownAs(s) === "EXCUSED").length;
+  const absentCount = sessions.filter((s) => shownAs(s) === "ABSENT").length;
   const attended = presentCount + lateCount;
   const percentage = totalClasses > 0 ? Math.round((attended / totalClasses) * 100) : 0;
 
-  const rateColor = percentage >= 75 ? "text-emerald-700 dark:text-emerald-400" : percentage >= 50 ? "text-amber-700 dark:text-amber-400" : "text-red-700 dark:text-red-400";
-  const rateBorder = percentage >= 75 ? "border-l-emerald-500" : percentage >= 50 ? "border-l-amber-500" : "border-l-red-500";
-  const rateBg = percentage >= 75 ? "bg-emerald-50 dark:bg-emerald-950/20" : percentage >= 50 ? "bg-amber-50 dark:bg-amber-950/20" : "bg-red-50 dark:bg-red-950/20";
-
-  const statusLabel = (s: string) => {
-    const u = (s || "").toUpperCase();
-    if (u === "PRESENT") return "Present";
-    if (u === "ABSENT") return "Absent";
-    if (u === "LATE") return "Late";
-    return s || "—";
-  };
-
-  const statusBadgeClass = (s: string) => {
-    const u = (s || "").toUpperCase();
-    if (u === "PRESENT") return "bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-100";
-    if (u === "LATE") return "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100";
-    if (u === "ABSENT") return "bg-red-100 text-red-800 border-red-300 hover:bg-red-100";
-    return "";
+  const STATUS: Record<string, { label: string; tone: Tone }> = {
+    PRESENT: { label: "Present", tone: "success" },
+    LATE: { label: "Late", tone: "warning" },
+    ABSENT: { label: "Absent", tone: "danger" },
+    EXCUSED: { label: "Excused", tone: "neutral" },
   };
 
   if (loading) {
     return (
-      <>
-        <div className="space-y-6">
-          <Skeleton className="h-10 w-64" />
-          <Skeleton className="h-28 rounded-xl" />
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
-          </div>
-          <Skeleton className="h-64 rounded-xl" />
+      <div className="mx-auto max-w-3xl space-y-3">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-40 rounded-[20px]" />
+        <div className="grid grid-cols-4 gap-2">
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-16 rounded-[14px]" />)}
         </div>
-      </>
+        <Skeleton className="h-64 rounded-[18px]" />
+      </div>
     );
   }
 
   const classEnabled = cohortToggle?.enabled === true;
   const canCheckIn = !checkedInToday && !checkingIn && todayScheduleId !== null && classEnabled && !outsideWindow;
 
+  const todayPill: { label: string; tone: Tone } = checkedInToday
+    ? { label: pendingToday ? "Checked in · pending" : "Checked in", tone: "success" }
+    : !classEnabled
+      ? { label: "No class today", tone: "neutral" }
+      : outsideWindow
+        ? { label: windowMessage.startsWith("Check-in opens") ? "Not open yet" : "Window closed", tone: "neutral" }
+        : { label: "Window open", tone: "gold" };
+  const todayStatus = todayRecord ? STATUS[(todayRecord.status || "").toUpperCase()]?.label ?? todayRecord.status : null;
+
   return (
-    <>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Attendance</h1>
-          <p className="text-muted-foreground text-sm mt-1">Mark your attendance and track your record</p>
+    <div className="mx-auto max-w-3xl space-y-4">
+      <ScreenHeader title="Attendance" />
+
+      {/* Today's class */}
+      <Panel className="space-y-3" aria-labelledby="att-today">
+        <div className="flex items-center justify-between gap-2">
+          <h2 id="att-today" className="text-base font-bold">Today's class</h2>
+          <Pill tone={todayPill.tone}>{todayPill.label}</Pill>
         </div>
 
-        {/* Attendance Rate Overview */}
-        <Card className={`border-l-4 ${rateBorder} ${rateBg}`}>
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                <span className="font-semibold text-foreground">Attendance Rate</span>
-              </div>
-              <span className={`text-2xl font-bold ${rateColor}`}>{percentage}%</span>
-            </div>
-            <Progress value={percentage} className="h-2.5 mb-3" />
-            <div className="flex items-center gap-4 text-sm flex-wrap">
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> {presentCount} Present</span>
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> {lateCount} Late</span>
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /> {absentCount} Absent</span>
-              <span className="text-muted-foreground ml-auto">{totalClasses} Total</span>
-            </div>
-          </CardContent>
-        </Card>
+        {classEnabled && cohortToggle && (
+          <p className="text-[13px] text-muted-foreground">
+            Check-in window {clock(cohortToggle.start_time)} – {clock(cohortToggle.end_time)} · late after {clock(cohortToggle.late_after)}
+          </p>
+        )}
+        {!classEnabled && !checkedInToday && (
+          <p className="text-[13px] text-muted-foreground">No class has been set for your cohort today.</p>
+        )}
+        {classEnabled && outsideWindow && !checkedInToday && (
+          <p className="text-[13px] font-semibold text-[#8A3F05] dark:text-amber-300">
+            {windowMessage.replace(/(\d{1,2}:\d{2})/, (t) => clock(t))}
+          </p>
+        )}
 
-        {/* Check-in Card */}
-        <Card className="border-l-4 border-l-primary bg-primary/5 dark:bg-primary/10">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <CalendarCheck className="w-4 h-4 text-primary" /> Today's Check-in
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {!classEnabled && !checkedInToday && (
-              <p className="text-sm text-muted-foreground mb-4">No class has been set for your cohort today.</p>
-            )}
-            {classEnabled && outsideWindow && !checkedInToday && (
-              <div className="flex items-center gap-2 text-sm text-amber-600 mb-4">
-                <Clock className="w-4 h-4" /><span>{windowMessage}</span>
-              </div>
-            )}
-            {classEnabled && !outsideWindow && !checkedInToday && cohortToggle && (
-              <p className="text-xs text-muted-foreground mb-3">
-                Window: {cohortToggle.start_time} – {cohortToggle.end_time} · Late after {cohortToggle.late_after}
+        {checkedInToday ? (
+          <div className="space-y-0.5 rounded-[14px] bg-[#E6F4EE] px-3.5 py-3 text-[#11603F] dark:bg-emerald-500/15 dark:text-emerald-200" role="status">
+            <p className="text-[15px] font-bold">
+              {todayRecord?.check_in_time ? `Checked in at ${timeOf(todayRecord.check_in_time)}` : "Checked in"}
+              {todayStatus ? ` · ${todayStatus}` : ""}
+            </p>
+            <p className="text-[13px]">
+              {pendingToday ? "Waiting for an administrator to verify it." : "Verified by an administrator."}
+            </p>
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={handleCheckIn}
+              disabled={!canCheckIn}
+              className="flex h-[50px] w-full items-center justify-center gap-2 rounded-[14px] bg-primary text-base font-bold text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:px-8"
+            >
+              {checkingIn ? (<><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Checking in…</>) : "Check in now"}
+            </button>
+            {classEnabled && (
+              <p className="text-xs text-muted-foreground">
+                Whether you are on time or late is decided by the school's clock (Lagos time), not your phone.
               </p>
             )}
-            <Button onClick={handleCheckIn} disabled={!canCheckIn} variant="flame" className="w-full sm:w-auto">
-              {checkingIn ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Marking…</>) : checkedInToday ? (<>Check-in {pendingToday ? "Pending Approval" : "Recorded"}</>) : (<>Mark Attendance for Today</>)}
-            </Button>
-          </CardContent>
-        </Card>
+          </>
+        )}
+      </Panel>
 
-        {/* Stat Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Card className="border-l-4 border-l-primary bg-primary/5 dark:bg-primary/10">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <CalendarCheck className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Total</p>
-                <p className="text-xl font-bold text-foreground">{totalClasses}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950/20">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                <UserCheck className="w-5 h-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Present</p>
-                <p className="text-xl font-bold text-emerald-700 dark:text-emerald-400">{presentCount}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-amber-500 bg-amber-50 dark:bg-amber-950/20">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                <Clock className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Late</p>
-                <p className="text-xl font-bold text-amber-700 dark:text-amber-400">{lateCount}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950/20">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                <XCircle className="w-5 h-5 text-red-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground font-medium">Absent</p>
-                <p className="text-xl font-bold text-red-700 dark:text-red-400">{absentCount}</p>
-              </div>
-            </CardContent>
-          </Card>
+      {/* Counts */}
+      <dl className="grid grid-cols-4 gap-2" aria-label="Your attendance">
+        <StatTile value={presentCount} label="Present" valueClassName="text-[#11603F] dark:text-emerald-300" />
+        <StatTile value={lateCount} label="Late" valueClassName="text-[#8A3F05] dark:text-amber-300" />
+        <StatTile value={absentCount} label="Absent" valueClassName="text-[#8E2A0A] dark:text-red-300" />
+        <StatTile value={excusedCount} label="Excused" valueClassName="text-[#3A3450] dark:text-muted-foreground" />
+      </dl>
+
+      <Panel className="space-y-2 rounded-2xl px-4 py-3.5">
+        <div className="flex items-baseline justify-between gap-3 text-sm">
+          <strong className="font-bold">Attendance rate</strong>
+          <span className="text-muted-foreground">
+            {attended} of {totalClasses} class{totalClasses === 1 ? "" : "es"} · {percentage}%
+          </span>
         </div>
+        <Bar value={percentage} tone={percentage >= 75 ? "success" : "primary"} label={`Attendance rate, ${percentage}%`} />
+        <p className="text-xs text-muted-foreground">Only check-ins an administrator has verified count.</p>
+      </Panel>
 
-        {/* History */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Attendance History</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {sessions.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No classes have been held yet.</p>
-            ) : (
-              <>
-                {/* Desktop table */}
-                <div className="hidden sm:block overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Check-in Time</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Verification</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sessions.map((s) => (
-                        <TableRow key={s.sessionId}>
-                          <TableCell className="font-medium">
-                            {new Date(`${s.date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {s.record?.check_in_time ? new Date(s.record.check_in_time).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "—"}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className={statusBadgeClass(countedAs(s))}>{statusLabel(countedAs(s))}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            {s.record ? (
-                              <Badge variant="outline" className={s.record.is_verified ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-amber-100 text-amber-800 border-amber-300"}>
-                                {s.record.is_verified ? "Verified" : "Pending"}
-                              </Badge>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">No check-in</span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                {/* Mobile cards */}
-                <div className="sm:hidden space-y-3">
-                  {sessions.map((s) => (
-                    <div key={s.sessionId} className="rounded-lg border border-border p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-foreground">
-                          {new Date(`${s.date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        </span>
-                        <Badge variant="outline" className={statusBadgeClass(countedAs(s))}>{statusLabel(countedAs(s))}</Badge>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{s.record?.check_in_time ? new Date(s.record.check_in_time).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "No check-in"}</span>
-                        {s.record && (
-                          <Badge variant="outline" className={`text-[10px] ${s.record.is_verified ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-amber-100 text-amber-800 border-amber-300"}`}>
-                            {s.record.is_verified ? "Verified" : "Pending"}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </>
+      {/* History */}
+      <section aria-labelledby="att-history" className="space-y-2.5">
+        <SectionTitle id="att-history">History</SectionTitle>
+        {sessions.length === 0 ? (
+          <Panel className="py-8 text-center text-sm text-muted-foreground">No classes have been held yet.</Panel>
+        ) : (
+          <ListCard>
+            {sessions.map((s) => {
+              const d = new Date(`${s.date}T00:00:00`);
+              const st = STATUS[shownAs(s)] ?? { label: shownAs(s), tone: "neutral" as Tone };
+              const meta = s.record?.check_in_time
+                ? `Checked in ${timeOf(s.record.check_in_time)}`
+                : s.record
+                  ? "Recorded by an administrator"
+                  : "No check-in";
+              return (
+                <li key={s.sessionId} className="flex min-h-[60px] items-center gap-3 px-3.5 py-2">
+                  <span className="flex w-11 shrink-0 flex-col items-center">
+                    <strong className="text-[15px]">{d.toLocaleDateString("en-GB", { day: "2-digit" })}</strong>
+                    <span className="text-[10px] font-bold uppercase text-muted-foreground">
+                      {d.toLocaleDateString("en-GB", { month: "short" })}
+                    </span>
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <strong className="text-sm">
+                      {d.toLocaleDateString("en-GB", { weekday: "long" })} class
+                      {d.getFullYear() !== new Date().getFullYear() ? `, ${d.getFullYear()}` : ""}
+                    </strong>
+                    <span className="text-xs text-muted-foreground">{meta}</span>
+                  </span>
+                  <span className="flex shrink-0 flex-col items-end gap-1">
+                    <Pill tone={st.tone} className="text-[11px]">{st.label}</Pill>
+                    {s.record && (
+                      <span className="text-[11px] text-muted-foreground">
+                        {s.record.is_verified ? "Verified" : "Pending approval"}
+                      </span>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ListCard>
+        )}
+      </section>
+    </div>
   );
 };
 

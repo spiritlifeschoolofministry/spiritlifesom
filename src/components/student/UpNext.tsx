@@ -1,98 +1,88 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { format, isToday } from "date-fns";
-import { ArrowRight, CalendarCheck, FileCheck, AlertTriangle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/useAuth";
-import { groupExamWindows, formatMinutes, type ExamWindow, type WindowExam } from "@/lib/exam-windows";
+import { ArrowRight, AlertTriangle } from "lucide-react";
+import { formatMinutes } from "@/lib/exam-windows";
+import type { TodayPlan } from "@/components/redesign/student/useTodayPlan";
 
-/** How far ahead an exam window still counts as "up next". */
-const EXAM_HORIZON_DAYS = 14;
+/** "starts in 10 min" while it is close, the day otherwise. */
+const startsLabel = (start: Date, now: Date) => {
+  const minutes = Math.ceil((start.getTime() - now.getTime()) / 60000);
+  if (minutes <= 0) return "opening now";
+  if (isToday(start) && minutes < 6 * 60) return `starts in ${formatMinutes(minutes)}`;
+  if (isToday(start)) return `today at ${format(start, "h:mm a")}`;
+  return format(start, "EEEE d MMMM");
+};
 
-interface NextClass {
-  date: string;
-  start_time: string | null;
-  end_time: string | null;
-  activity_type: string | null;
-}
+const time = (hhmm: string) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return format(d, "h:mm a");
+};
 
 /**
  * The first thing on Today: what the student should do next. An open exam
  * window wins, then the soonest window in the next two weeks, then the next
  * class. Renders nothing when none of those exist, rather than an empty card.
+ *
+ * Reads nothing itself: Today loads the plan once (useTodayPlan) and hands it
+ * here and to the timetable below, so the two always agree.
  */
-const UpNext = () => {
-  const { student } = useAuth();
-  const [window_, setWindow] = useState<ExamWindow<WindowExam> | null>(null);
-  const [nextClass, setNextClass] = useState<NextClass | null>(null);
-  const [loaded, setLoaded] = useState(false);
-
+const UpNext = ({ plan }: { plan: TodayPlan }) => {
+  // Keeps "starts in 10 min" true while the page stays open.
+  const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    if (!student?.id || !student.cohort_id) return;
-    let cancelled = false;
-    (async () => {
-      const today = format(new Date(), "yyyy-MM-dd");
-      const [{ data: exams }, { data: attempts }, { data: classes }] = await Promise.all([
-        // Same filter as My Exams; row-level security already limits it to
-        // the papers this student may sit.
-        supabase
-          .from("exams")
-          .select("id, title, start_at, end_at, duration_minutes, status")
-          .in("status", ["published", "in_progress", "closed"]),
-        supabase.from("exam_attempts").select("exam_id, status").eq("student_id", student.id),
-        supabase
-          .from("schedule")
-          .select("date, start_time, end_time, activity_type")
-          .eq("cohort_id", student.cohort_id)
-          .eq("counts_for_attendance", true)
-          .gte("date", today)
-          .order("date", { ascending: true })
-          .limit(1),
-      ]);
-      if (cancelled) return;
-      const byExam = Object.fromEntries((attempts ?? []).map((a) => [a.exam_id, { status: a.status }]));
-      const horizon = Date.now() + EXAM_HORIZON_DAYS * 86400000;
-      const next = groupExamWindows(exams ?? [], byExam).find(
-        (w) => w.state === "live" || (w.state === "upcoming" && w.start.getTime() <= horizon),
-      );
-      setWindow(next ?? null);
-      setNextClass(classes?.[0] ?? null);
-      setLoaded(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [student?.id, student?.cohort_id]);
+    const id = window.setInterval(() => setNow(new Date()), 60000);
+    return () => window.clearInterval(id);
+  }, []);
 
+  const { loaded, window: window_, nextClass } = plan;
   if (!loaded || (!window_ && !nextClass)) return null;
 
   if (window_) {
-    const many = window_.exams.length > 1;
+    const count = window_.exams.length;
+    const many = count > 1;
     const live = window_.state === "live";
     const short = live && window_.minutesNeeded > window_.minutesLeft;
+    const single = !many ? window_.exams[0] : null;
+    // One open paper: straight to its lobby. Several: the list, where the
+    // student chooses the order.
+    const target = live && single ? `/student/exams/${single.id}/lobby` : "/student/exams";
+    const action = live ? (single ? "Enter exam lobby" : "Go to my exams") : "See the papers";
     return (
-      <section aria-label="Up next" className="rounded-2xl gradient-purple p-5 text-primary-foreground shadow-lg">
-        <p className="text-xs font-bold uppercase tracking-wider text-primary-foreground/75">
-          {live ? "Up next · exams open now" : `Up next · ${format(window_.start, "EEEE d MMMM")}`}
-        </p>
-        <h2 className="mt-2 flex items-center gap-2 text-xl font-bold">
-          <FileCheck className="h-5 w-5" aria-hidden="true" />
-          {many ? `${window_.exams.length} papers` : window_.exams[0].title} · {format(window_.start, "p")} – {format(window_.end, "p")}
-        </h2>
-        <p className="mt-1 text-sm text-primary-foreground/85">
-          {many && `${window_.done} of ${window_.exams.length} done. Sit them in any order.`}
-          {live && window_.minutesNeeded > 0 && ` ${formatMinutes(window_.minutesLeft)} left · the papers left need ${formatMinutes(window_.minutesNeeded)}.`}
-        </p>
+      <section aria-label="Up next" className="flex flex-col gap-3.5 rounded-[22px] bg-[#5B21B6] p-5 text-white shadow-lg">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-bold uppercase tracking-[0.06em] text-[#E4DAFB]">
+            Up next · {live ? "exams open now" : startsLabel(window_.start, now)}
+          </p>
+          {many && (
+            <span className="shrink-0 rounded-full bg-[#E0A526] px-2 py-1 text-xs font-bold text-[#17112B]">
+              {window_.done} of {count} done
+            </span>
+          )}
+        </div>
+        <div className="flex flex-col gap-1">
+          <h2 className="text-[21px] font-extrabold leading-tight tracking-tight">
+            {many ? `${count} papers` : single?.title}
+          </h2>
+          <p className="text-sm text-[#E4DAFB]">
+            {format(window_.start, "h:mm")} – {format(window_.end, "h:mm a")}
+            {many ? " · sit them in any order" : single ? ` · ${formatMinutes(Number(single.duration_minutes) || 0)}` : ""}
+            {live && ` · ${formatMinutes(window_.minutesLeft)} left`}
+            {live && many && window_.minutesNeeded > 0 && ` · the papers left need ${formatMinutes(window_.minutesNeeded)}`}
+          </p>
+        </div>
         {short && (
-          <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-amber-200">
-            <AlertTriangle className="h-4 w-4" aria-hidden="true" /> Not enough time left for every paper. Start now.
+          <p className="flex items-center gap-2 text-sm font-semibold text-amber-200">
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" /> Not enough time left for every paper. Start now.
           </p>
         )}
         <Link
-          to="/student/exams"
-          className="mt-4 inline-flex h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-primary transition-transform hover:-translate-y-0.5"
+          to={target}
+          className="flex h-12 items-center justify-center gap-2 rounded-[14px] bg-white text-[15px] font-bold text-[#3F1585] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#5B21B6]"
         >
-          {live ? "Go to my exams" : "See the papers"} <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          {action} <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>
       </section>
     );
@@ -101,20 +91,24 @@ const UpNext = () => {
   const cls = nextClass!;
   const date = new Date(`${cls.date}T00:00:00`);
   const today = isToday(date);
+  const title = [cls.activity_type || "Class", cls.course ? `${cls.course.code} ${cls.course.title}` : null]
+    .filter(Boolean)
+    .join(" · ");
   return (
-    <section aria-label="Up next" className="rounded-2xl border border-border bg-card p-5">
-      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+    <section aria-label="Up next" className="flex flex-col gap-3.5 rounded-[22px] bg-[#5B21B6] p-5 text-white shadow-lg">
+      <p className="text-xs font-bold uppercase tracking-[0.06em] text-[#E4DAFB]">
         Up next · {today ? "today" : format(date, "EEEE d MMMM")}
       </p>
-      <h2 className="mt-2 flex items-center gap-2 text-xl font-bold text-foreground">
-        <CalendarCheck className="h-5 w-5 text-primary" aria-hidden="true" />
-        {cls.activity_type || "Class"}
-        {cls.start_time ? ` · ${cls.start_time.slice(0, 5)}${cls.end_time ? `–${cls.end_time.slice(0, 5)}` : ""}` : ""}
-      </h2>
-      <p className="mt-1 text-sm text-muted-foreground">It counts for attendance. Check in from the app while the window is open.</p>
+      <div className="flex flex-col gap-1">
+        <h2 className="text-[21px] font-extrabold leading-tight tracking-tight">{title}</h2>
+        <p className="text-sm text-[#E4DAFB]">
+          {cls.start_time ? `${time(cls.start_time)}${cls.end_time ? ` – ${time(cls.end_time)}` : ""} · ` : ""}
+          It counts for attendance. Check in from the app while the window is open.
+        </p>
+      </div>
       <Link
         to="/student/attendance"
-        className="mt-4 inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground transition-transform hover:-translate-y-0.5"
+        className="flex h-12 items-center justify-center gap-2 rounded-[14px] bg-white text-[15px] font-bold text-[#3F1585] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#5B21B6]"
       >
         {today ? "Check in" : "Attendance"} <ArrowRight className="h-4 w-4" aria-hidden="true" />
       </Link>

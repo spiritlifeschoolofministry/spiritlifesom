@@ -1,13 +1,12 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Link as LinkIcon, Star, Search, X } from "lucide-react";
+import { Download, FileText, Search, Star, X } from "lucide-react";
+import { EmptyCard, ScreenHeader } from "@/components/redesign/student-pages/ui";
+import { cn } from "@/lib/utils";
 import { resolveMaterialUrl } from "@/lib/material-url";
 import { trackDownload } from "@/lib/activity";
 
@@ -38,6 +37,21 @@ const mapStudentLearningMode = (learningMode?: string | null) => {
   if (normalized === 'physical' || normalized === 'on-site' || normalized === 'onsite' || normalized === 'offline') return ['All', 'Physical'];
   return ['All', learningMode];
 };
+
+/**
+ * The short label on a material's tile: PDF, MP3, DOCX… Taken from the stored
+ * file type, else the file's extension, else what kind of material it is.
+ */
+const kindOf = (m: Material, url: string | null): string => {
+  const fromType = m.file_type?.split("/").pop()?.split(/[.+;]/)[0];
+  const fromUrl = url?.split(/[?#]/)[0].match(/\.([a-z0-9]{2,5})$/i)?.[1];
+  const raw = fromType || fromUrl || (url ? "LINK" : m.material_type) || "FILE";
+  const short = raw.toUpperCase();
+  return short.length > 4 ? short.slice(0, 4) : short;
+};
+
+const isNew = (createdAt: string | null) =>
+  !!createdAt && Date.now() - new Date(createdAt).getTime() < 7 * 24 * 60 * 60 * 1000;
 
 const StudentMaterials = () => {
   const { student } = useAuth();
@@ -101,166 +115,136 @@ const StudentMaterials = () => {
 
   if (loading) {
     return (
-      <>
-        <div className="space-y-6">
-          <Skeleton className="h-10 w-64" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Skeleton className="h-40 rounded-xl" />
-            <Skeleton className="h-40 rounded-xl" />
-          </div>
-        </div>
-      </>
+      <div className="mx-auto max-w-3xl space-y-3">
+        <Skeleton className="h-9 w-56" />
+        <Skeleton className="h-11 rounded-xl" />
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-[68px] rounded-2xl" />
+        ))}
+      </div>
     );
   }
 
   if (!materials.length) {
     return (
-      <>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center py-12">
-          <div className="bg-muted rounded-full p-4 mb-4">
-            <FileText className="w-8 h-8 text-primary" />
-          </div>
-          <h2 className="text-2xl font-bold text-foreground mb-2">Course Materials</h2>
-          <p className="text-muted-foreground mb-2 max-w-md">
-            Your course materials will appear here once your instructors upload them.
-          </p>
-        </div>
-      </>
+      <div className="mx-auto max-w-3xl space-y-4">
+        <ScreenHeader title="Course materials" />
+        <EmptyCard icon={<FileText className="h-6 w-6" aria-hidden="true" />} title="No materials yet">
+          Your course materials will appear here once your instructors upload them.
+        </EmptyCard>
+      </div>
     );
   }
 
   return (
-    <>
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-              Course Materials
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Access handouts, notes, and other learning resources for your cohort.
-            </p>
-          </div>
-        </div>
+    <div className="mx-auto max-w-3xl space-y-4">
+      <ScreenHeader
+        title="Course materials"
+        description="Handouts, notes and recordings for your cohort."
+      />
 
-        {/* Search & Filter Bar */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search materials by title or description..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-8"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-          {materialTypes.length > 0 && (
-            <Select value={selectedType} onValueChange={setSelectedType}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {materialTypes.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {/* Search & filter */}
+      <div className="flex flex-col gap-2 sm:flex-row" role="search">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input
+            type="search"
+            aria-label="Search materials"
+            placeholder="Search by title or description"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-11 rounded-xl bg-card pl-9 pr-11"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
           )}
         </div>
-
-        {filteredMaterials.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>No materials match your search.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredMaterials.map((m) => (
-              <Card
-                key={m.id}
-                className={
-                  m.is_pinned
-                    ? "shadow-[var(--shadow-card)] border-amber-200 bg-amber-50/60"
-                    : "shadow-[var(--shadow-card)] border-border"
-                }
-              >
-                <CardHeader className="pb-3 flex flex-row items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center">
-                      <FileText className="w-4 h-4 text-primary" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-sm sm:text-base">
-                        {m.title}
-                      </CardTitle>
-                      {m.material_type && (
-                        <p className="text-[11px] text-muted-foreground">
-                          {m.material_type}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {m.is_pinned && (
-                    <Badge className="flex items-center gap-1 text-[10px] bg-amber-100 text-amber-800">
-                      <Star className="w-3 h-3" /> Featured
-                    </Badge>
-                  )}
-                </CardHeader>
-                <CardContent className="pt-0 space-y-3">
-                  {m.description && (
-                    <p className="text-xs text-muted-foreground line-clamp-3">
-                      {m.description}
-                    </p>
-                  )}
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                    <span>
-                      {m.created_at
-                        ? new Date(m.created_at).toLocaleDateString()
-                        : ""}
-                    </span>
-                    {resolveMaterialUrl(m) && (
-                      <Button
-                        asChild
-                        size="sm"
-                        variant="outline"
-                        className="h-7 px-2 text-xs"
-                      >
-                        <a
-                          href={resolveMaterialUrl(m) as string}
-                          download
-                          onClick={() =>
-                            trackDownload({
-                              subject: m.title,
-                              subjectId: m.id,
-                              portal: "student",
-                              cohortId: m.cohort_id ?? null,
-                            })
-                          }
-                        >
-                          <LinkIcon className="w-3 h-3 mr-1" />
-                          Download
-                        </a>
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+        {materialTypes.length > 0 && (
+          <Select value={selectedType} onValueChange={setSelectedType}>
+            <SelectTrigger className="h-11 w-full rounded-xl bg-card sm:w-[180px]" aria-label="Filter by type">
+              <SelectValue placeholder="Filter by type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All types</SelectItem>
+              {materialTypes.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {type}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
       </div>
-    </>
+
+      {filteredMaterials.length === 0 ? (
+        <div className="py-12 text-center text-muted-foreground">
+          <Search className="mx-auto mb-2 h-8 w-8 opacity-50" aria-hidden="true" />
+          <p>No materials match your search.</p>
+        </div>
+      ) : (
+        <ul className="grid gap-2.5" aria-label="Materials">
+          {filteredMaterials.map((m) => {
+            const url = resolveMaterialUrl(m);
+            const meta = [
+              m.material_type,
+              m.is_pinned ? "Pinned" : isNew(m.created_at) ? "New this week" : null,
+              m.created_at ? new Date(m.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null,
+            ]
+              .filter(Boolean)
+              .join(" · ");
+            return (
+              <li
+                key={m.id}
+                className={cn(
+                  "flex items-center gap-3 rounded-2xl border bg-card px-3.5 py-3",
+                  m.is_pinned ? "border-[#E0A526]/50" : "border-border",
+                )}
+              >
+                <span
+                  aria-hidden="true"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-[#FBF3DE] text-[11px] font-extrabold text-[#7A5408] dark:bg-amber-500/15 dark:text-amber-300"
+                >
+                  {kindOf(m, url)}
+                </span>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <h2 className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                    {m.is_pinned && <Star className="h-3.5 w-3.5 shrink-0 fill-[#E0A526] text-[#E0A526]" aria-label="Featured" />}
+                    <span className="min-w-0">{m.title}</span>
+                  </h2>
+                  {meta && <p className="text-xs text-muted-foreground">{meta}</p>}
+                  {m.description && <p className="line-clamp-2 text-xs text-muted-foreground">{m.description}</p>}
+                </div>
+                {url && (
+                  <a
+                    href={url}
+                    download
+                    aria-label={`Download ${m.title}`}
+                    onClick={() =>
+                      trackDownload({
+                        subject: m.title,
+                        subjectId: m.id,
+                        portal: "student",
+                        cohortId: m.cohort_id ?? null,
+                      })
+                    }
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-primary transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Download className="h-[18px] w-[18px]" aria-hidden="true" />
+                  </a>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 };
 

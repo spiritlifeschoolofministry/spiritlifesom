@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState, useRef, useCallback, Suspense } from "react";
 import PageTransition from "@/components/motion/PageTransition";
 import ThemeToggle from "@/components/ThemeToggle";
+import NotificationsBell from "@/components/NotificationsBell";
+import MoreSheet from "@/components/redesign/student/MoreSheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 import ScrollToTop from "@/components/ScrollToTop";
 import SEO from "@/components/SEO";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -16,7 +19,6 @@ import { useCommandPalette } from "@/hooks/use-command-palette";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
@@ -41,7 +43,6 @@ import {
   Eye,
   GraduationCap,
   Award,
-  MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -173,6 +174,7 @@ const StudentLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const palette = useCommandPalette();
+  const isMobile = useIsMobile();
   const touchStartX = useRef<number | null>(null);
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
@@ -286,15 +288,24 @@ const StudentLayout = () => {
     );
 
   const currentGroup = groupForPath(location.pathname);
+  const onToday = normalizePortalPath(location.pathname) === "/student/dashboard";
 
   const renderMobileTab = (tab: (typeof MOBILE_TABS)[number]) => {
     const active = currentGroup?.id === tab.group;
     const target = NAV_ITEMS.find((item) => item.path === tab.path);
     if (isPending && target?.restrictedWhenPending) {
       return (
-        <span key={tab.path} className="flex min-w-[56px] flex-col items-center gap-0.5 text-[11px] text-muted-foreground/40 cursor-not-allowed">
-          <Lock className="w-5 h-5" />
+        <span
+          key={tab.path}
+          aria-disabled="true"
+          title="Available after admission approval"
+          className="flex min-h-[52px] min-w-16 cursor-not-allowed flex-col items-center justify-center gap-[3px] text-[11px] font-medium text-muted-foreground/50"
+        >
+          <span className="flex h-7 w-11 items-center justify-center">
+            <Lock className="w-5 h-5" aria-hidden="true" />
+          </span>
           {tab.label}
+          <span className="sr-only"> (locked until admission)</span>
         </span>
       );
     }
@@ -304,10 +315,12 @@ const StudentLayout = () => {
         to={tab.path}
         {...prefetch(tab.path)}
         aria-current={active ? "page" : undefined}
-        className={`flex min-w-[56px] flex-col items-center gap-0.5 rounded-xl px-2 py-1 text-[11px] font-medium ${active ? "text-primary" : "text-muted-foreground"}`}
+        className={`flex min-h-[52px] min-w-16 flex-col items-center justify-center gap-[3px] rounded-xl text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+          active ? "font-bold text-secondary-foreground" : "font-medium text-muted-foreground"
+        }`}
       >
-        <span className={`flex h-7 w-11 items-center justify-center rounded-full transition-colors ${active ? "bg-primary/10" : ""}`}>
-          <tab.icon className="w-5 h-5" />
+        <span className={`flex h-7 w-11 items-center justify-center rounded-full transition-colors ${active ? "bg-secondary" : ""}`}>
+          <tab.icon className="w-5 h-5" aria-hidden="true" />
         </span>
         {tab.label}
       </Link>
@@ -391,11 +404,23 @@ const StudentLayout = () => {
         description="Student portal for Spirit Life School of Ministry." 
         noindex 
       />
+      {/* Staff previewing the student portal: say so, and the way back. */}
+      {isAdmin && (
+        <div className="flex shrink-0 items-center justify-between gap-2 bg-[#E0A526] py-1 pl-4 pr-3 text-[#17112B]">
+          <span className="text-[13px] font-bold">Viewing as a student (staff preview)</span>
+          <Link
+            to="/admin"
+            className="flex min-h-11 shrink-0 items-center rounded-[10px] bg-[#17112B] px-3 text-[13px] font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#17112B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#E0A526] md:min-h-9"
+          >
+            Back to admin
+          </Link>
+        </div>
+      )}
       {/* Top Nav */}
       <header className="h-14 border-b border-border bg-card flex items-center justify-between gap-2 px-3 sm:px-4 shrink-0 z-30">
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-3 shrink-0">
           <button
-            className="md:hidden -ml-1 p-1 text-foreground"
+            className="md:hidden -ml-2 flex h-11 w-11 items-center justify-center rounded-xl text-foreground hover:bg-muted"
             onClick={() => setSidebarOpen(!sidebarOpen)}
             aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
             aria-expanded={sidebarOpen}
@@ -403,7 +428,7 @@ const StudentLayout = () => {
           >
             {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
-          <Link to="/student/dashboard" className="flex items-center gap-2 text-primary font-bold text-lg tracking-tight">
+          <Link to="/student/dashboard" aria-label="SLSM, go to Today" className="flex items-center gap-2 text-primary font-extrabold text-lg tracking-tight">
             {/* The mark alone on a phone, where the wordmark and the page
                 title would fight for the same row. */}
             <img src="/images/school-logo.png" alt="" className="h-8 w-8 object-contain" />
@@ -424,29 +449,38 @@ const StudentLayout = () => {
                 variant="ghost"
                 size="icon"
                 onClick={() => navigate("/admin")}
-                className="sm:hidden"
+                className="h-11 w-11 sm:hidden"
                 title="Admin Portal"
+                aria-label="Admin Portal"
               >
                 <Eye className="w-4 h-4" />
               </Button>
             </>
           )}
+          {/* Today carries its own bell beside the greeting. */}
+          {!onToday && (
+            <div className="[&>button]:h-11 [&>button]:w-11">
+              <NotificationsBell />
+            </div>
+          )}
           <span className="text-sm text-muted-foreground hidden sm:block">
             {fullName || "Student"}
           </span>
-          <Avatar className="h-8 w-8">
+          {/* On phones the profile, appearance and sign out live in More. */}
+          <Avatar className="hidden h-8 w-8 sm:flex">
             {authProfile?.avatar_url && <AvatarImage src={authProfile.avatar_url} alt="Avatar" />}
             <AvatarFallback className="text-xs bg-primary text-primary-foreground">{initials}</AvatarFallback>
           </Avatar>
-          <ThemeToggle />
-          <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
+          {!isMobile && <ThemeToggle />}
+          <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout" aria-label="Log out" className="hidden h-11 w-11 md:inline-flex">
             <LogOut className="w-4 h-4" />
           </Button>
         </div>
       </header>
 
       {/* Admission Status Banner */}
-      {isPending && (
+      {/* Today shows a pending applicant the full tracker instead. */}
+      {isPending && !onToday && (
         <div className="bg-[hsl(48,96%,89%)] border-b border-[hsl(48,96%,60%)] text-[hsl(26,90%,20%)] px-4 py-3 flex items-center gap-3 shrink-0">
           <AlertTriangle className="w-5 h-5 shrink-0 text-[hsl(26,90%,30%)]" />
           <p className="text-sm font-medium">
@@ -542,62 +576,28 @@ const StudentLayout = () => {
         </main>
       </div>
 
-      {/* Mobile bottom nav with sheet for all items */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border flex justify-around pt-2 pb-safe z-30" aria-label="Primary">
+      {/* Phone bottom bar: one tab per section, then More (Community and
+          Account, staff's way back to admin, sign out) in a sheet. */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 flex justify-around border-t border-border bg-card px-1 pt-1.5 pb-safe" aria-label="Primary">
         {MOBILE_TABS.map(renderMobileTab)}
-        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-          <SheetTrigger asChild>
-            <button className="flex flex-col items-center gap-0.5 text-[10px] text-muted-foreground">
-              <MoreHorizontal className="w-5 h-5" />
-              More
-            </button>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="rounded-t-2xl max-h-[70vh] overflow-y-auto">
-            <SheetHeader>
-              <SheetTitle className="text-left">Navigation</SheetTitle>
-            </SheetHeader>
-            <div className="space-y-5 pt-4 pb-6">
-              {NAV_GROUPS.map((group) => (
-                <div key={group.id}>
-                  {group.title && (
-                    <h3 className="px-1 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      {group.title}
-                    </h3>
-                  )}
-                  <div className="grid grid-cols-3 gap-3">
-                    {group.items.map((item) => {
-                      const active = isNavActive(location.pathname, item.path, NAV_PATHS);
-                      const restricted = isPending && item.restrictedWhenPending;
-                      if (restricted) {
-                        return (
-                          <span key={item.path} className="flex flex-col items-center gap-1.5 p-3 rounded-xl text-muted-foreground/40 cursor-not-allowed">
-                            <Lock className="w-5 h-5" />
-                            <span className="text-[11px] text-center leading-tight">{item.label}</span>
-                          </span>
-                        );
-                      }
-                      return (
-                        <Link
-                          key={item.path}
-                          to={item.path}
-                          {...prefetch(item.path)}
-                          onClick={() => setSheetOpen(false)}
-                          aria-current={active ? "page" : undefined}
-                          className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition-colors ${
-                            active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"
-                          }`}
-                        >
-                          <item.icon className="w-5 h-5" />
-                          <span className="text-[11px] text-center leading-tight">{item.label}</span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </SheetContent>
-        </Sheet>
+        <MoreSheet
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          active={currentGroup?.id === "community" || currentGroup?.id === "account"}
+          community={(NAV_GROUPS.find((group) => group.id === "community")?.items ?? []).map((item) => ({
+            label: item.label,
+            icon: item.icon,
+            path: item.path,
+            locked: isPending && item.restrictedWhenPending,
+          }))}
+          fullName={fullName}
+          initials={initials}
+          avatarUrl={authProfile?.avatar_url ?? null}
+          subtitle={[student?.student_code, student?.learning_mode].filter(Boolean).join(" · ")}
+          whatsappOn={authProfile ? !authProfile.whatsapp_opted_out_at : null}
+          isStaff={isAdmin}
+          onSignOut={handleLogout}
+        />
       </nav>
       <CommandPalette open={palette.open} onOpenChange={palette.setOpen} groups={paletteGroups} />
       <ScrollToTop />

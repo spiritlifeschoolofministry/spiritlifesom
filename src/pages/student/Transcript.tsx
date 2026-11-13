@@ -1,19 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
-  GraduationCap, Award, BookOpen, TrendingUp, Download,
-  CheckCircle2, Clock, User2, Calendar, FileText,
-} from "lucide-react";
+import { BookOpen, Printer } from "lucide-react";
+import { EmptyCard, Panel, Pill, ScreenHeader, SectionTitle, StatTile } from "@/components/redesign/student-pages/ui";
+import { cn } from "@/lib/utils";
 
 /** One graded item on the transcript: an assignment submission or an exam. */
 interface GradeEntry {
@@ -216,262 +207,195 @@ const StudentTranscript = () => {
 
   if (loading) {
     return (
-      <>
-        <div className="space-y-6">
-          <Skeleton className="h-10 w-64" />
-          <Skeleton className="h-48 rounded-xl" />
-          <Skeleton className="h-64 rounded-xl" />
-        </div>
-      </>
+      <div className="mx-auto max-w-3xl space-y-3">
+        <Skeleton className="h-9 w-56" />
+        <Skeleton className="h-32 rounded-[20px]" />
+        <Skeleton className="h-64 rounded-[20px]" />
+      </div>
     );
   }
 
+  const rateClass =
+    attendance.rate == null ? "" : attendance.rate >= 75 ? "text-[#11603F] dark:text-emerald-300" : "text-[#8E2A0A] dark:text-red-300";
+
   return (
-    <>
-      <div className="space-y-6" ref={printRef}>
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
-              <FileText className="w-7 h-7" /> Academic Transcript
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Your complete academic record and performance summary.
-            </p>
+    <div className="mx-auto max-w-3xl space-y-4" ref={printRef}>
+      <ScreenHeader
+        title="Academic transcript"
+        description="Your complete academic record and performance summary."
+        aside={
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-card px-3.5 text-sm font-semibold text-primary transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring print:hidden"
+          >
+            <Printer className="h-4 w-4" aria-hidden="true" /> <span>Print or save PDF</span>
+          </button>
+        }
+      />
+
+      {/* Student */}
+      <Panel className="overflow-hidden p-0 sm:p-0" aria-label="Student details">
+        <div className="h-1.5 gradient-flame" aria-hidden="true" />
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 p-4 sm:grid-cols-4 sm:p-5">
+          <div className="flex flex-col-reverse gap-0.5">
+            <dt className="text-xs text-muted-foreground">Student name</dt>
+            <dd className="text-sm font-bold">{profile?.first_name} {profile?.last_name}</dd>
           </div>
-          <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2 print:hidden self-start">
-            <Download className="w-4 h-4" /> Print / Save PDF
-          </Button>
-        </div>
+          <div className="flex flex-col-reverse gap-0.5">
+            <dt className="text-xs text-muted-foreground">Cohort</dt>
+            <dd className="text-sm font-bold">{cohortName || "—"}</dd>
+          </div>
+          <div className="flex flex-col-reverse gap-0.5">
+            <dt className="text-xs text-muted-foreground">Student code</dt>
+            <dd className="text-sm font-bold">
+              <span className="font-mono">{student?.student_code || "—"}</span>
+              {previousCodes.length > 0 && (
+                <span className="block font-mono text-xs font-normal text-muted-foreground">
+                  formerly {previousCodes.join(", ")}
+                </span>
+              )}
+            </dd>
+          </div>
+          <div className="flex flex-col-reverse gap-1">
+            <dt className="text-xs text-muted-foreground">Status</dt>
+            <dd><Pill tone="info">{student?.admission_status || "—"}</Pill></dd>
+          </div>
+        </dl>
+      </Panel>
 
-        {/* Student Info Card */}
-        <Card className="shadow-[var(--shadow-card)] border-border overflow-hidden">
-          <div className="h-2 gradient-flame" />
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="flex items-center gap-3">
-                <User2 className="w-5 h-5 text-muted-foreground shrink-0" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Student Name</p>
-                  <p className="font-semibold text-sm">{profile?.first_name} {profile?.last_name}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <GraduationCap className="w-5 h-5 text-muted-foreground shrink-0" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Cohort</p>
-                  <p className="font-semibold text-sm">{cohortName || "—"}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <BookOpen className="w-5 h-5 text-muted-foreground shrink-0" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Student Code</p>
-                  <p className="font-semibold text-sm font-mono">{student?.student_code || "—"}</p>
-                  {previousCodes.length > 0 && (
-                    <p className="text-xs text-muted-foreground font-mono">
-                      formerly {previousCodes.join(", ")}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Calendar className="w-5 h-5 text-muted-foreground shrink-0" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Status</p>
-                  <Badge variant="secondary" className="text-xs">{student?.admission_status || "—"}</Badge>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Performance summary */}
+      <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Performance summary">
+        <StatTile
+          className="py-3"
+          value={<>{overallGrade.letter} <span className="text-sm font-bold text-muted-foreground">{overallAvg}%</span></>}
+          valueClassName={overallGrade.color}
+          label="Overall grade"
+        />
+        <StatTile className="py-3" value={`${completedCount}/${courses.length}`} label="Courses completed" />
+        <StatTile className="py-3" value={`${gradedTasks}/${totalTasks}`} label="Assessments graded" />
+        <StatTile
+          className="py-3"
+          value={attendance.rate != null ? `${attendance.rate}%` : "—"}
+          valueClassName={rateClass}
+          label={attendance.total > 0 ? `Attendance of ${attendance.total} ${attendance.total === 1 ? "class" : "classes"}` : "Attendance"}
+        />
+      </dl>
 
-        {/* Performance Summary */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card className="shadow-[var(--shadow-card)] border-border">
-            <CardContent className="p-4 text-center">
-              <p className={`text-4xl font-black ${overallGrade.color}`}>{overallGrade.letter}</p>
-              <p className="text-xs text-muted-foreground mt-1">Overall Grade</p>
-              <p className="text-sm font-semibold text-foreground">{overallAvg}%</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-[var(--shadow-card)] border-border">
-            <CardContent className="p-4 text-center">
-              <p className="text-4xl font-black text-foreground">{completedCount}<span className="text-lg text-muted-foreground">/{courses.length}</span></p>
-              <p className="text-xs text-muted-foreground mt-1">Courses Completed</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-[var(--shadow-card)] border-border">
-            <CardContent className="p-4 text-center">
-              <p className="text-4xl font-black text-foreground">{gradedTasks}<span className="text-lg text-muted-foreground">/{totalTasks}</span></p>
-              <p className="text-xs text-muted-foreground mt-1">Assessments Graded</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-[var(--shadow-card)] border-border">
-            <CardContent className="p-4 text-center">
-              <p className={`text-4xl font-black ${attendance.rate == null ? "text-foreground" : attendance.rate >= 75 ? "text-emerald-600" : "text-red-600"}`}>
-                {attendance.rate != null ? `${attendance.rate}%` : "—"}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Attendance Rate
-                {attendance.total > 0 && (
-                  <span className="block">of {attendance.total} {attendance.total === 1 ? "class" : "classes"}</span>
-                )}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Course-by-Course Breakdown */}
+      {/* Course by course */}
+      <section aria-labelledby="transcript-courses" className="space-y-2.5">
+        <SectionTitle id="transcript-courses">Courses</SectionTitle>
+        {courses.length === 0 && (
+          <EmptyCard icon={<BookOpen className="h-6 w-6" aria-hidden="true" />} title="No courses found for your cohort" />
+        )}
         {courses.map((course) => {
           const grade = course.courseAvg != null ? getLetterGrade(course.courseAvg) : null;
           return (
-            <Card key={course.id} className="shadow-[var(--shadow-card)] border-border">
-              <CardHeader className="pb-3">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${course.is_completed ? "bg-emerald-100 dark:bg-emerald-900/30" : "bg-primary/10"}`}>
-                      {course.is_completed ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <Clock className="w-5 h-5 text-primary" />}
-                    </div>
-                    <div>
-                      <CardTitle className="text-base">{course.title}</CardTitle>
-                      <p className="text-xs text-muted-foreground">{course.code} {course.lecturer ? `· ${course.lecturer}` : ""}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {grade && (
-                      <div className="text-right">
-                        <span className={`text-2xl font-black ${grade.color}`}>{grade.letter}</span>
-                        <p className="text-xs text-muted-foreground">{course.courseAvg}% · {grade.label}</p>
-                      </div>
-                    )}
-                    <Badge variant={course.is_completed ? "default" : "secondary"} className="text-xs">
-                      {course.is_completed ? "Completed" : "In Progress"}
-                    </Badge>
-                  </div>
+            <article key={course.id} className="break-inside-avoid overflow-hidden rounded-2xl border border-border bg-card">
+              <div className="flex items-start justify-between gap-3 p-3.5">
+                <div className="min-w-0">
+                  <h3 className="text-[15px] font-bold leading-snug">{course.title}</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {course.code}{course.lecturer ? ` · ${course.lecturer}` : ""}
+                  </p>
+                  <Pill tone={course.is_completed ? "success" : "info"} className="mt-1.5">
+                    {course.is_completed ? "Completed" : "In progress"}
+                  </Pill>
                 </div>
-              </CardHeader>
-              {course.assignments.length > 0 && (
-                <CardContent className="pt-0">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-xs">Assessment</TableHead>
-                          <TableHead className="hidden text-xs sm:table-cell">Category</TableHead>
-                          <TableHead className="text-xs">Score</TableHead>
-                          <TableHead className="text-xs">Grade</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {course.assignments.map((a) => {
-                          const pct = a.grade != null ? Math.round((a.grade / a.max_points) * 100) : null;
-                          const lg = pct != null ? getLetterGrade(pct) : null;
-                          return (
-                            <TableRow key={a.id}>
-                              <TableCell className="text-sm">
-                                {a.title}
-                                {/* On a phone the category rides under the title
-                                    rather than taking a column of its own. */}
-                                <span className="mt-0.5 block text-[10px] uppercase tracking-wide text-muted-foreground sm:hidden">
-                                  {a.category}
-                                </span>
-                              </TableCell>
-                              <TableCell className="hidden sm:table-cell"><Badge variant="outline" className="text-[10px]">{a.category}</Badge></TableCell>
-                              <TableCell className="text-sm">
-                                {a.grade != null ? <span className="font-medium">{a.grade}/{a.max_points}</span> : <span className="text-muted-foreground">—</span>}
-                              </TableCell>
-                              <TableCell>
-                                {lg ? <span className={`font-bold text-sm ${lg.color}`}>{lg.letter}</span> : <span className="text-muted-foreground text-xs">Pending</span>}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
+                {grade && (
+                  <div className="shrink-0 text-right">
+                    <span className={cn("text-2xl font-black leading-none", grade.color)}>{grade.letter}</span>
+                    <p className="text-xs text-muted-foreground">{course.courseAvg}% · {grade.label}</p>
                   </div>
-                </CardContent>
+                )}
+              </div>
+              {course.assignments.length > 0 ? (
+                <ul className="divide-y divide-[#F1EFF6] border-t border-[#F1EFF6] dark:divide-border dark:border-border">
+                  {course.assignments.map((a) => {
+                    const pct = a.grade != null ? Math.round((a.grade / a.max_points) * 100) : null;
+                    const lg = pct != null ? getLetterGrade(pct) : null;
+                    return (
+                      <li key={a.id} className="flex items-center justify-between gap-3 px-3.5 py-2">
+                        <span className="min-w-0">
+                          <span className="block text-sm">{a.title}</span>
+                          <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{a.category}</span>
+                        </span>
+                        <span className="flex shrink-0 items-center gap-2.5 text-sm">
+                          {a.grade != null ? <span className="font-semibold">{a.grade}/{a.max_points}</span> : <span className="text-muted-foreground">—</span>}
+                          {lg
+                            ? <span className={cn("w-4 text-center font-black", lg.color)}>{lg.letter}</span>
+                            : <span className="text-xs text-muted-foreground">Pending</span>}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="border-t border-[#F1EFF6] px-3.5 py-2.5 text-xs text-muted-foreground dark:border-border">
+                  No tasks submitted for this course.
+                </p>
               )}
-              {course.assignments.length === 0 && (
-                <CardContent className="pt-0">
-                  <p className="text-xs text-muted-foreground">No tasks submitted for this course.</p>
-                </CardContent>
-              )}
-            </Card>
+            </article>
           );
         })}
+      </section>
 
-        {courses.length === 0 && (
-          <Card className="shadow-[var(--shadow-card)] border-border">
-            <CardContent className="py-12 text-center text-muted-foreground">
-              <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p>No courses found for your cohort.</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Earlier sessions. Kept separate: each has its own courses, its own
-            attendance denominator and the code the student held at the time. */}
-        {pastSessions.map((session) => (
-          <Card key={session.cohortId} className="shadow-[var(--shadow-card)] border-border border-dashed">
-            <CardHeader className="pb-3">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Clock className="w-4 h-4" /> {session.cohortName}
-                  <Badge variant="outline" className="text-[10px]">Previous session</Badge>
-                </CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  {session.studentCode && <span className="font-mono">{session.studentCode} · </span>}
-                  Attendance {session.attendance.rate != null ? `${session.attendance.rate}%` : "—"}
-                  {session.attendance.total > 0 && ` of ${session.attendance.total}`}
-                </p>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {session.courses.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No course records from this session.</p>
-              ) : (
-                session.courses.map((course) => {
-                  const grade = course.courseAvg != null ? getLetterGrade(course.courseAvg) : null;
-                  return (
-                    <div key={course.id} className="rounded-lg border border-border p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate">{course.title}</p>
-                          <p className="text-xs text-muted-foreground">{course.code}</p>
-                        </div>
-                        {grade && (
-                          <span className={`text-lg font-black shrink-0 ${grade.color}`}>
-                            {grade.letter} <span className="text-xs font-medium text-muted-foreground">{course.courseAvg}%</span>
-                          </span>
-                        )}
-                      </div>
-                      {course.assignments.filter((a) => a.grade != null).length > 0 && (
-                        <ul className="mt-2 space-y-1">
-                          {course.assignments.filter((a) => a.grade != null).map((a) => (
-                            <li key={a.id} className="flex items-center justify-between gap-3 text-xs">
-                              <span className="truncate text-muted-foreground">{a.title}</span>
-                              <span className="font-medium shrink-0">{a.grade}/{a.max_points}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
+      {/* Earlier sessions. Kept separate: each has its own courses, its own
+          attendance denominator and the code the student held at the time. */}
+      {pastSessions.map((session) => (
+        <section key={session.cohortId} aria-label={`${session.cohortName}, previous session`} className="space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+            <h2 className="text-[13px] font-bold uppercase tracking-[0.05em] text-muted-foreground">
+              {session.cohortName} · previous session
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              {session.studentCode && <span className="font-mono">{session.studentCode} · </span>}
+              Attendance {session.attendance.rate != null ? `${session.attendance.rate}%` : "—"}
+              {session.attendance.total > 0 && ` of ${session.attendance.total}`}
+            </span>
+          </div>
+          {session.courses.length === 0 ? (
+            <Panel className="border-dashed text-xs text-muted-foreground">No course records from this session.</Panel>
+          ) : (
+            session.courses.map((course) => {
+              const grade = course.courseAvg != null ? getLetterGrade(course.courseAvg) : null;
+              const graded = course.assignments.filter((a) => a.grade != null);
+              return (
+                <div key={course.id} className="break-inside-avoid rounded-2xl border border-dashed border-border bg-card p-3.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold">{course.title}</p>
+                      <p className="text-xs text-muted-foreground">{course.code}</p>
                     </div>
-                  );
-                })
-              )}
-            </CardContent>
-          </Card>
-        ))}
+                    {grade && (
+                      <span className={cn("shrink-0 text-lg font-black", grade.color)}>
+                        {grade.letter} <span className="text-xs font-medium text-muted-foreground">{course.courseAvg}%</span>
+                      </span>
+                    )}
+                  </div>
+                  {graded.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {graded.map((a) => (
+                        <li key={a.id} className="flex items-center justify-between gap-3 text-xs">
+                          <span className="truncate text-muted-foreground">{a.title}</span>
+                          <span className="shrink-0 font-semibold">{a.grade}/{a.max_points}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </section>
+      ))}
 
-        {/* Footer note */}
-        <div className="text-center text-xs text-muted-foreground print:mt-8">
-          <Separator className="mb-4" />
-          <p>This transcript was generated from Spirit Life School of Ministry records.</p>
-          <p>Generated on {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
-        </div>
+      {/* Footer note */}
+      <div className="border-t border-border pt-4 text-center text-xs text-muted-foreground print:mt-8">
+        <p>This transcript was generated from Spirit Life School of Ministry records.</p>
+        <p>Generated on {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>
       </div>
-    </>
+    </div>
   );
 };
 

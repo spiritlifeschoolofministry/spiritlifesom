@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { AuthContextType } from "@/contexts/AuthContext";
 
 const authState = { current: {} as AuthContextType };
@@ -31,6 +32,7 @@ const auth = (over: Partial<AuthContextType> = {}): AuthContextType => ({
 
 const renderAt = (path: string) =>
   render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <HelmetProvider>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
@@ -41,7 +43,8 @@ const renderAt = (path: string) =>
           </Route>
         </Routes>
       </MemoryRouter>
-    </HelmetProvider>,
+    </HelmetProvider>
+    </QueryClientProvider>,
   );
 
 describe("student shell", () => {
@@ -95,6 +98,41 @@ describe("student shell", () => {
     authState.current = auth({ student: { admission_status: "PENDING" } as never });
     renderAt("/student/dashboard");
     expect(screen.queryByRole("link", { name: "Assessments" })).not.toBeInTheDocument();
+  });
+
+  it("shows the pending banner off Today, where the tracker takes its place", () => {
+    authState.current = auth({ student: { admission_status: "PENDING" } as never });
+    const { unmount } = renderAt("/student/dashboard");
+    expect(screen.queryByText(/application is under review/i)).not.toBeInTheDocument();
+    unmount();
+    renderAt("/student/exams");
     expect(screen.getByText(/application is under review/i)).toBeInTheDocument();
+  });
+
+  it("shows staff the preview bar with a way back to admin", () => {
+    authState.current = auth({ role: "admin" });
+    renderAt("/student/dashboard");
+    expect(screen.getByText(/viewing as a student \(staff preview\)/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to admin" })).toHaveAttribute("href", "/admin");
+  });
+
+  it("does not show students the staff preview bar", () => {
+    renderAt("/student/dashboard");
+    expect(screen.queryByText(/staff preview/i)).not.toBeInTheDocument();
+  });
+
+  it("opens More with the profile, Community and Account lists and sign out", () => {
+    authState.current = auth({ student: { admission_status: "PENDING", student_code: "SLS-7", learning_mode: "Physical" } as never });
+    renderAt("/student/dashboard");
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+    const sheet = screen.getByRole("dialog");
+    expect(within(sheet).getByText("Ada Lovelace")).toBeInTheDocument();
+    expect(within(sheet).getByText("SLS-7 · Physical")).toBeInTheDocument();
+    expect(within(sheet).getByRole("link", { name: "Announcements" })).toHaveAttribute("href", "/student/announcements");
+    // Course mates is locked until admission.
+    expect(within(sheet).queryByRole("link", { name: /course mates/i })).not.toBeInTheDocument();
+    expect(within(sheet).getByText("After admission")).toBeInTheDocument();
+    expect(within(sheet).getByRole("button", { name: "Sign out" })).toBeInTheDocument();
+    expect(within(sheet).queryByRole("link", { name: /back to admin portal/i })).not.toBeInTheDocument();
   });
 });

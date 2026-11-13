@@ -1,14 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Upload, File, Clock, CheckCircle2, AlertCircle, ClipboardList, Send, Award } from 'lucide-react';
+import { Loader2, Upload, File, Clock, CheckCircle2, AlertCircle, ClipboardList } from 'lucide-react';
+import { Bar, EmptyCard, Panel, Pill, ScreenHeader, type Tone } from '@/components/redesign/student-pages/ui';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
 import { calculateTimeRemaining, formatTimeRemaining, type TimeRemaining } from '@/lib/timer';
@@ -66,7 +65,7 @@ const StudentAssignments = () => {
   }, [assignments]);
 
 
-  const handleDownload = async (submission) => {
+  const handleDownload = async (submission: Tables<'assignment_submissions'>) => {
     try {
       if (submission.storage_provider === 'r2') {
         const url = await r2Storage.getDownloadUrl(submission.storage_path || submission.file_url);
@@ -129,198 +128,180 @@ const StudentAssignments = () => {
 
   if (loading) {
     return (
-      <>
-        <div className="flex items-center justify-center min-h-[300px]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </>
+      <div className="flex items-center justify-center min-h-[300px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" aria-label="Loading tasks" />
+      </div>
     );
   }
 
+  const formatDue = (d: Date) =>
+    `${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}, ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+
   return (
-    <>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Tasks</h1>
-          <p className="text-sm text-muted-foreground mt-1">View and submit your coursework</p>
-        </div>
+    <div className="mx-auto max-w-3xl space-y-4">
+      <ScreenHeader title="Tasks" description="Coursework to submit, and how it was marked." />
 
-        {/* Progress Overview */}
-        <Card className={`border-l-4 ${pendingCount === 0 && expiredCount === 0 && assignments.length > 0 ? 'border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950/20' : pendingCount > 0 ? 'border-l-amber-500 bg-amber-50 dark:bg-amber-950/20' : 'border-l-primary bg-primary/5'}`}>
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <ClipboardList className="h-5 w-5 text-primary" />
-                <span className="font-semibold text-foreground">Submission Progress</span>
-              </div>
-              <span className="text-sm font-bold text-primary">{progressPercent}%</span>
-            </div>
-            <Progress value={progressPercent} className="h-2.5 mb-3" />
-            <div className="flex items-center gap-4 text-sm flex-wrap">
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> {gradedCount} Graded</span>
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> {submittedCount - gradedCount} Submitted</span>
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> {pendingCount} Pending</span>
-              {expiredCount > 0 && <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /> {expiredCount} Expired</span>}
-              <span className="text-muted-foreground ml-auto">{assignments.length} Total</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Stat Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Card className="border-l-4 border-l-primary bg-primary/5 dark:bg-primary/10">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground font-medium">Total</p>
-              <p className="text-2xl font-bold text-foreground">{assignments.length}</p>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-amber-500 bg-amber-50 dark:bg-amber-950/20">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground font-medium">Pending</p>
-              <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{pendingCount}</p>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-blue-500 bg-blue-50 dark:bg-blue-950/20">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground font-medium">Submitted</p>
-              <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{submittedCount}</p>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-emerald-500 bg-emerald-50 dark:bg-emerald-950/20">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground font-medium">Graded</p>
-              <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{gradedCount}</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Task list */}
-        {assignments.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center py-8">
-                <ClipboardList className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">No tasks yet</p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {assignments.map((assignment) => {
-              const status = getStatus(assignment);
-              const timer = timers[assignment.id] || calculateTimeRemaining(assignment.due_date);
-              const isDue = assignment.due_date ? new Date(assignment.due_date) : null;
-
-              const borderColor = status === 'GRADED' ? 'border-l-emerald-500' : status === 'SUBMITTED' ? 'border-l-blue-500' : status === 'EXPIRED' ? 'border-l-red-500' : timer?.isUrgent ? 'border-l-red-500' : 'border-l-amber-500';
-              const bgColor = status === 'GRADED' ? 'bg-emerald-50/50 dark:bg-emerald-950/10' : status === 'SUBMITTED' ? 'bg-blue-50/50 dark:bg-blue-950/10' : status === 'EXPIRED' ? 'bg-red-50/50 dark:bg-red-950/10' : timer?.isUrgent ? 'bg-red-50/50 dark:bg-red-950/10' : '';
-
-              const statusBadge = (() => {
-                switch (status) {
-                  case 'PENDING':
-                    return timer?.isUrgent ? (
-                      <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300 animate-pulse"><AlertCircle className="w-3 h-3 mr-1" /> Due Soon</Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300"><Clock className="w-3 h-3 mr-1" /> Pending</Badge>
-                    );
-                  case 'EXPIRED':
-                    return <Badge variant="destructive"><AlertCircle className="w-3 h-3 mr-1" /> Expired</Badge>;
-                  case 'SUBMITTED':
-                    return <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300"><Send className="w-3 h-3 mr-1" /> Submitted</Badge>;
-                  case 'GRADED':
-                    return <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-300"><Award className="w-3 h-3 mr-1" /> Graded</Badge>;
-                  default:
-                    return <Badge>{status}</Badge>;
-                }
-              })();
-
-              return (
-                <Card key={assignment.id} className={`border-l-4 ${borderColor} ${bgColor} transition-shadow hover:shadow-md`}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <CardTitle className="text-base leading-tight">{assignment.title}</CardTitle>
-                        {assignment.description && <CardDescription className="mt-1 line-clamp-2">{assignment.description}</CardDescription>}
-                      </div>
-                      {statusBadge}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {isDue && (
-                      <div className={`p-3 rounded-lg text-sm ${timer?.isUrgent && !assignment.submission ? 'bg-red-100 dark:bg-red-900/30 border border-red-300' : 'bg-muted/50 border border-border'}`}>
-                        <p className={`font-medium ${timer?.isUrgent && !assignment.submission ? 'text-red-900 dark:text-red-300' : 'text-foreground'}`}>
-                          ⏱️ {formatTimeRemaining(timer || calculateTimeRemaining(assignment.due_date))}
-                        </p>
-                        <p className={`text-xs mt-1 ${timer?.isUrgent && !assignment.submission ? 'text-red-700 dark:text-red-400' : 'text-muted-foreground'}`}>
-                          Due: {isDue.toLocaleDateString()} at {isDue.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                    )}
-
-                    {assignment.submission ? (
-                      <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 space-y-2">
-                        <p className="text-sm font-medium text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
-                          <CheckCircle2 className="w-4 h-4" /> Submitted on {new Date(assignment.submission.submitted_at || '').toLocaleDateString()}
-                        </p>
-                        {assignment.submission.file_url && (
-                          <Button variant="outline" size="sm" onClick={() => handleDownload(assignment.submission)}>
-                            <File className="w-4 h-4 mr-2" /> Download Submission
-                          </Button>
-                        )}
-                        {assignment.submission.grade != null && (
-                          <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-                            <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-                              Score: {assignment.submission.grade}/{assignment.max_points || 100}
-                              <span className="ml-2 text-xs font-normal text-emerald-600 dark:text-emerald-400">
-                                ({Math.round((assignment.submission.grade / (assignment.max_points || 100)) * 100)}%)
-                              </span>
-                            </p>
-                          </div>
-                        )}
-                        {assignment.submission.feedback && (
-                          <div className="p-2.5 bg-card rounded-lg border text-sm">
-                            <p className="font-medium text-foreground">Feedback:</p>
-                            <p className="text-muted-foreground mt-0.5">{assignment.submission.feedback}</p>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <Dialog open={uploadingAssignmentId === assignment.id} onOpenChange={(open) => open ? setUploadingAssignmentId(assignment.id) : setUploadingAssignmentId(null)}>
-                        <DialogTrigger asChild>
-                          <Button className="w-full sm:w-auto" variant={status === 'EXPIRED' ? 'destructive' : 'default'}>
-                            <Upload className="w-4 h-4 mr-2" /> {status === 'EXPIRED' ? 'Submit Late' : 'Upload Submission'}
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Submit Assignment</DialogTitle>
-                            <DialogDescription>{assignment.title}</DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-4">
-                            {status === 'EXPIRED' && (
-                              <div className="bg-red-50 dark:bg-red-950/30 border border-red-300 dark:border-red-800 rounded-lg p-3">
-                                <p className="text-sm text-red-800 dark:text-red-300 font-medium">⚠️ This submission will be marked as late</p>
-                              </div>
-                            )}
-                            <div>
-                              <Label>Select File</Label>
-                              <Input type="file" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} className="mt-2" />
-                              {selectedFile && <p className="text-sm text-muted-foreground mt-2">Selected: {selectedFile.name}</p>}
-                            </div>
-                            <Button onClick={() => handleSubmit(assignment.id)} disabled={submitting === assignment.id || !selectedFile} className="w-full" variant={status === 'EXPIRED' ? 'destructive' : 'default'}>
-                              {submitting === assignment.id ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uploading...</>) : (<><Upload className="w-4 h-4 mr-2" /> Submit</>)}
-                            </Button>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
+      {/* Progress overview */}
+      {assignments.length > 0 && (
+        <Panel className="space-y-3 rounded-2xl px-4 py-3.5">
+          <div className="flex items-baseline justify-between gap-3 text-sm">
+            <strong className="font-bold">Submitted</strong>
+            <span className="text-muted-foreground">
+              {submittedCount} of {assignments.length} · {progressPercent}%
+            </span>
           </div>
-        )}
-      </div>
-    </>
+          <Bar value={progressPercent} label={`Tasks submitted, ${progressPercent}%`} />
+          <dl className="grid grid-cols-4 gap-2 text-center">
+            {[
+              { label: 'To do', value: pendingCount, color: 'text-[#8A3F05] dark:text-amber-300' },
+              { label: 'Submitted', value: submittedCount - gradedCount, color: 'text-[#3F1585] dark:text-violet-200' },
+              { label: 'Graded', value: gradedCount, color: 'text-[#11603F] dark:text-emerald-300' },
+              { label: 'Overdue', value: expiredCount, color: 'text-[#8E2A0A] dark:text-red-300' },
+            ].map((s) => (
+              <div key={s.label} className="flex flex-col-reverse rounded-xl bg-muted/60 py-2">
+                <dt className="text-[11px] font-semibold text-muted-foreground">{s.label}</dt>
+                <dd className={cn('text-lg font-extrabold tracking-tight', s.color)}>{s.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </Panel>
+      )}
+
+      {/* Task list */}
+      {assignments.length === 0 ? (
+        <EmptyCard icon={<ClipboardList className="h-6 w-6" aria-hidden="true" />} title="No tasks yet">
+          When your lecturers set coursework it appears here.
+        </EmptyCard>
+      ) : (
+        <ul className="space-y-2.5" aria-label="Tasks">
+          {assignments.map((assignment) => {
+            const status = getStatus(assignment);
+            const timer = timers[assignment.id] || calculateTimeRemaining(assignment.due_date);
+            const isDue = assignment.due_date ? new Date(assignment.due_date) : null;
+            const urgent = status === 'PENDING' && timer?.isUrgent;
+
+            const pill: { tone: Tone; label: string } =
+              status === 'GRADED' ? { tone: 'success', label: 'Graded' }
+              : status === 'SUBMITTED' ? { tone: 'info', label: 'Submitted' }
+              : status === 'EXPIRED' ? { tone: 'danger', label: 'Overdue' }
+              : urgent ? { tone: 'danger', label: 'Due soon' }
+              : { tone: 'warning', label: 'To do' };
+
+            const submission = assignment.submission;
+            const maxPoints = assignment.max_points || 100;
+
+            return (
+              <li
+                key={assignment.id}
+                className={cn(
+                  'flex flex-col gap-2 rounded-2xl border bg-card p-3.5',
+                  urgent || status === 'EXPIRED' ? 'border-[#8E2A0A]/30 dark:border-red-400/30' : 'border-border',
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <h2 className="min-w-0 text-[15px] font-bold leading-snug text-foreground">{assignment.title}</h2>
+                  <Pill tone={pill.tone}>
+                    {(urgent || status === 'EXPIRED') && <AlertCircle className="h-3 w-3" aria-hidden="true" />}
+                    {pill.label}
+                  </Pill>
+                </div>
+
+                {isDue && (
+                  <p className="flex flex-wrap items-center gap-x-1.5 text-[13px] text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <span>Due {formatDue(isDue)}</span>
+                    {!submission && (
+                      <span className={cn(urgent || status === 'EXPIRED' ? 'font-semibold text-[#8E2A0A] dark:text-red-300' : '')}>
+                        · {formatTimeRemaining(timer || calculateTimeRemaining(assignment.due_date))}
+                      </span>
+                    )}
+                  </p>
+                )}
+                {assignment.description && (
+                  <p className="line-clamp-2 text-[13px] text-muted-foreground">{assignment.description}</p>
+                )}
+
+                {submission ? (
+                  <div className="space-y-2 border-t border-border pt-2.5">
+                    <p className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
+                      <CheckCircle2 className="h-4 w-4 text-[#157F5B] dark:text-emerald-400" aria-hidden="true" />
+                      Submitted {new Date(submission.submitted_at || '').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                    {submission.grade != null && (
+                      <p className="text-sm font-bold text-[#11603F] dark:text-emerald-300">
+                        Score {submission.grade}/{maxPoints}
+                        <span className="ml-1.5 text-xs font-semibold">
+                          ({Math.round((submission.grade / maxPoints) * 100)}%)
+                        </span>
+                      </p>
+                    )}
+                    {submission.feedback && (
+                      <p className="text-[13px] italic text-muted-foreground">
+                        <span className="font-semibold not-italic text-foreground">Lecturer: </span>
+                        {submission.feedback}
+                      </p>
+                    )}
+                    {submission.file_url && (
+                      <Button variant="outline" className="h-11 rounded-xl" onClick={() => handleDownload(submission)}>
+                        <File className="mr-2 h-4 w-4" aria-hidden="true" /> Download my submission
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <Dialog
+                    open={uploadingAssignmentId === assignment.id}
+                    onOpenChange={(open) => open ? setUploadingAssignmentId(assignment.id) : setUploadingAssignmentId(null)}
+                  >
+                    <DialogTrigger asChild>
+                      <Button
+                        className="h-11 w-full rounded-xl font-bold sm:w-auto sm:self-start"
+                        variant={status === 'EXPIRED' ? 'destructive' : 'default'}
+                      >
+                        <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
+                        {status === 'EXPIRED' ? 'Submit late' : 'Submit work'}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Submit task</DialogTitle>
+                        <DialogDescription>{assignment.title}</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        {status === 'EXPIRED' && (
+                          <div className="rounded-xl bg-[#FDE2D8] p-3 text-sm font-medium text-[#8E2A0A] dark:bg-red-500/15 dark:text-red-300">
+                            The deadline has passed. This submission will be marked as late.
+                          </div>
+                        )}
+                        <div>
+                          <Label htmlFor={`task-file-${assignment.id}`}>Your file</Label>
+                          <Input
+                            id={`task-file-${assignment.id}`}
+                            type="file"
+                            onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                            className="mt-2 h-11"
+                          />
+                          {selectedFile && <p className="mt-2 text-sm text-muted-foreground">Selected: {selectedFile.name}</p>}
+                        </div>
+                        <Button
+                          onClick={() => handleSubmit(assignment.id)}
+                          disabled={submitting === assignment.id || !selectedFile}
+                          className="h-11 w-full rounded-xl font-bold"
+                          variant={status === 'EXPIRED' ? 'destructive' : 'default'}
+                        >
+                          {submitting === assignment.id
+                            ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> Uploading…</>)
+                            : (<><Upload className="mr-2 h-4 w-4" aria-hidden="true" /> Submit</>)}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 };
 
