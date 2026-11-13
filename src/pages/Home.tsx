@@ -5,6 +5,7 @@ import { MapPin, Phone, Mail, ChevronRight, ArrowRight, Lock } from "lucide-reac
 import { supabase } from "@/integrations/supabase/client";
 import Reveal from "@/components/Reveal";
 import { useSiteContent } from "@/hooks/use-site-content";
+import { usePublicFees } from "@/hooks/use-public-fees";
 import SEO from "@/components/SEO";
 
 // Hero slides, as base names. Each ships a 1439px and an 800px WebP variant so
@@ -32,6 +33,7 @@ const Home = () => {
   // competes with the largest-contentful paint for bandwidth.
   const [heroReady, setHeroReady] = useState(false);
   const { get } = useSiteContent("home");
+  const fees = usePublicFees(get("fees_note", ""));
 
   useEffect(() => {
     const fetchEnrollmentStatus = async () => {
@@ -203,6 +205,12 @@ const Home = () => {
             </Reveal>
           ))}
         </div>
+        {fees.kind !== "none" && (
+          <p className="text-foreground text-base">
+            <span className="font-semibold">Fees{fees.kind === "live" && fees.cohortName ? ` for ${fees.cohortName}` : ""}:</span>{" "}
+            {fees.text}
+          </p>
+        )}
         <RegisterButtons />
       </div>
     </Reveal>

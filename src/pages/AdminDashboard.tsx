@@ -10,6 +10,7 @@ import {
   Users, Clock, BookOpen, Calendar, UserPlus, CheckCircle, XCircle,
   BadgeDollarSign, Award, GraduationCap, ChevronRight, CalendarCheck,
   ClipboardCheck, Megaphone, BarChart3, Folder,
+  MessageCircle,
 } from "lucide-react";
 import ActionCentre, { type ActionQueue } from "@/components/admin/ActionCentre";
 import PortalPulse from "@/components/admin/PortalPulse";
@@ -69,6 +70,12 @@ interface DashboardStats {
   certificateNameRequests: CertificateNameRequest[];
   /** Receipts filed and awaiting a verify/reject decision. */
   pendingPayments: number;
+  /** Student self check-ins nobody has verified yet. */
+  unverifiedCheckIns: number;
+  /** Exam attempts submitted but not yet graded (the marking backlog). */
+  papersToMark: number;
+  /** WhatsApp conversations the bot handed to a person and nobody closed. */
+  openHandovers: number;
 }
 
 const AdminDashboard = () => {
@@ -78,7 +85,7 @@ const AdminDashboard = () => {
 
   const loadStats = async () => {
     try {
-      const [studentsRes, pendingCountRes, coursesRes, cohortRes, recentRes, pendingRes, learningModeRequestsRes, certRequestsRes, pendingPaymentsRes] = await Promise.all([
+      const [studentsRes, pendingCountRes, coursesRes, cohortRes, recentRes, pendingRes, learningModeRequestsRes, certRequestsRes, pendingPaymentsRes, checkInsRes, toMarkRes, handoversRes] = await Promise.all([
         supabase.from("students").select("id", { count: "exact", head: true }).eq("is_staff_preview", false),
         supabase
           .from("students")
@@ -121,6 +128,22 @@ const AdminDashboard = () => {
           .from("payments")
           .select("id", { count: "exact", head: true })
           .eq("status", "PENDING"),
+        // The three backlogs the dashboard never surfaced: check-ins waiting
+        // for verification, papers waiting to be marked, and WhatsApp chats the
+        // bot handed to a person. A query a role cannot read just counts 0.
+        supabase
+          .from("attendance")
+          .select("id", { count: "exact", head: true })
+          .eq("is_verified", false),
+        supabase
+          .from("exam_attempts")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "submitted"),
+        supabase
+          .from("whatsapp_conversations")
+          .select("jid", { count: "exact", head: true })
+          .not("handover_at", "is", null)
+          .is("handover_closed_at", null),
       ]);
 
       setStats({
@@ -133,6 +156,9 @@ const AdminDashboard = () => {
         learningModeRequests: (learningModeRequestsRes.data) || [],
         certificateNameRequests: (certRequestsRes.data) || [],
         pendingPayments: pendingPaymentsRes.count || 0,
+        unverifiedCheckIns: checkInsRes.count || 0,
+        papersToMark: toMarkRes.count || 0,
+        openHandovers: handoversRes.count || 0,
       });
     } catch (err) {
       console.error("Dashboard load error:", err);
@@ -307,6 +333,30 @@ const AdminDashboard = () => {
       icon: Award,
       path: "/admin/admissions",
       tone: "violet",
+    },
+    {
+      label: "Check-ins to verify",
+      noun: "check-in",
+      count: stats.unverifiedCheckIns,
+      icon: CalendarCheck,
+      path: "/admin/attendance",
+      tone: "sky",
+    },
+    {
+      label: "Exam papers to mark",
+      noun: "paper",
+      count: stats.papersToMark,
+      icon: ClipboardCheck,
+      path: "/admin/exams",
+      tone: "amber",
+    },
+    {
+      label: "WhatsApp chats handed to you",
+      noun: "chat",
+      count: stats.openHandovers,
+      icon: MessageCircle,
+      path: "/admin/whatsapp/log",
+      tone: "emerald",
     },
   ];
 

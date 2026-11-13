@@ -58,7 +58,7 @@ describe("student shell", () => {
 
   it("groups the sidebar under section headings", () => {
     renderAt("/student/dashboard");
-    for (const section of ["Learning", "My Record", "Community", "Account"]) {
+    for (const section of ["Learn", "Exams", "My Record", "Community", "Account"]) {
       expect(screen.getByRole("button", { name: new RegExp(section, "i") })).toBeInTheDocument();
     }
   });
@@ -66,7 +66,7 @@ describe("student shell", () => {
   it("marks the current page for assistive tech", () => {
     renderAt("/student/dashboard");
     const current = screen.getAllByRole("link", { current: "page" });
-    expect(current.map((el) => el.textContent)).toContain("Dashboard");
+    expect(current.map((el) => el.textContent)).toContain("Today");
   });
 
   it("keeps Exams marked as current on a nested exam route", () => {

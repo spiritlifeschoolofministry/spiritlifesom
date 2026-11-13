@@ -13,6 +13,7 @@ vi.mock("@/integrations/supabase/client", () => ({
         eq: () => ({ single: () => Promise.resolve({ data: null }) }),
       }),
     }),
+    rpc: () => Promise.resolve({ data: [], error: null }),
   },
 }));
 

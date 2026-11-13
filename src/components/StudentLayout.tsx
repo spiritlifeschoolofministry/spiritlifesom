@@ -68,18 +68,26 @@ const NAV_GROUPS: NavGroup[] = [
     id: "overview",
     title: null,
     items: [
-      { label: "Dashboard", icon: LayoutDashboard, path: "/student/dashboard", restrictedWhenPending: false },
+      { label: "Today", icon: LayoutDashboard, path: "/student/dashboard", restrictedWhenPending: false },
     ],
   },
   {
     id: "learning",
-    title: "Learning",
+    title: "Learn",
     items: [
       { label: "My Courses", icon: BookOpen, path: "/student/courses", restrictedWhenPending: false },
       { label: "Course Materials", icon: FileText, path: "/student/materials", restrictedWhenPending: true },
       { label: "Tasks", icon: ClipboardList, path: "/student/assignments", restrictedWhenPending: true },
-      { label: "Exams", icon: FileCheck, path: "/student/exams", restrictedWhenPending: true },
       { label: "Study", icon: Sparkles, path: "/student/study", restrictedWhenPending: true },
+    ],
+  },
+  {
+    // Its own section: several papers often share one window on the same
+    // day, and students need to find them in one tap, not under "Learn".
+    id: "exams",
+    title: "Exams",
+    items: [
+      { label: "Exams", icon: FileCheck, path: "/student/exams", restrictedWhenPending: true },
     ],
   },
   {
@@ -127,13 +135,25 @@ const NAV_PATHS = NAV_ITEMS.map((item) => item.path);
  */
 export const STUDENT_NAV_PATHS = NAV_PATHS;
 
-/** The four paths pinned to the mobile bottom bar, in order. */
-const MOBILE_PRIMARY_PATHS = [
-  "/student/dashboard",
-  "/student/courses",
-  "/student/attendance",
-  "/student/assignments",
+/**
+ * The phone bottom bar: one tab per section rather than one per page. A tab is
+ * current whenever the page you are on belongs to its section, and within a
+ * section the pages sit in a tab strip at the top of the content.
+ */
+const MOBILE_TABS: { label: string; icon: LucideIcon; path: string; group: string }[] = [
+  { label: "Today", icon: LayoutDashboard, path: "/student/dashboard", group: "overview" },
+  { label: "Learn", icon: BookOpen, path: "/student/courses", group: "learning" },
+  { label: "Exams", icon: FileCheck, path: "/student/exams", group: "exams" },
+  { label: "Record", icon: GraduationCap, path: "/student/attendance", group: "record" },
 ];
+
+/** The section a path belongs to, by the longest matching nav path. */
+const groupForPath = (pathname: string): NavGroup | undefined => {
+  const match = NAV_ITEMS
+    .filter((item) => pathname === item.path || pathname.startsWith(`${item.path}/`))
+    .sort((a, b) => b.path.length - a.path.length)[0];
+  return match ? NAV_GROUPS.find((group) => group.items.includes(match)) : undefined;
+};
 
 const StudentLayout = () => {
   const location = useLocation();
@@ -264,11 +284,69 @@ const StudentLayout = () => {
       )
     );
 
-  // Pinned rather than "the first four", so regrouping the sidebar never
-  // silently changes what the bottom bar offers.
-  const mobilePrimary = MOBILE_PRIMARY_PATHS.map(
-    (path) => NAV_ITEMS.find((item) => item.path === path)
-  ).filter((item): item is NavItem => Boolean(item));
+  const currentGroup = groupForPath(location.pathname);
+
+  const renderMobileTab = (tab: (typeof MOBILE_TABS)[number]) => {
+    const active = currentGroup?.id === tab.group;
+    const target = NAV_ITEMS.find((item) => item.path === tab.path);
+    if (isPending && target?.restrictedWhenPending) {
+      return (
+        <span key={tab.path} className="flex min-w-[56px] flex-col items-center gap-0.5 text-[11px] text-muted-foreground/40 cursor-not-allowed">
+          <Lock className="w-5 h-5" />
+          {tab.label}
+        </span>
+      );
+    }
+    return (
+      <Link
+        key={tab.path}
+        to={tab.path}
+        {...prefetch(tab.path)}
+        aria-current={active ? "page" : undefined}
+        className={`flex min-w-[56px] flex-col items-center gap-0.5 rounded-xl px-2 py-1 text-[11px] font-medium ${active ? "text-primary" : "text-muted-foreground"}`}
+      >
+        <span className={`flex h-7 w-11 items-center justify-center rounded-full transition-colors ${active ? "bg-primary/10" : ""}`}>
+          <tab.icon className="w-5 h-5" />
+        </span>
+        {tab.label}
+      </Link>
+    );
+  };
+
+  // On phones, the pages of the current section (Learn: courses, materials,
+  // tasks, study; Record: attendance, assessments, transcript, certificate,
+  // fees; …) sit in a tab strip above the content, one tap apart.
+  const sectionTabs =
+    currentGroup && currentGroup.items.length > 1 ? (
+      <nav aria-label={`${currentGroup.title ?? "Section"} pages`} className="md:hidden -mx-4 mb-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6">
+        <ul className="flex w-max gap-2">
+          {currentGroup.items.map((item) => {
+            const active = isNavActive(location.pathname, item.path, NAV_PATHS);
+            const restricted = isPending && item.restrictedWhenPending;
+            return (
+              <li key={item.path}>
+                {restricted ? (
+                  <span className="inline-flex h-10 items-center gap-1.5 rounded-full border border-border px-4 text-sm text-muted-foreground/50">
+                    <Lock className="h-3.5 w-3.5" /> {item.label}
+                  </span>
+                ) : (
+                  <Link
+                    to={item.path}
+                    {...prefetch(item.path)}
+                    aria-current={active ? "page" : undefined}
+                    className={`inline-flex h-10 items-center rounded-full px-4 text-sm font-semibold transition-colors ${
+                      active ? "bg-primary text-primary-foreground" : "border border-border bg-card text-foreground"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    ) : null;
 
   const paletteGroups = useMemo(
     () =>
@@ -455,6 +533,7 @@ const StudentLayout = () => {
               </div>
             }
           >
+            {sectionTabs}
             <Outlet />
           </Suspense>
         </main>
@@ -462,7 +541,7 @@ const StudentLayout = () => {
 
       {/* Mobile bottom nav with sheet for all items */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t border-border flex justify-around pt-2 pb-safe z-30" aria-label="Primary">
-        {mobilePrimary.map((item) => renderNavItem(item, { mobile: true }))}
+        {MOBILE_TABS.map(renderMobileTab)}
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
           <SheetTrigger asChild>
             <button className="flex flex-col items-center gap-0.5 text-[10px] text-muted-foreground">

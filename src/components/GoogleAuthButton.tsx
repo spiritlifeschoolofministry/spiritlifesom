@@ -36,7 +36,8 @@ const GoogleAuthButton = ({
       type="button"
       onClick={handleGoogle}
       disabled={loading}
-      className="w-full h-11 flex items-center justify-center gap-3 rounded-md border border-input bg-white text-gray-800 font-medium text-sm hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+      // Google's standard light sign-in button: white, #747775 outline, #1F1F1F label.
+      className="w-full h-12 flex items-center justify-center gap-3 rounded-xl border border-[#747775] bg-white text-[#1F1F1F] font-semibold text-[15px] hover:bg-[#F8F9FA] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1A73E8]"
     >
       {loading ? (
         <Loader2 className="h-4 w-4 animate-spin" />

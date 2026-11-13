@@ -28,7 +28,7 @@ describe('askAssistant routing', () => {
     expect(answer.source).toBe('portal');
     expect(answer.page?.path).toBe('/student/assignments');
     // Phrased from the sidebar's own structure, so it is checkable.
-    expect(answer.answer).toContain('Learning');
+    expect(answer.answer).toContain('Learn');
   });
 
   it('answers an unprefixed page name locally too', async () => {

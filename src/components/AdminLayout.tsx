@@ -80,34 +80,42 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    id: "academics",
-    title: "Academics",
+    // The week-to-week work of running classes.
+    id: "teaching",
+    title: "Teaching",
     items: [
       { label: "Courses", icon: BookOpen, path: "/admin/courses" },
       { label: "Attendance", icon: CalendarCheck, path: "/admin/attendance" },
       { label: "Tasks", icon: FileText, path: "/admin/assignments" },
-      { label: "Exams", icon: ClipboardCheck, path: "/admin/exams" },
       // Its own item, not a corner of the exams page: these questions are never
       // on a paper, and somebody looking for them was looking under Exams for a
       // thing that is not an exam.
       { label: "Practice Questions", shortLabel: "Practice", icon: Sparkles, path: "/admin/practice" },
       { label: "Materials", icon: Folder, path: "/admin/materials" },
+      { label: "Calendar", icon: CalendarDays, path: "/admin/calendar" },
     ],
   },
   {
-    id: "finance",
-    title: "Finance",
+    // Exams get their own section: building, monitoring and marking papers is
+    // a job of its own, and the marking backlog lives here.
+    id: "exams",
+    title: "Exams",
+    items: [{ label: "Exams", icon: ClipboardCheck, path: "/admin/exams" }],
+  },
+  {
+    id: "money",
+    title: "Money",
     items: [
       { label: "Fees", icon: CreditCard, path: "/admin/fees" },
       { label: "Payments", icon: BadgeDollarSign, path: "/admin/payments" },
     ],
   },
   {
-    id: "communication",
-    title: "Communication",
+    // Everything that goes out to students.
+    id: "reach",
+    title: "Reach",
     items: [
       { label: "Announcements", icon: Bell, path: "/admin/announcements" },
-      { label: "Calendar", icon: CalendarDays, path: "/admin/calendar" },
       { label: "Email History", icon: Mail, path: "/admin/email-history" },
     ],
   },

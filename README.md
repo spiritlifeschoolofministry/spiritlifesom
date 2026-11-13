@@ -109,25 +109,41 @@ No feature uses 3D yet. Add each 3D feature to this section when you build it.
 
 ## Graphics, charts and animation libraries
 
-Installed for upcoming features. None of them is imported by the app yet, so they add nothing to the bundle until something uses them. Import heavy ones (Babylon.js, PixiJS, Konva, d3, Chart.js) only from pages loaded with `React.lazy`.
+Import the heavy ones only from pages loaded with `React.lazy`, or with a dynamic `import()`, so they stay out of the main bundle.
 
-| Area | Package | Version | Use it for |
+| Area | Package | Version | Where it is used |
 | --- | --- | --- | --- |
-| Animation | `framer-motion` | ^14.13 | UI and page transitions, enter/exit animations |
-| Animation | `gsap` + `@gsap/react` | ^3.15 / ^2.1 | Timelines and scroll animation (`useGSAP` hook) |
-| Animation | `animejs` | ^4.5 | Small, lightweight one-off animations |
-| Charts | `recharts` | ^3.10 | Dashboard charts (admin Analytics uses it) |
-| Charts | `chart.js` + `react-chartjs-2` | ^4.6 / ^5.3 | Canvas charts, good for large data sets |
-| Charts | `d3` (+ `@types/d3`, dev) | ^7.9 | Custom visualisations |
-| 2D | `pixi.js` + `@pixi/react` | ^8.23 / ^8.0 | Fast GPU-drawn 2D graphics as React components |
-| 2D | `konva` + `react-konva` | ^10.9 / ^19.3 | Drawing and editing on a canvas |
-| 3D | `@babylonjs/core` + `@babylonjs/loaders` | ^9.36 | Alternative 3D engine; `babylonjs-gltf2interface` is its required peer |
+| Animation | `framer-motion` | ^14.13 | App UI motion (page transitions, list changes). Planned. |
+| Animation | `gsap` + `@gsap/react` | ^3.15 / ^2.1 | Home page scroll effects. Planned (homepage redesign, on the `homepage-redesign` branch). |
+| Charts | `recharts` | ^3.10 | Dashboard charts (admin Analytics) |
+| Charts | `d3` (+ `@types/d3`, dev) | ^7.9 | Custom visualisations (attendance heatmap, cohort funnel). Planned. |
+| 2D | `konva` + `react-konva` | ^10.9 / ^19.3 | Canvas editing (certificate layout editor). Planned; needs a place to store positions. |
+| 3D | `three`, `@react-three/fiber`, `@react-three/drei` | see "3D graphics" | 3D certificate. Planned. |
+
+Removed in November 2026 because nothing used them and other packages already cover them: Babylon.js (`@babylonjs/core`, `@babylonjs/loaders`, `babylonjs-gltf2interface`), PixiJS (`pixi.js`, `@pixi/react`), `animejs`, and Chart.js (`chart.js`, `react-chartjs-2`).
 
 Version constraints (the app is on React 19):
 
-- **react-konva 19, @pixi/react 8, fiber 9 and drei 10 all require React 19.**
+- **react-konva 19, fiber 9 and drei 10 all require React 19.**
 - **React 19 brought these upgrades:** `next-themes` 0.4, `vaul` 1.1 and `react-day-picker` 9. `src/components/ui/calendar.tsx` uses day-picker 9's class names and `Chevron` component; pass `autoFocus`, not the removed `initialFocus`.
 - **Recharts 3** no longer puts `payload` and `label` on `Tooltip`'s props, and pie `label` callbacks get the data row under `payload`. `src/components/ui/chart.tsx` is already adapted.
+
+## Portal navigation
+
+- **Student portal** (`src/components/StudentLayout.tsx`): sections are Today (the dashboard), Learn (courses, materials, tasks, study), Exams, My Record (attendance, assessments, transcript, certificate, fees), Community and Account. On phones the bottom bar has one tab per section (Today, Learn, Exams, Record, More), and the pages of the current section sit in a tab strip above the content. URLs are unchanged.
+- **Student exams** (`src/pages/student/exams/ExamsList.tsx`): papers that share a window (same start and end) are grouped under one heading with "x of n done", live windows first. While a window is open the heading compares the time left with the time the unsubmitted papers need. Grouping logic: `src/lib/exam-windows.ts` (tested in `src/test/exam-windows.test.ts`).
+- **Admin portal** (`src/components/AdminLayout.tsx`): sections are People, Teaching (courses, attendance, tasks, practice questions, materials, calendar), Exams, Money, Reach (announcements, email history), Insights and System.
+- **Admin dashboard, "Needs your attention"**: besides admissions, receipts and requests it now counts unverified check-ins, exam attempts submitted but not yet graded, and WhatsApp chats handed to a person and still open.
+- **Barnabas' page map** (`src/lib/portal-map.ts`) uses the same section names, so "where is…" answers match the sidebar.
+
+## Fees on the home page
+
+The "Begin Your Ministry Journey" section on `/` shows what the programme costs, from one of two sources:
+
+1. **An admin's note.** Admin › Settings › Site content › `home` › "Fees line on the home page". Whatever is written there is shown as is (for example "₦50,000, payable in two instalments").
+2. **Live fees**, when that note is empty. The `public_fee_summary()` database function returns the fee structures of the active cohort (the one Register uses): fee name, amount and learning modes, and nothing about any student. The page totals them per learning mode, counting `All` for both, so it quotes what a new Physical or Online student is billed. Hybrid is assigned by admins, so it isn't quoted.
+
+`fee_structures` itself stays closed to visitors. The function is the only public way in. It ships in `supabase/migrations/20261113100000_public_fee_summary.sql`, which also adds the empty site-content row. If neither source has anything, the line is hidden. The logic is in `src/lib/public-fees.ts` (tested in `src/test/public-fees.test.ts`) and `src/hooks/use-public-fees.ts`.
 
 ## Dependency notes
 

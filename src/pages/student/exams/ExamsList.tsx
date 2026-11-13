@@ -25,6 +25,8 @@ import { format, isAfter, isBefore } from "date-fns";
 import { ChevronDown, CheckCircle2, XCircle, Trophy, Download } from "lucide-react";
 import { formatAnswer, sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType, type AnswerFormattable } from "@/lib/exam-utils";
 import { downloadCSV } from "@/lib/csv-export";
+import { groupExamWindows, formatMinutes } from "@/lib/exam-windows";
+import { AlertTriangle, Clock } from "lucide-react";
 
 export default function StudentExamsList() {
   const { student } = useAuth();
@@ -157,8 +159,40 @@ export default function StudentExamsList() {
         ) : exams.length === 0 ? (
           <Card className="p-10 text-center text-muted-foreground">No exams scheduled.</Card>
         ) : (
-          <div className="grid gap-3">
-            {exams.map((e) => {
+          <div className="space-y-8">
+            {groupExamWindows(exams, attempts).map((w) => {
+              const many = w.exams.length > 1;
+              const short = w.state === "live" && w.minutesNeeded > w.minutesLeft;
+              return (
+            <section key={w.key} aria-label={`${format(w.start, "EEEE d MMMM")} exam window`} className="space-y-3">
+              <div className={`rounded-2xl p-4 ${w.state === "live" ? "bg-primary text-primary-foreground" : "bg-muted/60"}`}>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h2 className="text-base font-semibold">
+                    {format(w.start, "EEE d MMM yyyy")} · {format(w.start, "p")} – {format(w.end, "p")}
+                  </h2>
+                  <span className="text-sm font-semibold">
+                    {many ? `${w.done} of ${w.exams.length} done` : w.done ? "Done" : ""}
+                  </span>
+                </div>
+                <p className={`mt-1 text-sm ${w.state === "live" ? "text-primary-foreground/85" : "text-muted-foreground"}`}>
+                  {w.state === "live" && (many ? `Open now · ${w.exams.length} papers share this window — sit them in any order.` : "Open now.")}
+                  {w.state === "upcoming" && (many ? `${w.exams.length} papers in this window.` : "Upcoming.")}
+                  {w.state === "past" && (many ? `${w.exams.length} papers · window closed.` : "Window closed.")}
+                </p>
+                {many && (
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/10" aria-hidden="true">
+                    <div className={`h-full rounded-full ${w.state === "live" ? "bg-amber-300" : "bg-primary"}`} style={{ width: `${(w.done / w.exams.length) * 100}%` }} />
+                  </div>
+                )}
+                {w.state === "live" && w.minutesNeeded > 0 && (
+                  <p className={`mt-3 flex items-center gap-2 text-sm font-semibold ${short ? "text-amber-200" : ""}`}>
+                    {short ? <AlertTriangle className="h-4 w-4" aria-hidden="true" /> : <Clock className="h-4 w-4" aria-hidden="true" />}
+                    {formatMinutes(w.minutesLeft)} left in the window · the papers left need {formatMinutes(w.minutesNeeded)}
+                  </p>
+                )}
+              </div>
+              <div className="grid gap-3">
+            {w.exams.map((e) => {
               const now = new Date();
               const start = new Date(e.start_at);
               const end = new Date(e.end_at);
@@ -291,6 +325,10 @@ export default function StudentExamsList() {
                     </Collapsible>
                   )}
                 </Card>
+              );
+            })}
+              </div>
+            </section>
               );
             })}
           </div>

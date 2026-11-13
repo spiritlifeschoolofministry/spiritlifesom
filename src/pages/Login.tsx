@@ -247,11 +247,12 @@ const Login = () => {
                 </Button>
               </form>
 
-              <p className="text-center text-sm text-muted-foreground mt-4">
-                <Link to="/forgot-password" className="text-primary font-medium hover:underline">
-                  Forgot your password?
-                </Link>
-              </p>
+              <Link
+                to="/forgot-password"
+                className="mt-4 flex h-11 w-full items-center justify-center rounded-xl border-2 border-primary/70 text-sm font-bold text-primary transition-colors hover:bg-primary/10"
+              >
+                Forgot your password?
+              </Link>
             </TabsContent>
 
             <TabsContent value="otp">

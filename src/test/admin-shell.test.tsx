@@ -68,7 +68,7 @@ describe("admin shell", () => {
 
   it("groups the sidebar under section headings", () => {
     renderAt("/admin/dashboard");
-    for (const section of ["People", "Academics", "Finance", "Communication", "Insights", "System"]) {
+    for (const section of ["People", "Teaching", "Exams", "Money", "Reach", "Insights", "System"]) {
       expect(screen.getByRole("button", { name: new RegExp(section, "i") })).toBeInTheDocument();
     }
   });
@@ -92,9 +92,9 @@ describe("admin shell", () => {
   it("collapses a section and remembers it", () => {
     renderAt("/admin/dashboard");
     expect(screen.getAllByRole("link", { name: "Fees" }).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("button", { name: /finance/i }));
+    fireEvent.click(screen.getByRole("button", { name: /money/i }));
     expect(screen.queryByRole("link", { name: "Fees" })).not.toBeInTheDocument();
-    expect(localStorage.getItem("slsm.nav.collapsed.admin-finance")).toBe("1");
+    expect(localStorage.getItem("slsm.nav.collapsed.admin-money")).toBe("1");
   });
 
   it("offers student search in the command palette", () => {

@@ -3505,6 +3505,15 @@ export type Database = {
         Returns: string
       }
       normalize_msisdn: { Args: { raw: string }; Returns: string }
+      public_fee_summary: {
+        Args: never
+        Returns: {
+          amount: number
+          cohort_name: string
+          fee_name: string
+          learning_modes: string[]
+        }[]
+      }
       ops_usage_snapshot: { Args: never; Returns: Json }
       reconcile_student_fees: {
         Args: { p_student_id: string }
