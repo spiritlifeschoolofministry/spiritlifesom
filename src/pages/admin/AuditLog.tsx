@@ -247,7 +247,7 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
                     selected={fromDate}
                     onSelect={setFromDate}
                     disabled={(date) => (toDate ? date > toDate : false) || date > new Date()}
-                    initialFocus
+                    autoFocus
                     className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>
@@ -275,7 +275,7 @@ const AdminAuditLog = ({ standalone = true }: { standalone?: boolean }) => {
                     selected={toDate}
                     onSelect={setToDate}
                     disabled={(date) => (fromDate ? date < fromDate : false) || date > new Date()}
-                    initialFocus
+                    autoFocus
                     className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>

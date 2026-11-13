@@ -57,7 +57,7 @@ This project is built with:
 - Node.js 22 (required: Vite 8 and Vitest 5 do not run on Node 20; see `.nvmrc`)
 - Vite 8 (Rolldown bundler) and Vitest 5
 - TypeScript
-- React 18 with React Router 7
+- React 19 with React Router 7
 - Zod 4 for form validation
 - shadcn-ui
 - Tailwind CSS
@@ -71,10 +71,10 @@ three.js is installed and ready to use, along with React Three Fiber and drei:
 | --- | --- | --- |
 | `three` | ^0.187 | The 3D engine |
 | `@types/three` | ^0.187 | TypeScript types (dev) |
-| `@react-three/fiber` | ^8.18 | Write three.js scenes as React components |
-| `@react-three/drei` | ^9.122 | Helpers: camera controls, loaders, text, environments |
+| `@react-three/fiber` | ^9.8 | Write three.js scenes as React components |
+| `@react-three/drei` | ^10.7 | Helpers: camera controls, loaders, text, environments |
 
-**Keep `@react-three/fiber` on v8 and `drei` on v9.** Fiber v9 / drei v10 need React 19, and this app is on React 18.
+Fiber 9 and drei 10 require React 19. Don't downgrade React without moving them back to fiber 8 / drei 9.
 
 Minimal example:
 
@@ -119,14 +119,14 @@ Installed for upcoming features. None of them is imported by the app yet, so the
 | Charts | `recharts` | ^3.10 | Dashboard charts (admin Analytics uses it) |
 | Charts | `chart.js` + `react-chartjs-2` | ^4.6 / ^5.3 | Canvas charts, good for large data sets |
 | Charts | `d3` (+ `@types/d3`, dev) | ^7.9 | Custom visualisations |
-| 2D | `pixi.js` | ^8.23 | Fast GPU-drawn 2D graphics (use it directly, no React wrapper) |
-| 2D | `konva` + `react-konva` | ^10.9 / 18.2.16 | Drawing and editing on a canvas |
+| 2D | `pixi.js` + `@pixi/react` | ^8.23 / ^8.0 | Fast GPU-drawn 2D graphics as React components |
+| 2D | `konva` + `react-konva` | ^10.9 / ^19.3 | Drawing and editing on a canvas |
 | 3D | `@babylonjs/core` + `@babylonjs/loaders` | ^9.36 | Alternative 3D engine; `babylonjs-gltf2interface` is its required peer |
 
-Version constraints (the app is on React 18):
+Version constraints (the app is on React 19):
 
-- **`react-konva` is pinned to 18.2.16.** Version 19 requires React 19.
-- **`@pixi/react` is not installed.** Version 8 requires React 19, and version 7 only works with PixiJS 7.
+- **react-konva 19, @pixi/react 8, fiber 9 and drei 10 all require React 19.**
+- **React 19 brought these upgrades:** `next-themes` 0.4, `vaul` 1.1 and `react-day-picker` 9. `src/components/ui/calendar.tsx` uses day-picker 9's class names and `Chevron` component; pass `autoFocus`, not the removed `initialFocus`.
 - **Recharts 3** no longer puts `payload` and `label` on `Tooltip`'s props, and pie `label` callbacks get the data row under `payload`. `src/components/ui/chart.tsx` is already adapted.
 
 ## Dependency notes
