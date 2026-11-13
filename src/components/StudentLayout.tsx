@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback, Suspense } from "react";
+import PageTransition from "@/components/motion/PageTransition";
 import ThemeToggle from "@/components/ThemeToggle";
 import ScrollToTop from "@/components/ScrollToTop";
 import SEO from "@/components/SEO";
@@ -534,7 +535,9 @@ const StudentLayout = () => {
             }
           >
             {sectionTabs}
-            <Outlet />
+            <PageTransition routeKey={location.pathname}>
+              <Outlet />
+            </PageTransition>
           </Suspense>
         </main>
       </div>

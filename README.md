@@ -113,7 +113,7 @@ Import the heavy ones only from pages loaded with `React.lazy`, or with a dynami
 
 | Area | Package | Version | Where it is used |
 | --- | --- | --- | --- |
-| Animation | `framer-motion` | ^14.13 | App UI motion (page transitions, list changes). Planned. |
+| Animation | `framer-motion` | ^14.13 | Page transitions in the portals (see "Portal navigation"); list changes planned |
 | Animation | `gsap` + `@gsap/react` | ^3.15 / ^2.1 | Home page scroll effects. Planned (homepage redesign, on the `homepage-redesign` branch). |
 | Charts | `recharts` | ^3.10 | Dashboard charts (admin Analytics) |
 | Charts | `d3` (+ `@types/d3`, dev) | ^7.9 | Custom visualisations (attendance heatmap, cohort funnel). Planned. |
@@ -134,6 +134,8 @@ Version constraints (the app is on React 19):
 - **Student exams** (`src/pages/student/exams/ExamsList.tsx`): papers that share a window (same start and end) are grouped under one heading with "x of n done", live windows first. While a window is open the heading compares the time left with the time the unsubmitted papers need. Grouping logic: `src/lib/exam-windows.ts` (tested in `src/test/exam-windows.test.ts`).
 - **Admin portal** (`src/components/AdminLayout.tsx`): sections are People, Teaching (courses, attendance, tasks, practice questions, materials, calendar), Exams, Money, Reach (announcements, email history), Insights and System.
 - **Admin dashboard, "Needs your attention"**: besides admissions, receipts and requests it now counts unverified check-ins, exam attempts submitted but not yet graded, and WhatsApp chats handed to a person and still open.
+- **Up next on Today** (`src/components/student/UpNext.tsx`): the first card on the student dashboard. An open exam window wins (papers done, time left versus time needed), then the soonest window in the next 14 days, then the next class that counts for attendance (with a Check in link on the day). It renders nothing when none of those exist.
+- **Page transitions** (`src/components/motion/PageTransition.tsx`): pages inside the student and admin shells fade and lift in on navigation (Framer Motion, `LazyMotion` + `domAnimation`, only in the portal chunks). No exit animation, because lazy pages behind Suspense would flash blank. Off when the device asks for reduced motion.
 - **Barnabas' page map** (`src/lib/portal-map.ts`) uses the same section names, so "where is…" answers match the sidebar.
 
 ## Fees on the home page

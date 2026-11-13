@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import ProgressSummary from "@/components/student/ProgressSummary";
+import UpNext from "@/components/student/UpNext";
 import AssistantCard from "@/components/student/AssistantCard";
 import AssistantChat from "@/components/portal/AssistantChat";
 import { useAssistantContext } from "@/lib/assistant-places";
@@ -509,6 +510,11 @@ const StudentDashboard = () => {
               )}
             </div>
           </div>
+        </Reveal>
+
+        {/* What to do next: an open or soon exam window, else the next class. */}
+        <Reveal>
+          <UpNext />
         </Reveal>
 
         {/* Placed under the greeting and above the figures: it is a summary of

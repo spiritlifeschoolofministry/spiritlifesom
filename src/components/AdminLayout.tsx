@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
+import PageTransition from "@/components/motion/PageTransition";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "@/contexts/useAuth";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -420,7 +421,9 @@ const AdminLayout = () => {
               </div>
             }
           >
-            <Outlet />
+            <PageTransition routeKey={location.pathname}>
+              <Outlet />
+            </PageTransition>
           </Suspense>
         </main>
       </div>
