@@ -40,12 +40,12 @@ const encode = (value: unknown) =>
 const decode = (value: unknown) =>
   JSON.parse(JSON.stringify(value), BufferJSON.reviver);
 
-export async function useSupabaseAuthState(
+export async function loadSupabaseAuthState(
   supabase: SupabaseClient,
 ): Promise<{ state: AuthenticationState; saveCreds: () => Promise<void> }> {
   const table = () => supabase.from("whatsapp_auth_state");
 
-  async function read(id: string): Promise<any | null> {
+  async function readCreds(id: string): Promise<AuthenticationCreds | null> {
     const { data, error } = await table()
       .select("value")
       .eq("id", id)
@@ -79,7 +79,7 @@ export async function useSupabaseAuthState(
     }
   }
 
-  const creds: AuthenticationCreds = (await read(credsId)) || initAuthCreds();
+  const creds: AuthenticationCreds = (await readCreds(credsId)) || initAuthCreds();
 
   return {
     state: {

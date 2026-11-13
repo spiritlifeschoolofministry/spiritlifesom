@@ -8,7 +8,7 @@ import pino from "pino";
 import QRCode from "qrcode";
 import { createClient } from "@supabase/supabase-js";
 import { env } from "./env.js";
-import { useSupabaseAuthState, clearAuthState } from "./auth-state.js";
+import { loadSupabaseAuthState, clearAuthState } from "./auth-state.js";
 
 /**
  * The WhatsApp connection, and the rules for keeping it up.
@@ -95,7 +95,7 @@ function backoffMs(attempt: number): number {
 }
 
 export async function connect(): Promise<void> {
-  const { state: authState, saveCreds } = await useSupabaseAuthState(supabase);
+  const { state: authState, saveCreds } = await loadSupabaseAuthState(supabase);
 
   state.connection = "connecting";
   await report();
