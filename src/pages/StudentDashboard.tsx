@@ -652,7 +652,11 @@ const StudentDashboard = () => {
           />
         )}
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)] lg:items-start">
+        {/* Two columns on a computer. When there is nothing to do (the first
+            column renders empty and hides itself), the record takes the full
+            width instead of leaving the narrow column blank, and its tiles go
+            four across. */}
+        <div className="group/dash grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)] lg:items-start lg:has-[>div:first-child:empty]:grid-cols-1">
           {/* What to do: next paper or class, today's timetable, tasks due.
               Hidden when all three are empty so the other column moves up. */}
           <div className="flex min-w-0 flex-col gap-4 empty:hidden">
@@ -709,7 +713,7 @@ const StudentDashboard = () => {
 
           <div className="flex min-w-0 flex-col gap-4">
             {/* The record at a glance. */}
-            <section aria-label="Your record at a glance" className="grid grid-cols-2 gap-2.5">
+            <section aria-label="Your record at a glance" className="grid grid-cols-2 gap-2.5 lg:group-has-[>div:first-child:empty]/dash:grid-cols-4">
               {tiles.map((tile) => (
                 <Link
                   key={tile.label}
