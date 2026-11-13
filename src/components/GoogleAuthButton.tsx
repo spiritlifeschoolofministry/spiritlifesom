@@ -37,10 +37,10 @@ const GoogleAuthButton = ({
       onClick={handleGoogle}
       disabled={loading}
       // Google's standard light sign-in button: white, #747775 outline, #1F1F1F label.
-      className="w-full h-12 flex items-center justify-center gap-3 rounded-xl border border-[#747775] bg-white text-[#1F1F1F] font-semibold text-[15px] hover:bg-[#F8F9FA] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1A73E8]"
+      className="w-full h-[52px] flex items-center justify-center gap-3 rounded-[14px] border border-[#747775] bg-white text-[#1F1F1F] font-semibold text-base hover:bg-[#F8F9FA] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1A73E8]"
     >
       {loading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
       ) : (
         <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />

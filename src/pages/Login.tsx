@@ -2,18 +2,27 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Eye, EyeOff, Info, Loader2, Mail, KeyRound } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, Info, Loader2, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import SEO from "@/components/SEO";
 import { useAuth } from "@/contexts/useAuth";
 import { isStudentProfileComplete } from "@/lib/profile-complete";
 import GoogleAuthButton from "@/components/GoogleAuthButton";
 import { SIGNUP_REFUSED_PARAM, SIGNUP_REFUSED_VALUE } from "@/lib/signup-closed";
+import {
+  ApplyPanel,
+  AuthCard,
+  AuthPage,
+  authInput,
+  authLabel,
+  authLink,
+  authOutline,
+  authPrimary,
+  authSoft,
+} from "@/components/redesign/public/auth";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -28,7 +37,9 @@ const Login = () => {
   // the database refused to create one. See lib/signup-closed.ts.
   const [signupRefusal, setSignupRefusal] = useState<"closed" | "failed" | null>(null);
 
-  // Magic link / OTP state
+  // Magic link / OTP state. "code" swaps the password form for the
+  // one-time-code flow ("Email me a login code").
+  const [mode, setMode] = useState<"password" | "code">("password");
   const [otpEmail, setOtpEmail] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [otpStep, setOtpStep] = useState<"request" | "verify">("request");
@@ -144,189 +155,198 @@ const Login = () => {
     }
   };
 
+  const busy = loading || redirecting;
+
+  const switchToCode = () => {
+    // Carry over an address already typed in the password form.
+    if (!otpEmail && email) setOtpEmail(email);
+    setMode("code");
+  };
+
   return (
-    <div className="flex flex-col items-center px-4 py-12 sm:py-16">
+    <AuthPage title="Welcome back" subtitle="Log in to your Spirit Life SOM portal.">
       <SEO title="Sign in | SLSOM" description="Sign in to your Spirit Life School of Ministry account." path="/login" />
-      <div className="text-center mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">Sign In</h1>
-        <p className="text-sm text-muted-foreground mt-1">Welcome back to Spirit Life SOM</p>
-      </div>
-      <div className="w-full max-w-md">
-        <div className="bg-card rounded-2xl shadow-[var(--shadow-card)] border border-border p-8 sm:p-10">
 
-          {signupRefusal && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription className="text-sm">
-                {signupRefusal === "closed" ? (
-                  <>
-                    <strong>That Google account isn't registered with us, and registrations are currently closed.</strong>{" "}
-                    If you are already a student, sign in with the email address you registered with.
-                  </>
-                ) : (
-                  <>We couldn't create an account for that Google address. Please try again, or contact the school office.</>
-                )}
-              </AlertDescription>
-            </Alert>
-          )}
+      {signupRefusal && (
+        <Alert variant="destructive" className="rounded-2xl bg-card">
+          <AlertDescription className="text-sm">
+            {signupRefusal === "closed" ? (
+              <>
+                <strong>That Google account isn't registered with us, and registrations are currently closed.</strong>{" "}
+                If you are already a student, sign in with the email address you registered with.
+              </>
+            ) : (
+              <>We couldn't create an account for that Google address. Please try again, or contact the school office.</>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
 
-          <Alert className="mb-4 bg-blue-50 border-blue-200">
-            <Info className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-sm text-blue-800">
-              <strong>Having trouble logging in?</strong>
-              <ul className="mt-2 space-y-1 list-disc list-inside">
-                <li>Try using <strong>Incognito/Private mode</strong> in your browser</li>
-                <li>Or sign in with a one-time code sent to your email</li>
-                <li>If the issue persists, contact{" "}
-                  <a href="mailto:spiritlifeschoolofministry@gmail.com"
-                     className="underline hover:text-blue-900 break-words">
-                    spiritlifeschoolofministry@gmail.com
-                  </a>
-                </li>
-              </ul>
-            </AlertDescription>
-          </Alert>
+      <AuthCard>
+        <GoogleAuthButton label="Sign in with Google" />
+        <div className="flex items-center gap-2.5 text-[13px] font-semibold text-muted-foreground">
+          <span className="h-px flex-1 bg-border" aria-hidden="true" />
+          or use your email
+          <span className="h-px flex-1 bg-border" aria-hidden="true" />
+        </div>
 
-          <GoogleAuthButton />
-          <div className="relative my-5">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">or</span>
-            </div>
-          </div>
-
-          <Tabs defaultValue="password" className="w-full">
-            <TabsList className="grid grid-cols-2 w-full mb-4">
-              <TabsTrigger value="password"><KeyRound className="h-4 w-4 mr-2" />Password</TabsTrigger>
-              <TabsTrigger value="otp"><Mail className="h-4 w-4 mr-2" />Email Code</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="password">
-              <form onSubmit={handleLogin} className="space-y-5">
-                <div>
-                  <Label htmlFor="email">Email</Label>
+        {mode === "password" ? (
+          <>
+            <form onSubmit={handleLogin} className="flex flex-col gap-3.5" aria-label="Log in with password">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="email" className={authLabel}>Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  name="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className={authInput}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="password" className={authLabel}>Password</Label>
+                <div className="relative">
                   <Input
-                    id="email"
-                    type="email"
-                    name="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="mt-1"
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className={`${authInput} pr-12`}
                   />
-                </div>
-                <div>
-                  <Label htmlFor="password">Password</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      name="password"
-                      type={showPassword ? "text" : "password"}
-                      autoComplete="current-password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      className="pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
-                      tabIndex={-1}
-                    >
-                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                    </button>
-                  </div>
-                </div>
-
-                <Button type="submit" disabled={loading} variant="flame" className="w-full h-11">
-                  {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  {loading ? statusMsg || "Signing in..." : "Sign In"}
-                </Button>
-              </form>
-
-              <Link
-                to="/forgot-password"
-                className="mt-4 flex h-11 w-full items-center justify-center rounded-xl border-2 border-primary/70 text-sm font-bold text-primary transition-colors hover:bg-primary/10"
-              >
-                Forgot your password?
-              </Link>
-            </TabsContent>
-
-            <TabsContent value="otp">
-              {otpStep === "request" ? (
-                <form onSubmit={handleRequestOtp} className="space-y-5">
-                  <p className="text-sm text-muted-foreground">
-                    We'll email you a 6-digit code to sign in — no password needed.
-                  </p>
-                  <div>
-                    <Label htmlFor="otp-email">Email</Label>
-                    <Input
-                      id="otp-email"
-                      type="email"
-                      autoComplete="email"
-                      value={otpEmail}
-                      onChange={(e) => setOtpEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      className="mt-1"
-                      required
-                    />
-                  </div>
-                  <Button type="submit" disabled={otpLoading} variant="flame" className="w-full h-11">
-                    {otpLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    {otpLoading ? "Sending code..." : "Send me a code"}
-                  </Button>
-                </form>
-              ) : (
-                <form onSubmit={handleVerifyOtp} className="space-y-5">
-                  <p className="text-sm text-muted-foreground">
-                    Enter the 6-digit code we sent to <strong>{otpEmail}</strong>.
-                  </p>
-                  <div>
-                    <Label htmlFor="otp-code">One-time code</Label>
-                    <Input
-                      id="otp-code"
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={8}
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
-                      placeholder="Enter the code from your email"
-                      className="mt-1 tracking-widest text-center text-lg"
-                      autoFocus
-                      required
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      The code is usually 6–8 digits long.
-                    </p>
-                  </div>
-                  <Button type="submit" disabled={otpLoading} variant="flame" className="w-full h-11">
-                    {otpLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    {otpLoading ? "Verifying..." : "Verify & Sign In"}
-                  </Button>
                   <button
                     type="button"
-                    onClick={() => { setOtpStep("request"); setOtpCode(""); }}
-                    className="w-full text-sm text-primary hover:underline"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
+                    className="absolute right-1 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    Use a different email
+                    {showPassword ? <EyeOff className="h-5 w-5" aria-hidden="true" /> : <Eye className="h-5 w-5" aria-hidden="true" />}
                   </button>
-                </form>
-              )}
-            </TabsContent>
-          </Tabs>
+                </div>
+              </div>
 
-          <p className="text-center text-sm text-muted-foreground mt-4">
-            New student?{" "}
-            <Link to="/register" className="text-primary font-medium hover:underline">
-              Register here
-            </Link>
-          </p>
-        </div>
-      </div>
-    </div>
+              <button type="submit" disabled={busy} className={authPrimary}>
+                {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                {busy ? statusMsg || "Signing in..." : "Log in"}
+              </button>
+            </form>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <Link to="/forgot-password" className={authOutline}>
+                Forgot password?
+              </Link>
+              <button type="button" onClick={switchToCode} className={authSoft}>
+                Email me a login code
+              </button>
+            </div>
+          </>
+        ) : otpStep === "request" ? (
+          <form onSubmit={handleRequestOtp} className="flex flex-col gap-3.5" aria-label="Request a login code">
+            <p className="text-sm text-muted-foreground">
+              We'll email you a 6-digit code to sign in — no password needed.
+            </p>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="otp-email" className={authLabel}>Email</Label>
+              <Input
+                id="otp-email"
+                type="email"
+                autoComplete="email"
+                value={otpEmail}
+                onChange={(e) => setOtpEmail(e.target.value)}
+                placeholder="you@example.com"
+                className={authInput}
+                required
+              />
+            </div>
+            <button type="submit" disabled={otpLoading} className={authPrimary}>
+              {otpLoading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              {otpLoading ? "Sending code..." : "Send me a code"}
+            </button>
+            <button type="button" onClick={() => setMode("password")} className={authLink}>
+              <KeyRound className="h-4 w-4" aria-hidden="true" />
+              Use my password instead
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleVerifyOtp} className="flex flex-col gap-3.5" aria-label="Enter your login code">
+            <p className="text-sm text-muted-foreground">
+              Enter the 6-digit code we sent to <strong className="text-foreground break-anywhere">{otpEmail}</strong>.
+            </p>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="otp-code" className={authLabel}>One-time code</Label>
+              <Input
+                id="otp-code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={8}
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                placeholder="Enter the code from your email"
+                className={`${authInput} text-center text-lg tracking-widest md:text-lg`}
+                aria-describedby="otp-code-hint"
+                autoFocus
+                required
+              />
+              <p id="otp-code-hint" className="text-xs text-muted-foreground">
+                The code is usually 6–8 digits long.
+              </p>
+            </div>
+            <button type="submit" disabled={otpLoading || redirecting} className={authPrimary}>
+              {(otpLoading || redirecting) && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              {otpLoading || redirecting ? "Verifying..." : "Verify & log in"}
+            </button>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => { setOtpStep("request"); setOtpCode(""); }}
+                className={authOutline}
+              >
+                Use a different email
+              </button>
+              <button type="button" onClick={() => setMode("password")} className={authSoft}>
+                Use my password
+              </button>
+            </div>
+          </form>
+        )}
+
+        <p className="sr-only" role="status" aria-live="polite">
+          {busy ? statusMsg : ""}
+        </p>
+      </AuthCard>
+
+      <details className="group rounded-2xl border border-border bg-card px-4 text-sm">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg">
+          <span className="inline-flex items-center gap-2">
+            <Info className="h-4 w-4 text-primary dark:text-foreground" aria-hidden="true" />
+            Having trouble logging in?
+          </span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" />
+        </summary>
+        <ul className="mb-4 mt-1 list-disc space-y-1 pl-5 text-muted-foreground">
+          <li>Try using <strong className="text-foreground">Incognito/Private mode</strong> in your browser</li>
+          <li>Or sign in with a one-time code sent to your email</li>
+          <li>
+            If the issue persists, contact{" "}
+            <a
+              href="mailto:spiritlifeschoolofministry@gmail.com"
+              className="font-medium text-primary underline break-anywhere dark:text-foreground"
+            >
+              spiritlifeschoolofministry@gmail.com
+            </a>
+          </li>
+        </ul>
+      </details>
+
+      <ApplyPanel />
+    </AuthPage>
   );
 };
 

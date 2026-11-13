@@ -144,6 +144,17 @@ The portal follows the redesign canvas ("SLSOM Redesign" artifact). Colours are 
 - **Sidebars:** both portal sidebars use `.gradient-purple`, now a deep plum.
 - **Gold:** `.gradient-flame` is now gold (`#E0A526` → `#F3C969`) with ink text. It's the single standout colour, used for the active nav item and the main call to action. Don't put white text on it: the class forces ink, because white on gold fails contrast.
 
+## Redesigned screens
+
+Built to the boards on the "SLSOM Redesign" canvas (everything except the home page, which is unchanged). Shared pieces live under `src/components/redesign/`:
+
+- **Public** (`public/`): every public page except `/` uses the new white header (Home, About, Courses, Faculty, Contact, Verify, Log in, Apply now) and footer. `/` keeps its original header and footer, copied in `HomeChrome.tsx`. Login, Forgot and Reset password share the card style in `auth.tsx`.
+- **Apply** (`apply/`): Register and Complete profile use one frame (back button, thin progress bar, "Step n of m", pinned Back/Continue footer). It also has the admissions-closed screen.
+- **Student**:
+  - `student/`: the More sheet, the application tracker for pending students, and Today's timetable (`useTodayPlan`).
+  - `student-pages/`: shared cards and status pills, and the exam Start/Resume/Enter rules (`exam-paper.ts`, tested).
+- **Admin** (`admin/`): layout primitives, and the receipt queue used by Fees and Payments. The Admissions page is a review queue with bulk approve and J/K/A/M/R shortcuts. Rejecting a receipt keeps the student's own note and adds "Rejected: reason" after it (`src/lib/rejection-note.ts`).
+
 ## Portal navigation
 
 - **Student portal** (`src/components/StudentLayout.tsx`): sections are Today (the dashboard), Learn (courses, materials, tasks, study), Exams, My Record (attendance, assessments, transcript, certificate, fees), Community and Account. On phones the bottom bar has one tab per section (Today, Learn, Exams, Record, More), and the pages of the current section sit in a tab strip above the content. URLs are unchanged.

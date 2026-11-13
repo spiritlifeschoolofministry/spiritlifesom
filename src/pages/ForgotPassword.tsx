@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
 import SEO from "@/components/SEO";
+import { ApplyPanel, AuthCard, AuthPage, authInput, authLabel, authLink, authOutline, authPrimary } from "@/components/redesign/public/auth";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
@@ -37,76 +37,58 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="flex flex-col items-center px-4 py-12 sm:py-16">
+    <AuthPage title="Reset your password" subtitle="We'll send you a link to reset your password.">
       <SEO title="Reset Password | SLSOM" description="Request a password reset link for your Spirit Life School of Ministry account." path="/forgot-password" noindex />
-      <div className="text-center mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">
-          Reset Password
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          We'll send you a link to reset your password
-        </p>
-      </div>
 
-      <div className="w-full max-w-md">
-        <div className="bg-card rounded-2xl shadow-[var(--shadow-card)] border border-border p-8 sm:p-10">
-          {sent ? (
-            <div className="text-center space-y-4">
-              <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <Mail className="h-6 w-6 text-primary" />
-              </div>
-              <h2 className="text-lg font-semibold text-foreground">Check your email</h2>
-              <p className="text-sm text-muted-foreground">
-                We've sent a password reset link to <strong>{email}</strong>. 
-                Please check your inbox and spam folder.
-              </p>
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => { setSent(false); setEmail(""); }}
-              >
-                Send again
-              </Button>
+      <AuthCard>
+        {sent ? (
+          <div className="flex flex-col items-center gap-3 py-2 text-center" role="status">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
+              <Mail className="h-6 w-6 text-secondary-foreground" aria-hidden="true" />
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <Label htmlFor="email">Email address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="mt-1"
-                />
-              </div>
-
-              <Button
-                type="submit"
-                disabled={loading}
-                variant="flame"
-                className="w-full h-11"
-              >
-                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {loading ? "Sending..." : "Send Reset Link"}
-              </Button>
-            </form>
-          )}
-
-          <div className="mt-6 text-center">
-            <Link
-              to="/login"
-              className="inline-flex items-center gap-1 text-sm text-primary font-medium hover:underline"
+            <h2 className="text-lg font-extrabold tracking-tight">Check your email</h2>
+            <p className="text-sm text-muted-foreground">
+              We've sent a password reset link to <strong className="text-foreground break-anywhere">{email}</strong>.
+              Please check your inbox and spam folder.
+            </p>
+            <button
+              type="button"
+              className={`${authOutline} mt-1 w-full`}
+              onClick={() => { setSent(false); setEmail(""); }}
             >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Sign In
-            </Link>
+              Send again
+            </button>
           </div>
-        </div>
-      </div>
-    </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="email" className={authLabel}>Email address</Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className={authInput}
+              />
+            </div>
+
+            <button type="submit" disabled={loading} className={authPrimary}>
+              {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              {loading ? "Sending..." : "Send reset link"}
+            </button>
+          </form>
+        )}
+
+        <Link to="/login" className={authLink}>
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Back to log in
+        </Link>
+      </AuthCard>
+
+      <ApplyPanel />
+    </AuthPage>
   );
 };
 

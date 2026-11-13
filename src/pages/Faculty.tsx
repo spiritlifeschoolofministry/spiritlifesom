@@ -1,6 +1,4 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import Reveal from "@/components/Reveal";
 import { useSiteContent } from "@/hooks/use-site-content";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
@@ -41,7 +39,7 @@ const FacultyPage = () => {
   }, []);
 
   return (
-    <div>
+    <div className="bg-card">
       <SEO
         title="Faculty | Spirit Life School of Ministry"
         description="Meet the faculty of Spirit Life School of Ministry — pastors, scholars and ministers equipping the next generation of Christian leaders."
@@ -54,55 +52,48 @@ const FacultyPage = () => {
         }}
       />
       {/* Hero */}
-      <section className="relative py-20 sm:py-28 text-center text-primary-foreground">
-        <div className="absolute inset-0 gradient-purple" />
-        <div className="relative z-10 max-w-3xl mx-auto px-4 space-y-3">
-          <Reveal>
-            <h1 className="text-3xl sm:text-5xl font-extrabold">{get("hero_title", "Meet Our Faculty")}</h1>
-            <p className="text-primary-foreground/80 text-lg">
-              {get("hero_subtitle", "Dedicated servants of God committed to equipping the saints")}
-            </p>
-          </Reveal>
+      <section className="bg-background">
+        <div className="mx-auto flex max-w-[1200px] flex-col gap-2.5 px-4 pb-10 pt-12 sm:px-6 sm:pt-14">
+          <h1 className="text-[34px] font-extrabold tracking-tight sm:text-[44px]">{get("hero_title", "Meet Our Faculty")}</h1>
+          <p className="text-[17px] text-muted-foreground sm:text-lg">
+            {get("hero_subtitle", "Dedicated servants of God committed to equipping the saints")}
+          </p>
         </div>
       </section>
 
       {/* Faculty cards */}
-      <section className="py-20 px-4 sm:px-6 bg-background">
+      <div className="mx-auto max-w-[1200px] px-4 pb-[72px] pt-10 sm:px-6">
         {loading ? (
-          <div className="flex justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div className="flex justify-center py-10" role="status">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" aria-hidden="true" />
+            <span className="sr-only">Loading faculty</span>
           </div>
         ) : faculty.length === 0 ? (
-          <p className="text-center text-muted-foreground">No faculty members listed yet.</p>
+          <p className="py-10 text-center text-muted-foreground">No faculty members listed yet.</p>
         ) : (
-          <div className="max-w-5xl mx-auto grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {faculty.map((f, i) => (
-              <Reveal key={f.id} delay={i * 120}>
-                <Card className="border-0 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                  <CardContent className="p-8 text-center space-y-4">
-                    {f.photo_url ? (
-                      <img
-                        src={f.photo_url}
-                        alt={f.name}
-                        className="mx-auto w-24 h-24 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="mx-auto w-24 h-24 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-3xl font-bold">
-                        {initialsOf(f.name)}
-                      </div>
-                    )}
-                    <div>
-                      <h3 className="font-semibold text-xl text-foreground">{f.name}</h3>
-                      <p className="text-sm text-accent font-medium mt-1">{f.title}</p>
-                    </div>
-                    <p className="text-muted-foreground text-sm leading-relaxed">{f.bio}</p>
-                  </CardContent>
-                </Card>
-              </Reveal>
+          <ul className="grid gap-[18px] [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
+            {faculty.map((f) => (
+              <li key={f.id} className="flex flex-col overflow-hidden rounded-[20px] border border-border bg-card">
+                {f.photo_url ? (
+                  <img src={f.photo_url} alt={f.name} className="h-[220px] w-full object-cover object-top" loading="lazy" />
+                ) : (
+                  <div
+                    className="flex h-[220px] items-center justify-center bg-secondary text-5xl font-extrabold text-secondary-foreground"
+                    aria-hidden="true"
+                  >
+                    {initialsOf(f.name)}
+                  </div>
+                )}
+                <div className="flex flex-col gap-1.5 p-[18px]">
+                  <h2 className="text-lg font-bold tracking-tight">{f.name}</h2>
+                  <p className="text-sm font-semibold text-primary dark:text-foreground">{f.title}</p>
+                  <p className="text-sm leading-normal text-muted-foreground">{f.bio}</p>
+                </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-      </section>
+      </div>
     </div>
   );
 };

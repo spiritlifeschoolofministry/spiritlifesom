@@ -1,18 +1,14 @@
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Check, Clock, BookOpen, GraduationCap } from "lucide-react";
-import Reveal from "@/components/Reveal";
+import { Check, Clock } from "lucide-react";
 import { useSiteContent } from "@/hooks/use-site-content";
 import SEO from "@/components/SEO";
-import { basicCourses, advancedCourses } from "@/data/courses";
+import { basicCourses, advancedCourses, type CurriculumCourse } from "@/data/courses";
 
 const CoursesPage = () => {
   const { get } = useSiteContent("courses");
 
   return (
-    <div>
+    <div className="bg-card">
       <SEO
         title="Courses & Curriculum | Spirit Life School of Ministry"
         description="Explore SLSOM's Basic and Advanced ministry curriculum — 19 courses covering scripture, theology, leadership, pastoral care, evangelism and ministerial ethics."
@@ -25,141 +21,133 @@ const CoursesPage = () => {
         }}
       />
       {/* Hero */}
-      <section className="relative py-20 sm:py-28 text-center text-primary-foreground">
-        <div className="absolute inset-0 gradient-purple" />
-        <div className="relative z-10 max-w-3xl mx-auto px-4 space-y-3">
-          <Reveal>
-            <h1 className="text-3xl sm:text-5xl font-extrabold">{get("hero_title", "Our Programme")}</h1>
-            <p className="text-primary-foreground/80 text-lg">{get("hero_subtitle", "Equipping believers for ministry — 2025/2026 Academic Session")}</p>
-          </Reveal>
+      <section className="bg-background">
+        <div className="mx-auto flex max-w-[1200px] flex-col gap-2.5 px-4 pb-10 pt-12 sm:px-6 sm:pt-14">
+          <h1 className="text-[34px] font-extrabold tracking-tight sm:text-[44px]">{get("hero_title", "The curriculum")}</h1>
+          <p className="max-w-[680px] text-[17px] leading-relaxed text-muted-foreground sm:text-lg">
+            {get(
+              "hero_subtitle",
+              `${basicCourses.length + advancedCourses.length} courses in two modules, covering Scripture, theology, leadership, pastoral care, evangelism and ministerial ethics.`,
+            )}
+          </p>
         </div>
       </section>
 
-      <section className="py-16 sm:py-20 px-4 sm:px-6 bg-background">
-        <div className="max-w-6xl mx-auto space-y-16">
+      <div className="mx-auto flex max-w-[1200px] flex-col gap-10 px-4 pb-[72px] pt-10 sm:px-6">
+        <ModuleSection
+          title={get("basic_title", "Basic Module")}
+          desc={get("basic_desc", "A foundational programme designed to ground you in scripture, ministry principles, and spiritual maturity. Perfect for new ministers and those seeking deeper understanding.")}
+          courses={basicCourses}
+          status="Now enrolling"
+          tagClass="bg-secondary text-secondary-foreground"
+        />
+        <ModuleSection
+          title={get("advanced_title", "Advanced Module")}
+          desc={get("advanced_desc", "An in-depth programme for graduates of the Basic Module. Dive deeper into theology, pastoral practice, and leadership for effective ministry.")}
+          courses={advancedCourses}
+          status="Coming soon"
+          statusIcon
+          tagClass="bg-[#FBF3DE] text-[#6B4A06]"
+        />
 
-          {/* ── Basic Module ── */}
-          <div className="space-y-6">
-            <Reveal>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="w-6 h-6 text-primary" />
-                  <h2 className="text-2xl sm:text-3xl font-bold text-foreground">{get("basic_title", "Basic Module")}</h2>
-                </div>
-                <Badge variant="secondary" className="w-fit text-xs">11 Courses • Now Enrolling</Badge>
+        {/* Tuition & fees */}
+        <section className="flex flex-col gap-[18px]" aria-labelledby="tuition-heading">
+          <h2 id="tuition-heading" className="text-2xl font-extrabold tracking-tight sm:text-[28px]">
+            {get("tuition_title", "Tuition & Fees")}
+          </h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-5 rounded-[20px] border border-border bg-card p-6 sm:p-7">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.06em] text-muted-foreground">Physical</p>
+                <p className="mt-1 text-4xl font-extrabold tracking-tight">{get("physical_price", "FREE")}</p>
               </div>
-            </Reveal>
-            <Reveal delay={60}>
-              <p className="text-muted-foreground max-w-2xl">
-                {get("basic_desc", "A foundational programme designed to ground you in scripture, ministry principles, and spiritual maturity. Perfect for new ministers and those seeking deeper understanding.")}
-              </p>
-            </Reveal>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {basicCourses.map((c, i) => (
-                <Reveal key={c.code} delay={80 + i * 40}>
-                  <Card className="border-primary/20 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
-                    <CardContent className="p-5 flex items-start gap-3">
-                      <span className="text-xs font-bold text-accent whitespace-nowrap">{c.code}</span>
-                      <span className="text-sm font-medium text-foreground">{c.title}</span>
-                    </CardContent>
-                  </Card>
-                </Reveal>
-              ))}
+              <ul className="flex flex-col gap-2.5 text-[15px] text-muted-foreground">
+                {["Weekly Saturday classes (9AM - 12PM)", "In-person lectures and practicals", "Access to course materials (fee applies)", "Project defense and graduation"].map((f) => (
+                  <li key={f} className="flex gap-2"><Check size={18} className="mt-0.5 shrink-0 text-primary dark:text-foreground" aria-hidden="true" />{f}</li>
+                ))}
+              </ul>
+              <Link
+                to="/register"
+                className="mt-auto inline-flex min-h-12 items-center justify-center rounded-xl border-[1.5px] border-primary px-5 font-bold text-primary transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:text-foreground"
+              >
+                Apply free
+              </Link>
             </div>
-          </div>
-
-          {/* ── Advanced Module ── */}
-          <div className="space-y-6">
-            <Reveal>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <GraduationCap className="w-6 h-6 text-muted-foreground" />
-                  <h2 className="text-2xl sm:text-3xl font-bold text-foreground">{get("advanced_title", "Advanced Module")}</h2>
+            <div className="flex flex-col gap-5 rounded-[20px] bg-[#17112B] p-6 text-white sm:p-7">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.06em] text-white/75">Online</p>
+                  <p className="mt-1 text-4xl font-extrabold tracking-tight">{get("online_price", "₦30,000")}</p>
                 </div>
-                <Badge variant="outline" className="w-fit text-xs gap-1.5 border-muted-foreground/30 text-muted-foreground">
-                  <Clock className="w-3 h-3" />
-                  Coming Soon
-                </Badge>
+                <span className="rounded-full bg-[#E0A526] px-3 py-1 text-xs font-bold text-[#17112B]">Most popular</span>
               </div>
-            </Reveal>
-            <Reveal delay={60}>
-              <p className="text-muted-foreground max-w-2xl">
-                {get("advanced_desc", "An in-depth programme for graduates of the Basic Module. Dive deeper into theology, pastoral practice, and leadership for effective ministry.")}
-              </p>
-            </Reveal>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 opacity-60">
-              {advancedCourses.map((c, i) => (
-                <Reveal key={c.code} delay={80 + i * 40}>
-                  <Card className="border-border bg-muted/30">
-                    <CardContent className="p-5 flex items-start gap-3">
-                      <span className="text-xs font-bold text-muted-foreground whitespace-nowrap">{c.code}</span>
-                      <span className="text-sm font-medium text-muted-foreground">{c.title}</span>
-                    </CardContent>
-                  </Card>
-                </Reveal>
-              ))}
+              <ul className="flex flex-col gap-2.5 text-[15px] text-white/85">
+                {["Live Zoom sessions every Saturday", "Full training materials included", "Class recordings access", "Must attend physically for project defense and graduation"].map((f) => (
+                  <li key={f} className="flex gap-2"><Check size={18} className="mt-0.5 shrink-0 text-[#E0A526]" aria-hidden="true" />{f}</li>
+                ))}
+              </ul>
+              <Link
+                to="/register"
+                className="mt-auto inline-flex min-h-12 items-center justify-center rounded-xl bg-white px-5 font-bold text-[#17112B] transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526] focus-visible:ring-offset-2 focus-visible:ring-offset-[#17112B]"
+              >
+                Apply now
+              </Link>
             </div>
           </div>
+        </section>
 
-          {/* ── Pricing ── */}
-          <div className="space-y-6">
-            <Reveal>
-              <h2 className="text-2xl sm:text-3xl font-bold text-foreground text-center">{get("tuition_title", "Tuition & Fees")}</h2>
-            </Reveal>
-            <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-              <Reveal delay={80}>
-                <Card className="border-primary/30 relative hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                  <CardContent className="p-8 space-y-6">
-                    <div>
-                      <p className="text-sm font-semibold text-primary uppercase tracking-wide">Physical</p>
-                      <p className="text-4xl font-extrabold text-foreground mt-1">{get("physical_price", "FREE")}</p>
-                    </div>
-                    <ul className="space-y-3 text-sm text-muted-foreground">
-                      {["Weekly Saturday classes (9AM - 12PM)", "In-person lectures and practicals", "Access to course materials (fee applies)", "Project defense and graduation"].map((f) => (
-                        <li key={f} className="flex gap-2"><Check size={16} className="text-primary shrink-0 mt-0.5" />{f}</li>
-                      ))}
-                    </ul>
-                    <Button asChild variant="outline" className="w-full border-primary text-primary hover:bg-primary/10">
-                      <Link to="/register">Register Free</Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              </Reveal>
-              <Reveal delay={160}>
-                <Card className="border-0 gradient-flame text-primary-foreground relative overflow-hidden shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
-                  <div className="absolute top-4 right-4 bg-primary-foreground/20 text-primary-foreground text-xs font-bold px-3 py-1 rounded-full">
-                    Most Popular
-                  </div>
-                  <CardContent className="p-8 space-y-6">
-                    <div>
-                      <p className="text-sm font-semibold uppercase tracking-wide text-primary-foreground/90">Online</p>
-                      <p className="text-4xl font-extrabold mt-1">{get("online_price", "₦30,000")}</p>
-                    </div>
-                    <ul className="space-y-3 text-sm text-primary-foreground/90">
-                      {["Live Zoom sessions every Saturday", "Full training materials included", "Class recordings access", "Must attend physically for project defense and graduation"].map((f) => (
-                        <li key={f} className="flex gap-2"><Check size={16} className="shrink-0 mt-0.5" />{f}</li>
-                      ))}
-                    </ul>
-                    <Button asChild className="w-full bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-semibold">
-                      <Link to="/register">Register Now</Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              </Reveal>
-            </div>
-          </div>
-
-          <Reveal>
-            <div className="text-center">
-              <Button asChild size="lg" className="gradient-flame border-0 text-primary-foreground text-base px-10 hover:opacity-90">
-                <Link to="/register">Register Now</Link>
-              </Button>
-            </div>
-          </Reveal>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] bg-[#17112B] px-6 py-[22px] text-white">
+          <span className="text-[17px] font-semibold">Start with the Basic Module.</span>
+          <Link
+            to="/register"
+            className="inline-flex min-h-11 items-center rounded-xl bg-[#E0A526] px-[22px] font-bold text-[#17112B] transition-colors hover:bg-[#F3C969] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526] focus-visible:ring-offset-2 focus-visible:ring-offset-[#17112B]"
+          >
+            Apply now
+          </Link>
         </div>
-      </section>
+      </div>
     </div>
   );
 };
+
+const ModuleSection = ({
+  title,
+  desc,
+  courses,
+  status,
+  statusIcon,
+  tagClass,
+}: {
+  title: string;
+  desc: string;
+  courses: CurriculumCourse[];
+  status: string;
+  statusIcon?: boolean;
+  tagClass: string;
+}) => (
+  <section className="flex flex-col gap-[18px]">
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex max-w-[720px] flex-col gap-1.5">
+        <h2 className="text-2xl font-extrabold tracking-tight sm:text-[28px]">{title}</h2>
+        <p className="text-base leading-normal text-muted-foreground">{desc}</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-sm font-bold text-muted-foreground">
+        <span>{courses.length} courses</span>
+        <span className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-semibold">
+          {statusIcon && <Clock className="h-3 w-3" aria-hidden="true" />}
+          {status}
+        </span>
+      </div>
+    </div>
+    <ul className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
+      {courses.map((c) => (
+        <li key={c.code} className="flex items-center gap-3.5 rounded-[14px] border border-border bg-card px-[18px] py-4">
+          <span className={`shrink-0 rounded-lg px-2 py-1.5 text-xs font-bold ${tagClass}`}>{c.code}</span>
+          <span className="text-[15px] font-medium leading-snug">{c.title}</span>
+        </li>
+      ))}
+    </ul>
+  </section>
+);
 
 export default CoursesPage;

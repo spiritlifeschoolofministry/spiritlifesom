@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import LazyCertificate3D from "@/components/three/LazyCertificate3D";
 import { useNavigate, useParams } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { BadgeCheck, Loader2, Search, ShieldAlert, ShieldX } from "lucide-react";
+import { Check, Loader2, Search, ShieldAlert, ShieldX } from "lucide-react";
 import SEO from "@/components/SEO";
 import { normaliseSerial } from "@/lib/certificate-serial";
 import { verifyCertificate, type CertificateVerification } from "@/lib/certificate-verify";
@@ -59,7 +57,7 @@ const VerifyCertificate = () => {
   };
 
   return (
-    <div>
+    <div className="bg-background">
       <SEO
         title="Verify a Certificate | Spirit Life School of Ministry"
         description="Confirm that a Spirit Life School of Ministry certificate of completion is genuine by entering the certificate number printed on it."
@@ -68,70 +66,86 @@ const VerifyCertificate = () => {
         noindex={Boolean(serialFromUrl)}
       />
 
-      <section className="relative py-16 sm:py-20 text-center text-primary-foreground">
-        <div className="absolute inset-0 gradient-purple" />
-        <div className="relative z-10 max-w-2xl mx-auto px-4 space-y-3">
-          <h1 className="text-3xl sm:text-4xl font-extrabold">Verify a Certificate</h1>
-          <p className="text-primary-foreground/80">
-            Enter the certificate number printed at the foot of the certificate.
-          </p>
-        </div>
-      </section>
+      <div className="mx-auto flex max-w-[760px] flex-col gap-[22px] px-4 pb-[72px] pt-12 sm:px-6 sm:pt-14">
+        <h1 className="text-[32px] font-extrabold tracking-tight sm:text-[40px]">Verify a certificate</h1>
+        <p className="text-base leading-relaxed text-muted-foreground sm:text-[17px]">
+          Enter the serial printed at the foot of the certificate (SLSM-XXXX-XXXX). Small typing slips are corrected
+          for you, and a link that already contains the serial checks it straight away.
+        </p>
 
-      <section className="py-12 sm:py-16 px-4 bg-background">
-        <div className="max-w-xl mx-auto space-y-6">
-          <form onSubmit={submit} className="flex flex-col sm:flex-row gap-2">
-            <Input
-              value={entry}
-              onChange={(e) => setEntry(e.target.value)}
-              placeholder="SLSM-XXXX-XXXX"
-              className="h-11 font-mono tracking-wider uppercase"
-              aria-label="Certificate number"
-              autoFocus={!serialFromUrl}
-            />
-            <Button type="submit" className="h-11 px-6 gap-2" disabled={checking || !entry.trim()}>
-              {checking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-              Verify
-            </Button>
-          </form>
+        <form onSubmit={submit} className="flex flex-col gap-2.5 sm:flex-row">
+          <label htmlFor="verify-serial" className="sr-only">Certificate serial number</label>
+          <Input
+            id="verify-serial"
+            value={entry}
+            onChange={(e) => setEntry(e.target.value)}
+            placeholder="SLSM-XXXX-XXXX"
+            className="h-[52px] min-w-0 flex-1 rounded-xl bg-card px-4 font-mono text-base uppercase tracking-wider md:text-base"
+            autoFocus={!serialFromUrl}
+            autoCapitalize="characters"
+            spellCheck={false}
+          />
+          <button
+            type="submit"
+            disabled={checking || !entry.trim()}
+            className="inline-flex h-[52px] items-center justify-center gap-2 rounded-xl bg-primary px-6 text-base font-bold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {checking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Search className="h-4 w-4" aria-hidden="true" />}
+            {checking ? "Checking..." : "Verify"}
+          </button>
+        </form>
 
+        <div aria-live="polite" className="flex flex-col gap-[22px]">
           {failed && (
-            <Card className="border-border">
-              <CardContent className="py-8 text-center space-y-2">
-                <ShieldAlert className="w-10 h-10 mx-auto text-muted-foreground/40" />
-                <p className="font-semibold text-foreground">Could not check right now</p>
-                <p className="text-sm text-muted-foreground">
-                  Something went wrong reaching our records. Please try again in a moment.
-                </p>
-              </CardContent>
-            </Card>
+            <section className="flex flex-col gap-2 rounded-[20px] border border-border bg-card p-6">
+              <StatusPill tone="neutral" icon={<ShieldAlert className="h-4 w-4" aria-hidden="true" />}>
+                Could not check right now
+              </StatusPill>
+              <p className="text-[15px] text-muted-foreground">
+                Something went wrong reaching our records. Please try again in a moment.
+              </p>
+            </section>
           )}
 
           {result && !result.found && (
-            <Card className="border-destructive/30">
-              <CardContent className="py-8 text-center space-y-2">
-                <ShieldX className="w-10 h-10 mx-auto text-destructive/60" />
-                <p className="font-semibold text-foreground">No certificate found</p>
-                <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                  No certificate has been issued with that number. Check the number as printed — the
-                  letters I, L, O and U are never used, so those are 1, 1, 0 and V.
-                </p>
-              </CardContent>
-            </Card>
+            <section className="flex flex-col gap-2 rounded-[20px] border border-red-200 bg-card p-6 dark:border-red-500/30">
+              <StatusPill tone="bad" icon={<ShieldX className="h-4 w-4" aria-hidden="true" />}>
+                No certificate found
+              </StatusPill>
+              <p className="text-[15px] text-muted-foreground">
+                No certificate has been issued with that number. Check the number as printed — the letters I, L, O
+                and U are never used, so those are 1, 1, 0 and V.
+              </p>
+            </section>
           )}
 
           {result?.found && <VerificationResult result={result} />}
-
-          {!result && !checking && !failed && (
-            <p className="text-center text-sm text-muted-foreground">
-              Certificate numbers look like <span className="font-mono">SLSM-4K7P-92XT</span>.
-            </p>
-          )}
         </div>
-      </section>
+      </div>
     </div>
   );
 };
+
+const pillTones = {
+  good: "bg-emerald-50 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300",
+  bad: "bg-red-50 text-red-800 dark:bg-red-500/15 dark:text-red-300",
+  neutral: "bg-muted text-foreground",
+} as const;
+
+const StatusPill = ({
+  tone,
+  icon,
+  children,
+}: {
+  tone: keyof typeof pillTones;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) => (
+  <span className={`inline-flex items-center gap-2 self-start rounded-full px-3 py-1.5 text-sm font-bold ${pillTones[tone]}`}>
+    {icon}
+    {children}
+  </span>
+);
 
 const VerificationResult = ({
   result,
@@ -141,42 +155,44 @@ const VerificationResult = ({
   const revoked = result.status === "revoked";
 
   return (
-    <Card className={revoked ? "border-destructive/40" : "border-emerald-500/40"}>
-      <CardContent className="py-8 space-y-6">
-        <div className="text-center space-y-2">
-          {revoked ? (
-            <ShieldX className="w-12 h-12 mx-auto text-destructive" />
-          ) : (
-            <BadgeCheck className="w-12 h-12 mx-auto text-emerald-600" />
-          )}
-          <p className={`text-lg font-bold ${revoked ? "text-destructive" : "text-emerald-700"}`}>
-            {revoked ? "This certificate has been withdrawn" : "Genuine certificate"}
+    <section
+      className={`flex flex-col gap-4 rounded-[20px] border bg-card p-6 ${
+        revoked ? "border-red-200 dark:border-red-500/30" : "border-emerald-200 dark:border-emerald-500/30"
+      }`}
+    >
+      {revoked ? (
+        <>
+          <StatusPill tone="bad" icon={<ShieldX className="h-4 w-4" aria-hidden="true" />}>
+            This certificate has been withdrawn
+          </StatusPill>
+          <p className="text-[15px] text-muted-foreground">
+            It was issued by the school but is no longer valid
+            {result.revoked_on ? ` as of ${formatDate(result.revoked_on)}` : ""}.
+            {result.revoke_reason ? ` ${result.revoke_reason}` : ""}
           </p>
-          {revoked && (
-            <p className="text-sm text-muted-foreground">
-              It was issued by the school but is no longer valid
-              {result.revoked_on ? ` as of ${formatDate(result.revoked_on)}` : ""}.
-              {result.revoke_reason ? ` ${result.revoke_reason}` : ""}
-            </p>
-          )}
-        </div>
+        </>
+      ) : (
+        <StatusPill tone="good" icon={<Check className="h-4 w-4" strokeWidth={2.6} aria-hidden="true" />}>
+          Valid certificate
+        </StatusPill>
+      )}
 
-        {!revoked && (
-          <LazyCertificate3D
-            className="h-56 w-full sm:h-72"
-            details={{ name: result.recipient_name ?? "", cohort: result.cohort, serial: result.serial, dateText: result.graduated_on ? formatDate(result.graduated_on) : null }}
-          />
-        )}
+      {!revoked && (
+        <LazyCertificate3D
+          className="h-56 w-full sm:h-72"
+          details={{ name: result.recipient_name ?? "", cohort: result.cohort, serial: result.serial, dateText: result.graduated_on ? formatDate(result.graduated_on) : null }}
+        />
+      )}
 
-        <dl className="divide-y divide-border text-sm">
-          <Field label="Awarded to" value={result.recipient_name} strong />
-          <Field label="Student code" value={result.student_code} mono />
-          <Field label="Session" value={result.cohort} />
-          <Field label="Graduated" value={formatDate(result.graduated_on)} />
-          <Field label="Certificate number" value={result.serial} mono />
-        </dl>
-      </CardContent>
-    </Card>
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-3.5 sm:grid-cols-2">
+        <Field label="Awarded to" value={result.recipient_name} />
+        <Field label="Cohort" value={result.cohort} />
+        <Field label="Issued" value={formatDate(result.issued_on)} />
+        <Field label="Graduated" value={formatDate(result.graduated_on)} />
+        <Field label="Student code" value={result.student_code} mono />
+        <Field label="Serial" value={result.serial} mono />
+      </dl>
+    </section>
   );
 };
 
@@ -184,22 +200,16 @@ const Field = ({
   label,
   value,
   mono,
-  strong,
 }: {
   label: string;
   value: string | null;
   mono?: boolean;
-  strong?: boolean;
 }) => {
   if (!value) return null;
   return (
-    <div className="flex flex-wrap items-baseline justify-between gap-2 py-2.5">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd
-        className={`text-right text-foreground break-anywhere ${mono ? "font-mono text-xs" : ""} ${
-          strong ? "font-semibold" : ""
-        }`}
-      >
+    <div className="min-w-0">
+      <dt className="text-xs font-bold uppercase tracking-[0.05em] text-muted-foreground">{label}</dt>
+      <dd className={`mt-0.5 break-anywhere text-base font-semibold text-foreground ${mono ? "font-mono" : ""}`}>
         {value}
       </dd>
     </div>

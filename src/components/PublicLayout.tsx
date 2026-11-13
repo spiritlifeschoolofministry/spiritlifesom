@@ -1,9 +1,10 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { Menu, X, Facebook, Youtube, Instagram, Twitter, Music2 } from "lucide-react";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { preloadPath } from "@/routes/lazy-pages";
+import { cn } from "@/lib/utils";
+import { HomeHeader, HomeFooter } from "@/components/redesign/public/HomeChrome";
 
 const navLinks = [
   { label: "Home", to: "/" },
@@ -11,6 +12,15 @@ const navLinks = [
   { label: "Courses", to: "/courses" },
   { label: "Faculty", to: "/faculty" },
   { label: "Contact", to: "/contact" },
+  { label: "Verify", to: "/verify" },
+];
+
+const socialLinks = [
+  { label: "Facebook", href: "https://www.facebook.com/spiritlifeschoolofministry", Icon: Facebook },
+  { label: "YouTube", href: "https://www.youtube.com/@SpiritLifeSchoolofMinistry", Icon: Youtube },
+  { label: "Instagram", href: "https://www.instagram.com/spiritlifeschoolofministry", Icon: Instagram },
+  { label: "X (Twitter)", href: "https://x.com/spiritlifesom", Icon: Twitter },
+  { label: "TikTok", href: "https://tiktok.com/@spiritlifesom", Icon: Music2 },
 ];
 
 /** Warm a lazy page's chunk on hover / focus / touch, before the click lands. */
@@ -20,10 +30,20 @@ const prefetch = (path: string) => ({
   onTouchStart: () => preloadPath(path),
 });
 
+/** "/verify/SLSM-..." still counts as being on Verify; "/" only matches itself. */
+const isCurrent = (pathname: string, to: string) =>
+  to === "/" ? pathname === "/" : pathname === to || pathname.startsWith(`${to}/`);
+
+const focusRing =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card";
+
 const PublicLayout = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const onLogin = location.pathname === "/login";
+  // The home page keeps its original header and footer for now.
+  const isHome = location.pathname === "/";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -38,75 +58,148 @@ const PublicLayout = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* ========== NAVBAR ========== */}
-      <nav
-        className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
-          scrolled ? "bg-primary/95 shadow-lg backdrop-blur-sm" : "bg-primary"
-        }`}
-      >
-        <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 h-16">
-          <Link to="/" className="flex items-center gap-2 text-primary-foreground font-bold text-lg tracking-tight">
-            <img src="/images/school-logo.png" alt="" className="h-9 w-9 object-contain" />
-            Spirit Life SOM
-          </Link>
+      {/* ========== HEADER ========== */}
+      {isHome ? (
+        <HomeHeader menuOpen={menuOpen} setMenuOpen={setMenuOpen} scrolled={scrolled} location={location} />
+      ) : (
+        <header
+          className={cn(
+            "fixed top-0 inset-x-0 z-50 border-b border-border transition-all duration-300",
+            scrolled ? "bg-card/95 shadow-sm backdrop-blur-sm" : "bg-card",
+          )}
+        >
+          <div className="max-w-[1200px] mx-auto flex items-center justify-between gap-4 px-4 sm:px-6 h-16">
+            <Link
+              to="/"
+              {...prefetch("/")}
+              className={cn("flex min-w-0 items-center gap-2.5 rounded-lg text-foreground", focusRing)}
+            >
+              <img src="/images/school-logo.png" alt="" className="h-10 w-10 shrink-0 object-contain" />
+              <span className="truncate text-[15px] sm:text-lg font-extrabold tracking-tight">
+                Spirit Life School of Ministry
+              </span>
+            </Link>
 
-          {/* Desktop links */}
-          <div className="hidden md:flex items-center gap-6">
-            {navLinks.map((l) => (
+            {/* Desktop nav */}
+            <nav aria-label="Main" className="hidden lg:flex items-center gap-1">
+              {navLinks.map((l) => {
+                const current = isCurrent(location.pathname, l.to);
+                return (
+                  <Link
+                    key={l.label}
+                    to={l.to}
+                    {...prefetch(l.to)}
+                    aria-current={current ? "page" : undefined}
+                    className={cn(
+                      "inline-flex min-h-11 items-center rounded-[10px] px-3.5 text-[15px] transition-colors",
+                      current
+                        ? "bg-secondary font-semibold text-secondary-foreground"
+                        : "font-medium text-foreground/80 hover:bg-secondary/60 hover:text-foreground",
+                      focusRing,
+                    )}
+                  >
+                    {l.label}
+                  </Link>
+                );
+              })}
               <Link
-                key={l.label}
-                to={l.to}
-                {...prefetch(l.to)}
-                className={`text-sm font-medium transition-colors ${
-                  location.pathname === l.to
-                    ? "text-primary-foreground"
-                    : "text-primary-foreground/75 hover:text-primary-foreground"
-                }`}
+                to="/login"
+                {...prefetch("/login")}
+                aria-current={onLogin ? "page" : undefined}
+                className={cn(
+                  "ml-2 inline-flex min-h-11 items-center rounded-[10px] border border-primary/25 px-4 text-[15px] font-semibold text-primary transition-colors hover:bg-secondary dark:text-foreground",
+                  onLogin && "bg-secondary text-secondary-foreground",
+                  focusRing,
+                )}
               >
-                {l.label}
+                Log in
               </Link>
-            ))}
-          </div>
-
-          <div className="hidden md:flex items-center gap-3">
-            <Button asChild variant="ghost" size="sm" className="bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
-              <Link to="/login" {...prefetch("/login")}>Login</Link>
-            </Button>
-            <Button asChild size="sm" className="gradient-flame border-0 text-primary-foreground hover:opacity-90">
-              <Link to="/register" {...prefetch("/register")}>Register Now</Link>
-            </Button>
-          </div>
-
-          {/* Mobile toggle */}
-          <button className="md:hidden text-primary-foreground" onClick={() => setMenuOpen(!menuOpen)}>
-            {menuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
-
-        {/* Mobile menu */}
-        {menuOpen && (
-          <div className="md:hidden bg-primary border-t border-primary-foreground/10 px-4 pb-4 space-y-2">
-            {navLinks.map((l) => (
               <Link
-                key={l.label}
-                to={l.to}
-                {...prefetch(l.to)}
-                className="block w-full text-left text-primary-foreground/90 hover:text-primary-foreground py-2 text-sm"
+                to="/register"
+                {...prefetch("/register")}
+                className={cn(
+                  "inline-flex min-h-11 items-center rounded-[10px] bg-primary px-[18px] text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90",
+                  focusRing,
+                )}
               >
-                {l.label}
+                Apply now
               </Link>
-            ))}
-            <div className="flex gap-2 pt-2">
-              <Button asChild variant="outline" size="sm" className="flex-1 bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
-                <Link to="/login" {...prefetch("/login")}>Login</Link>
-              </Button>
-              <Button asChild size="sm" className="flex-1 gradient-flame border-0 text-primary-foreground">
-                <Link to="/register" {...prefetch("/register")}>Register</Link>
-              </Button>
-            </div>
+            </nav>
+
+            {/* Mobile toggle */}
+            <button
+              type="button"
+              className={cn(
+                "lg:hidden inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] text-foreground hover:bg-secondary",
+                focusRing,
+              )}
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-expanded={menuOpen}
+              aria-controls="public-mobile-menu"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+            >
+              {menuOpen ? <X size={24} aria-hidden="true" /> : <Menu size={24} aria-hidden="true" />}
+            </button>
           </div>
-        )}
-      </nav>
+
+          {/* Mobile menu */}
+          {menuOpen && (
+            <nav
+              id="public-mobile-menu"
+              aria-label="Main"
+              className="lg:hidden border-t border-border bg-card px-4 pb-4 pt-2 shadow-sm"
+            >
+              <ul className="space-y-1">
+                {navLinks.map((l) => {
+                  const current = isCurrent(location.pathname, l.to);
+                  return (
+                    <li key={l.label}>
+                      <Link
+                        to={l.to}
+                        {...prefetch(l.to)}
+                        aria-current={current ? "page" : undefined}
+                        className={cn(
+                          "flex min-h-11 w-full items-center rounded-[10px] px-3 text-[15px]",
+                          current
+                            ? "bg-secondary font-semibold text-secondary-foreground"
+                            : "font-medium text-foreground/80 hover:bg-secondary/60",
+                          focusRing,
+                        )}
+                      >
+                        {l.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="grid grid-cols-2 gap-2 pt-3">
+                <Link
+                  to="/login"
+                  {...prefetch("/login")}
+                  aria-current={onLogin ? "page" : undefined}
+                  className={cn(
+                    "inline-flex min-h-11 items-center justify-center rounded-[10px] border border-primary/25 text-[15px] font-semibold text-primary dark:text-foreground",
+                    onLogin && "bg-secondary text-secondary-foreground",
+                    focusRing,
+                  )}
+                >
+                  Log in
+                </Link>
+                <Link
+                  to="/register"
+                  {...prefetch("/register")}
+                  className={cn(
+                    "inline-flex min-h-11 items-center justify-center rounded-[10px] bg-primary text-[15px] font-semibold text-primary-foreground",
+                    focusRing,
+                  )}
+                >
+                  Apply now
+                </Link>
+              </div>
+            </nav>
+          )}
+        </header>
+      )}
 
       {/* ========== PAGE CONTENT ========== */}
       <main className="pt-16">
@@ -114,45 +207,58 @@ const PublicLayout = () => {
       </main>
 
       {/* ========== FOOTER ========== */}
-      <footer className="bg-[hsl(0,0%,5%)] text-primary-foreground/80 pt-12 pb-6 px-4 sm:px-6">
-        <div className="max-w-6xl mx-auto space-y-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-            <span className="flex items-center gap-2 font-bold text-lg text-primary-foreground">
-              <img src="/images/school-logo.png" alt="" className="h-8 w-8 object-contain" />
-              Spirit Life SOM
-            </span>
-            <div className="flex flex-wrap justify-center gap-4 text-sm">
-              {navLinks.map((l) => (
-                <Link key={l.label} to={l.to} className="hover:text-primary-foreground transition-colors">
-                  {l.label}
-                </Link>
-              ))}
-              <Link to="/register" className="hover:text-primary-foreground transition-colors">Register</Link>
-              <Link to="/login" className="hover:text-primary-foreground transition-colors">Login</Link>
+      {isHome ? (
+        <HomeFooter />
+      ) : (
+        <footer className="bg-[#120B24] text-white/80 pt-12 pb-6 px-4 sm:px-6">
+          <div className="max-w-[1200px] mx-auto space-y-8">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+              <span className="flex items-center gap-2.5 text-lg font-extrabold tracking-tight text-white">
+                <img src="/images/school-logo.png" alt="" className="h-9 w-9 object-contain" />
+                Spirit Life School of Ministry
+              </span>
+              <nav aria-label="Footer" className="flex flex-wrap justify-center gap-x-1 gap-y-1 text-sm">
+                {[...navLinks, { label: "Apply", to: "/register" }, { label: "Log in", to: "/login" }].map((l) => (
+                  <Link
+                    key={l.label}
+                    to={l.to}
+                    className="inline-flex min-h-11 items-center rounded-lg px-2.5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526]"
+                  >
+                    {l.label}
+                  </Link>
+                ))}
+              </nav>
+              <div className="flex gap-1">
+                {socialLinks.map(({ label, href, Icon }) => (
+                  <a
+                    key={label}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={label}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526]"
+                  >
+                    <Icon size={20} aria-hidden="true" />
+                  </a>
+                ))}
+              </div>
             </div>
-            <div className="flex gap-4">
-              <a href="https://www.facebook.com/spiritlifeschoolofministry" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer"><Facebook size={20} /></a>
-              <a href="https://www.youtube.com/@SpiritLifeSchoolofMinistry" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer"><Youtube size={20} /></a>
-              <a href="https://www.instagram.com/spiritlifeschoolofministry" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer"><Instagram size={20} /></a>
-              <a href="https://x.com/spiritlifesom" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer" aria-label="X (Twitter)"><Twitter size={20} /></a>
-              <a href="https://tiktok.com/@spiritlifesom" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer" aria-label="TikTok"><Music2 size={20} /></a>
+
+            <div className="border-t border-white/10" />
+
+            <p className="text-center text-sm text-white/70 italic">
+              Spirit Life School of Ministry — "Equipping The Saints..."
+            </p>
+
+            <div className="border-t border-white/10" />
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-white/60">
+              <span>© 2026 Spirit Life Cherubim & Seraphim Church. All rights reserved.</span>
+              <span className="italic">Ephesians 4:12-13</span>
             </div>
           </div>
-
-          <div className="border-t border-primary-foreground/10" />
-
-          <p className="text-center text-sm text-primary-foreground/60 italic">
-            Spirit Life School of Ministry — "Equipping The Saints..."
-          </p>
-
-          <div className="border-t border-primary-foreground/10" />
-
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-primary-foreground/50">
-            <span>© 2026 Spirit Life Cherubim & Seraphim Church. All rights reserved.</span>
-            <span className="italic">Ephesians 4:12-13</span>
-          </div>
-        </div>
-      </footer>
+        </footer>
+      )}
 
       <WhatsAppButton />
     </div>

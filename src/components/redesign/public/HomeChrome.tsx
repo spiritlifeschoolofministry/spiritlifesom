@@ -1,0 +1,149 @@
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Menu, X, Facebook, Youtube, Instagram, Twitter, Music2 } from "lucide-react";
+import { preloadPath } from "@/routes/lazy-pages";
+
+/**
+ * The home page's header and footer, kept exactly as they were before the
+ * public-page redesign. The home page is deliberately left unchanged for now,
+ * so PublicLayout renders these on "/" and the redesigned chrome everywhere
+ * else. Delete this file once the home page moves to the new header.
+ */
+
+const navLinks = [
+  { label: "Home", to: "/" },
+  { label: "About", to: "/about" },
+  { label: "Courses", to: "/courses" },
+  { label: "Faculty", to: "/faculty" },
+  { label: "Contact", to: "/contact" },
+];
+
+/** Warm a lazy page's chunk on hover / focus / touch, before the click lands. */
+const prefetch = (path: string) => ({
+  onMouseEnter: () => preloadPath(path),
+  onFocus: () => preloadPath(path),
+  onTouchStart: () => preloadPath(path),
+});
+
+export const HomeHeader = ({
+  menuOpen,
+  setMenuOpen,
+  scrolled,
+  location,
+}: {
+  menuOpen: boolean;
+  setMenuOpen: (open: boolean) => void;
+  scrolled: boolean;
+  location: { pathname: string };
+}) => (
+  <nav
+    className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
+      scrolled ? "bg-primary/95 shadow-lg backdrop-blur-sm" : "bg-primary"
+    }`}
+  >
+    <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 h-16">
+      <Link to="/" className="flex items-center gap-2 text-primary-foreground font-bold text-lg tracking-tight">
+        <img src="/images/school-logo.png" alt="" className="h-9 w-9 object-contain" />
+        Spirit Life SOM
+      </Link>
+
+      {/* Desktop links */}
+      <div className="hidden md:flex items-center gap-6">
+        {navLinks.map((l) => (
+          <Link
+            key={l.label}
+            to={l.to}
+            {...prefetch(l.to)}
+            className={`text-sm font-medium transition-colors ${
+              location.pathname === l.to
+                ? "text-primary-foreground"
+                : "text-primary-foreground/75 hover:text-primary-foreground"
+            }`}
+          >
+            {l.label}
+          </Link>
+        ))}
+      </div>
+
+      <div className="hidden md:flex items-center gap-3">
+        <Button asChild variant="ghost" size="sm" className="bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
+          <Link to="/login" {...prefetch("/login")}>Login</Link>
+        </Button>
+        <Button asChild size="sm" className="gradient-flame border-0 text-primary-foreground hover:opacity-90">
+          <Link to="/register" {...prefetch("/register")}>Register Now</Link>
+        </Button>
+      </div>
+
+      {/* Mobile toggle */}
+      <button className="md:hidden text-primary-foreground" onClick={() => setMenuOpen(!menuOpen)}>
+        {menuOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
+    </div>
+
+    {/* Mobile menu */}
+    {menuOpen && (
+      <div className="md:hidden bg-primary border-t border-primary-foreground/10 px-4 pb-4 space-y-2">
+        {navLinks.map((l) => (
+          <Link
+            key={l.label}
+            to={l.to}
+            {...prefetch(l.to)}
+            className="block w-full text-left text-primary-foreground/90 hover:text-primary-foreground py-2 text-sm"
+          >
+            {l.label}
+          </Link>
+        ))}
+        <div className="flex gap-2 pt-2">
+          <Button asChild variant="outline" size="sm" className="flex-1 bg-transparent border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
+            <Link to="/login" {...prefetch("/login")}>Login</Link>
+          </Button>
+          <Button asChild size="sm" className="flex-1 gradient-flame border-0 text-primary-foreground">
+            <Link to="/register" {...prefetch("/register")}>Register</Link>
+          </Button>
+        </div>
+      </div>
+    )}
+  </nav>
+);
+
+export const HomeFooter = () => (
+  <footer className="bg-[hsl(0,0%,5%)] text-primary-foreground/80 pt-12 pb-6 px-4 sm:px-6">
+    <div className="max-w-6xl mx-auto space-y-8">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+        <span className="flex items-center gap-2 font-bold text-lg text-primary-foreground">
+          <img src="/images/school-logo.png" alt="" className="h-8 w-8 object-contain" />
+          Spirit Life SOM
+        </span>
+        <div className="flex flex-wrap justify-center gap-4 text-sm">
+          {navLinks.map((l) => (
+            <Link key={l.label} to={l.to} className="hover:text-primary-foreground transition-colors">
+              {l.label}
+            </Link>
+          ))}
+          <Link to="/register" className="hover:text-primary-foreground transition-colors">Register</Link>
+          <Link to="/login" className="hover:text-primary-foreground transition-colors">Login</Link>
+        </div>
+        <div className="flex gap-4">
+          <a href="https://www.facebook.com/spiritlifeschoolofministry" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer"><Facebook size={20} /></a>
+          <a href="https://www.youtube.com/@SpiritLifeSchoolofMinistry" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer"><Youtube size={20} /></a>
+          <a href="https://www.instagram.com/spiritlifeschoolofministry" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer"><Instagram size={20} /></a>
+          <a href="https://x.com/spiritlifesom" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer" aria-label="X (Twitter)"><Twitter size={20} /></a>
+          <a href="https://tiktok.com/@spiritlifesom" className="hover:text-primary-foreground transition-colors" target="_blank" rel="noopener noreferrer" aria-label="TikTok"><Music2 size={20} /></a>
+        </div>
+      </div>
+
+      <div className="border-t border-primary-foreground/10" />
+
+      <p className="text-center text-sm text-primary-foreground/60 italic">
+        Spirit Life School of Ministry — "Equipping The Saints..."
+      </p>
+
+      <div className="border-t border-primary-foreground/10" />
+
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-primary-foreground/50">
+        <span>© 2026 Spirit Life Cherubim & Seraphim Church. All rights reserved.</span>
+        <span className="italic">Ephesians 4:12-13</span>
+      </div>
+    </div>
+  </footer>
+);
