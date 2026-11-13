@@ -155,6 +155,14 @@ Built to the boards on the "SLSOM Redesign" canvas (everything except the home p
   - `student-pages/`: shared cards and status pills, and the exam Start/Resume/Enter rules (`exam-paper.ts`, tested).
 - **Admin** (`admin/`): layout primitives, and the receipt queue used by Fees and Payments. The Admissions page is a review queue with bulk approve and J/K/A/M/R shortcuts. Rejecting a receipt keeps the student's own note and adds "Rejected: reason" after it (`src/lib/rejection-note.ts`).
 
+## Fee adjustments, waivers and other recent additions
+
+- **Adjust or waive a student's fee** (Admin › Money › Fees and payments › Student fee records): **Adjust** sets the amount due, and **Waive** / **Undo waiver** takes a reason. Both go through admin-only database functions `admin_set_fee_due` and `admin_set_fee_waived`, added in migration `20261114100000_admin_fee_adjust_waive.sql`. They recompute Paid, Partial or Unpaid, refuse an amount due below what has been paid, and are recorded by the existing audit trigger on `fees`. Teachers can't change money.
+- **Today on admin Home** (`src/components/admin/AdminToday.tsx`): today's classes, exam windows and school events, each linking to Attendance, the exam monitor or the Calendar. Hidden on an empty day.
+- **Session progress on My Courses**: courses still running show "held / planned sessions" from the schedule.
+- **Contact subject**: the Contact form has an optional Subject field. `send-contact-email` accepts it (one line, at most 120 characters), puts it in the email subject, and now HTML-escapes every visitor field.
+- **Phone fixes**: the WhatsApp button sits above the pinned step footer on `/register` and `/complete-profile`. Switches have an invisible 48 × 44 px tap area.
+
 ## Portal navigation
 
 - **Student portal** (`src/components/StudentLayout.tsx`): sections are Today (the dashboard), Learn (courses, materials, tasks, study), Exams, My Record (attendance, assessments, transcript, certificate, fees), Community and Account. On phones the bottom bar has one tab per section (Today, Learn, Exams, Record, More), and the pages of the current section sit in a tab strip above the content. URLs are unchanged.

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import FeeActionDialog, { type FeeAction, type FeeActionTarget } from "@/components/redesign/admin/fees/FeeActionDialog";
 import { withRejectionReason } from "@/lib/rejection-note";
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -80,6 +81,7 @@ const AdminFees = () => {
   const [pendingPayments, setPendingPayments] = useState<PaymentWithStudent[]>([]);
   const [approvedPayments, setApprovedPayments] = useState<PaymentWithStudent[]>([]);
   const [feeRecords, setFeeRecords] = useState<FeeRecord[]>([]);
+  const [feeAction, setFeeAction] = useState<{ action: FeeAction; target: FeeActionTarget } | null>(null);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -636,6 +638,7 @@ const AdminFees = () => {
 
   return (
     <Tabs value={tab} onValueChange={(v) => setTab(v as FeesTab)} className="pb-6">
+      <FeeActionDialog action={feeAction?.action ?? null} target={feeAction?.target ?? null} onClose={() => setFeeAction(null)} onDone={fetchFeeRecords} />
       <AdminPageHeader
         section="Money"
         title="Fees and payments"
@@ -895,6 +898,24 @@ const AdminFees = () => {
                               aria-label={`Receipts for ${f.student_name}`}
                             >
                               Receipts
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={`h-11 rounded-lg sm:h-[34px] ${QUIET_BUTTON}`}
+                              onClick={() => setFeeAction({ action: 'adjust', target: f })}
+                              aria-label={`Adjust ${f.fee_type} for ${f.student_name}`}
+                            >
+                              Adjust
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={`h-11 rounded-lg sm:h-[34px] ${QUIET_BUTTON}`}
+                              onClick={() => setFeeAction({ action: f.waived ? 'unwaive' : 'waive', target: f })}
+                              aria-label={`${f.waived ? 'Undo waiver of' : 'Waive'} ${f.fee_type} for ${f.student_name}`}
+                            >
+                              {f.waived ? 'Undo waiver' : 'Waive'}
                             </Button>
                             <Button asChild variant="outline" size="sm" className={`h-11 rounded-lg sm:h-[34px] ${QUIET_BUTTON}`}>
                               <Link to={`/admin/students/${f.student_id}`} aria-label={`Open ${f.student_name}`}>Open student</Link>

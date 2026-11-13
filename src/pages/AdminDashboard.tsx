@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import AdminToday from "@/components/admin/AdminToday";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesUpdate } from '@/integrations/supabase/types';
@@ -527,6 +528,8 @@ const AdminDashboard = () => {
           <ActionCentre queues={QUEUES} loading={loading} />
         </div>
         <div className="flex min-w-0 flex-[2_1_320px] flex-col gap-3.5">
+          {/* Classes, exam windows and events happening today; hidden when empty. */}
+          <AdminToday />
           {/* A question is usually faster than finding the page that answers
               it, and most of these cost no model call at all. */}
           <AssistantChat audience="admin" />

@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { name, email, message } = await req.json()
+    const { name, email, message, subject } = await req.json()
 
     if (!name || !email || !message) {
       return new Response(JSON.stringify({ error: 'All fields are required' }), {
@@ -26,6 +26,12 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+
+    // Visitor text goes into HTML: escape it so a message cannot inject markup.
+    const esc = (v: unknown) =>
+      String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
+    // Optional, one line, capped. Older clients that send no subject still work.
+    const topic = String(subject ?? '').replace(/[\r\n]+/g, ' ').trim().slice(0, 120)
 
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -36,16 +42,17 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         from: 'Spirit Life SOM <onboarding@resend.dev>',
         to: 'spiritlifeschoolofministry@gmail.com',
-        subject: `Contact Form: ${name}`,
+        subject: topic ? `Contact Form: ${topic} (${String(name).slice(0, 60)})` : `Contact Form: ${String(name).slice(0, 60)}`,
         reply_to: email,
         html: `
           <div style="font-family: sans-serif; padding: 20px;">
             <h2>New Contact Form Submission</h2>
-            <p><strong>Name:</strong> ${name}</p>
-            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Name:</strong> ${esc(name)}</p>
+            <p><strong>Email:</strong> ${esc(email)}</p>
+            ${topic ? `<p><strong>Subject:</strong> ${esc(topic)}</p>` : ''}
             <hr />
             <p><strong>Message:</strong></p>
-            <p>${message}</p>
+            <p style="white-space: pre-wrap">${esc(message)}</p>
           </div>
         `,
       }),

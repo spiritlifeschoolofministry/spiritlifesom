@@ -40,6 +40,8 @@ const shortCode = (code: string) => code.match(/\d+[A-Z]?$/i)?.[0] ?? code.slice
 const StudentCourses = () => {
   const { student } = useAuth();
   const [courses, setCourses] = useState<Course[]>([]);
+  // Class sessions per course from the schedule: held so far vs planned.
+  const [sessions, setSessions] = useState<Record<string, { held: number; total: number }>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,6 +62,22 @@ const StudentCourses = () => {
 
         if (error) throw error;
         setCourses((data as Course[]) || []);
+
+        const { data: sched } = await supabase
+          .from("schedule")
+          .select("course_id, date")
+          .eq("cohort_id", student.cohort_id)
+          .eq("counts_for_attendance", true)
+          .not("course_id", "is", null);
+        const todayIso = new Date().toISOString().slice(0, 10);
+        const bySession: Record<string, { held: number; total: number }> = {};
+        for (const row of sched ?? []) {
+          if (!row.course_id) continue;
+          const entry = (bySession[row.course_id] ??= { held: 0, total: 0 });
+          entry.total += 1;
+          if (row.date <= todayIso) entry.held += 1;
+        }
+        setSessions(bySession);
         setError(null);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Failed to load courses";
@@ -136,7 +154,7 @@ const StudentCourses = () => {
           </h2>
           <ul className="grid gap-2.5 md:grid-cols-2">
             {list.map((course) => (
-              <CourseRow key={course.id} course={course} state={stateOf(course, today)} />
+              <CourseRow key={course.id} course={course} state={stateOf(course, today)} sessions={sessions[course.id]} />
             ))}
           </ul>
         </section>
@@ -151,7 +169,7 @@ const STATE_STYLE: Record<CourseState, { tile: string; text: string }> = {
   soon: { tile: "bg-[#F1EFF6] text-muted-foreground dark:bg-muted", text: "text-muted-foreground" },
 };
 
-const CourseRow = ({ course, state }: { course: Course; state: CourseState }) => {
+const CourseRow = ({ course, state, sessions }: { course: Course; state: CourseState; sessions?: { held: number; total: number } }) => {
   const style = STATE_STYLE[state];
   const stateLabel =
     state === "done"
@@ -183,6 +201,18 @@ const CourseRow = ({ course, state }: { course: Course; state: CourseState }) =>
           <span className={cn("shrink-0 pt-0.5 text-xs font-semibold", style.text)}>{stateLabel}</span>
         </div>
         {state === "done" && <Bar value={100} tone="success" label={`${course.title}: completed`} className="h-1.5" />}
+        {state !== "done" && sessions && sessions.total > 0 && (
+          <div className="flex items-center gap-2">
+            <Bar
+              value={Math.round((sessions.held / sessions.total) * 100)}
+              label={`${course.title}: ${sessions.held} of ${sessions.total} sessions held`}
+              className="h-1.5 flex-1"
+            />
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {sessions.held}/{sessions.total} sessions
+            </span>
+          </div>
+        )}
         <p className="text-xs text-muted-foreground">{meta}</p>
         {course.description && <p className="line-clamp-2 text-xs text-muted-foreground">{course.description}</p>}
       </div>

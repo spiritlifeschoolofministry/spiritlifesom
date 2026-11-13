@@ -16,6 +16,7 @@ const fieldClass = "h-[46px] rounded-xl bg-card px-3 text-base md:text-base";
 const ContactPage = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const { get } = useSiteContent("contact");
@@ -28,13 +29,14 @@ const ContactPage = () => {
     setSending(true);
     try {
       const { data, error } = await supabase.functions.invoke("send-contact-email", {
-        body: { name, email, message },
+        body: { name, email, subject, message },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast.success("Message sent successfully! We'll get back to you soon.");
       setName("");
       setEmail("");
+      setSubject("");
       setMessage("");
     } catch (err) {
       console.error("Contact form error:", err);
@@ -99,6 +101,10 @@ const ContactPage = () => {
               <Label htmlFor="contact-email" className="text-sm font-semibold">Email</Label>
               <Input id="contact-email" type="email" autoComplete="email" className={fieldClass} value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="contact-subject" className="text-sm font-semibold">Subject <span className="font-normal text-muted-foreground">(optional)</span></Label>
+            <Input id="contact-subject" maxLength={120} className={fieldClass} value={subject} onChange={(e) => setSubject(e.target.value)} />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="contact-message" className="text-sm font-semibold">Message</Label>

@@ -3367,6 +3367,14 @@ export type Database = {
         }
         Returns: string
       }
+      admin_set_fee_due: {
+        Args: { p_amount_due: number; p_fee_id: string }
+        Returns: undefined
+      }
+      admin_set_fee_waived: {
+        Args: { p_fee_id: string; p_reason?: string | null; p_waived: boolean }
+        Returns: undefined
+      }
       admin_set_payment_fee: {
         Args: { p_payment_id: string; p_student_fee_id: string }
         Returns: undefined
