@@ -28,17 +28,21 @@ import { publicNavLinks, socialLinks, whatsappHref } from "@/components/redesign
 const INTAKE_MESSAGE = "Hello Spirit Life SOM, I'd like to know when the next intake opens.";
 
 const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
-const gold = "bg-[#E0A526] text-[#17112B] hover:bg-[#d39a1f]";
-const darkRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526] focus-visible:ring-offset-2 focus-visible:ring-offset-[#17112B]";
+// The same purple as "Apply now" on the other public pages (bg-primary).
+const cta = "bg-primary text-primary-foreground hover:bg-primary/90";
+// Purple text on the dark bar and photos: a light tint of the same hue, since
+// the button purple itself is too dark to read there.
+const accentOnDark = "text-[#C4B5FD]";
+const darkRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#17112B]";
 
-/** The headline with "saints" picked out in gold, when the wording has it. */
+/** The headline with "saints" picked out in purple, when the wording has it. */
 const Headline = ({ text }: { text: string }) => {
   const parts = text.split(/(saints)/i);
   return (
     <>
       {parts.map((part, i) =>
         /^saints$/i.test(part) ? (
-          <em key={i} className="font-medium italic text-[#E0A526]">
+          <em key={i} className={cn("font-medium italic", accentOnDark)}>
             {part}
           </em>
         ) : (
@@ -70,7 +74,7 @@ const HomeTopBar = () => {
           <img src="/images/school-logo.png" alt="" className="h-9 w-9 shrink-0 rounded-full bg-white object-contain p-0.5" />
           <span className="flex min-w-0 flex-col leading-tight">
             <span className="truncate font-display text-[17px] font-bold">Spirit Life SOM</span>
-            <span className="truncate text-[10px] font-semibold uppercase tracking-[0.22em] text-[#E0A526]">School of Ministry</span>
+            <span className="truncate text-[10px] font-semibold uppercase tracking-[0.22em] text-[#C4B5FD]">School of Ministry</span>
           </span>
         </Link>
 
@@ -92,14 +96,14 @@ const HomeTopBar = () => {
         <Link
           to="/login"
           {...prefetch("/login")}
-          className={cn("inline-flex min-h-11 items-center rounded-xl px-3 text-[15px] font-bold text-white", darkRing)}
+          className={cn("inline-flex min-h-11 items-center rounded-xl border border-white/45 px-4 text-[15px] font-bold text-white transition-colors hover:bg-white/10", darkRing)}
         >
           Log in
         </Link>
         <Link
           to="/register"
           {...prefetch("/register")}
-          className={cn("hidden min-h-11 items-center rounded-xl px-5 font-bold lg:inline-flex", gold, darkRing)}
+          className={cn("hidden min-h-11 items-center rounded-xl px-5 font-bold lg:inline-flex", cta, darkRing)}
         >
           Register
         </Link>
@@ -141,7 +145,7 @@ const HomeTopBar = () => {
               <Link
                 to="/register"
                 onClick={() => setMenuOpen(false)}
-                className={cn("flex min-h-[52px] items-center justify-center rounded-2xl font-bold", gold, focusRing)}
+                className={cn("flex min-h-[52px] items-center justify-center rounded-2xl font-bold", cta, focusRing)}
               >
                 Register
               </Link>
@@ -214,8 +218,8 @@ const Home = () => {
   const shown = modes[mode];
 
   const steps = [
-    { n: 1, title: get("step1_title", "Apply"), desc: get("step1_desc", "Fill in the registration form online"), dot: "bg-[#E0A526] text-[#17112B]" },
-    { n: 2, title: get("step2_title", "Get Admitted"), desc: get("step2_desc", "Await your admission decision"), dot: "bg-primary text-primary-foreground" },
+    { n: 1, title: get("step1_title", "Apply"), desc: get("step1_desc", "Fill in the registration form online"), dot: "bg-primary text-primary-foreground" },
+    { n: 2, title: get("step2_title", "Get Admitted"), desc: get("step2_desc", "Await your admission decision"), dot: "bg-primary/15 text-primary dark:bg-primary/30 dark:text-foreground" },
     { n: 3, title: get("step3_title", "Start Learning"), desc: get("step3_desc", "Begin your transformation"), dot: "bg-foreground text-background" },
   ];
 
@@ -246,7 +250,7 @@ const Home = () => {
       <HeroCarousel sectionRef={heroRef}>
         <div className="mx-auto flex max-w-[1200px] flex-col gap-4 px-5 pb-16 md:px-8 md:pb-20 lg:pb-24">
           <p className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/80 md:text-xs">
-            <span aria-hidden="true" className="h-px w-6 shrink-0 bg-[#E0A526]" />
+            <span aria-hidden="true" className="h-px w-6 shrink-0 bg-[#C4B5FD]" />
             Welcome to Spirit Life School of Ministry
           </p>
           <h1 className="max-w-[15ch] font-display text-[44px] font-medium leading-[1.02] tracking-[-0.02em] text-white md:text-[68px] lg:text-[84px]">
@@ -255,7 +259,7 @@ const Home = () => {
           <p className="font-display text-lg italic text-white/80 md:text-2xl">{get("hero_reference", "Ephesians 4:12")}</p>
           <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             {open ? (
-              <Link to="/register" className={cn("inline-flex min-h-[52px] items-center justify-center rounded-xl px-7 font-extrabold", gold, darkRing)}>
+              <Link to="/register" className={cn("inline-flex min-h-[52px] items-center justify-center rounded-xl px-7 font-extrabold", cta, darkRing)}>
                 Apply now
               </Link>
             ) : (
@@ -263,7 +267,7 @@ const Home = () => {
                 href={intakeHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={cn("inline-flex min-h-[52px] items-center justify-center rounded-xl px-7 font-extrabold", gold, darkRing)}
+                className={cn("inline-flex min-h-[52px] items-center justify-center rounded-xl px-7 font-extrabold", cta, darkRing)}
               >
                 Ask about the next intake
               </a>
@@ -286,14 +290,14 @@ const Home = () => {
       <Reveal className="mx-auto max-w-[1200px] px-4 pb-7 pt-8 md:px-8 md:pt-10">
         <nav aria-label="Quick actions" className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-3">
           <a href={intakeHref} target="_blank" rel="noopener noreferrer" className={cn(quickTile, "bg-[#17112B] text-white", focusRing)}>
-            <MessageCircle className="h-6 w-6 text-[#E0A526]" aria-hidden="true" />
+            <MessageCircle className={cn("h-6 w-6", accentOnDark)} aria-hidden="true" />
             <span className="text-[15px] font-bold leading-tight">Ask about the next intake</span>
           </a>
           <Link to="/courses" {...prefetch("/courses")} className={cn(quickTile, "border border-border bg-card", focusRing)}>
             <BookOpen className="h-6 w-6 text-primary" aria-hidden="true" />
             <span className="text-[15px] font-bold leading-tight">See the courses</span>
           </Link>
-          <Link to="/register" {...prefetch("/register")} className={cn(quickTile, gold, focusRing)}>
+          <Link to="/register" {...prefetch("/register")} className={cn(quickTile, cta, focusRing)}>
             <FilePlus2 className="h-6 w-6" aria-hidden="true" />
             <span className="text-[15px] font-bold leading-tight">Register</span>
           </Link>
@@ -395,7 +399,7 @@ const Home = () => {
         )}
       >
         {open ? (
-          <Link to="/register" className={cn("flex min-h-[54px] items-center justify-center rounded-2xl text-base font-extrabold", gold, focusRing)}>
+          <Link to="/register" className={cn("flex min-h-[54px] items-center justify-center rounded-2xl text-base font-extrabold", cta, focusRing)}>
             Apply now
           </Link>
         ) : (
@@ -403,7 +407,7 @@ const Home = () => {
             href={intakeHref}
             target="_blank"
             rel="noopener noreferrer"
-            className={cn("flex min-h-[54px] items-center justify-center gap-2.5 rounded-2xl text-base font-extrabold", gold, focusRing)}
+            className={cn("flex min-h-[54px] items-center justify-center gap-2.5 rounded-2xl text-base font-extrabold", cta, focusRing)}
           >
             <MessageCircle className="h-5 w-5" aria-hidden="true" />
             Ask about the next intake

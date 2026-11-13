@@ -140,13 +140,13 @@ const HeroCarousel = ({
             onClick={() => goTo(i)}
             aria-label={`Show photo ${i + 1} of ${n}`}
             aria-current={i === current ? "true" : undefined}
-            className="flex h-11 w-6 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E0A526]"
+            className="flex h-11 w-6 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             <span
               aria-hidden="true"
               className={cn(
                 "block h-1.5 rounded-full transition-all duration-300",
-                i === current ? "w-6 bg-[#E0A526]" : "w-1.5 bg-white/55",
+                i === current ? "w-6 bg-[#C4B5FD]" : "w-1.5 bg-white/55",
               )}
             />
           </button>
