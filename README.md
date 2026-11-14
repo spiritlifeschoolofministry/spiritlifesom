@@ -130,7 +130,7 @@ Import the heavy ones only from pages loaded with `React.lazy`, or with a dynami
 | Area | Package | Version | Where it is used |
 | --- | --- | --- | --- |
 | Animation | `framer-motion` | ^14.13 | Page transitions in the portals (see "Portal navigation"); list changes planned |
-| Animation | `gsap` + `@gsap/react` | ^3.15 / ^2.1 | Not used on `main`: the home page that shipped uses CSS and `Reveal`. Only the unmerged `homepage-redesign` branch uses it. |
+| Animation | `gsap` + `@gsap/react` | ^3.15 / ^2.1 | Installed and kept for future animations; nothing uses it yet (the home page uses CSS and `Reveal`). |
 | Charts | `recharts` | ^3.10 | Dashboard charts (admin Analytics) |
 | Charts | `d3` (+ `@types/d3`, dev) | ^7.9 | Cohort funnel scale (admin Analytics) |
 | 2D | `konva` + `react-konva` | ^10.9 / ^19.3 | Certificate layout editor (see "Certificate layout editor"), in its own lazy chunk |
