@@ -195,8 +195,9 @@ const StudentTranscript = () => {
 
   // Overall GPA calculation
   const gradedCourses = courses.filter(c => c.courseAvg != null);
-  // The project counts on its own: one more unit with the same weight as a course.
-  const overallAvg = overallWithProject(gradedCourses.map((c) => c.courseAvg!), project?.percent ?? null);
+  // The project counts on its own, beside the courses, with the weight the
+  // cohort has set for it (1 = the same as one course).
+  const overallAvg = overallWithProject(gradedCourses.map((c) => c.courseAvg!), project?.percent ?? null, project?.weight ?? 1);
   const overallGrade = getLetterGrade(overallAvg);
   const completedCount = courses.filter(c => c.is_completed).length;
   // Counts every assessment on the record, coursework and exam-engine sittings

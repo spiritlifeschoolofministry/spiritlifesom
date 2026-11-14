@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { CalendarClock, Download, FileText, Loader2, Search, Trash2, Upload } from "lucide-react";
+import { CalendarClock, Download, FileText, Loader2, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,12 +28,12 @@ import {
   type TopicStatus,
 } from "@/lib/projects";
 import { r2Storage } from "@/lib/r2-storage";
+import ProjectArchiveList from "@/components/projects/ProjectArchiveList";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Project = Tables<"project_overview">;
 type Stage = Tables<"project_stages">;
 type Submission = Tables<"project_submissions">;
-type Archived = Tables<"project_archive">;
 
 const openFile = async (path: string) => {
   try {
@@ -290,68 +290,6 @@ const History = ({ rows, onChanged }: { rows: Submission[]; onChanged: () => voi
   );
 };
 
-const PastProjects = () => {
-  const [rows, setRows] = useState<Archived[] | null>(null);
-  const [search, setSearch] = useState("");
-
-  useEffect(() => {
-    supabase
-      .from("project_archive")
-      .select("*")
-      .order("completed_at", { ascending: false })
-      .then(({ data, error }) => {
-        if (error) console.error("Load archive error:", error);
-        setRows(data ?? []);
-      });
-  }, []);
-
-  const needle = search.trim().toLowerCase();
-  const shown = (rows ?? []).filter(
-    (row) =>
-      !needle ||
-      [row.title, row.abstract, row.authors, row.cohort_name].some((text) => text?.toLowerCase().includes(needle)),
-  );
-
-  if (rows === null) return <Skeleton className="h-24 w-full rounded-[20px]" />;
-  if (rows.length === 0) {
-    return (
-      <EmptyCard icon={<FileText className="h-6 w-6" />} title="No completed projects yet">
-        Projects appear here once they have been defended and passed.
-      </EmptyCard>
-    );
-  }
-  return (
-    <div className="space-y-3">
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by title, topic or name" aria-label="Search past projects" className="h-11 pl-9" />
-      </div>
-      {shown.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No project matches that search.</p>
-      ) : (
-        <ul className="space-y-3">
-          {shown.map((row) => (
-            <Panel as="li" key={row.id}>
-              <h3 className="text-base font-bold text-foreground">{row.title}</h3>
-              <p className="text-xs text-muted-foreground">
-                {[row.authors, row.cohort_name, row.completed_at && format(new Date(row.completed_at), "yyyy")]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-              {row.abstract && <p className="mt-2 line-clamp-4 whitespace-pre-wrap text-sm text-foreground">{row.abstract}</p>}
-              {row.file_path && (
-                <Button variant="outline" size="sm" className="mt-3 gap-2" onClick={() => openFile(row.file_path!)}>
-                  <Download className="h-4 w-4" /> Read the project
-                </Button>
-              )}
-            </Panel>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-};
-
 const StudentProject = () => {
   const { student, profile } = useAuth();
   const [classmates, setClassmates] = useState<Classmate[]>([]);
@@ -367,7 +305,7 @@ const StudentProject = () => {
     }
     // Through membership, not the lead column: a group member who did not
     // propose the project still has it.
-    const { data: membership } = await supabase.from("project_members").select("project_id").eq("student_id", student.id).maybeSingle();
+    const { data: membership } = await supabase.from("project_members").select("project_id").eq("student_id", student.id).eq("active", true).maybeSingle();
     const { data: mine, error } = membership?.project_id
       ? await supabase.from("project_overview").select("*").eq("id", membership.project_id).maybeSingle()
       : { data: null, error: null };
@@ -432,7 +370,7 @@ const StudentProject = () => {
       <Tabs defaultValue="mine">
         <TabsList>
           <TabsTrigger value="mine">My project</TabsTrigger>
-          <TabsTrigger value="past">Past projects</TabsTrigger>
+          <TabsTrigger value="past">Project archive</TabsTrigger>
         </TabsList>
 
         <TabsContent value="mine" className="mt-4 space-y-5">
@@ -592,7 +530,7 @@ const StudentProject = () => {
         </TabsContent>
 
         <TabsContent value="past" className="mt-4">
-          <PastProjects />
+          <ProjectArchiveList />
         </TabsContent>
       </Tabs>
     </div>

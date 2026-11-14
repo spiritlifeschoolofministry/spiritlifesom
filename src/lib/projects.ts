@@ -65,7 +65,59 @@ export interface ProjectMember {
   name: string;
   code: string | null;
   lead: boolean;
+  /** This member's own result as a percentage. Staff only; null for students. */
+  score: number | null;
 }
+
+/** How a project is scored. */
+export type ScoringMode = "group" | "individual" | "both";
+
+export const SCORING_MODES: { value: ScoringMode; label: string; hint: string }[] = [
+  { value: "group", label: "Group score", hint: "The panel scores the project once and every member gets that score." },
+  { value: "individual", label: "Individual scores", hint: "The panel scores each member separately." },
+  { value: "both", label: "Group and individual", hint: "The panel gives a group score and a score for each member; the two are combined." },
+];
+
+export const scoringModeLabel = (mode: string | null | undefined): string =>
+  SCORING_MODES.find((option) => option.value === mode)?.label ?? "Group score";
+
+/** Which score sheets a panel member fills in for a mode. */
+export const scoreTargets = (mode: string | null | undefined): { group: boolean; individual: boolean } => ({
+  group: mode !== "individual",
+  individual: mode === "individual" || mode === "both",
+});
+
+/**
+ * A member's result from the group and individual percentages. Mirrors
+ * project_refresh_scores() in the database, which is what is actually stored;
+ * this exists to explain the figure on screen. `individualWeight` is 0-100.
+ */
+export const combineScores = (
+  mode: string | null | undefined,
+  groupPercent: number | null,
+  individualPercent: number | null,
+  individualWeight: number,
+): number | null => {
+  if (mode === "individual") return individualPercent;
+  if (mode === "both") {
+    if (groupPercent === null || individualPercent === null) return null;
+    return round2((groupPercent * (100 - individualWeight)) / 100 + (individualPercent * individualWeight) / 100);
+  }
+  return groupPercent;
+};
+
+/** The mean of scores as a percentage of what each was out of; null when there are none. */
+export const averagePercent = (scores: { total: number | string; out_of: number | string }[]): number | null => {
+  const valid = scores.filter((score) => Number(score.out_of) > 0);
+  if (valid.length === 0) return null;
+  return round2(valid.reduce((sum, score) => sum + (Number(score.total) / Number(score.out_of)) * 100, 0) / valid.length);
+};
+
+/** Days left before a deleted project is purged, never below 0. */
+export const daysUntilPurge = (purgeAt: string | null | undefined, now: Date = new Date()): number => {
+  if (!purgeAt) return 0;
+  return Math.max(0, Math.ceil((new Date(purgeAt).getTime() - now.getTime()) / 86_400_000));
+};
 
 /** Reads project_overview.members (jsonb) defensively. */
 export const parseMembers = (value: unknown): ProjectMember[] =>
@@ -78,6 +130,7 @@ export const parseMembers = (value: unknown): ProjectMember[] =>
           name: String(row.name ?? "") || "Unnamed",
           code: typeof row.code === "string" ? row.code : null,
           lead: row.lead === true,
+          score: typeof row.score === "number" ? row.score : null,
         }))
         .filter((member) => member.student_id)
     : [];
@@ -244,4 +297,45 @@ export const fromLocalInput = (value: string): string | null => {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+};
+
+interface ArchiveRow {
+  title: string | null;
+  abstract: string | null;
+  authors: string | null;
+  cohort_name: string | null;
+  year: number | null;
+}
+
+/** Whether an archive row mentions the search text in its title, topic, authors or cohort. */
+export const matchesArchiveSearch = (row: ArchiveRow, search: string): boolean => {
+  const needle = search.trim().toLowerCase();
+  if (!needle) return true;
+  return [row.title, row.abstract, row.authors, row.cohort_name].some((text) => text?.toLowerCase().includes(needle));
+};
+
+/** The years present in the archive, newest first. */
+export const archiveYears = (rows: { year: number | null }[]): number[] =>
+  [...new Set(rows.map((row) => row.year).filter((year): year is number => typeof year === "number"))].sort((a, b) => b - a);
+
+/** The first problem with a past project being added, or null. */
+export const archiveEntryProblem = (entry: { title: string; authors: string; year: string }): string | null => {
+  if (entry.title.trim().length < 5) return "Write the project's title.";
+  if (entry.authors.trim().length < 2) return "Write who the project is by.";
+  if (entry.year) {
+    const year = Number(entry.year);
+    if (!Number.isInteger(year) || year < 1980 || year > 2100) return "Enter the year as four digits, for example 2023.";
+  }
+  return null;
+};
+
+/** The first problem with a cohort's project settings, or null. */
+export const projectSettingsProblem = (settings: { weight: string; groupMax: string }): string | null => {
+  const weight = Number(settings.weight);
+  if (settings.weight.trim() === "" || !Number.isFinite(weight) || weight < 0 || weight > 20) {
+    return "The weight is a number from 0 to 20.";
+  }
+  const max = Number(settings.groupMax);
+  if (!Number.isInteger(max) || max < 2 || max > 100) return "The largest group is a whole number from 2 to 100.";
+  return null;
 };

@@ -12,6 +12,8 @@ export interface ProjectResult {
   outcome: string | null;
   note: string | null;
   decidedAt: string | null;
+  /** How many courses the project counts as in the overall grade (cohort setting). */
+  weight: number;
 }
 
 /**
@@ -26,15 +28,19 @@ export const fetchMyProjectResult = async (studentId: string): Promise<ProjectRe
     .from("project_members")
     .select("project_id")
     .eq("student_id", studentId)
+    .eq("active", true)
     .maybeSingle();
   if (!membership?.project_id) return null;
   const { data } = await supabase
     .from("project_overview")
-    .select("id, title, is_group, status, outcome, outcome_note, outcome_at, final_score")
+    .select("id, title, is_group, status, outcome, outcome_note, outcome_at, final_score, cohort_id")
     .eq("id", membership.project_id)
     .maybeSingle();
   if (!data?.id || data.status !== "approved") return null;
-  return toProjectResult(data);
+  const { data: cohort } = data.cohort_id
+    ? await supabase.from("cohorts").select("project_weight").eq("id", data.cohort_id).maybeSingle()
+    : { data: null };
+  return toProjectResult(data, Number(cohort?.project_weight ?? 1));
 };
 
 /**
@@ -46,6 +52,7 @@ export const fetchStudentProject = async (studentId: string) => {
     .from("project_members")
     .select("project_id")
     .eq("student_id", studentId)
+    .eq("active", true)
     .maybeSingle();
   if (!membership?.project_id) return null;
   const { data } = await supabase.from("project_overview").select("*").eq("id", membership.project_id).maybeSingle();
@@ -60,7 +67,7 @@ export const toProjectResult = (row: {
   outcome_note: string | null;
   outcome_at: string | null;
   final_score: number | null;
-}): ProjectResult => ({
+}, weight = 1): ProjectResult => ({
   id: row.id ?? "",
   title: row.title ?? "Project",
   isGroup: Boolean(row.is_group),
@@ -69,13 +76,20 @@ export const toProjectResult = (row: {
   outcome: outcomeLabel(row.outcome)?.label ?? null,
   note: row.outcome_note,
   decidedAt: row.outcome_at,
+  weight: Number.isFinite(weight) && weight >= 0 ? weight : 1,
 });
 
 /**
- * The overall average with the project counted as one more unit beside the
- * courses: each course average and the project percentage weigh the same.
+ * The overall average with the project counted beside the courses.
+ *
+ * Each course average counts once. The project counts `weight` times: 1 is the
+ * same as one course, 2 is double, 0 leaves it out of the average while it
+ * still shows on the record. The weight is the cohort's setting.
  */
-export const overallWithProject = (courseAverages: number[], projectPercent: number | null): number => {
-  const units = projectPercent === null ? courseAverages : [...courseAverages, projectPercent];
-  return units.length ? Math.round(units.reduce((sum, value) => sum + value, 0) / units.length) : 0;
+export const overallWithProject = (courseAverages: number[], projectPercent: number | null, weight = 1): number => {
+  const w = projectPercent === null || !(weight > 0) ? 0 : weight;
+  const units = courseAverages.length + w;
+  if (units === 0) return 0;
+  const sum = courseAverages.reduce((total, value) => total + value, 0) + (projectPercent ?? 0) * w;
+  return Math.round(sum / units);
 };

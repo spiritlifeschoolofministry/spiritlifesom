@@ -5,6 +5,14 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 const { overallWithProject, toProjectResult } = await import("@/lib/project-result");
 import {
   USUAL_RUBRIC,
+  archiveEntryProblem,
+  archiveYears,
+  averagePercent,
+  combineScores,
+  daysUntilPurge,
+  matchesArchiveSearch,
+  projectSettingsProblem,
+  scoreTargets,
   defenceEvents,
   defenceProjectId,
   formatPercent,
@@ -132,6 +140,111 @@ describe("project on the record", () => {
     expect(overallWithProject([60, 70], 80)).toBe(70);
     expect(overallWithProject([], 80)).toBe(80);
     expect(overallWithProject([], null)).toBe(0);
+  });
+
+  it("weighs the project by the cohort's setting", () => {
+    // Double weight: (60 + 70 + 80 + 80) / 4.
+    expect(overallWithProject([60, 70], 80, 2)).toBe(73);
+    // Half a course: (60 + 70 + 40) / 2.5.
+    expect(overallWithProject([60, 70], 80, 0.5)).toBe(68);
+    // Zero: on the record, out of the average.
+    expect(overallWithProject([60, 70], 80, 0)).toBe(65);
+    expect(overallWithProject([], 80, 0)).toBe(0);
+  });
+
+  it("carries the cohort's weight on the result, defaulting to one course", () => {
+    const row = { id: "p", title: "T", is_group: false, outcome: "pass", outcome_note: null, outcome_at: null, final_score: 70 };
+    expect(toProjectResult(row).weight).toBe(1);
+    expect(toProjectResult(row, 2.5).weight).toBe(2.5);
+    expect(toProjectResult(row, -3).weight).toBe(1);
+  });
+});
+
+describe("scoring modes", () => {
+  it("says which score sheets the panel fills in", () => {
+    expect(scoreTargets("group")).toEqual({ group: true, individual: false });
+    expect(scoreTargets("individual")).toEqual({ group: false, individual: true });
+    expect(scoreTargets("both")).toEqual({ group: true, individual: true });
+    expect(scoreTargets(null)).toEqual({ group: true, individual: false });
+  });
+
+  it("averages the panel as percentages, whatever each score was out of", () => {
+    expect(averagePercent([{ total: 30, out_of: 40 }, { total: "45", out_of: "50" }])).toBe(82.5);
+    expect(averagePercent([])).toBeNull();
+    expect(averagePercent([{ total: 5, out_of: 0 }])).toBeNull();
+  });
+
+  it("gives every member the group score in group mode", () => {
+    expect(combineScores("group", 72, 90, 50)).toBe(72);
+    expect(combineScores("group", null, 90, 50)).toBeNull();
+  });
+
+  it("gives each member their own score in individual mode", () => {
+    expect(combineScores("individual", 72, 90, 50)).toBe(90);
+    expect(combineScores("individual", 72, null, 50)).toBeNull();
+  });
+
+  it("combines the two by the weight in both mode, and waits until both exist", () => {
+    expect(combineScores("both", 80, 60, 50)).toBe(70);
+    expect(combineScores("both", 80, 60, 25)).toBe(75);
+    expect(combineScores("both", 80, 60, 100)).toBe(60);
+    expect(combineScores("both", 80, null, 50)).toBeNull();
+    expect(combineScores("both", null, 60, 50)).toBeNull();
+  });
+
+  it("reads a member's own score for staff", () => {
+    expect(parseMembers([{ student_id: "s1", profile_id: "p1", name: "A", lead: true, score: 71.5 }])[0].score).toBe(71.5);
+    expect(parseMembers([{ student_id: "s1", profile_id: "p1", name: "A", lead: true, score: null }])[0].score).toBeNull();
+  });
+});
+
+describe("cohort project settings", () => {
+  it("accepts a weight from 0 to 20 and a group of 2 to 100", () => {
+    expect(projectSettingsProblem({ weight: "1", groupMax: "10" })).toBeNull();
+    expect(projectSettingsProblem({ weight: "0", groupMax: "2" })).toBeNull();
+    expect(projectSettingsProblem({ weight: "", groupMax: "10" })).toMatch(/weight/);
+    expect(projectSettingsProblem({ weight: "21", groupMax: "10" })).toMatch(/weight/);
+    expect(projectSettingsProblem({ weight: "1", groupMax: "1" })).toMatch(/group/);
+    expect(projectSettingsProblem({ weight: "1", groupMax: "4.5" })).toMatch(/group/);
+  });
+});
+
+describe("the bin", () => {
+  const now = new Date("2026-11-20T12:00:00Z");
+  it("counts the days left before a deleted project is purged", () => {
+    expect(daysUntilPurge("2026-12-20T12:00:00Z", now)).toBe(30);
+    expect(daysUntilPurge("2026-11-21T06:00:00Z", now)).toBe(1);
+    expect(daysUntilPurge("2026-11-19T12:00:00Z", now)).toBe(0);
+    expect(daysUntilPurge(null, now)).toBe(0);
+  });
+});
+
+describe("project archive", () => {
+  const rows = [
+    { title: "Prayer in the early church", abstract: "Acts and after", authors: "Ada Obi", cohort_name: "2024 Session", year: 2024 },
+    { title: "Church planting", abstract: "", authors: "Tunde Bello, Ngozi Eze", cohort_name: null, year: 2019 },
+    { title: "Undated work", abstract: null, authors: "Someone", cohort_name: null, year: null },
+  ];
+
+  it("searches the title, topic, authors and cohort", () => {
+    const found = (text: string) => rows.filter((row) => matchesArchiveSearch(row, text)).map((row) => row.title);
+    expect(found("  ")).toHaveLength(3);
+    expect(found("ngozi")).toEqual(["Church planting"]);
+    expect(found("acts")).toEqual(["Prayer in the early church"]);
+    expect(found("2024 session")).toEqual(["Prayer in the early church"]);
+    expect(found("nothing like this")).toEqual([]);
+  });
+
+  it("lists the years present, newest first, ignoring undated projects", () => {
+    expect(archiveYears(rows)).toEqual([2024, 2019]);
+  });
+
+  it("checks a past project before it is added", () => {
+    expect(archiveEntryProblem({ title: "Church planting in Oyo", authors: "Ada Obi", year: "2019" })).toBeNull();
+    expect(archiveEntryProblem({ title: "Church planting in Oyo", authors: "Ada Obi", year: "" })).toBeNull();
+    expect(archiveEntryProblem({ title: "Hi", authors: "Ada Obi", year: "" })).toMatch(/title/);
+    expect(archiveEntryProblem({ title: "Church planting in Oyo", authors: "", year: "" })).toMatch(/who/);
+    expect(archiveEntryProblem({ title: "Church planting in Oyo", authors: "Ada Obi", year: "19" })).toMatch(/year/);
   });
 });
 

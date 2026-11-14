@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
-import { Loader2, Plus, Trash2, Users } from "lucide-react";
+import { Archive, Loader2, Plus, RotateCcw, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,14 +14,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { PageSkeleton } from "@/components/portal/PageSkeleton";
 import { AdminPageHeader, KpiTile, Panel, StatusPill } from "@/components/redesign/admin/primitives";
-import { ADMIN_TONE, USUAL_RUBRIC, USUAL_STAGES, isProjectComplete, parseMembers, projectStep, rubricOutOf, stagesApproved } from "@/lib/projects";
+import { ADMIN_TONE, SCORING_MODES, daysUntilPurge, projectSettingsProblem, USUAL_RUBRIC, USUAL_STAGES, isProjectComplete, parseMembers, projectStep, rubricOutOf, stagesApproved } from "@/lib/projects";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Project = Tables<"project_overview">;
 type Stage = Tables<"project_stages">;
 type Criterion = Tables<"project_rubric_criteria">;
-type Cohort = Pick<Tables<"cohorts">, "id" | "name" | "is_active">;
+type Cohort = Pick<Tables<"cohorts">, "id" | "name" | "is_active" | "project_weight" | "project_group_max" | "project_scoring_mode">;
+type Binned = Tables<"project_trash">;
 interface StudentOption { id: string; name: string; code: string | null }
 interface StaffOption { id: string; name: string }
 
@@ -34,7 +35,7 @@ const FILTERS = [
 ] as const;
 
 const AdminProjects = () => {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
@@ -52,13 +53,17 @@ const AdminProjects = () => {
   const [give, setGive] = useState({ studentIds: [] as string[], title: "", abstract: "", supervisorId: "" });
   const [criteria, setCriteria] = useState<Criterion[]>([]);
   const [newCriterion, setNewCriterion] = useState({ label: "", max: "" });
+  const [bin, setBin] = useState<Binned[]>([]);
+  const [settings, setSettings] = useState({ weight: "1", groupMax: "10", mode: "group" });
+  const isAdmin = (role ?? "").toLowerCase() === "admin";
   const [saving, setSaving] = useState(false);
   const [newStage, setNewStage] = useState({ title: "", due: "" });
 
   const load = useCallback(async () => {
+    supabase.from("project_trash").select("*").order("deleted_at", { ascending: false }).then(({ data }) => setBin(data ?? []));
     const [projectsRes, cohortsRes, staffRes] = await Promise.all([
       supabase.from("project_overview").select("*").order("updated_at", { ascending: false }),
-      supabase.from("cohorts").select("id, name, is_active").order("start_date", { ascending: false }),
+      supabase.from("cohorts").select("id, name, is_active, project_weight, project_group_max, project_scoring_mode").order("start_date", { ascending: false }),
       supabase.from("profiles").select("id, first_name, last_name").in("role", ["admin", "teacher"]).order("first_name"),
     ]);
     const failed = projectsRes.error ?? cohortsRes.error;
@@ -103,6 +108,53 @@ const AdminProjects = () => {
   useEffect(() => {
     void loadCohort();
   }, [loadCohort]);
+
+  const cohort = cohorts.find((c) => c.id === cohortId) ?? null;
+  useEffect(() => {
+    if (!cohort) return;
+    setSettings({
+      weight: String(Number(cohort.project_weight)),
+      groupMax: String(cohort.project_group_max),
+      mode: cohort.project_scoring_mode,
+    });
+  }, [cohort?.id, cohort?.project_weight, cohort?.project_group_max, cohort?.project_scoring_mode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const saveSettings = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const problem = projectSettingsProblem(settings);
+    if (problem) {
+      toast.error(problem);
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase
+      .from("cohorts")
+      .update({
+        project_weight: Number(settings.weight),
+        project_group_max: Number(settings.groupMax),
+        project_scoring_mode: settings.mode,
+      })
+      .eq("id", cohortId);
+    setSaving(false);
+    if (error) {
+      console.error("Save project settings error:", error);
+      toast.error("Could not save. Only an admin can change cohort settings");
+      return;
+    }
+    toast.success("Project settings saved");
+    void load();
+  };
+
+  const restore = async (row: Binned) => {
+    const { error } = await supabase.rpc("restore_project", { p_project_id: row.id! });
+    if (error) {
+      console.error("Restore project error:", error);
+      toast.error(error.message || "Could not restore the project");
+      return;
+    }
+    toast.success("Project restored");
+    void load();
+  };
 
   const inCohort = useMemo(() => projects.filter((p) => p.cohort_id === cohortId), [projects, cohortId]);
 
@@ -276,6 +328,9 @@ const AdminProjects = () => {
               <SelectTrigger className="h-10 w-52" aria-label="Cohort"><SelectValue placeholder="Cohort" /></SelectTrigger>
               <SelectContent>{cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
             </Select>
+            <Button asChild variant="outline" className="h-10 gap-2 font-bold">
+              <Link to="/admin/projects/archive"><Archive className="h-4 w-4" /> Archive</Link>
+            </Button>
             <Button variant="outline" className="h-10 gap-2 font-bold" onClick={() => { setGiveMode("group"); setGiving(true); }}>
               <Users className="h-4 w-4" /> Create a group
             </Button>
@@ -464,6 +519,58 @@ const AdminProjects = () => {
           </form>
         </div>
       </Panel>
+
+      <Panel
+        title="Project settings for this cohort"
+        titleId="project-settings"
+        description="These apply to every project on the cohort. Only an admin can change them."
+      >
+        <form onSubmit={saveSettings} className="grid gap-4 p-5 sm:grid-cols-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="setting-weight">Weight in the overall grade</Label>
+            <Input id="setting-weight" type="number" inputMode="decimal" min="0" max="20" step="0.5" value={settings.weight} onChange={(e) => setSettings((v) => ({ ...v, weight: e.target.value }))} />
+            <p className="text-xs text-muted-foreground">How many courses the project counts as. 1 is the same as one course, 2 is double, 0 shows it without counting it.</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="setting-group-max">Largest group</Label>
+            <Input id="setting-group-max" type="number" inputMode="numeric" min="2" max="100" step="1" value={settings.groupMax} onChange={(e) => setSettings((v) => ({ ...v, groupMax: e.target.value }))} />
+            <p className="text-xs text-muted-foreground">The most students allowed in one group, including the lead.</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="setting-mode">Scoring for new projects</Label>
+            <Select value={settings.mode} onValueChange={(mode) => setSettings((v) => ({ ...v, mode }))}>
+              <SelectTrigger id="setting-mode"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {SCORING_MODES.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Each project can be switched on its own page. Existing projects are not changed.</p>
+          </div>
+          <div className="sm:col-span-3">
+            <Button type="submit" variant="outline" disabled={saving || !cohortId || !isAdmin}>Save settings</Button>
+          </div>
+        </form>
+      </Panel>
+
+      {bin.length > 0 && (
+        <Panel title={`Bin (${bin.length})`} titleId="project-bin" description="Deleted projects are kept for 30 days, then removed for good. Restoring puts the project back for its students.">
+          <ul className="divide-y divide-border">
+            {bin.map((row) => (
+              <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm">
+                <span className="min-w-0">
+                  <span className="font-semibold">{row.title?.trim() || "No topic yet"}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {[row.people, row.cohort_name, `removed for good in ${daysUntilPurge(row.purge_at)} day${daysUntilPurge(row.purge_at) === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+                <Button variant="outline" size="sm" className="gap-2" disabled={!isAdmin} onClick={() => restore(row)}>
+                  <RotateCcw className="h-4 w-4" /> Restore
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
 
       <Dialog open={giving} onOpenChange={setGiving}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">

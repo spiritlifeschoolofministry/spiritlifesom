@@ -83,6 +83,7 @@ import {
   StudentProject,
   AdminProjects,
   AdminProjectDetail,
+  AdminProjectArchive,
   AdminCourseFeedback,
   AdminDiscussions,
   AdminServiceLogs,
@@ -194,6 +195,7 @@ const App = () => {
             <Route path="/admin/feedback" element={<ProtectedRoute requiredRole="admin"><AdminCourseFeedback /></ProtectedRoute>} />
             <Route path="/admin/service" element={<ProtectedRoute requiredRole="admin"><AdminServiceLogs /></ProtectedRoute>} />
             <Route path="/admin/projects" element={<ProtectedRoute requiredRole="admin"><AdminProjects /></ProtectedRoute>} />
+            <Route path="/admin/projects/archive" element={<ProtectedRoute requiredRole="admin"><AdminProjectArchive /></ProtectedRoute>} />
             <Route path="/admin/projects/:id" element={<ProtectedRoute requiredRole="admin"><AdminProjectDetail /></ProtectedRoute>} />
             <Route path="/admin/alumni" element={<ProtectedRoute requiredRole="admin"><AdminAlumni /></ProtectedRoute>} />
             <Route path="/admin/fees" element={<ProtectedRoute requiredRole="admin"><AdminFees /></ProtectedRoute>} />

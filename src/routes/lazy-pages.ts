@@ -135,6 +135,7 @@ export const AdminServiceLogs = lazyPage(() => import("@/pages/admin/ServiceLogs
 export const AdminAlumni = lazyPage(() => import("@/pages/admin/Alumni"));
 export const StudentProject = lazyPage(() => import("@/pages/student/Project"));
 export const AdminProjects = lazyPage(() => import("@/pages/admin/Projects"));
+export const AdminProjectArchive = lazyPage(() => import("@/pages/admin/ProjectArchive"));
 export const AdminProjectDetail = lazyPage(() => import("@/pages/admin/ProjectDetail"));
 export const StudentStudy = lazyPage(() => import("@/pages/student/Study"));
 export const ComingSoon = lazyPage(() => import("@/pages/ComingSoon"));

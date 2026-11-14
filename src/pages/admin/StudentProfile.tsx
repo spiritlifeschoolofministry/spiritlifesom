@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ScrollText } from "lucide-react";
 import { fetchStudentProject } from "@/lib/project-result";
-import { formatPercent, projectStep } from "@/lib/projects";
+import { formatPercent, parseMembers, projectStep } from "@/lib/projects";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -923,11 +923,13 @@ const AdminStudentProfile = () => {
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <Badge variant="outline">{projectStep(project).label}</Badge>
-                      {project.outcome && project.final_score !== null && (
-                        <Badge variant={Number(project.final_score) >= 50 ? "default" : "destructive"}>
-                          {formatPercent(project.final_score)}
-                        </Badge>
-                      )}
+                      {(() => {
+                        // This student's own result: it differs between members when individuals are scored.
+                        const own = parseMembers(project.members).find((member) => member.student_id === student.id)?.score ?? null;
+                        return project.outcome && own !== null ? (
+                          <Badge variant={own >= 50 ? "default" : "destructive"}>{formatPercent(own)}</Badge>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                 )}

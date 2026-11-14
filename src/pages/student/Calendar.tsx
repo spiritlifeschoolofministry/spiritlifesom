@@ -57,7 +57,7 @@ const StudentCalendar = () => {
       // sees it and nobody sees anyone else's.
       let defences: SchoolEvent[] = [];
       if (student?.id) {
-        const { data: membership } = await supabase.from('project_members').select('project_id').eq('student_id', student.id).maybeSingle();
+        const { data: membership } = await supabase.from('project_members').select('project_id').eq('student_id', student.id).eq('active', true).maybeSingle();
         if (membership?.project_id) {
           const { data: project } = await supabase
             .from('project_overview')

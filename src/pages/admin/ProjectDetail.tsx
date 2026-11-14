@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
-import { useParams } from "react-router-dom";
-import { Download, Loader2 } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Download, Loader2, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +18,10 @@ import { Panel, StatusPill } from "@/components/redesign/admin/primitives";
 import { APPROVE_BUTTON, REJECT_BUTTON } from "@/components/redesign/admin/styles";
 import {
   ADMIN_TONE,
+  SCORING_MODES,
+  averagePercent,
+  combineScores,
+  scoreTargets,
   OUTCOMES,
   SUBMISSION_STATUS,
   TOPIC_STATUS,
@@ -111,6 +116,7 @@ const ScoreForm = ({
   projectId,
   criteria,
   memberId,
+  studentId,
   memberName,
   existing,
   onSaved,
@@ -118,6 +124,8 @@ const ScoreForm = ({
   projectId: string;
   criteria: RubricCriterion[];
   memberId: string;
+  /** The member being scored, or null for the group score. */
+  studentId: string | null;
   memberName: string;
   existing: Score | undefined;
   onSaved: () => void;
@@ -141,15 +149,13 @@ const ScoreForm = ({
       return;
     }
     setBusy(true);
-    const { error } = await supabase.from("project_scores").upsert({
-      project_id: projectId,
-      member_id: memberId,
-      scores,
-      // The database recomputes both from the rubric; these are placeholders.
-      total: rubricTotal(criteria, scores),
-      out_of: rubricOutOf(criteria),
-      comment: comment.trim() || null,
-      updated_at: new Date().toISOString(),
+    // The database works out the total and what it is out of from the rubric.
+    const { error } = await supabase.rpc("save_project_score", {
+      p_project_id: projectId,
+      p_member_id: memberId,
+      p_student_id: studentId as string,
+      p_scores: scores,
+      p_comment: comment.trim() || undefined,
     });
     setBusy(false);
     if (error) {
@@ -157,7 +163,7 @@ const ScoreForm = ({
       toast.error(error.message || "Could not save the score");
       return;
     }
-    toast.success(`Score saved for ${memberName}`);
+    toast.success(`Saved: ${memberName}`);
     onSaved();
   };
 
@@ -167,9 +173,9 @@ const ScoreForm = ({
       <div className="grid gap-3 sm:grid-cols-2">
         {criteria.map((criterion) => (
           <div key={criterion.id} className="space-y-1">
-            <Label htmlFor={`${memberId}-${criterion.id}`}>{criterion.label} (out of {Number(criterion.max_marks)})</Label>
+            <Label htmlFor={`${memberId}-${studentId ?? "group"}-${criterion.id}`}>{criterion.label} (out of {Number(criterion.max_marks)})</Label>
             <Input
-              id={`${memberId}-${criterion.id}`}
+              id={`${memberId}-${studentId ?? "group"}-${criterion.id}`}
               type="number"
               inputMode="decimal"
               min="0"
@@ -182,8 +188,8 @@ const ScoreForm = ({
         ))}
       </div>
       <div className="space-y-1">
-        <Label htmlFor={`${memberId}-comment`}>Comment (optional)</Label>
-        <Textarea id={`${memberId}-comment`} value={comment} onChange={(e) => setComment(e.target.value)} rows={2} maxLength={2000} />
+        <Label htmlFor={`${memberId}-${studentId ?? "group"}-comment`}>Comment (optional)</Label>
+        <Textarea id={`${memberId}-${studentId ?? "group"}-comment`} value={comment} onChange={(e) => setComment(e.target.value)} rows={2} maxLength={2000} />
       </div>
       <div className="flex items-center gap-3">
         <Button type="submit" size="sm" disabled={busy}>
@@ -209,6 +215,10 @@ const AdminProjectDetail = () => {
   const [cohortStudents, setCohortStudents] = useState<{ id: string; name: string; code: string | null }[]>([]);
   const [taken, setTaken] = useState<Set<string>>(new Set());
   const [addingMember, setAddingMember] = useState("");
+  const [scoringAs, setScoringAs] = useState("");
+  const [weightDraft, setWeightDraft] = useState("50");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -225,6 +235,7 @@ const AdminProjectDetail = () => {
       setTopic({ title: row.title ?? "", abstract: row.abstract ?? "", note: row.review_note ?? "" });
       setDefence({ at: toLocalInput(row.defence_at), venue: row.defence_venue ?? "" });
       setResult({ outcome: row.outcome ?? "", note: row.outcome_note ?? "" });
+      setWeightDraft(String(Number(row.individual_weight ?? 50)));
       const [stagesRes, subsRes, staffRes, panelRes, scoresRes, rubricRes, studentsRes, takenRes] = await Promise.all([
         row.cohort_id
           ? supabase.from("project_stages").select("*").eq("cohort_id", row.cohort_id).order("position").order("due_date")
@@ -242,7 +253,7 @@ const AdminProjectDetail = () => {
               .select("id, student_code, admission_status, is_staff_preview, profile:profiles(first_name, last_name)")
               .eq("cohort_id", row.cohort_id)
           : Promise.resolve({ data: [] }),
-        supabase.from("project_members").select("student_id"),
+        supabase.from("project_members").select("student_id").eq("active", true),
       ]);
       setCriteria(rubricRes.data ?? []);
       setCohortStudents(
@@ -340,9 +351,24 @@ const AdminProjectDetail = () => {
     void load();
   };
 
+  const deleteProject = async () => {
+    if (!id) return;
+    setBusy(true);
+    const { error } = await supabase.rpc("delete_project", { p_project_id: id });
+    setBusy(false);
+    setConfirmDelete(false);
+    if (error) {
+      console.error("Delete project error:", error);
+      toast.error(error.message || "Could not delete the project");
+      return;
+    }
+    toast.success("Project moved to the bin. It can be restored for 30 days");
+    navigate("/admin/projects");
+  };
+
   const togglePanel = async (memberId: string, on: boolean) => {
     if (!id) return;
-    if (!on && scores.some((s) => s.member_id === memberId) && !window.confirm("This member has entered a score. Removing them from the panel deletes it. Remove?")) return;
+    if (!on && scores.some((s) => s.member_id === memberId) && !window.confirm("This member has entered scores. Removing them from the panel deletes those scores. Remove?")) return;
     const { error } = on
       ? await supabase.from("project_panel").insert({ project_id: id, member_id: memberId })
       : await supabase.from("project_panel").delete().eq("project_id", id).eq("member_id", memberId);
@@ -373,6 +399,14 @@ const AdminProjectDetail = () => {
   const staffName = (memberId: string) => staff.find((s) => s.id === memberId)?.name ?? "Unknown";
   // A member scores for themselves; an admin may enter anyone's.
   const scorable = panel.filter((memberId) => memberId === user?.id || isAdmin);
+  const scorer = scorable.includes(scoringAs) ? scoringAs : scorable.includes(user?.id ?? "") ? (user?.id as string) : scorable[0] ?? "";
+  const mode = project.scoring_mode ?? "group";
+  const targets = scoreTargets(mode);
+  const individualWeight = Number(project.individual_weight ?? 50);
+  const groupScores = scores.filter((s) => s.student_id === null);
+  const groupPercent = averagePercent(groupScores);
+  const findScore = (memberId: string, studentId: string | null) =>
+    scores.find((s) => s.member_id === memberId && s.student_id === studentId);
   const corrections = submissions.filter((row) => row.kind === "correction");
 
   return (
@@ -381,6 +415,13 @@ const AdminProjectDetail = () => {
         title={studentName || "Project"}
         backTo="/admin/projects"
         breadcrumbs={[{ label: "Projects", to: "/admin/projects" }]}
+        actions={
+          isAdmin ? (
+            <Button variant="outline" className="gap-2 text-destructive hover:text-destructive" onClick={() => setConfirmDelete(true)}>
+              <Trash2 className="h-4 w-4" /> Delete project
+            </Button>
+          ) : undefined
+        }
         description={
           <span className="flex flex-wrap items-center gap-2">
             {[project.is_group ? `Group project, ${members.length} members` : project.student_code, project.cohort_name].filter(Boolean).join(" · ")}
@@ -552,42 +593,141 @@ const AdminProjectDetail = () => {
               </div>
             </fieldset>
 
+            <div className="grid gap-3 border-t border-border pt-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="scoring-mode">How this project is scored</Label>
+                <Select value={mode} onValueChange={(value) => patch({ scoring_mode: value }, "Scoring changed. Results have been worked out again")}>
+                  <SelectTrigger id="scoring-mode"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {SCORING_MODES.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">{SCORING_MODES.find((option) => option.value === mode)?.hint}</p>
+              </div>
+              {mode === "both" && (
+                <form
+                  className="space-y-1.5"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const value = Number(weightDraft);
+                    if (!Number.isFinite(value) || value < 0 || value > 100) {
+                      toast.error("Enter a percentage from 0 to 100");
+                      return;
+                    }
+                    void patch({ individual_weight: value }, "Weight saved. Results have been worked out again");
+                  }}
+                >
+                  <Label htmlFor="individual-weight">Individual score counts for (%)</Label>
+                  <div className="flex gap-2">
+                    <Input id="individual-weight" type="number" inputMode="decimal" min="0" max="100" step="1" className="w-28" value={weightDraft} onChange={(e) => setWeightDraft(e.target.value)} />
+                    <Button type="submit" variant="outline" disabled={busy}>Save</Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    The group score counts for the other {100 - individualWeight}%.
+                  </p>
+                </form>
+              )}
+            </div>
+
             {panel.length > 0 && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-bold">
-                  Scores
-                  <span className="font-normal text-muted-foreground">
-                    {" "}· {scores.length} of {panel.length} entered
-                    {project.final_score !== null ? ` · average ${formatPercent(project.final_score)}` : ""}
-                  </span>
-                </h3>
-                <ul className="space-y-1 text-sm">
-                  {panel.map((memberId) => {
-                    const score = scores.find((s) => s.member_id === memberId);
-                    return (
-                      <li key={memberId} className="flex flex-wrap justify-between gap-2">
-                        <span>{staffName(memberId)}{score?.comment ? <span className="text-muted-foreground"> · {score.comment}</span> : null}</span>
-                        <strong>{score ? `${Number(score.total)} / ${Number(score.out_of)}` : "Not entered"}</strong>
-                      </li>
-                    );
-                  })}
-                </ul>
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-bold">
+                    Results
+                    <span className="font-normal text-muted-foreground">
+                      {project.final_score !== null ? ` · project average ${formatPercent(project.final_score)}` : ""}
+                    </span>
+                  </h3>
+                  <div className="mt-2 overflow-x-auto rounded-xl border border-border">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
+                        <tr>
+                          <th scope="col" className="px-3 py-2 font-semibold">Student</th>
+                          {targets.group && <th scope="col" className="px-3 py-2 font-semibold">Group score</th>}
+                          {targets.individual && <th scope="col" className="px-3 py-2 font-semibold">Individual score</th>}
+                          <th scope="col" className="px-3 py-2 font-semibold">Result</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {members.map((member) => {
+                          const own = averagePercent(scores.filter((s) => s.student_id === member.student_id));
+                          const ownCount = scores.filter((s) => s.student_id === member.student_id).length;
+                          const result = member.score ?? combineScores(mode, groupPercent, own, individualWeight);
+                          return (
+                            <tr key={member.student_id}>
+                              <th scope="row" className="px-3 py-2 text-left font-medium">{member.name}</th>
+                              {targets.group && (
+                                <td className="px-3 py-2">
+                                  {groupPercent !== null ? formatPercent(groupPercent) : "Not entered"}
+                                  <span className="text-xs text-muted-foreground"> ({groupScores.length} of {panel.length})</span>
+                                </td>
+                              )}
+                              {targets.individual && (
+                                <td className="px-3 py-2">
+                                  {own !== null ? formatPercent(own) : "Not entered"}
+                                  <span className="text-xs text-muted-foreground"> ({ownCount} of {panel.length})</span>
+                                </td>
+                              )}
+                              <td className="px-3 py-2 font-bold">{result !== null ? formatPercent(result) : "Waiting for scores"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">In brackets: how many of the panel have entered that score.</p>
+                </div>
+
                 {criteria.length === 0 && (
                   <p className="rounded-lg bg-muted px-3 py-2 text-sm">
                     This cohort has no scoring rubric yet. Set it on the Projects page before the panel scores.
                   </p>
                 )}
-                {criteria.length > 0 && scorable.map((memberId) => (
-                  <ScoreForm
-                    criteria={criteria}
-                    key={`${memberId}-${scores.find((s) => s.member_id === memberId)?.updated_at ?? "new"}`}
-                    projectId={project.id!}
-                    memberId={memberId}
-                    memberName={memberId === user?.id ? "Your score" : `Enter for ${staffName(memberId)}`}
-                    existing={scores.find((s) => s.member_id === memberId)}
-                    onSaved={load}
-                  />
-                ))}
+
+                {criteria.length > 0 && scorer && (
+                  <div className="space-y-3">
+                    {scorable.length > 1 && (
+                      <div className="max-w-sm space-y-1.5">
+                        <Label htmlFor="scoring-as">Entering scores for panel member</Label>
+                        <Select value={scorer} onValueChange={setScoringAs}>
+                          <SelectTrigger id="scoring-as"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {scorable.map((memberId) => (
+                              <SelectItem key={memberId} value={memberId}>{staffName(memberId)}{memberId === user?.id ? " (me)" : ""}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {targets.group && (
+                      <ScoreForm
+                        key={`${scorer}-group-${findScore(scorer, null)?.updated_at ?? "new"}`}
+                        projectId={project.id!}
+                        criteria={criteria}
+                        memberId={scorer}
+                        studentId={null}
+                        memberName={members.length > 1 ? "Group score" : "Score"}
+                        existing={findScore(scorer, null)}
+                        onSaved={load}
+                      />
+                    )}
+                    {targets.individual && members.map((member) => (
+                      <ScoreForm
+                        key={`${scorer}-${member.student_id}-${findScore(scorer, member.student_id)?.updated_at ?? "new"}`}
+                        projectId={project.id!}
+                        criteria={criteria}
+                        memberId={scorer}
+                        studentId={member.student_id}
+                        memberName={`Individual score: ${member.name}`}
+                        existing={findScore(scorer, member.student_id)}
+                        onSaved={load}
+                      />
+                    ))}
+                  </div>
+                )}
+                {criteria.length > 0 && !scorer && (
+                  <p className="text-sm text-muted-foreground">Only panel members enter scores. You are not on this panel.</p>
+                )}
               </div>
             )}
           </div>
@@ -595,7 +735,7 @@ const AdminProjectDetail = () => {
       )}
 
       {approved && (
-        <Panel title="Result" titleId="project-result" description="The student sees the result, the average score as a percentage and your note. A group shares one result.">
+        <Panel title="Result" titleId="project-result" description="Each student sees the outcome, their own score as a percentage and your note. The outcome is shared by the group; the score is too unless individuals are scored.">
           <div className="space-y-4 p-5">
             <form
               className="space-y-3"
@@ -639,6 +779,21 @@ const AdminProjectDetail = () => {
           </div>
         </Panel>
       )}
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="Delete this project?"
+        description={
+          <>
+            It goes to the bin on the Projects page and can be restored for 30 days; after that it is removed for good.{" "}
+            {members.length > 1 ? "The students in it are" : "The student is"} told, and can start a new project straight away.
+          </>
+        }
+        confirmLabel="Move to bin"
+        variant="destructive"
+        loading={busy}
+        onConfirm={deleteProject}
+      />
     </div>
   );
 };

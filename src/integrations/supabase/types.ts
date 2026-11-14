@@ -899,6 +899,9 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
+          project_group_max: number
+          project_scoring_mode: string
+          project_weight: number
           service_hours_required: number | null
           start_date: string
         }
@@ -912,6 +915,9 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name: string
+          project_group_max?: number
+          project_scoring_mode?: string
+          project_weight?: number
           service_hours_required?: number | null
           start_date: string
         }
@@ -925,6 +931,9 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
+          project_group_max?: number
+          project_scoring_mode?: string
+          project_weight?: number
           service_hours_required?: number | null
           start_date?: string
         }
@@ -2546,19 +2555,64 @@ export type Database = {
           },
         ]
       }
+      project_archive_entries: {
+        Row: {
+          abstract: string
+          added_by: string | null
+          authors: string
+          cohort_label: string | null
+          created_at: string
+          file_name: string | null
+          file_path: string | null
+          id: string
+          title: string
+          year: number | null
+        }
+        Insert: {
+          abstract?: string
+          added_by?: string | null
+          authors: string
+          cohort_label?: string | null
+          created_at?: string
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          title: string
+          year?: number | null
+        }
+        Update: {
+          abstract?: string
+          added_by?: string | null
+          authors?: string
+          cohort_label?: string | null
+          created_at?: string
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          title?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
       project_members: {
         Row: {
+          active: boolean
           added_at: string
+          final_score: number | null
           project_id: string
           student_id: string
         }
         Insert: {
+          active?: boolean
           added_at?: string
+          final_score?: number | null
           project_id: string
           student_id: string
         }
         Update: {
+          active?: boolean
           added_at?: string
+          final_score?: number | null
           project_id?: string
           student_id?: string
         }
@@ -2567,14 +2621,14 @@ export type Database = {
             foreignKeyName: "project_members_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "project_archive"
+            referencedRelation: "project_overview"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "project_members_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "project_overview"
+            referencedRelation: "project_trash"
             referencedColumns: ["id"]
           },
           {
@@ -2587,14 +2641,14 @@ export type Database = {
           {
             foreignKeyName: "project_members_student_id_fkey"
             columns: ["student_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "graduate_directory"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "project_members_student_id_fkey"
             columns: ["student_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "students"
             referencedColumns: ["id"]
           },
@@ -2632,14 +2686,14 @@ export type Database = {
             foreignKeyName: "project_panel_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "project_archive"
+            referencedRelation: "project_overview"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "project_panel_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "project_overview"
+            referencedRelation: "project_trash"
             referencedColumns: ["id"]
           },
           {
@@ -2689,28 +2743,34 @@ export type Database = {
       project_scores: {
         Row: {
           comment: string | null
+          id: string
           member_id: string
           out_of: number
           project_id: string
           scores: Json
+          student_id: string | null
           total: number
           updated_at: string
         }
         Insert: {
           comment?: string | null
+          id?: string
           member_id: string
           out_of?: number
           project_id: string
           scores?: Json
+          student_id?: string | null
           total: number
           updated_at?: string
         }
         Update: {
           comment?: string | null
+          id?: string
           member_id?: string
           out_of?: number
           project_id?: string
           scores?: Json
+          student_id?: string | null
           total?: number
           updated_at?: string
         }
@@ -2718,9 +2778,16 @@ export type Database = {
           {
             foreignKeyName: "project_scores_project_id_member_id_fkey"
             columns: ["project_id", "member_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "project_panel"
             referencedColumns: ["project_id", "member_id"]
+          },
+          {
+            foreignKeyName: "project_scores_student_fkey"
+            columns: ["project_id", "student_id"]
+            isOneToOne: false
+            referencedRelation: "project_members"
+            referencedColumns: ["project_id", "student_id"]
           },
         ]
       }
@@ -2810,14 +2877,14 @@ export type Database = {
             foreignKeyName: "project_submissions_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "project_archive"
+            referencedRelation: "project_overview"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "project_submissions_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "project_overview"
+            referencedRelation: "project_trash"
             referencedColumns: ["id"]
           },
           {
@@ -2843,9 +2910,12 @@ export type Database = {
           defence_at: string | null
           defence_reminded_at: string | null
           defence_venue: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           final_approved_at: string | null
           final_score: number | null
           id: string
+          individual_weight: number
           is_group: boolean
           members_locked: boolean
           outcome: string | null
@@ -2854,6 +2924,7 @@ export type Database = {
           review_note: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          scoring_mode: string | null
           status: string
           student_id: string
           supervisor_id: string | null
@@ -2867,9 +2938,12 @@ export type Database = {
           defence_at?: string | null
           defence_reminded_at?: string | null
           defence_venue?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           final_approved_at?: string | null
           final_score?: number | null
           id?: string
+          individual_weight?: number
           is_group?: boolean
           members_locked?: boolean
           outcome?: string | null
@@ -2878,6 +2952,7 @@ export type Database = {
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          scoring_mode?: string | null
           status?: string
           student_id: string
           supervisor_id?: string | null
@@ -2891,9 +2966,12 @@ export type Database = {
           defence_at?: string | null
           defence_reminded_at?: string | null
           defence_venue?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           final_approved_at?: string | null
           final_score?: number | null
           id?: string
+          individual_weight?: number
           is_group?: boolean
           members_locked?: boolean
           outcome?: string | null
@@ -2902,6 +2980,7 @@ export type Database = {
           review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          scoring_mode?: string | null
           status?: string
           student_id?: string
           supervisor_id?: string | null
@@ -2913,14 +2992,14 @@ export type Database = {
           {
             foreignKeyName: "projects_student_id_fkey"
             columns: ["student_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "graduate_directory"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "projects_student_id_fkey"
             columns: ["student_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "students"
             referencedColumns: ["id"]
           },
@@ -4208,7 +4287,9 @@ export type Database = {
           file_path: string | null
           id: string | null
           is_group: boolean | null
+          source: string | null
           title: string | null
+          year: number | null
         }
         Relationships: []
       }
@@ -4223,6 +4304,7 @@ export type Database = {
           final_approved_at: string | null
           final_score: number | null
           id: string | null
+          individual_weight: number | null
           is_group: boolean | null
           member_names: string | null
           members: Json | null
@@ -4232,6 +4314,7 @@ export type Database = {
           outcome_note: string | null
           review_note: string | null
           reviewed_at: string | null
+          scoring_mode: string | null
           status: string | null
           student_code: string | null
           student_first_name: string | null
@@ -4247,14 +4330,14 @@ export type Database = {
           {
             foreignKeyName: "projects_student_id_fkey"
             columns: ["student_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "graduate_directory"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "projects_student_id_fkey"
             columns: ["student_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "students"
             referencedColumns: ["id"]
           },
@@ -4272,6 +4355,26 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "students_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_trash: {
+        Row: {
+          cohort_id: string | null
+          cohort_name: string | null
+          deleted_at: string | null
+          id: string | null
+          people: string | null
+          purge_at: string | null
+          title: string | null
+        }
+        Relationships: [
           {
             foreignKeyName: "students_cohort_id_fkey"
             columns: ["cohort_id"]
@@ -4413,6 +4516,7 @@ export type Database = {
         Args: { p_kind: string; p_project_id: string; p_stage_id: string }
         Returns: boolean
       }
+      delete_project: { Args: { p_project_id: string }; Returns: undefined }
       ensure_staff_preview_student: {
         Args: { p_profile_id: string }
         Returns: undefined
@@ -4508,6 +4612,11 @@ export type Database = {
         Returns: undefined
       }
       project_people: { Args: { p_project_id: string }; Returns: string }
+      project_purge_deleted: { Args: never; Returns: undefined }
+      project_refresh_scores: {
+        Args: { p_project_id: string }
+        Returns: undefined
+      }
       public_fee_summary: {
         Args: never
         Returns: {
@@ -4524,6 +4633,17 @@ export type Database = {
       reset_exam_attempt: {
         Args: { p_attempt_id: string; p_reason?: string }
         Returns: Json
+      }
+      restore_project: { Args: { p_project_id: string }; Returns: undefined }
+      save_project_score: {
+        Args: {
+          p_comment?: string
+          p_member_id: string
+          p_project_id: string
+          p_scores: Json
+          p_student_id: string
+        }
+        Returns: undefined
       }
       save_push_subscription: {
         Args: {
