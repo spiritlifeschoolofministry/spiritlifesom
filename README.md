@@ -130,12 +130,13 @@ Import the heavy ones only from pages loaded with `React.lazy`, or with a dynami
 | Area | Package | Version | Where it is used |
 | --- | --- | --- | --- |
 | Animation | `framer-motion` | ^14.13 | Page transitions in the portals (see "Portal navigation"); list changes planned |
+| Animation | `gsap` + `@gsap/react` | ^3.15 / ^2.1 | Not used on `main`: the home page that shipped uses CSS and `Reveal`. Only the unmerged `homepage-redesign` branch uses it. |
 | Charts | `recharts` | ^3.10 | Dashboard charts (admin Analytics) |
 | Charts | `d3` (+ `@types/d3`, dev) | ^7.9 | Cohort funnel scale (admin Analytics) |
 | 2D | `konva` + `react-konva` | ^10.9 / ^19.3 | Certificate layout editor (see "Certificate layout editor"), in its own lazy chunk |
 | 3D | `three` (+ `@react-three/fiber`, `@react-three/drei` for `SceneCanvas`) | see "3D graphics" | 3D certificate card (see "3D graphics") |
 
-Removed in November 2026 because nothing used them and other packages already cover them: GSAP (`gsap`, `@gsap/react`, only used by the abandoned `homepage-redesign` branch, now deleted), Babylon.js (`@babylonjs/core`, `@babylonjs/loaders`, `babylonjs-gltf2interface`), PixiJS (`pixi.js`, `@pixi/react`), `animejs`, and Chart.js (`chart.js`, `react-chartjs-2`).
+Removed in November 2026 because nothing used them and other packages already cover them: Babylon.js (`@babylonjs/core`, `@babylonjs/loaders`, `babylonjs-gltf2interface`), PixiJS (`pixi.js`, `@pixi/react`), `animejs`, and Chart.js (`chart.js`, `react-chartjs-2`).
 
 Version constraints (the app is on React 19):
 
