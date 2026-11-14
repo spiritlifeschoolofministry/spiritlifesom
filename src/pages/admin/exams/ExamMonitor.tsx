@@ -58,6 +58,12 @@ import { reviewExam, SIGNAL_LABELS, type ProctorReview } from "@/lib/ai-proctor"
 import { edgeErrorMessage } from "@/lib/edge-error";
 import MarkingGuideDialog from "./MarkingGuideDialog";
 
+/** A Date as the value a datetime-local input expects, in the browser's time zone. */
+const toLocalInput = (d: Date) => {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 export default function ExamMonitor() {
   const { id } = useParams();
   const [exam, setExam] = useState<MonitoredExam | null>(null);
@@ -80,6 +86,7 @@ export default function ExamMonitor() {
   // Granting one student their own closing time, rather than reopening the
   // paper for a cohort that has already sat it.
   const [extending, setExtending] = useState<{ id: string; name: string; code: string } | null>(null);
+  const [extendFrom, setExtendFrom] = useState("");
   const [extendUntil, setExtendUntil] = useState("");
   const [extendReason, setExtendReason] = useState("");
   const [loading, setLoading] = useState(true);
@@ -328,21 +335,34 @@ export default function ExamMonitor() {
    * exam says something false: the paper closed at half past one, and this
    * student has an extension. The runner resolves the same record before it
    * lets anyone in, so the concession is real and not merely displayed.
+   *
+   * The opening time is set as well as the closing time. exam-start measures
+   * the late-entry cutoff from the student's opening time; with only a new
+   * closing time, a paper with a cutoff still counted from the original exam
+   * day and refused the student with "Entry closed" despite the extension.
    */
   const grantWindow = async () => {
-    if (!extending || !extendUntil) return;
+    if (!extending || !extendFrom || !extendUntil) return;
+    const from = new Date(extendFrom);
+    const until = new Date(extendUntil);
+    if (!(until > from)) {
+      toast.error("The closing time must be after the opening time");
+      return;
+    }
     try {
       setBusy(true);
       const { error } = await supabase.from("exam_window_overrides").upsert({
         exam_id: id!,
         student_id: extending.id,
-        end_at: new Date(extendUntil).toISOString(),
+        start_at: from.toISOString(),
+        end_at: until.toISOString(),
         reason: extendReason.trim() || null,
         granted_by: (await supabase.auth.getUser()).data.user?.id ?? null,
       }, { onConflict: "exam_id,student_id" });
       if (error) throw error;
-      toast.success(`${extending.name} can now sit this paper until ${new Date(extendUntil).toLocaleString()}`);
+      toast.success(`${extending.name} can now sit this paper from ${from.toLocaleString()} until ${until.toLocaleString()}`);
       setExtending(null);
+      setExtendFrom("");
       setExtendUntil("");
       setExtendReason("");
       load();
@@ -1299,7 +1319,7 @@ export default function ExamMonitor() {
               <button
                 key={d.id}
                 type="button"
-                onClick={() => { setExtending(d); setExtendReason(""); setExtendUntil(""); }}
+                onClick={() => { setExtending(d); setExtendReason(""); setExtendFrom(toLocalInput(new Date())); setExtendUntil(""); }}
                 className="inline-flex items-center gap-1.5 text-xs rounded border border-border bg-muted/40 px-2 py-1 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
                 title={`Give ${d.name} their own window for this paper`}
               >
@@ -1316,15 +1336,25 @@ export default function ExamMonitor() {
       {/* One student's window, not the paper's. */}
       <ConfirmDialog
         open={!!extending}
-        onOpenChange={(open) => { if (!open) { setExtending(null); setExtendUntil(""); setExtendReason(""); } }}
+        onOpenChange={(open) => { if (!open) { setExtending(null); setExtendFrom(""); setExtendUntil(""); setExtendReason(""); } }}
         title={`Give ${extending?.name ?? "this student"} their own window`}
         description={
           <>
             <p>
-              <strong>{extending?.name}</strong> ({extending?.code}) will be able to sit this paper until the time
-              you set below. Nobody else's window changes, and students who have already sat it are unaffected.
+              <strong>{extending?.name}</strong> ({extending?.code}) will be able to sit this paper between the
+              times you set below. Nobody else's window changes, and students who have already sat it are unaffected.
             </p>
             <div className="pt-2 space-y-2">
+              <div>
+                <Label htmlFor="extend-from" className="text-sm">It opens for them at</Label>
+                <Input
+                  id="extend-from"
+                  type="datetime-local"
+                  value={extendFrom}
+                  onChange={(ev) => setExtendFrom(ev.target.value)}
+                  className="mt-1"
+                />
+              </div>
               <div>
                 <Label htmlFor="extend-until" className="text-sm">They can sit it until</Label>
                 <Input
@@ -1347,8 +1377,8 @@ export default function ExamMonitor() {
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              The paper opens for them at the same time as everyone else. They will see these times on their own
-              exam page, marked as set by their lecturer.
+              Any late-entry limit on this paper counts from their opening time, not the original exam day. They
+              will see these times on their own exam page, marked as set by their lecturer.
             </p>
           </>
         }
