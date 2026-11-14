@@ -27,6 +27,13 @@ import { publicNavLinks, socialLinks, whatsappHref } from "@/components/redesign
 
 const INTAKE_MESSAGE = "Hello Spirit Life SOM, I'd like to know when the next intake opens.";
 
+/** A Site content row that holds a list, one item per line. */
+const lines = (text: string) =>
+  text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
 const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 // The same purple as "Apply now" on the other public pages (bg-primary).
 const cta = "bg-primary text-primary-foreground hover:bg-primary/90";
@@ -166,7 +173,8 @@ const Home = () => {
   const [mode, setMode] = useState<Mode>("physical");
   const { get } = useSiteContent("home");
   const fees = usePublicFees(get("fees_note", ""));
-  const intakeHref = whatsappHref(INTAKE_MESSAGE);
+  const intakeHref = whatsappHref(get("intake_message", INTAKE_MESSAGE));
+  const intakeLabel = get("intake_button", "Ask about the next intake");
   const open = acceptingApplications === true;
   // The phone's bottom button repeats the hero's main button, so it only
   // slides in once the hero has scrolled away.
@@ -198,7 +206,12 @@ const Home = () => {
     physical: {
       price: "Free",
       note: "for physical students",
-      points: ["Saturdays, 9AM to 12PM, in Ibadan", "In-person lectures and practicals", "Course handouts are sold separately"],
+      points: lines(
+        get(
+          "physical_points",
+          "Saturdays, 9AM to 12PM, in Ibadan\nIn-person lectures and practicals\nCourse handouts are sold separately",
+        ),
+      ),
     },
     online: {
       price: onlinePrice,
@@ -208,11 +221,12 @@ const Home = () => {
           : fees.kind === "live" && fees.cohortName
             ? `school fees, ${fees.cohortName}`
             : "school fees",
-      points: [
-        "Live Zoom sessions every Saturday",
-        "Training materials and class recordings included",
-        "Attend in person for project defence and graduation",
-      ],
+      points: lines(
+        get(
+          "online_points",
+          "Live Zoom sessions every Saturday\nTraining materials and class recordings included\nAttend in person for project defence and graduation",
+        ),
+      ),
     },
   };
   const shown = modes[mode];
@@ -251,7 +265,7 @@ const Home = () => {
         <div className="mx-auto flex max-w-[1200px] flex-col gap-4 px-5 pb-16 md:px-8 md:pb-20 lg:pb-24">
           <p className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-white/80 md:text-xs">
             <span aria-hidden="true" className="h-px w-6 shrink-0 bg-[#C4B5FD]" />
-            Welcome to Spirit Life School of Ministry
+            {get("hero_welcome", "Welcome to Spirit Life School of Ministry")}
           </p>
           <h1 className="max-w-[15ch] font-display text-[44px] font-medium leading-[1.02] tracking-[-0.02em] text-white md:text-[68px] lg:text-[84px]">
             <Headline text={get("hero_headline", "Equipping the saints for the work of ministry.")} />
@@ -269,7 +283,7 @@ const Home = () => {
                 rel="noopener noreferrer"
                 className={cn("inline-flex min-h-[52px] items-center justify-center rounded-xl px-7 font-extrabold", cta, darkRing)}
               >
-                Ask about the next intake
+                {intakeLabel}
               </a>
             )}
             <Link
@@ -291,7 +305,7 @@ const Home = () => {
         <nav aria-label="Quick actions" className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:gap-3">
           <a href={intakeHref} target="_blank" rel="noopener noreferrer" className={cn(quickTile, "bg-[#17112B] text-white", focusRing)}>
             <MessageCircle className={cn("h-6 w-6", accentOnDark)} aria-hidden="true" />
-            <span className="text-[15px] font-bold leading-tight">Ask about the next intake</span>
+            <span className="text-[15px] font-bold leading-tight">{intakeLabel}</span>
           </a>
           <Link to="/courses" {...prefetch("/courses")} className={cn(quickTile, "border border-border bg-card", focusRing)}>
             <BookOpen className="h-6 w-6 text-primary" aria-hidden="true" />
@@ -312,7 +326,7 @@ const Home = () => {
         {/* How you can study */}
         <Reveal>
           <section aria-labelledby="home-study" className="flex flex-col gap-4 rounded-3xl border border-border bg-card px-5 py-6">
-            <h2 id="home-study" className="font-display text-[28px] font-medium leading-tight">How you can study</h2>
+            <h2 id="home-study" className="font-display text-[28px] font-medium leading-tight">{get("study_title", "How you can study")}</h2>
             <div role="group" aria-label="Learning mode" className="grid grid-cols-2 gap-1 rounded-[14px] bg-muted p-1">
               {(["physical", "online"] as const).map((m) => (
                 <button
@@ -372,7 +386,7 @@ const Home = () => {
       </div>
 
       <footer className="mx-auto mt-10 flex max-w-[1200px] flex-wrap items-center justify-between gap-2 border-t border-border px-4 pb-6 pt-4 text-[13px] text-muted-foreground md:px-8">
-        <span>© 2026 Spirit Life Cherubim &amp; Seraphim Church. All rights reserved.</span>
+        <span>{get("footer_text", "© 2026 Spirit Life Cherubim & Seraphim Church. All rights reserved.")}</span>
         <div className="flex gap-0.5">
           {socialLinks.map(({ label, href, Icon }) => (
             <a
@@ -410,7 +424,7 @@ const Home = () => {
             className={cn("flex min-h-[54px] items-center justify-center gap-2.5 rounded-2xl text-base font-extrabold", cta, focusRing)}
           >
             <MessageCircle className="h-5 w-5" aria-hidden="true" />
-            Ask about the next intake
+            {intakeLabel}
           </a>
         )}
       </div>

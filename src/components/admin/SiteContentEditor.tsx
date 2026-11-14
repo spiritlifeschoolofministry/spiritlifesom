@@ -162,7 +162,9 @@ const SiteContentEditor = () => {
                   pageItems.map(item => {
                     const currentValue = editedItems[item.id] ?? item.content;
                     const isChanged = editedItems[item.id] !== undefined;
-                    const isLong = item.content.length > 100;
+                    // Lists (one item per line) need a textarea too, or an
+                    // edit would flatten them onto one line.
+                    const isLong = item.content.length > 100 || item.content.includes("\n");
                     return (
                       <div key={item.id} className={`p-4 border rounded-lg space-y-2 ${isChanged ? "border-primary/50 bg-primary/5" : "border-border"}`}>
                         <div className="flex items-center justify-between">
