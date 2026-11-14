@@ -137,6 +137,8 @@ describe("project on the record", () => {
 
 describe("project progress", () => {
   it("shows the topic status until the topic is approved", () => {
+    // A group the school formed, before its lead has sent a topic.
+    expect(projectStep(project({ status: "awaiting_topic" })).label).toBe("No topic yet");
     expect(projectStep(project({ status: "proposed" })).label).toBe("Waiting for approval");
     expect(projectStep(project({ status: "changes_requested" })).label).toBe("Changes asked for");
     expect(projectStep(project({ status: "rejected" })).label).toBe("Not approved");

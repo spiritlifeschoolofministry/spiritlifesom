@@ -50,8 +50,11 @@ const TopicForm = ({
   project,
   classmates,
   myProfileId,
+  locked,
   onSaved,
 }: {
+  /** The school set the group: the student sends a topic but not the members. */
+  locked: boolean;
   project: Project | null;
   classmates: Classmate[];
   myProfileId: string;
@@ -71,7 +74,7 @@ const TopicForm = ({
       toast.error(problem);
       return;
     }
-    if (group && partners.length === 0) {
+    if (!locked && group && partners.length === 0) {
       toast.error("Choose who is in your group, or pick Individual");
       return;
     }
@@ -93,6 +96,7 @@ const TopicForm = ({
 
   return (
     <form onSubmit={save} className="space-y-4">
+      {!locked && (<>
       <fieldset>
         <legend className="text-sm font-medium text-foreground">Who is doing this project?</legend>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -139,6 +143,7 @@ const TopicForm = ({
           )}
         </fieldset>
       )}
+      </>)}
       <div className="space-y-1.5">
         <Label htmlFor="project-title">Project title</Label>
         <Input id="project-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={300} required />
@@ -160,7 +165,7 @@ const TopicForm = ({
       </div>
       <Button type="submit" disabled={saving} className="h-11 font-bold">
         {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        {project ? "Send again for approval" : "Send for approval"}
+        {project && project.status !== "awaiting_topic" ? "Send again for approval" : "Send for approval"}
       </Button>
     </form>
   );
@@ -440,7 +445,7 @@ const StudentProject = () => {
                 Send the topic you would like to work on. If your supervisor gives you a topic instead, it will appear here and you
                 will not need to fill this in.
               </p>
-              <TopicForm project={null} classmates={classmates} myProfileId={profile?.id ?? ""} onSaved={load} />
+              <TopicForm project={null} locked={false} classmates={classmates} myProfileId={profile?.id ?? ""} onSaved={load} />
             </Panel>
           ) : (
             <>
@@ -452,7 +457,9 @@ const StudentProject = () => {
                   {project.topic_source === "supervisor" && <Pill tone="info">Given by your supervisor</Pill>}
                   {project.is_group && <Pill tone="neutral">Group project</Pill>}
                 </div>
-                <h2 className="mt-3 text-xl font-extrabold leading-snug tracking-tight">{project.title}</h2>
+                <h2 className="mt-3 text-xl font-extrabold leading-snug tracking-tight">
+                  {project.title?.trim() || "Your group has no topic yet"}
+                </h2>
                 {project.abstract && <p className="mt-2 whitespace-pre-wrap text-sm text-white/80">{project.abstract}</p>}
                 {project.is_group && (
                   <p className="mt-3 text-sm text-white/80">
@@ -473,7 +480,8 @@ const StudentProject = () => {
                     </p>
                   )}
                   <p className="mt-2 text-sm text-muted-foreground">
-                    {members.find((member) => member.lead)?.name ?? "The student who proposed it"} sends the topic for your group.
+                    {members.find((member) => member.lead)?.name ?? "Your group's lead"} sends the topic for your group.
+                    {project.members_locked ? " The school set who is in this group." : ""}
                   </p>
                 </Panel>
               )}
@@ -481,7 +489,9 @@ const StudentProject = () => {
               {!approved && isLead && (
                 <Panel>
                   <SectionTitle>
-                    {project.status === "proposed" ? "Change your topic while you wait" : "Send your topic again"}
+                    {project.status === "awaiting_topic"
+                      ? "Send your group's topic"
+                      : project.status === "proposed" ? "Change your topic while you wait" : "Send your topic again"}
                   </SectionTitle>
                   {project.review_note && (
                     <p className="mt-2 rounded-lg bg-muted px-3 py-2 text-sm text-foreground">
@@ -489,7 +499,7 @@ const StudentProject = () => {
                     </p>
                   )}
                   <div className="mt-4">
-                    <TopicForm key={project.updated_at} project={project} classmates={classmates} myProfileId={profile?.id ?? ""} onSaved={load} />
+                    <TopicForm key={project.updated_at} project={project} locked={Boolean(project.members_locked)} classmates={classmates} myProfileId={profile?.id ?? ""} onSaved={load} />
                   </div>
                 </Panel>
               )}

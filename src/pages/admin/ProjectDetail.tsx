@@ -392,7 +392,11 @@ const AdminProjectDetail = () => {
       <Panel
         title={project.is_group ? "Group members" : "Student"}
         titleId="project-members"
-        description="Every member can hand in work and gets the same feedback, defence and result. Add a student to make this a group project."
+        description={
+          project.members_locked
+            ? "Set by the school: the students cannot change who is in this group. Every member can hand in work and gets the same feedback, defence and result."
+            : "Every member can hand in work and gets the same feedback, defence and result. Add a student to make this a group project."
+        }
       >
         <div className="space-y-3 p-5">
           <ul className="divide-y divide-border rounded-xl border border-border">
@@ -431,7 +435,11 @@ const AdminProjectDetail = () => {
       <Panel
         title="Topic"
         titleId="project-topic"
-        description={project.topic_source === "supervisor" ? "Given by the supervisor" : project.is_group ? "Proposed by the group" : "Proposed by the student"}
+        description={
+          project.status === "awaiting_topic"
+            ? "Waiting for the group to send one"
+            : project.topic_source === "supervisor" ? "Given by the supervisor" : project.is_group ? "Proposed by the group" : "Proposed by the student"
+        }
         actions={<StatusPill tone={ADMIN_TONE[topicStatus.tone]}>{topicStatus.label}</StatusPill>}
       >
         <div className="space-y-4 p-5">
@@ -449,7 +457,13 @@ const AdminProjectDetail = () => {
               <span className="text-sm text-muted-foreground">Saves your wording as the approved topic, marked as given by the supervisor.</span>
             </div>
           )}
-          {!approved && (
+          {project.status === "awaiting_topic" && (
+            <p className="rounded-lg bg-muted px-3 py-2 text-sm">
+              This group has not sent a topic yet. The lead can send one from their Project page, or write one above and choose
+              "Give this topic instead".
+            </p>
+          )}
+          {!approved && project.status !== "awaiting_topic" && (
             <>
               <div className="space-y-1.5">
                 <Label htmlFor="topic-note">Note to the student</Label>

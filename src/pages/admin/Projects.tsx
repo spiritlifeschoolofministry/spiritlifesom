@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,6 +46,9 @@ const AdminProjects = () => {
   const [loading, setLoading] = useState(true);
 
   const [giving, setGiving] = useState(false);
+  // "topic": give a topic to one student or several. "group": put students in a
+  // group now and let them send their own topic.
+  const [giveMode, setGiveMode] = useState<"topic" | "group">("topic");
   const [give, setGive] = useState({ studentIds: [] as string[], title: "", abstract: "", supervisorId: "" });
   const [criteria, setCriteria] = useState<Criterion[]>([]);
   const [newCriterion, setNewCriterion] = useState({ label: "", max: "" });
@@ -134,7 +137,12 @@ const AdminProjects = () => {
   const giveTopic = async (event: React.FormEvent) => {
     event.preventDefault();
     const [leadId, ...others] = give.studentIds;
-    if (!leadId || give.title.trim().length < 5) {
+    const groupOnly = giveMode === "group";
+    if (groupOnly && others.length === 0) {
+      toast.error("Tick at least two students to make a group");
+      return;
+    }
+    if (!groupOnly && (!leadId || give.title.trim().length < 5)) {
       toast.error("Choose at least one student and write the topic");
       return;
     }
@@ -142,18 +150,20 @@ const AdminProjects = () => {
     const { data: created, error } = await supabase.from("projects").insert({
       student_id: leadId,
       is_group: others.length > 0,
-      title: give.title.trim(),
-      abstract: give.abstract.trim(),
-      topic_source: "supervisor",
-      status: "approved",
+      // The school chose who is in it, so students cannot change the members.
+      members_locked: others.length > 0,
+      title: groupOnly ? "" : give.title.trim(),
+      abstract: groupOnly ? "" : give.abstract.trim(),
+      topic_source: groupOnly ? "student" : "supervisor",
+      status: groupOnly ? "awaiting_topic" : "approved",
       supervisor_id: give.supervisorId || null,
-      reviewed_by: user?.id ?? null,
-      reviewed_at: new Date().toISOString(),
+      reviewed_by: groupOnly ? null : user?.id ?? null,
+      reviewed_at: groupOnly ? null : new Date().toISOString(),
     }).select("id").single();
     if (error || !created) {
       setSaving(false);
       console.error("Give topic error:", error);
-      toast.error(error?.message?.includes("already in a project") ? "That student already has a project. Open it to change the topic" : "Could not save the topic");
+      toast.error(error?.message?.includes("already in a project") ? "That student already has a project. Open it to change it" : "Could not save");
       return;
     }
     if (others.length > 0) {
@@ -162,11 +172,15 @@ const AdminProjects = () => {
         .insert(others.map((student_id) => ({ project_id: created.id, student_id })));
       if (membersError) {
         console.error("Add group members error:", membersError);
-        toast.error(`The topic was saved for the first student, but the others could not be added: ${membersError.message}`);
+        toast.error(`The project was created for the first student, but the others could not be added: ${membersError.message}`);
       }
     }
     setSaving(false);
-    toast.success(others.length > 0 ? "Topic given. The group has been notified" : "Topic given. The student has been notified");
+    toast.success(
+      groupOnly
+        ? "Group created. Its members have been notified, and the lead can now send the topic"
+        : others.length > 0 ? "Topic given. The group has been notified" : "Topic given. The student has been notified",
+    );
     setGiving(false);
     setGive({ studentIds: [], title: "", abstract: "", supervisorId: "" });
     void load();
@@ -262,7 +276,10 @@ const AdminProjects = () => {
               <SelectTrigger className="h-10 w-52" aria-label="Cohort"><SelectValue placeholder="Cohort" /></SelectTrigger>
               <SelectContent>{cohorts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
             </Select>
-            <Button className="h-10 gap-2 font-bold" onClick={() => setGiving(true)}>
+            <Button variant="outline" className="h-10 gap-2 font-bold" onClick={() => { setGiveMode("group"); setGiving(true); }}>
+              <Users className="h-4 w-4" /> Create a group
+            </Button>
+            <Button className="h-10 gap-2 font-bold" onClick={() => { setGiveMode("topic"); setGiving(true); }}>
               <Plus className="h-4 w-4" /> Give a topic
             </Button>
           </>
@@ -312,7 +329,9 @@ const AdminProjects = () => {
                         </span>
                       </TableCell>
                       <TableCell className="min-w-64">
-                        <Link to={`/admin/projects/${p.id}`} className="font-semibold text-primary underline-offset-2 hover:underline">{p.title}</Link>
+                        <Link to={`/admin/projects/${p.id}`} className="font-semibold text-primary underline-offset-2 hover:underline">
+                          {p.title?.trim() || "No topic yet"}
+                        </Link>
                         {p.topic_source === "supervisor" && <span className="block text-xs text-muted-foreground">Topic given by supervisor</span>}
                       </TableCell>
                       <TableCell>{p.supervisor_name ?? "Not assigned"}</TableCell>
@@ -449,10 +468,11 @@ const AdminProjects = () => {
       <Dialog open={giving} onOpenChange={setGiving}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Give a topic</DialogTitle>
+            <DialogTitle>{giveMode === "group" ? "Create a project group" : "Give a topic"}</DialogTitle>
             <DialogDescription>
-              Tick one student for an individual project, or several for a group project. The topic is approved straight away and
-              they are notified. Only students with no project are listed.
+              {giveMode === "group"
+                ? "Tick the students in the group. They are notified, and the first one you tick becomes the lead, who sends the group's topic for approval. You can also give the group a topic later. Only students with no project are listed."
+                : "Tick one student for an individual project, or several for a group project. The topic is approved straight away and they are notified. Only students with no project are listed."}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={giveTopic} className="space-y-4">
@@ -482,14 +502,16 @@ const AdminProjects = () => {
                 </div>
               )}
             </fieldset>
+            {giveMode === "topic" && (<>
             <div className="space-y-1.5">
               <Label htmlFor="give-title">Topic</Label>
-              <Input id="give-title" value={give.title} maxLength={300} required onChange={(e) => setGive((g) => ({ ...g, title: e.target.value }))} />
+              <Input id="give-title" value={give.title} maxLength={300} onChange={(e) => setGive((g) => ({ ...g, title: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="give-abstract">Guidance for the student (optional)</Label>
               <Textarea id="give-abstract" rows={4} maxLength={5000} value={give.abstract} onChange={(e) => setGive((g) => ({ ...g, abstract: e.target.value }))} />
             </div>
+            </>)}
             <div className="space-y-1.5">
               <Label htmlFor="give-supervisor">Supervisor</Label>
               <Select value={give.supervisorId || "none"} onValueChange={(v) => setGive((g) => ({ ...g, supervisorId: v === "none" ? "" : v }))}>
@@ -502,7 +524,7 @@ const AdminProjects = () => {
             </div>
             <DialogFooter>
               <Button type="submit" disabled={saving} className="font-bold">
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Give topic
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {giveMode === "group" ? "Create group" : "Give topic"}
               </Button>
             </DialogFooter>
           </form>

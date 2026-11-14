@@ -2847,6 +2847,7 @@ export type Database = {
           final_score: number | null
           id: string
           is_group: boolean
+          members_locked: boolean
           outcome: string | null
           outcome_at: string | null
           outcome_note: string | null
@@ -2870,6 +2871,7 @@ export type Database = {
           final_score?: number | null
           id?: string
           is_group?: boolean
+          members_locked?: boolean
           outcome?: string | null
           outcome_at?: string | null
           outcome_note?: string | null
@@ -2893,6 +2895,7 @@ export type Database = {
           final_score?: number | null
           id?: string
           is_group?: boolean
+          members_locked?: boolean
           outcome?: string | null
           outcome_at?: string | null
           outcome_note?: string | null
@@ -4223,6 +4226,7 @@ export type Database = {
           is_group: boolean | null
           member_names: string | null
           members: Json | null
+          members_locked: boolean | null
           outcome: string | null
           outcome_at: string | null
           outcome_note: string | null

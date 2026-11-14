@@ -37,6 +37,21 @@ export const fetchMyProjectResult = async (studentId: string): Promise<ProjectRe
   return toProjectResult(data);
 };
 
+/**
+ * A student's project at any stage, for the admin's student record. Null when
+ * the student is in no project.
+ */
+export const fetchStudentProject = async (studentId: string) => {
+  const { data: membership } = await supabase
+    .from("project_members")
+    .select("project_id")
+    .eq("student_id", studentId)
+    .maybeSingle();
+  if (!membership?.project_id) return null;
+  const { data } = await supabase.from("project_overview").select("*").eq("id", membership.project_id).maybeSingle();
+  return data ?? null;
+};
+
 export const toProjectResult = (row: {
   id: string | null;
   title: string | null;

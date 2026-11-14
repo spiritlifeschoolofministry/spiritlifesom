@@ -118,13 +118,15 @@ export const defenceEvents = (projects: DefenceLike[], audience: "student" | "st
 export const defenceProjectId = (eventId: string): string | null =>
   eventId.startsWith("defence:") ? eventId.slice("defence:".length) : null;
 
-export type TopicStatus = "proposed" | "changes_requested" | "approved" | "rejected";
+export type TopicStatus = "awaiting_topic" | "proposed" | "changes_requested" | "approved" | "rejected";
 export type Outcome = "pass" | "pass_with_corrections" | "redefend";
 export type SubmissionStatus = "submitted" | "approved" | "changes_requested";
 
 type PillTone = "success" | "warning" | "danger" | "info" | "neutral";
 
 export const TOPIC_STATUS: Record<TopicStatus, { label: string; tone: PillTone }> = {
+  // A group the school formed that has not sent its topic yet.
+  awaiting_topic: { label: "No topic yet", tone: "neutral" },
   proposed: { label: "Waiting for approval", tone: "warning" },
   changes_requested: { label: "Changes asked for", tone: "warning" },
   approved: { label: "Approved", tone: "success" },

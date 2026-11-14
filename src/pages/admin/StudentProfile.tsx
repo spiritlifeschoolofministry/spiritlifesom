@@ -1,5 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { ScrollText } from "lucide-react";
+import { fetchStudentProject } from "@/lib/project-result";
+import { formatPercent, projectStep } from "@/lib/projects";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -430,6 +433,7 @@ const AdminStudentProfile = () => {
   const [examRecords, setExamRecords] = useState<AssignmentRecord[]>([]);
   const [courses, setCourses] = useState<Array<{ id: string; title: string; cohort_id: string | null }>>([]);
   const [moves, setMoves] = useState<CohortMove[]>([]);
+  const [project, setProject] = useState<Awaited<ReturnType<typeof fetchStudentProject>>>(null);
   const [cohortNames, setCohortNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
@@ -514,6 +518,8 @@ const AdminStudentProfile = () => {
           }))
         );
       }
+
+      setProject(await fetchStudentProject(studentId!).catch(() => null));
 
       setExamRecords(
         (examsRes.data || [])
@@ -884,6 +890,45 @@ const AdminStudentProfile = () => {
                         )}
                       </div>
                     ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Final project: its own line on the record, under no course. */}
+            <Card className="shadow-[var(--shadow-card)] border-border">
+              <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+                <CardTitle className="text-base flex items-center gap-2"><ScrollText className="w-4 h-4" /> Project</CardTitle>
+                {project?.id && (
+                  <Button asChild variant="outline" size="sm">
+                    <Link to={`/admin/projects/${project.id}`}>Open project</Link>
+                  </Button>
+                )}
+              </CardHeader>
+              <CardContent>
+                {!project ? (
+                  <p className="text-sm text-muted-foreground">This student is not in a project yet.</p>
+                ) : (
+                  <div className="flex flex-wrap items-start justify-between gap-3 p-3 rounded-lg bg-secondary/50">
+                    <div className="min-w-0 space-y-0.5">
+                      <p className="text-sm font-medium text-foreground">{project.title?.trim() || "No topic yet"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {[
+                          project.is_group ? `Group project: ${project.member_names}` : "Individual project",
+                          `Supervisor: ${project.supervisor_name ?? "not assigned"}`,
+                          project.defence_at ? `Defence ${new Date(project.defence_at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}` : null,
+                        ].filter(Boolean).join(" · ")}
+                      </p>
+                      {project.outcome_note && <p className="text-xs text-muted-foreground">{project.outcome_note}</p>}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Badge variant="outline">{projectStep(project).label}</Badge>
+                      {project.outcome && project.final_score !== null && (
+                        <Badge variant={Number(project.final_score) >= 50 ? "default" : "destructive"}>
+                          {formatPercent(project.final_score)}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 )}
               </CardContent>
