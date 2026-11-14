@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
 import { formatDistanceToNow } from "date-fns";
+import PushToggle from "@/components/PushToggle";
 
 interface Notification {
   id: string;
@@ -119,6 +120,7 @@ const NotificationsBell = () => {
             </div>
           )}
         </ScrollArea>
+        {open && <PushToggle className="border-t px-4 py-3" />}
       </PopoverContent>
     </Popover>
   );

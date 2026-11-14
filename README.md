@@ -174,10 +174,10 @@ Built to the boards on the "SLSOM Redesign" canvas; the home page follows Option
 
 ## Portal navigation
 
-- **Student portal** (`src/components/StudentLayout.tsx`): sections are Dashboard, Learn (courses, materials, tasks, study), Exams, My Record (attendance, assessments, transcript, certificate, fees), Community and Account. On phones the bottom bar has one tab per section (Dashboard, Learn, Exams, Record, More), and the pages of the current section sit in a tab strip above the content. URLs are unchanged. The sidebar (and the phone menu drawer) runs the full height of the screen with one button pinned at the bottom: "Switch to admin" for staff, "Sign out" for students.
+- **Student portal** (`src/components/StudentLayout.tsx`): sections are Dashboard, Learn (courses, materials, tasks, study, project, discussions, course feedback), Exams, My Record (attendance, assessments, transcript, certificate, service log, fees), Community and Account. On phones the bottom bar has one tab per section (Dashboard, Learn, Exams, Record, More), and the pages of the current section sit in a tab strip above the content. URLs are unchanged. The sidebar (and the phone menu drawer) runs the full height of the screen with one button pinned at the bottom: "Switch to admin" for staff, "Sign out" for students.
 - **Make-up window for one student** (`src/pages/admin/exams/ExamMonitor.tsx`, "Did not sit this paper"): click a name to set that student's own opening and closing time for the paper (stored in `exam_window_overrides`). Nobody else's window changes. Both times are saved because exam-start counts the late-entry cutoff from the student's opening time; an override with only a closing time would still refuse them with "Entry closed" on a paper that has a cutoff.
 - **Student exams** (`src/pages/student/exams/ExamsList.tsx`): papers that share a window (same start and end) are grouped under one heading with "x of n done", live windows first. While a window is open the heading compares the time left with the time the unsubmitted papers need. Grouping logic: `src/lib/exam-windows.ts` (tested in `src/test/exam-windows.test.ts`).
-- **Admin portal** (`src/components/AdminLayout.tsx`): sections are People, Teaching (courses, attendance, tasks, practice questions, materials, calendar), Exams, Money, Reach (announcements, email history), Insights and System.
+- **Admin portal** (`src/components/AdminLayout.tsx`): sections are People (students, admissions, alumni), Teaching (courses, attendance, tasks, practice questions, materials, calendar, projects, discussions, course feedback, service log), Exams, Money, Reach (announcements, email history), Insights and System.
 - **Admin dashboard, "Needs your attention"**: besides admissions, receipts and requests it now counts unverified check-ins, exam attempts submitted but not yet graded, and WhatsApp chats handed to a person and still open.
 - **Student dashboard layout**: on a computer, "what to do" (Up next, today's timetable, tasks due) sits beside a narrow record column. When there is nothing to do, that first column hides and the record (tiles four across, Barnabas' summary, Ask Barnabas) takes the full width instead of leaving the narrow column blank.
 - **Up next on the dashboard** (`src/components/student/UpNext.tsx`): the first card on the student dashboard. An open exam window wins (papers done, time left versus time needed), then the soonest window in the next 14 days, then the next class that counts for attendance (with a Check in link on the day). It renders nothing when none of those exist.
@@ -208,6 +208,64 @@ The "How you can study" card on `/` shows what the programme costs. Physical is 
 2. **Live fees**, when that note is empty. The `public_fee_summary()` database function returns the fee structures of the active cohort (the one Register uses): fee name, amount and learning modes, and nothing about any student. The page totals the Online fees (counting `All`) and shows that total with the cohort, for example "₦30,000 school fees, 2026/2027". Studying in person is free, and Physical-only rows are course handouts, not school fees. `summarisePublicFees` also returns a one-line text ("₦30,000 online · free for physical students", or "Free for physical students" with no Online fees) and `onlineTotal`. Hybrid is assigned by admins, so it isn't quoted.
 
 `fee_structures` itself stays closed to visitors. The function is the only public way in. It ships in `supabase/migrations/20261113100000_public_fee_summary.sql`, which also adds the empty site-content row. If neither source has anything, Online shows "school fees" without a price. The logic is in `src/lib/public-fees.ts` (tested in `src/test/public-fees.test.ts`) and `src/hooks/use-public-fees.ts`.
+
+## Push notifications, course feedback, discussions, service log, alumni and projects
+
+Added November 2026. Migrations `supabase/migrations/20261117090000` to `20261117094000` and `20261118090000_projects.sql`. No new npm packages; the `push-send` edge function imports `npm:web-push@3.6.7` in Deno.
+
+### Push notifications
+
+Everything that lands in the bell (`notifications` table) is also sent to the devices a person has switched on.
+
+- **Switching it on.** "Notify me on this device" at the bottom of the bell (both portals) and on the student Profile page (`src/components/PushToggle.tsx`, `src/lib/push.ts`). It is per browser. Signing out switches it off for that browser.
+- **How it is sent.** The trigger `on_notification_push` on `notifications` posts the new row's id to the `push-send` edge function, which claims the row (`notifications.pushed_at`), reads the person's rows in `push_subscriptions` and sends a Web Push message. Subscriptions the browser has dropped (404/410) are deleted. Only notifications less than an hour old and not yet pushed are sent, so replaying a call does nothing.
+- **Service worker.** `public/push-sw.js` shows the notification and opens its link on click. `vite.config.ts` adds it to the generated worker with `workbox.importScripts`.
+- **Keys.** `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` are Supabase function secrets. The public key is also the constant `VAPID_PUBLIC_KEY` in `src/lib/push.ts`; the two must match. Replacing the pair means everyone switches push on again.
+- **Where it works.** Chrome, Edge and Firefox on Android and desktop, Safari on macOS, and iPhone/iPad only after the portal is added to the Home Screen (iOS 16.4+). It does **not** work inside the Capacitor Android app: a WebView has no Web Push, and that needs Firebase Cloud Messaging (`@capacitor/push-notifications`), which is not set up.
+
+### Course feedback
+
+- **Staff** (Admin › Teaching › Course Feedback, `src/pages/admin/CourseFeedback.tsx`): switch feedback open for a course, which notifies that cohort's students. See the response rate, average ratings and comments per course. Opening is manual (`courses.feedback_open`), not tied to "completed".
+- **Students** (Learn › Course Feedback, `src/pages/student/Feedback.tsx`): four ratings from 1 to 5 and two optional comments, once per course, not editable afterwards.
+- **Names.** `course_feedback` stores the student so each answers once, but staff screens read the view `course_feedback_responses`, which has no student and only the day of sending. Someone with direct database access can still see who answered.
+- Summary logic: `src/lib/course-feedback.ts`.
+
+### Course discussions
+
+- Students ask a question under one of their cohort's courses and anyone on the course, or staff, answers (Learn › Discussions; Admin › Teaching › Discussions). Both pages use `src/components/discussions/DiscussionBoard.tsx`.
+- The asker or staff can mark a question resolved or delete it; authors and staff can delete answers. Staff answers are labelled "Staff".
+- Access is the database function `can_access_course_discussion(course_id)`: staff, or an admitted student whose cohort is the course's cohort (`courses.cohort_id`). Names come from the views `course_question_feed` and `course_answer_feed`, because students cannot read each other's profiles.
+- Notifications: a new question goes to staff, a new answer goes to the asker. Each opens the question (`?q=<id>`).
+- Status and filter logic: `src/lib/discussions.ts`.
+
+### Ministry service log
+
+- **Students** (My Record › Service Log, `src/pages/student/ServiceLog.tsx`): log a date, hours, kind of service, what they did and who can confirm it. An entry can be deleted until it is reviewed. The page shows approved hours against the cohort's requirement.
+- **Staff** (Admin › Teaching › Service Log, `src/pages/admin/ServiceLogs.tsx`): approve or reject (a reason is required and the student sees it), totals by student, and the hours a cohort must serve (`cohorts.service_hours_required`; only the `admin` role can save it).
+- Row policies stop a student writing anything but a pending entry or dating one in the future. The requirement is shown only: issuing a certificate does not check it.
+- Totals and validation: `src/lib/service-log.ts`.
+
+### Alumni
+
+- The student **Graduates** page (`src/pages/student/Graduates.tsx`) now has a Testimonies tab, and directory cards show where a graduate serves. Graduates (admission status "Graduate") also get a panel to edit those details and send a testimony (`src/components/student/AlumniCorner.tsx`).
+- **Staff** (Admin › People › Alumni, `src/pages/admin/Alumni.tsx`): approve a testimony, take it off the wall, or delete it. Nothing shows until approved.
+- Tables `alumni_profiles` and `alumni_testimonies`; views `graduate_directory` (three new columns) and `alumni_testimony_wall`.
+
+Tests for the logic of these five: `src/test/community-features.test.ts`.
+
+### Academic project and defence
+
+One project per student, individual (no group projects).
+
+- **Topic.** Either the student proposes it (Learn › Project, `src/pages/student/Project.tsx`) and staff approve it, ask for changes or reject it with a note; or the supervisor gives it (**Give a topic** on Admin › Teaching › Projects, or "Give this topic instead" on a project), which is approved at once and shown to the student as "Given by your supervisor". Students write a topic only through the database function `submit_project_topic`; they have no direct access to `projects`.
+- **Supervisor.** Any staff account (admin or teacher). Make a lecturer a teacher under Admin › Settings to let them supervise or sit on a panel. All staff can open every project; "I supervise" filters the list.
+- **Stages and drafts.** Staff set the stages per cohort on the Projects page ("Add the usual four" gives Proposal, Chapters 1 to 3, Full draft, Final copy). A student hands in a PDF or Word file (up to 25 MB, stored in R2 under `projects/`) for each stage; staff approve it or ask for changes with feedback; the student can then hand in a revised draft. The newest draft of a stage is the one that counts.
+- **Defence.** Date, time, venue or link, and a panel chosen from staff (`src/pages/admin/ProjectDetail.tsx`). The student and panel are notified when it is set or moved and reminded within 24 hours of it (pg_cron job `project-defence-reminders`, hourly).
+- **Scores.** Each panel member enters their own marks against the rubric in `src/lib/projects.ts` (`DEFENCE_RUBRIC`, 100 marks: content 30, biblical grounding 25, presentation 20, answers 15, writing 10). An admin can enter a member's marks for them. The project's score is the average, kept by a trigger. To change the rubric, edit `DEFENCE_RUBRIC`; scores already saved keep their totals.
+- **Result.** Passed, Passed with corrections, or To defend again, with a note. The student sees the score only once a result is saved. After "Passed with corrections" the student uploads a corrected copy and the project is complete when staff approve it. After "To defend again" the student can hand in revised drafts.
+- **Past projects.** Completed projects (title, description, author, cohort and the final file) are listed for every signed-in user on the student Project page, from the view `project_archive`.
+- **Not connected to Assessments or the Transcript.** The project score lives on the Project page only; those pages read tasks and exams, which belong to a course, and a project does not.
+- Rules and labels: `src/lib/projects.ts`, tested in `src/test/projects.test.ts`.
 
 ## Dependency notes
 

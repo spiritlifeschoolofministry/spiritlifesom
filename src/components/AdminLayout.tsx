@@ -44,6 +44,11 @@ import {
   Sparkles,
   BadgeDollarSign,
   MessageCircle,
+  MessagesSquare,
+  MessageSquareHeart,
+  HandHeart,
+  ScrollText,
+  GraduationCap,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -77,6 +82,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Students", icon: Users, path: "/admin/students" },
       { label: "Admissions/Requests", shortLabel: "Admissions", icon: UserCheck, path: "/admin/admissions" },
+      { label: "Alumni", icon: GraduationCap, path: "/admin/alumni" },
     ],
   },
   {
@@ -93,6 +99,10 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "Practice Questions", shortLabel: "Practice", icon: Sparkles, path: "/admin/practice" },
       { label: "Materials", icon: Folder, path: "/admin/materials" },
       { label: "Calendar", icon: CalendarDays, path: "/admin/calendar" },
+      { label: "Projects", icon: ScrollText, path: "/admin/projects" },
+      { label: "Discussions", icon: MessagesSquare, path: "/admin/discussions" },
+      { label: "Course Feedback", shortLabel: "Feedback", icon: MessageSquareHeart, path: "/admin/feedback" },
+      { label: "Service Log", icon: HandHeart, path: "/admin/service" },
     ],
   },
   {

@@ -43,6 +43,10 @@ import {
   Eye,
   GraduationCap,
   Award,
+  MessagesSquare,
+  MessageSquareHeart,
+  HandHeart,
+  ScrollText,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -81,6 +85,9 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "Course Materials", icon: FileText, path: "/student/materials", restrictedWhenPending: true },
       { label: "Tasks", icon: ClipboardList, path: "/student/assignments", restrictedWhenPending: true },
       { label: "Study", icon: Sparkles, path: "/student/study", restrictedWhenPending: true },
+      { label: "Project", icon: ScrollText, path: "/student/project", restrictedWhenPending: true },
+      { label: "Discussions", icon: MessagesSquare, path: "/student/discussions", restrictedWhenPending: true },
+      { label: "Course Feedback", icon: MessageSquareHeart, path: "/student/feedback", restrictedWhenPending: true },
     ],
   },
   {
@@ -103,6 +110,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "Assessments", icon: GraduationCap, path: "/student/grades", restrictedWhenPending: true },
       { label: "Transcript", icon: FileText, path: "/student/transcript", restrictedWhenPending: true },
       { label: "Certificate", icon: Award, path: "/student/certificate", restrictedWhenPending: false },
+      { label: "Service Log", icon: HandHeart, path: "/student/service", restrictedWhenPending: true },
       { label: "Fees", icon: CreditCard, path: "/student/fees", restrictedWhenPending: false },
     ],
   },

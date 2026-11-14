@@ -77,6 +77,16 @@ import {
   AdminWhatsAppSettings,
   AdminWhatsAppLog,
   StudentStudy,
+  StudentFeedback,
+  StudentDiscussions,
+  StudentServiceLog,
+  StudentProject,
+  AdminProjects,
+  AdminProjectDetail,
+  AdminCourseFeedback,
+  AdminDiscussions,
+  AdminServiceLogs,
+  AdminAlumni,
 } from "@/routes/lazy-pages";
 
 const queryClient = new QueryClient();
@@ -149,6 +159,10 @@ const App = () => {
             <Route path="/student/grades" element={<StudentGrades />} />
             <Route path="/student/study" element={<StudentStudy />} />
             <Route path="/student/materials" element={<StudentMaterials />} />
+            <Route path="/student/discussions" element={<StudentDiscussions />} />
+            <Route path="/student/feedback" element={<StudentFeedback />} />
+            <Route path="/student/service" element={<StudentServiceLog />} />
+            <Route path="/student/project" element={<StudentProject />} />
             <Route path="/student/coursemates" element={<Coursemates />} />
             <Route path="/student/fees" element={<StudentFees />} />
             <Route path="/student/announcements" element={<StudentAnnouncements />} />
@@ -176,6 +190,12 @@ const App = () => {
             <Route path="/admin/courses" element={<ProtectedRoute requiredRole="admin"><AdminCourses /></ProtectedRoute>} />
             <Route path="/admin/assignments" element={<ProtectedRoute requiredRole="admin"><AdminAssignments /></ProtectedRoute>} />
             <Route path="/admin/materials" element={<ProtectedRoute requiredRole="admin"><AdminMaterials /></ProtectedRoute>} />
+            <Route path="/admin/discussions" element={<ProtectedRoute requiredRole="admin"><AdminDiscussions /></ProtectedRoute>} />
+            <Route path="/admin/feedback" element={<ProtectedRoute requiredRole="admin"><AdminCourseFeedback /></ProtectedRoute>} />
+            <Route path="/admin/service" element={<ProtectedRoute requiredRole="admin"><AdminServiceLogs /></ProtectedRoute>} />
+            <Route path="/admin/projects" element={<ProtectedRoute requiredRole="admin"><AdminProjects /></ProtectedRoute>} />
+            <Route path="/admin/projects/:id" element={<ProtectedRoute requiredRole="admin"><AdminProjectDetail /></ProtectedRoute>} />
+            <Route path="/admin/alumni" element={<ProtectedRoute requiredRole="admin"><AdminAlumni /></ProtectedRoute>} />
             <Route path="/admin/fees" element={<ProtectedRoute requiredRole="admin"><AdminFees /></ProtectedRoute>} />
             <Route path="/admin/payments" element={<ProtectedRoute requiredRole="admin"><AdminPayments /></ProtectedRoute>} />
             <Route path="/admin/announcements" element={<ProtectedRoute requiredRole="admin"><AdminAnnouncements /></ProtectedRoute>} />

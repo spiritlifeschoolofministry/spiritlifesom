@@ -1,4 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { formatDistanceToNow } from 'date-fns';
+import { useAuth } from '@/contexts/useAuth';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import AlumniCorner from '@/components/student/AlumniCorner';
+import { servingLine } from '@/lib/alumni';
+import type { Tables } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -11,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { GraduationCap } from 'lucide-react';
+import { GraduationCap, Quote } from 'lucide-react';
 
 interface Graduate {
   id: string;
@@ -20,6 +26,8 @@ interface Graduate {
   avatar_url: string | null;
   cohort_name: string;
   cohort_id: string | null;
+  /** "Youth pastor at Grace Chapel · Ibadan", empty when they have not said. */
+  serving: string;
 }
 
 interface CohortOption {
@@ -32,19 +40,24 @@ const Graduates = () => {
   const [loading, setLoading] = useState(true);
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
   const [cohortFilter, setCohortFilter] = useState('all');
+  const [testimonies, setTestimonies] = useState<Tables<'alumni_testimony_wall'>[]>([]);
+  const { student } = useAuth();
+  const isGraduate = (student?.admission_status ?? '').toUpperCase() === 'GRADUATE';
 
-  useEffect(() => {
-    const load = async () => {
+  const load = useCallback(async () => {
       try {
         // Read through graduate_directory: students_select limits a student to
         // their own row, so querying students directly returned no graduates.
-        const [gradsRes, cohortsRes] = await Promise.all([
+        const [gradsRes, cohortsRes, wallRes] = await Promise.all([
           supabase
             .from('graduate_directory')
-            .select('id, first_name, last_name, avatar_url, cohort_id, cohort_name')
+            .select('id, first_name, last_name, avatar_url, cohort_id, cohort_name, serving_as, serving_at, location')
             .order('last_name', { ascending: true }),
           supabase.from('cohorts').select('id, name').order('name'),
+          supabase.from('alumni_testimony_wall').select('*').order('created_at', { ascending: false }),
         ]);
+        if (wallRes.error) console.error('Load testimonies error:', wallRes.error);
+        setTestimonies(wallRes.data || []);
 
         if (gradsRes.error) throw gradsRes.error;
 
@@ -55,6 +68,7 @@ const Graduates = () => {
           avatar_url: g.avatar_url || null,
           cohort_name: g.cohort_name || 'Unknown',
           cohort_id: g.cohort_id,
+          serving: servingLine(g),
         }));
 
         setGraduates(list);
@@ -64,9 +78,11 @@ const Graduates = () => {
       } finally {
         setLoading(false);
       }
-    };
-    load();
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const filtered = cohortFilter === 'all'
     ? graduates
@@ -80,7 +96,7 @@ const Graduates = () => {
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <GraduationCap className="h-6 w-6" /> Graduates
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">Alumni from all cohorts</p>
+            <p className="text-sm text-muted-foreground mt-1">Alumni from all cohorts, where they serve now, and their testimonies</p>
           </div>
           <Select value={cohortFilter} onValueChange={setCohortFilter}>
             <SelectTrigger className="w-full sm:w-48">
@@ -95,6 +111,14 @@ const Graduates = () => {
           </Select>
         </div>
 
+        {isGraduate && student?.id && <AlumniCorner studentId={student.id} onChanged={load} />}
+
+        <Tabs defaultValue="directory">
+          <TabsList>
+            <TabsTrigger value="directory">Directory ({filtered.length})</TabsTrigger>
+            <TabsTrigger value="testimonies">Testimonies ({testimonies.length})</TabsTrigger>
+          </TabsList>
+          <TabsContent value="directory" className="mt-4">
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -122,6 +146,7 @@ const Graduates = () => {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-sm truncate">{g.first_name} {g.last_name}</p>
                     <Badge variant="secondary" className="text-xs mt-1">{g.cohort_name}</Badge>
+                    {g.serving && <p className="text-xs text-muted-foreground mt-1">{g.serving}</p>}
                   </div>
                   <GraduationCap className="h-5 w-5 text-muted-foreground shrink-0" />
                 </CardContent>
@@ -129,6 +154,42 @@ const Graduates = () => {
             ))}
           </div>
         )}
+          </TabsContent>
+          <TabsContent value="testimonies" className="mt-4">
+            {testimonies.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  <Quote className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                  <p>No testimonies have been shared yet.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {testimonies.map((t) => (
+                  <Card key={t.id}>
+                    <CardContent className="py-4 space-y-3">
+                      <p className="text-sm whitespace-pre-wrap">{t.body}</p>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          {t.avatar_url && <AvatarImage src={t.avatar_url} />}
+                          <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                            {(t.first_name || '')[0]}{(t.last_name || '')[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{t.first_name} {t.last_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {[t.cohort_name, servingLine(t), t.created_at && formatDistanceToNow(new Date(t.created_at), { addSuffix: true })].filter(Boolean).join(' · ')}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </>
   );

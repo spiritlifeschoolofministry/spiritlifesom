@@ -188,3 +188,10 @@ enabled = true
 # only write to a number that has already written to us.
 verify_jwt = true
 entrypoint = "./functions/whatsapp-reply/index.ts"
+
+[functions.push-send]
+enabled = true
+# Called by the on_notification_push database trigger with only a notification
+# id. The function reads and claims the row itself, so no JWT is needed.
+verify_jwt = false
+entrypoint = "./functions/push-send/index.ts"

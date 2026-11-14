@@ -34,6 +34,8 @@ import {
 import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
 import { fetchStudentHistory } from '@/lib/student-sessions';
 import WhatsAppPreference from '@/components/student/WhatsAppPreference';
+import PushToggle from '@/components/PushToggle';
+import { BellRing } from 'lucide-react';
 
 interface PersonalFormData {
   first_name: string;
@@ -677,6 +679,17 @@ const StudentProfile = () => {
             </Card>
 
             {user?.id && <WhatsAppPreference userId={user.id} />}
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <BellRing className="h-5 w-5" /> Notifications on this device
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PushToggle />
+              </CardContent>
+            </Card>
 
             {/* Change Password Section */}
             <Card>

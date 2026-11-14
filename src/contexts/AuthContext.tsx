@@ -1,5 +1,6 @@
 import React, { createContext, useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { disablePush } from '@/lib/push';
 import type { User } from '@supabase/supabase-js';
 import type { Tables } from '@/integrations/supabase/types';
 import { clearAuthSnapshot, readAuthSnapshot, writeAuthSnapshot } from '@/lib/auth-snapshot';
@@ -411,6 +412,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = useCallback(async (): Promise<void> => {
     console.log('[Auth] Signing out...');
     try {
+      // While still signed in: the row can only be deleted by its owner.
+      await disablePush().catch(() => undefined);
       await supabase.auth.signOut();
     } catch (err: unknown) {
       console.error('[Auth] Error during signOut:', err instanceof Error ? err.message : 'Unknown error');

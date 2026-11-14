@@ -126,6 +126,16 @@ export const AdminStorage = lazyPage(() => import("@/pages/admin/StorageManageme
 export const AdminAiSettings = lazyPage(() => import("@/pages/admin/AiSettings"));
 export const AdminWhatsAppSettings = lazyPage(() => import("@/pages/admin/WhatsAppSettings"));
 export const AdminWhatsAppLog = lazyPage(() => import("@/pages/admin/WhatsAppLog"));
+export const StudentFeedback = lazyPage(() => import("@/pages/student/Feedback"));
+export const StudentDiscussions = lazyPage(() => import("@/pages/student/Discussions"));
+export const StudentServiceLog = lazyPage(() => import("@/pages/student/ServiceLog"));
+export const AdminCourseFeedback = lazyPage(() => import("@/pages/admin/CourseFeedback"));
+export const AdminDiscussions = lazyPage(() => import("@/pages/admin/Discussions"));
+export const AdminServiceLogs = lazyPage(() => import("@/pages/admin/ServiceLogs"));
+export const AdminAlumni = lazyPage(() => import("@/pages/admin/Alumni"));
+export const StudentProject = lazyPage(() => import("@/pages/student/Project"));
+export const AdminProjects = lazyPage(() => import("@/pages/admin/Projects"));
+export const AdminProjectDetail = lazyPage(() => import("@/pages/admin/ProjectDetail"));
 export const StudentStudy = lazyPage(() => import("@/pages/student/Study"));
 export const ComingSoon = lazyPage(() => import("@/pages/ComingSoon"));
 export const AdminComingSoon = lazyPage(() => import("@/pages/AdminComingSoon"));
@@ -173,6 +183,15 @@ const PAGE_BY_PATH: Record<string, LazyPage> = {
   "/admin/storage": AdminStorage,
   "/admin/ai": AdminAiSettings,
   "/student/study": StudentStudy,
+  "/student/discussions": StudentDiscussions,
+  "/student/feedback": StudentFeedback,
+  "/student/service": StudentServiceLog,
+  "/student/project": StudentProject,
+  "/admin/projects": AdminProjects,
+  "/admin/discussions": AdminDiscussions,
+  "/admin/feedback": AdminCourseFeedback,
+  "/admin/service": AdminServiceLogs,
+  "/admin/alumni": AdminAlumni,
   "/admin/settings": AdminSettings,
   "/admin/audit": AdminAuditLog,
   "/admin/email-history": AdminEmailHistory,

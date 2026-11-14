@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.1"
   }
   graphql_public: {
     Tables: {
@@ -305,6 +305,90 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alumni_profiles: {
+        Row: {
+          location: string | null
+          serving_as: string | null
+          serving_at: string | null
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          location?: string | null
+          serving_as?: string | null
+          serving_at?: string | null
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          location?: string | null
+          serving_as?: string | null
+          serving_at?: string | null
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alumni_profiles_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "graduate_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alumni_profiles_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alumni_testimonies: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          student_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          student_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alumni_testimonies_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "graduate_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alumni_testimonies_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
             referencedColumns: ["id"]
           },
         ]
@@ -815,6 +899,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
+          service_hours_required: number | null
           start_date: string
         }
         Insert: {
@@ -827,6 +912,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name: string
+          service_hours_required?: number | null
           start_date: string
         }
         Update: {
@@ -839,9 +925,63 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
+          service_hours_required?: number | null
           start_date?: string
         }
         Relationships: []
+      }
+      course_answers: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          id: string
+          question_id: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          id?: string
+          question_id: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          question_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_answers_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "course_answers_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "course_question_feed"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "course_questions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       course_cohorts: {
         Row: {
@@ -875,6 +1015,67 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_feedback: {
+        Row: {
+          course_id: string
+          created_at: string
+          id: string
+          improve: string | null
+          liked: string | null
+          rating_content: number
+          rating_materials: number
+          rating_overall: number
+          rating_teaching: number
+          student_id: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          id?: string
+          improve?: string | null
+          liked?: string | null
+          rating_content: number
+          rating_materials: number
+          rating_overall: number
+          rating_teaching: number
+          student_id: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          id?: string
+          improve?: string | null
+          liked?: string | null
+          rating_content?: number
+          rating_materials?: number
+          rating_overall?: number
+          rating_teaching?: number
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_feedback_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_feedback_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "graduate_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_feedback_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
             referencedColumns: ["id"]
           },
         ]
@@ -974,12 +1175,68 @@ export type Database = {
           },
         ]
       }
+      course_questions: {
+        Row: {
+          author_id: string
+          body: string
+          course_id: string
+          created_at: string
+          id: string
+          is_resolved: boolean
+          last_activity_at: string
+          title: string
+        }
+        Insert: {
+          author_id: string
+          body?: string
+          course_id: string
+          created_at?: string
+          id?: string
+          is_resolved?: boolean
+          last_activity_at?: string
+          title: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          course_id?: string
+          created_at?: string
+          id?: string
+          is_resolved?: boolean
+          last_activity_at?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_questions_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "course_questions_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_questions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       courses: {
         Row: {
           code: string
           cohort_id: string | null
           created_at: string | null
           description: string | null
+          feedback_open: boolean
           id: string
           is_completed: boolean | null
           lecturer: string | null
@@ -992,6 +1249,7 @@ export type Database = {
           cohort_id?: string | null
           created_at?: string | null
           description?: string | null
+          feedback_open?: boolean
           id?: string
           is_completed?: boolean | null
           lecturer?: string | null
@@ -1004,6 +1262,7 @@ export type Database = {
           cohort_id?: string | null
           created_at?: string | null
           description?: string | null
+          feedback_open?: boolean
           id?: string
           is_completed?: boolean | null
           lecturer?: string | null
@@ -1957,6 +2216,7 @@ export type Database = {
           id: string
           is_read: boolean
           link: string | null
+          pushed_at: string | null
           title: string
           type: string
           user_id: string
@@ -1967,6 +2227,7 @@ export type Database = {
           id?: string
           is_read?: boolean
           link?: string | null
+          pushed_at?: string | null
           title: string
           type?: string
           user_id: string
@@ -1977,6 +2238,7 @@ export type Database = {
           id?: string
           is_read?: boolean
           link?: string | null
+          pushed_at?: string | null
           title?: string
           type?: string
           user_id?: string
@@ -2284,6 +2546,335 @@ export type Database = {
           },
         ]
       }
+      project_panel: {
+        Row: {
+          member_id: string
+          project_id: string
+        }
+        Insert: {
+          member_id: string
+          project_id: string
+        }
+        Update: {
+          member_id?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_panel_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "project_panel_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_panel_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_archive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_panel_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_panel_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_scores: {
+        Row: {
+          comment: string | null
+          member_id: string
+          project_id: string
+          scores: Json
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          comment?: string | null
+          member_id: string
+          project_id: string
+          scores?: Json
+          total: number
+          updated_at?: string
+        }
+        Update: {
+          comment?: string | null
+          member_id?: string
+          project_id?: string
+          scores?: Json
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_scores_project_id_member_id_fkey"
+            columns: ["project_id", "member_id"]
+            isOneToOne: true
+            referencedRelation: "project_panel"
+            referencedColumns: ["project_id", "member_id"]
+          },
+        ]
+      }
+      project_stages: {
+        Row: {
+          cohort_id: string
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          position: number
+          title: string
+        }
+        Insert: {
+          cohort_id: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          position?: number
+          title: string
+        }
+        Update: {
+          cohort_id?: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          position?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_stages_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_submissions: {
+        Row: {
+          feedback: string | null
+          file_name: string
+          file_path: string
+          id: string
+          kind: string
+          note: string | null
+          project_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          stage_id: string | null
+          status: string
+          submitted_at: string
+        }
+        Insert: {
+          feedback?: string | null
+          file_name: string
+          file_path: string
+          id?: string
+          kind?: string
+          note?: string | null
+          project_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          stage_id?: string | null
+          status?: string
+          submitted_at?: string
+        }
+        Update: {
+          feedback?: string | null
+          file_name?: string
+          file_path?: string
+          id?: string
+          kind?: string
+          note?: string | null
+          project_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          stage_id?: string | null
+          status?: string
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_submissions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_archive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_submissions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_submissions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_submissions_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "project_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          abstract: string
+          created_at: string
+          defence_at: string | null
+          defence_reminded_at: string | null
+          defence_venue: string | null
+          final_approved_at: string | null
+          final_score: number | null
+          id: string
+          outcome: string | null
+          outcome_at: string | null
+          outcome_note: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          student_id: string
+          supervisor_id: string | null
+          title: string
+          topic_source: string
+          updated_at: string
+        }
+        Insert: {
+          abstract?: string
+          created_at?: string
+          defence_at?: string | null
+          defence_reminded_at?: string | null
+          defence_venue?: string | null
+          final_approved_at?: string | null
+          final_score?: number | null
+          id?: string
+          outcome?: string | null
+          outcome_at?: string | null
+          outcome_note?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          student_id: string
+          supervisor_id?: string | null
+          title: string
+          topic_source?: string
+          updated_at?: string
+        }
+        Update: {
+          abstract?: string
+          created_at?: string
+          defence_at?: string | null
+          defence_reminded_at?: string | null
+          defence_venue?: string | null
+          final_approved_at?: string | null
+          final_score?: number | null
+          id?: string
+          outcome?: string | null
+          outcome_at?: string | null
+          outcome_note?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          student_id?: string
+          supervisor_id?: string | null
+          title?: string
+          topic_source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "graduate_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "projects_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_success_at: string | null
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_success_at?: string | null
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_success_at?: string | null
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       question_bank: {
         Row: {
           ai_generated: boolean
@@ -2561,6 +3152,72 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_logs: {
+        Row: {
+          activity_date: string
+          category: string
+          created_at: string
+          description: string
+          hours: number
+          id: string
+          location: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          student_id: string
+          supervisor_contact: string | null
+          supervisor_name: string | null
+        }
+        Insert: {
+          activity_date: string
+          category: string
+          created_at?: string
+          description: string
+          hours: number
+          id?: string
+          location?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          student_id: string
+          supervisor_contact?: string | null
+          supervisor_name?: string | null
+        }
+        Update: {
+          activity_date?: string
+          category?: string
+          created_at?: string
+          description?: string
+          hours?: number
+          id?: string
+          location?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          student_id?: string
+          supervisor_contact?: string | null
+          supervisor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "graduate_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
             referencedColumns: ["id"]
           },
         ]
@@ -3027,22 +3684,7 @@ export type Database = {
           student_id?: string | null
           to_jid?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "whatsapp_outbound_log_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "graduate_directory"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "whatsapp_outbound_log_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       whatsapp_settings: {
         Row: {
@@ -3196,6 +3838,36 @@ export type Database = {
       }
     }
     Views: {
+      alumni_testimony_wall: {
+        Row: {
+          avatar_url: string | null
+          body: string | null
+          cohort_name: string | null
+          created_at: string | null
+          first_name: string | null
+          id: string | null
+          last_name: string | null
+          serving_as: string | null
+          serving_at: string | null
+          student_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alumni_testimonies_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "graduate_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alumni_testimonies_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       classmate_directory: {
         Row: {
           avatar_url: string | null
@@ -3212,6 +3884,122 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "students_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_answer_feed: {
+        Row: {
+          author_avatar_url: string | null
+          author_first_name: string | null
+          author_id: string | null
+          author_is_staff: boolean | null
+          author_last_name: string | null
+          body: string | null
+          created_at: string | null
+          id: string | null
+          question_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_answers_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "course_answers_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "course_question_feed"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "course_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_feedback_responses: {
+        Row: {
+          course_id: string | null
+          id: string | null
+          improve: string | null
+          liked: string | null
+          rating_content: number | null
+          rating_materials: number | null
+          rating_overall: number | null
+          rating_teaching: number | null
+          sent_on: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_feedback_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      course_question_feed: {
+        Row: {
+          answer_count: number | null
+          author_avatar_url: string | null
+          author_first_name: string | null
+          author_id: string | null
+          author_is_staff: boolean | null
+          author_last_name: string | null
+          body: string | null
+          cohort_id: string | null
+          course_code: string | null
+          course_id: string | null
+          course_title: string | null
+          created_at: string | null
+          has_staff_answer: boolean | null
+          id: string | null
+          is_resolved: boolean | null
+          last_activity_at: string | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_questions_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "course_questions_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_questions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courses_cohort_id_fkey"
             columns: ["cohort_id"]
             isOneToOne: false
             referencedRelation: "cohorts"
@@ -3298,8 +4086,90 @@ export type Database = {
           first_name: string | null
           id: string | null
           last_name: string | null
+          location: string | null
+          serving_as: string | null
+          serving_at: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "students_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_archive: {
+        Row: {
+          abstract: string | null
+          cohort_name: string | null
+          completed_at: string | null
+          file_name: string | null
+          file_path: string | null
+          first_name: string | null
+          id: string | null
+          last_name: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
+      project_overview: {
+        Row: {
+          abstract: string | null
+          cohort_id: string | null
+          cohort_name: string | null
+          created_at: string | null
+          defence_at: string | null
+          defence_venue: string | null
+          final_approved_at: string | null
+          final_score: number | null
+          id: string | null
+          outcome: string | null
+          outcome_at: string | null
+          outcome_note: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          status: string | null
+          student_code: string | null
+          student_first_name: string | null
+          student_id: string | null
+          student_last_name: string | null
+          supervisor_id: string | null
+          supervisor_name: string | null
+          title: string | null
+          topic_source: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "graduate_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "classmate_directory"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "projects_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "students_cohort_id_fkey"
             columns: ["cohort_id"]
@@ -3375,7 +4245,7 @@ export type Database = {
         Returns: undefined
       }
       admin_set_fee_waived: {
-        Args: { p_fee_id: string; p_reason?: string | null; p_waived: boolean }
+        Args: { p_fee_id: string; p_reason?: string; p_waived: boolean }
         Returns: undefined
       }
       admin_set_payment_fee: {
@@ -3433,6 +4303,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      can_access_course_discussion: {
+        Args: { p_course_id: string }
+        Returns: boolean
+      }
       ensure_staff_preview_student: {
         Args: { p_profile_id: string }
         Returns: undefined
@@ -3455,6 +4329,11 @@ export type Database = {
       }
       get_my_role: { Args: never; Returns: string }
       get_my_student_id: { Args: never; Returns: string }
+      is_my_graduate_record: {
+        Args: { p_student_id: string }
+        Returns: boolean
+      }
+      is_my_project: { Args: { p_project_id: string }; Returns: boolean }
       is_profile_complete: { Args: { _user_id: string }; Returns: boolean }
       issue_certificate: {
         Args: { p_student_id: string }
@@ -3516,6 +4395,8 @@ export type Database = {
         Returns: string
       }
       normalize_msisdn: { Args: { raw: string }; Returns: string }
+      ops_usage_snapshot: { Args: never; Returns: Json }
+      project_defence_reminders: { Args: never; Returns: undefined }
       public_fee_summary: {
         Args: never
         Returns: {
@@ -3525,7 +4406,6 @@ export type Database = {
           learning_modes: string[]
         }[]
       }
-      ops_usage_snapshot: { Args: never; Returns: Json }
       reconcile_student_fees: {
         Args: { p_student_id: string }
         Returns: undefined
@@ -3533,6 +4413,15 @@ export type Database = {
       reset_exam_attempt: {
         Args: { p_attempt_id: string; p_reason?: string }
         Returns: Json
+      }
+      save_push_subscription: {
+        Args: {
+          p_auth: string
+          p_endpoint: string
+          p_p256dh: string
+          p_user_agent?: string
+        }
+        Returns: undefined
       }
       set_certificate_revocation: {
         Args: { p_reason?: string; p_revoked: boolean; p_serial: string }
@@ -3553,6 +4442,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      submit_project_topic: {
+        Args: { p_abstract: string; p_title: string }
+        Returns: string
       }
       verify_certificate: { Args: { p_serial: string }; Returns: Json }
       whatsapp_msisdn_candidates: { Args: { raw: string }; Returns: string[] }
@@ -3705,3 +4598,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
