@@ -2546,6 +2546,60 @@ export type Database = {
           },
         ]
       }
+      project_members: {
+        Row: {
+          added_at: string
+          project_id: string
+          student_id: string
+        }
+        Insert: {
+          added_at?: string
+          project_id: string
+          student_id: string
+        }
+        Update: {
+          added_at?: string
+          project_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_members_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_archive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_members_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_members_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_members_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "graduate_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_members_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_panel: {
         Row: {
           member_id: string
@@ -2597,10 +2651,46 @@ export type Database = {
           },
         ]
       }
+      project_rubric_criteria: {
+        Row: {
+          cohort_id: string
+          created_at: string
+          id: string
+          label: string
+          max_marks: number
+          position: number
+        }
+        Insert: {
+          cohort_id: string
+          created_at?: string
+          id?: string
+          label: string
+          max_marks: number
+          position?: number
+        }
+        Update: {
+          cohort_id?: string
+          created_at?: string
+          id?: string
+          label?: string
+          max_marks?: number
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_rubric_criteria_cohort_id_fkey"
+            columns: ["cohort_id"]
+            isOneToOne: false
+            referencedRelation: "cohorts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_scores: {
         Row: {
           comment: string | null
           member_id: string
+          out_of: number
           project_id: string
           scores: Json
           total: number
@@ -2609,6 +2699,7 @@ export type Database = {
         Insert: {
           comment?: string | null
           member_id: string
+          out_of?: number
           project_id: string
           scores?: Json
           total: number
@@ -2617,6 +2708,7 @@ export type Database = {
         Update: {
           comment?: string | null
           member_id?: string
+          out_of?: number
           project_id?: string
           scores?: Json
           total?: number
@@ -2754,6 +2846,7 @@ export type Database = {
           final_approved_at: string | null
           final_score: number | null
           id: string
+          is_group: boolean
           outcome: string | null
           outcome_at: string | null
           outcome_note: string | null
@@ -2776,6 +2869,7 @@ export type Database = {
           final_approved_at?: string | null
           final_score?: number | null
           id?: string
+          is_group?: boolean
           outcome?: string | null
           outcome_at?: string | null
           outcome_note?: string | null
@@ -2798,6 +2892,7 @@ export type Database = {
           final_approved_at?: string | null
           final_score?: number | null
           id?: string
+          is_group?: boolean
           outcome?: string | null
           outcome_at?: string | null
           outcome_note?: string | null
@@ -4103,13 +4198,13 @@ export type Database = {
       project_archive: {
         Row: {
           abstract: string | null
+          authors: string | null
           cohort_name: string | null
           completed_at: string | null
           file_name: string | null
           file_path: string | null
-          first_name: string | null
           id: string | null
-          last_name: string | null
+          is_group: boolean | null
           title: string | null
         }
         Relationships: []
@@ -4125,6 +4220,9 @@ export type Database = {
           final_approved_at: string | null
           final_score: number | null
           id: string | null
+          is_group: boolean | null
+          member_names: string | null
+          members: Json | null
           outcome: string | null
           outcome_at: string | null
           outcome_note: string | null
@@ -4307,6 +4405,10 @@ export type Database = {
         Args: { p_course_id: string }
         Returns: boolean
       }
+      can_hand_in_project_work: {
+        Args: { p_kind: string; p_project_id: string; p_stage_id: string }
+        Returns: boolean
+      }
       ensure_staff_preview_student: {
         Args: { p_profile_id: string }
         Returns: undefined
@@ -4397,6 +4499,11 @@ export type Database = {
       normalize_msisdn: { Args: { raw: string }; Returns: string }
       ops_usage_snapshot: { Args: never; Returns: Json }
       project_defence_reminders: { Args: never; Returns: undefined }
+      project_notify_members: {
+        Args: { p_body: string; p_project_id: string; p_title: string }
+        Returns: undefined
+      }
+      project_people: { Args: { p_project_id: string }; Returns: string }
       public_fee_summary: {
         Args: never
         Returns: {
@@ -4444,7 +4551,11 @@ export type Database = {
         }
       }
       submit_project_topic: {
-        Args: { p_abstract: string; p_title: string }
+        Args: {
+          p_abstract: string
+          p_partner_profile_ids?: string[]
+          p_title: string
+        }
         Returns: string
       }
       verify_certificate: { Args: { p_serial: string }; Returns: Json }

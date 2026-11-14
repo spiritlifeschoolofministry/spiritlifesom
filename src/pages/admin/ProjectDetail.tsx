@@ -17,17 +17,19 @@ import { Panel, StatusPill } from "@/components/redesign/admin/primitives";
 import { APPROVE_BUTTON, REJECT_BUTTON } from "@/components/redesign/admin/styles";
 import {
   ADMIN_TONE,
-  DEFENCE_RUBRIC,
   OUTCOMES,
-  RUBRIC_TOTAL,
   SUBMISSION_STATUS,
   TOPIC_STATUS,
+  formatPercent,
   fromLocalInput,
+  parseMembers,
   parseRubricScores,
   projectStep,
+  rubricOutOf,
   rubricProblem,
   rubricTotal,
   toLocalInput,
+  type RubricCriterion,
   type RubricScores,
   type SubmissionStatus,
   type TopicStatus,
@@ -107,31 +109,33 @@ const SubmissionReview = ({ row, userId, onDone }: { row: Submission; userId: st
 /** The rubric form for one panel member. */
 const ScoreForm = ({
   projectId,
+  criteria,
   memberId,
   memberName,
   existing,
   onSaved,
 }: {
   projectId: string;
+  criteria: RubricCriterion[];
   memberId: string;
   memberName: string;
   existing: Score | undefined;
   onSaved: () => void;
 }) => {
   const [marks, setMarks] = useState<Record<string, string>>(() => {
-    const saved = parseRubricScores(existing?.scores);
-    return Object.fromEntries(DEFENCE_RUBRIC.map((c) => [c.key, saved[c.key] !== undefined ? String(saved[c.key]) : ""]));
+    const saved = parseRubricScores(criteria, existing?.scores);
+    return Object.fromEntries(criteria.map((c) => [c.id, saved[c.id] !== undefined ? String(saved[c.id]) : ""]));
   });
   const [comment, setComment] = useState(existing?.comment ?? "");
   const [busy, setBusy] = useState(false);
 
   const scores: RubricScores = Object.fromEntries(
-    DEFENCE_RUBRIC.filter((c) => marks[c.key] !== "").map((c) => [c.key, Number(marks[c.key])]),
+    criteria.filter((c) => (marks[c.id] ?? "") !== "").map((c) => [c.id, Number(marks[c.id])]),
   );
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
-    const problem = rubricProblem(scores);
+    const problem = rubricProblem(criteria, scores);
     if (problem) {
       toast.error(problem);
       return;
@@ -141,14 +145,16 @@ const ScoreForm = ({
       project_id: projectId,
       member_id: memberId,
       scores,
-      total: rubricTotal(scores),
+      // The database recomputes both from the rubric; these are placeholders.
+      total: rubricTotal(criteria, scores),
+      out_of: rubricOutOf(criteria),
       comment: comment.trim() || null,
       updated_at: new Date().toISOString(),
     });
     setBusy(false);
     if (error) {
       console.error("Save score error:", error);
-      toast.error("Could not save the score");
+      toast.error(error.message || "Could not save the score");
       return;
     }
     toast.success(`Score saved for ${memberName}`);
@@ -159,18 +165,18 @@ const ScoreForm = ({
     <form onSubmit={save} className="space-y-3 rounded-xl border border-border p-3">
       <h3 className="text-sm font-bold">{memberName}</h3>
       <div className="grid gap-3 sm:grid-cols-2">
-        {DEFENCE_RUBRIC.map((criterion) => (
-          <div key={criterion.key} className="space-y-1">
-            <Label htmlFor={`${memberId}-${criterion.key}`}>{criterion.label} (out of {criterion.max})</Label>
+        {criteria.map((criterion) => (
+          <div key={criterion.id} className="space-y-1">
+            <Label htmlFor={`${memberId}-${criterion.id}`}>{criterion.label} (out of {Number(criterion.max_marks)})</Label>
             <Input
-              id={`${memberId}-${criterion.key}`}
+              id={`${memberId}-${criterion.id}`}
               type="number"
               inputMode="decimal"
               min="0"
-              max={criterion.max}
+              max={Number(criterion.max_marks)}
               step="0.5"
-              value={marks[criterion.key]}
-              onChange={(e) => setMarks((m) => ({ ...m, [criterion.key]: e.target.value }))}
+              value={marks[criterion.id] ?? ""}
+              onChange={(e) => setMarks((m) => ({ ...m, [criterion.id]: e.target.value }))}
             />
           </div>
         ))}
@@ -183,7 +189,7 @@ const ScoreForm = ({
         <Button type="submit" size="sm" disabled={busy}>
           {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save score
         </Button>
-        <span className="text-sm text-muted-foreground">Total: <strong className="text-foreground">{rubricTotal(scores)}</strong> / {RUBRIC_TOTAL}</span>
+        <span className="text-sm text-muted-foreground">Total: <strong className="text-foreground">{rubricTotal(criteria, scores)}</strong> / {rubricOutOf(criteria)}</span>
       </div>
     </form>
   );
@@ -199,6 +205,10 @@ const AdminProjectDetail = () => {
   const [staff, setStaff] = useState<StaffOption[]>([]);
   const [panel, setPanel] = useState<string[]>([]);
   const [scores, setScores] = useState<Score[]>([]);
+  const [criteria, setCriteria] = useState<RubricCriterion[]>([]);
+  const [cohortStudents, setCohortStudents] = useState<{ id: string; name: string; code: string | null }[]>([]);
+  const [taken, setTaken] = useState<Set<string>>(new Set());
+  const [addingMember, setAddingMember] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -215,7 +225,7 @@ const AdminProjectDetail = () => {
       setTopic({ title: row.title ?? "", abstract: row.abstract ?? "", note: row.review_note ?? "" });
       setDefence({ at: toLocalInput(row.defence_at), venue: row.defence_venue ?? "" });
       setResult({ outcome: row.outcome ?? "", note: row.outcome_note ?? "" });
-      const [stagesRes, subsRes, staffRes, panelRes, scoresRes] = await Promise.all([
+      const [stagesRes, subsRes, staffRes, panelRes, scoresRes, rubricRes, studentsRes, takenRes] = await Promise.all([
         row.cohort_id
           ? supabase.from("project_stages").select("*").eq("cohort_id", row.cohort_id).order("position").order("due_date")
           : Promise.resolve({ data: [] as Stage[] }),
@@ -223,7 +233,29 @@ const AdminProjectDetail = () => {
         supabase.from("profiles").select("id, first_name, last_name").in("role", ["admin", "teacher"]).order("first_name"),
         supabase.from("project_panel").select("member_id").eq("project_id", id),
         supabase.from("project_scores").select("*").eq("project_id", id),
+        row.cohort_id
+          ? supabase.from("project_rubric_criteria").select("id, label, max_marks").eq("cohort_id", row.cohort_id).order("position").order("created_at")
+          : Promise.resolve({ data: [] as RubricCriterion[] }),
+        row.cohort_id
+          ? supabase
+              .from("students")
+              .select("id, student_code, admission_status, is_staff_preview, profile:profiles(first_name, last_name)")
+              .eq("cohort_id", row.cohort_id)
+          : Promise.resolve({ data: [] }),
+        supabase.from("project_members").select("student_id"),
       ]);
+      setCriteria(rubricRes.data ?? []);
+      setCohortStudents(
+        (studentsRes.data ?? [])
+          .filter((st) => !st.is_staff_preview && (st.admission_status ?? "").toUpperCase() !== "PENDING")
+          .map((st) => ({
+            id: st.id,
+            code: st.student_code,
+            name: [st.profile?.first_name, st.profile?.last_name].filter(Boolean).join(" ") || "Unnamed",
+          }))
+          .sort((x, y) => x.name.localeCompare(y.name)),
+      );
+      setTaken(new Set((takenRes.data ?? []).map((m) => m.student_id)));
       setStages(stagesRes.data ?? []);
       setSubmissions(subsRes.data ?? []);
       setStaff((staffRes.data ?? []).map((p) => ({ id: p.id, name: [p.first_name, p.last_name].filter(Boolean).join(" ") || "Unnamed" })));
@@ -274,6 +306,40 @@ const AdminProjectDetail = () => {
     );
   };
 
+  const addMember = async () => {
+    if (!id || !addingMember) return;
+    setBusy(true);
+    // A second member makes it a group project; the flag goes first because the
+    // database refuses a second member on an individual one.
+    const flagged = project?.is_group ? { error: null } : await supabase.from("projects").update({ is_group: true }).eq("id", id);
+    const { error } = flagged.error ? flagged : await supabase.from("project_members").insert({ project_id: id, student_id: addingMember });
+    setBusy(false);
+    if (error) {
+      console.error("Add member error:", error);
+      toast.error(error.message || "Could not add the student");
+      return;
+    }
+    setAddingMember("");
+    toast.success("Added to the project. They have been notified");
+    void load();
+  };
+
+  const removeMember = async (studentId: string, remaining: number) => {
+    if (!id) return;
+    setBusy(true);
+    const { error } = await supabase.from("project_members").delete().eq("project_id", id).eq("student_id", studentId);
+    // Down to the lead alone, it is an individual project again.
+    if (!error && remaining === 1) await supabase.from("projects").update({ is_group: false }).eq("id", id);
+    setBusy(false);
+    if (error) {
+      console.error("Remove member error:", error);
+      toast.error(error.message || "Could not remove the student");
+      return;
+    }
+    toast.success("Removed from the project");
+    void load();
+  };
+
   const togglePanel = async (memberId: string, on: boolean) => {
     if (!id) return;
     if (!on && scores.some((s) => s.member_id === memberId) && !window.confirm("This member has entered a score. Removing them from the panel deletes it. Remove?")) return;
@@ -299,7 +365,9 @@ const AdminProjectDetail = () => {
   }
 
   const step = projectStep(project);
-  const studentName = [project.student_first_name, project.student_last_name].filter(Boolean).join(" ");
+  const members = parseMembers(project.members);
+  const studentName = project.member_names || [project.student_first_name, project.student_last_name].filter(Boolean).join(" ");
+  const addable = cohortStudents.filter((st) => !taken.has(st.id));
   const approved = project.status === "approved";
   const topicStatus = TOPIC_STATUS[project.status as TopicStatus] ?? TOPIC_STATUS.proposed;
   const staffName = (memberId: string) => staff.find((s) => s.id === memberId)?.name ?? "Unknown";
@@ -315,16 +383,55 @@ const AdminProjectDetail = () => {
         breadcrumbs={[{ label: "Projects", to: "/admin/projects" }]}
         description={
           <span className="flex flex-wrap items-center gap-2">
-            {[project.student_code, project.cohort_name].filter(Boolean).join(" · ")}
+            {[project.is_group ? `Group project, ${members.length} members` : project.student_code, project.cohort_name].filter(Boolean).join(" · ")}
             <StatusPill tone={ADMIN_TONE[step.tone]}>{step.label}</StatusPill>
           </span>
         }
       />
 
       <Panel
+        title={project.is_group ? "Group members" : "Student"}
+        titleId="project-members"
+        description="Every member can hand in work and gets the same feedback, defence and result. Add a student to make this a group project."
+      >
+        <div className="space-y-3 p-5">
+          <ul className="divide-y divide-border rounded-xl border border-border">
+            {members.map((member) => (
+              <li key={member.student_id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+                <span>
+                  <span className="font-semibold">{member.name}</span>
+                  {member.code && <span className="text-muted-foreground"> · {member.code}</span>}
+                  {member.lead && project.is_group && <span className="text-muted-foreground"> · lead</span>}
+                </span>
+                {!member.lead && (
+                  <Button variant="outline" size="sm" disabled={busy} onClick={() => removeMember(member.student_id, members.length - 1)}>
+                    Remove
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-56 flex-1 space-y-1.5">
+              <Label htmlFor="add-member">Add a student from this cohort</Label>
+              <Select value={addingMember} onValueChange={setAddingMember}>
+                <SelectTrigger id="add-member">
+                  <SelectValue placeholder={addable.length ? "Choose a student" : "Every student is already in a project"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {addable.map((st) => <SelectItem key={st.id} value={st.id}>{st.name}{st.code ? ` (${st.code})` : ""}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button variant="outline" disabled={busy || !addingMember} onClick={addMember}>Add to project</Button>
+          </div>
+        </div>
+      </Panel>
+
+      <Panel
         title="Topic"
         titleId="project-topic"
-        description={project.topic_source === "supervisor" ? "Given by the supervisor" : "Proposed by the student"}
+        description={project.topic_source === "supervisor" ? "Given by the supervisor" : project.is_group ? "Proposed by the group" : "Proposed by the student"}
         actions={<StatusPill tone={ADMIN_TONE[topicStatus.tone]}>{topicStatus.label}</StatusPill>}
       >
         <div className="space-y-4 p-5">
@@ -437,7 +544,7 @@ const AdminProjectDetail = () => {
                   Scores
                   <span className="font-normal text-muted-foreground">
                     {" "}· {scores.length} of {panel.length} entered
-                    {project.final_score !== null ? ` · average ${project.final_score} / ${RUBRIC_TOTAL}` : ""}
+                    {project.final_score !== null ? ` · average ${formatPercent(project.final_score)}` : ""}
                   </span>
                 </h3>
                 <ul className="space-y-1 text-sm">
@@ -446,13 +553,19 @@ const AdminProjectDetail = () => {
                     return (
                       <li key={memberId} className="flex flex-wrap justify-between gap-2">
                         <span>{staffName(memberId)}{score?.comment ? <span className="text-muted-foreground"> · {score.comment}</span> : null}</span>
-                        <strong>{score ? `${score.total} / ${RUBRIC_TOTAL}` : "Not entered"}</strong>
+                        <strong>{score ? `${Number(score.total)} / ${Number(score.out_of)}` : "Not entered"}</strong>
                       </li>
                     );
                   })}
                 </ul>
-                {scorable.map((memberId) => (
+                {criteria.length === 0 && (
+                  <p className="rounded-lg bg-muted px-3 py-2 text-sm">
+                    This cohort has no scoring rubric yet. Set it on the Projects page before the panel scores.
+                  </p>
+                )}
+                {criteria.length > 0 && scorable.map((memberId) => (
                   <ScoreForm
+                    criteria={criteria}
                     key={`${memberId}-${scores.find((s) => s.member_id === memberId)?.updated_at ?? "new"}`}
                     projectId={project.id!}
                     memberId={memberId}
@@ -468,7 +581,7 @@ const AdminProjectDetail = () => {
       )}
 
       {approved && (
-        <Panel title="Result" titleId="project-result" description="The student sees the result, the average score and your note.">
+        <Panel title="Result" titleId="project-result" description="The student sees the result, the average score as a percentage and your note. A group shares one result.">
           <div className="space-y-4 p-5">
             <form
               className="space-y-3"

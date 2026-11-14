@@ -211,7 +211,7 @@ The "How you can study" card on `/` shows what the programme costs. Physical is 
 
 ## Push notifications, course feedback, discussions, service log, alumni and projects
 
-Added November 2026. Migrations `supabase/migrations/20261117090000` to `20261117094000` and `20261118090000_projects.sql`. No new npm packages; the `push-send` edge function imports `npm:web-push@3.6.7` in Deno.
+Added November 2026. Migrations `supabase/migrations/20261117090000` to `20261117094000`, `20261118090000_projects.sql` and `20261119090000_project_groups_and_rubric.sql`. No new npm packages; the `push-send` edge function imports `npm:web-push@3.6.7` in Deno.
 
 ### Push notifications
 
@@ -255,17 +255,19 @@ Tests for the logic of these five: `src/test/community-features.test.ts`.
 
 ### Academic project and defence
 
-One project per student, individual (no group projects).
+A project is individual or a group project. A student can be in one project only.
 
 - **Topic.** Either the student proposes it (Learn › Project, `src/pages/student/Project.tsx`) and staff approve it, ask for changes or reject it with a note; or the supervisor gives it (**Give a topic** on Admin › Teaching › Projects, or "Give this topic instead" on a project), which is approved at once and shown to the student as "Given by your supervisor". Students write a topic only through the database function `submit_project_topic`; they have no direct access to `projects`.
+- **Group projects.** A student proposing a topic chooses "Just me" or "A group" and ticks coursemates; staff giving a topic tick one student or several; staff can add or remove members on the project page. Members are rows in `project_members`; the student who proposed it (or was ticked first) is the lead and is the only one who can resend the topic. Every member can hand in work and all share the feedback, defence, score and result. Members must be admitted students on the lead's cohort, at most 10.
 - **Supervisor.** Any staff account (admin or teacher). Make a lecturer a teacher under Admin › Settings to let them supervise or sit on a panel. All staff can open every project; "I supervise" filters the list.
 - **Stages and drafts.** Staff set the stages per cohort on the Projects page ("Add the usual four" gives Proposal, Chapters 1 to 3, Full draft, Final copy). A student hands in a PDF or Word file (up to 25 MB, stored in R2 under `projects/`) for each stage; staff approve it or ask for changes with feedback; the student can then hand in a revised draft. The newest draft of a stage is the one that counts.
 - **Defence.** Date, time, venue or link, and a panel chosen from staff (`src/pages/admin/ProjectDetail.tsx`). The student and panel are notified when it is set or moved and reminded within 24 hours of it (pg_cron job `project-defence-reminders`, hourly).
-- **Scores.** Each panel member enters their own marks against the rubric in `src/lib/projects.ts` (`DEFENCE_RUBRIC`, 100 marks: content 30, biblical grounding 25, presentation 20, answers 15, writing 10). An admin can enter a member's marks for them. The project's score is the average, kept by a trigger. To change the rubric, edit `DEFENCE_RUBRIC`; scores already saved keep their totals.
+- **Scores and the rubric.** Each cohort has its own rubric, edited on the Projects page ("Defence rubric for this cohort": criteria and the marks each carries; a common five-criterion rubric can be added as a start). It is stored in `project_rubric_criteria`, not in code, and need not add up to 100. Each panel member enters their own marks; an admin can enter a member's marks for them. The database works out each score's total and what it is out of (`project_scores_apply_rubric`) and refuses a blank or over-the-maximum mark. The project's score is the panel's average as a percentage. Changing the rubric later does not alter scores already entered.
 - **Result.** Passed, Passed with corrections, or To defend again, with a note. The student sees the score only once a result is saved. After "Passed with corrections" the student uploads a corrected copy and the project is complete when staff approve it. After "To defend again" the student can hand in revised drafts.
 - **Past projects.** Completed projects (title, description, author, cohort and the final file) are listed for every signed-in user on the student Project page, from the view `project_archive`.
-- **Not connected to Assessments or the Transcript.** The project score lives on the Project page only; those pages read tasks and exams, which belong to a course, and a project does not.
-- Rules and labels: `src/lib/projects.ts`, tested in `src/test/projects.test.ts`.
+- **On the record, counted on its own.** The project is not under any course. On **Assessments** it is one item of type "Project" out of 100 (pending from topic approval, graded when the result is recorded). On the **Transcript** it has its own "Project" section, and the overall grade is the average of the course averages plus the project percentage as one more unit of equal weight (`overallWithProject` in `src/lib/project-result.ts`). The admin-side student record does not show it yet.
+- **On the calendars.** A scheduled defence appears on the student Calendar for each member ("Your project defence") and on the admin Calendar for every project ("Defence: names"), in a "Defence" colour. These are not `school_events` rows: clicking one on the admin Calendar opens the project, where the date is changed.
+- Rules and labels: `src/lib/projects.ts` and `src/lib/project-result.ts`, tested in `src/test/projects.test.ts`.
 
 ## Dependency notes
 

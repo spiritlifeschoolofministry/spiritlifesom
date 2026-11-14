@@ -1,8 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// project-result imports the Supabase client; only its pure helpers are tested.
+vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
+const { overallWithProject, toProjectResult } = await import("@/lib/project-result");
 import {
-  DEFENCE_RUBRIC,
-  RUBRIC_TOTAL,
+  USUAL_RUBRIC,
+  defenceEvents,
+  defenceProjectId,
+  formatPercent,
   fromLocalInput,
+  parseMembers,
+  rubricOutOf,
   isProjectComplete,
   latestSubmission,
   parseRubricScores,
@@ -25,28 +33,105 @@ const project = (over: Partial<Parameters<typeof projectStep>[0]> = {}) => ({
 });
 
 describe("defence rubric", () => {
-  const full = { content: 24, biblical: 20, presentation: 15, questions: 12, writing: 8 };
+  // A cohort's own rubric: it need not add up to 100.
+  const criteria = [
+    { id: "c1", label: "Content", max_marks: 20 },
+    { id: "c2", label: "Delivery", max_marks: 10 },
+    { id: "c3", label: "Questions", max_marks: 10 },
+  ];
+  const full = { c1: 16, c2: 7.5, c3: 8 };
 
-  it("is marked out of 100", () => {
-    expect(RUBRIC_TOTAL).toBe(100);
+  it("is marked out of whatever the cohort's criteria add up to", () => {
+    expect(rubricOutOf(criteria)).toBe(40);
+    expect(rubricOutOf([])).toBe(0);
+    expect(rubricOutOf(USUAL_RUBRIC.map((row, i) => ({ id: String(i), ...row })))).toBe(100);
   });
 
   it("adds the marks up", () => {
-    expect(rubricTotal(full)).toBe(79);
-    expect(rubricTotal({ content: 10.5 })).toBe(10.5);
+    expect(rubricTotal(criteria, full)).toBe(31.5);
+    expect(rubricTotal(criteria, { c1: 10.5 })).toBe(10.5);
   });
 
   it("wants every criterion marked, within its maximum", () => {
-    expect(rubricProblem(full)).toBeNull();
-    expect(rubricProblem({ ...full, writing: undefined })).toMatch(/Writing/);
-    expect(rubricProblem({ ...full, content: 31 })).toMatch(/out of 30/);
-    expect(rubricProblem({ ...full, questions: -1 })).toMatch(/out of 15/);
+    expect(rubricProblem(criteria, full)).toBeNull();
+    expect(rubricProblem(criteria, { c1: 16, c2: 7.5 })).toMatch(/Questions/);
+    expect(rubricProblem(criteria, { ...full, c1: 21 })).toMatch(/out of 20/);
+    expect(rubricProblem(criteria, { ...full, c3: -1 })).toMatch(/out of 10/);
   });
 
-  it("reads saved marks back and drops anything that is not a rubric mark", () => {
-    expect(parseRubricScores({ content: 20, extra: 99, biblical: "12" })).toEqual({ content: 20 });
-    expect(parseRubricScores(null)).toEqual({});
-    expect(Object.keys(parseRubricScores(full))).toHaveLength(DEFENCE_RUBRIC.length);
+  it("refuses to score a cohort that has no rubric", () => {
+    expect(rubricProblem([], {})).toMatch(/rubric/);
+  });
+
+  it("reads saved marks back, dropping removed criteria and non-numbers", () => {
+    expect(parseRubricScores(criteria, { c1: 12, gone: 99, c2: "7" })).toEqual({ c1: 12 });
+    expect(parseRubricScores(criteria, null)).toEqual({});
+  });
+
+  it("writes the final score as a percentage", () => {
+    expect(formatPercent(78.75)).toBe("78.75%");
+    expect(formatPercent("80.00")).toBe("80%");
+    expect(formatPercent(null)).toBe("");
+  });
+});
+
+describe("group projects", () => {
+  it("reads the member list, lead first as the database sends it", () => {
+    const members = parseMembers([
+      { student_id: "s1", profile_id: "p1", name: "Ada Obi", code: "STU/001", lead: true },
+      { student_id: "s2", profile_id: "p2", name: "", code: null, lead: false },
+      { nonsense: true },
+      null,
+    ]);
+    expect(members).toHaveLength(2);
+    expect(members[0]).toMatchObject({ name: "Ada Obi", lead: true });
+    expect(members[1]).toMatchObject({ name: "Unnamed", code: null, lead: false });
+    expect(parseMembers(null)).toEqual([]);
+  });
+});
+
+describe("defences on the calendar", () => {
+  const rows = [
+    { id: "p1", title: "Prayer in the early church", defence_at: "2026-12-01T09:00:00Z", defence_venue: "Hall B", member_names: "Ada Obi, Tunde Bello", cohort_id: "c" },
+    { id: "p2", title: "No date yet", defence_at: null, defence_venue: null, member_names: "Someone", cohort_id: "c" },
+  ];
+
+  it("turns only scheduled defences into entries", () => {
+    const events = defenceEvents(rows, "staff");
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      id: "defence:p1",
+      title: "Defence: Ada Obi, Tunde Bello",
+      category: "Defence",
+      start_date: "2026-12-01T09:00:00Z",
+    });
+    expect(events[0].description).toContain("Hall B");
+  });
+
+  it("does not name anyone on a student's own calendar", () => {
+    expect(defenceEvents(rows, "student")[0].title).toBe("Your project defence");
+  });
+
+  it("tells a defence entry from a real event by its id", () => {
+    expect(defenceProjectId("defence:p1")).toBe("p1");
+    expect(defenceProjectId("8f1c0c1e-aaaa-bbbb-cccc-000000000000")).toBeNull();
+  });
+});
+
+describe("project on the record", () => {
+  const row = { id: "p1", title: "T", is_group: true, outcome_note: null, outcome_at: "2026-12-02T10:00:00Z" };
+
+  it("has no percentage until a result is recorded, even if scores are in", () => {
+    expect(toProjectResult({ ...row, outcome: null, final_score: 80 }).percent).toBeNull();
+    const done = toProjectResult({ ...row, outcome: "pass", final_score: 78.754 });
+    expect(done).toMatchObject({ percent: 78.75, outcome: "Passed", isGroup: true });
+  });
+
+  it("counts the project as one more unit beside the courses", () => {
+    expect(overallWithProject([60, 70], null)).toBe(65);
+    expect(overallWithProject([60, 70], 80)).toBe(70);
+    expect(overallWithProject([], 80)).toBe(80);
+    expect(overallWithProject([], null)).toBe(0);
   });
 });
 

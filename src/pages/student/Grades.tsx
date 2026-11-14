@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchMyProjectResult } from "@/lib/project-result";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   GraduationCap, BookOpen, Users, Briefcase, ClipboardList, FileText,
@@ -178,7 +179,25 @@ const StudentGrades = () => {
         .filter((a) => !examOf(a) || examOf(a) === student.cohort_id)
         .map(toExamItem);
 
-      setItems([...gradedItems, ...examItems]);
+      // The final project is its own line: it belongs to no course. Shown as
+      // pending from the moment the topic is approved, graded once the panel's
+      // result is recorded.
+      const project = await fetchMyProjectResult(student.id);
+      const projectItems: GradedItem[] = project
+        ? [{
+            id: `project-${project.id}`,
+            title: project.title,
+            category: "Project",
+            max_points: 100,
+            grade: project.percent,
+            feedback: [project.outcome, project.note].filter(Boolean).join(". ") || null,
+            reviewed_at: project.decidedAt,
+            course_title: project.isGroup ? "Final project (group)" : "Final project",
+            state: project.percent !== null ? "graded" as const : "pending" as const,
+          }]
+        : [];
+
+      setItems([...gradedItems, ...examItems, ...projectItems]);
 
       // Earlier sessions: the student was moved forward rather than re-registered,
       // so the work they were graded on back then is still theirs to see.

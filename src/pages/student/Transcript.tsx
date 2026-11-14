@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useAuth } from "@/contexts/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchMyProjectResult, overallWithProject, type ProjectResult } from "@/lib/project-result";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BookOpen, Printer } from "lucide-react";
 import { EmptyCard, Panel, Pill, ScreenHeader, SectionTitle, StatTile } from "@/components/redesign/student-pages/ui";
@@ -52,12 +53,15 @@ const StudentTranscript = () => {
   const [pastSessions, setPastSessions] = useState<SessionRecord[]>([]);
   const [previousCodes, setPreviousCodes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [project, setProject] = useState<ProjectResult | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
   const loadTranscript = useCallback(async () => {
     if (!student?.id || !student?.cohort_id) return;
     try {
       setLoading(true);
+      // Its own line on the record, beside the courses rather than under one.
+      setProject(await fetchMyProjectResult(student.id).catch(() => null));
 
       const [coursesRes, subsRes, attRes, cohortRes, examsRes] = await Promise.all([
         supabase
@@ -191,15 +195,14 @@ const StudentTranscript = () => {
 
   // Overall GPA calculation
   const gradedCourses = courses.filter(c => c.courseAvg != null);
-  const overallAvg = gradedCourses.length > 0
-    ? Math.round(gradedCourses.reduce((s, c) => s + c.courseAvg!, 0) / gradedCourses.length)
-    : 0;
+  // The project counts on its own: one more unit with the same weight as a course.
+  const overallAvg = overallWithProject(gradedCourses.map((c) => c.courseAvg!), project?.percent ?? null);
   const overallGrade = getLetterGrade(overallAvg);
   const completedCount = courses.filter(c => c.is_completed).length;
   // Counts every assessment on the record, coursework and exam-engine sittings
   // alike — a transcript that ignored exam results would understate the work.
-  const totalTasks = courses.reduce((s, c) => s + c.assignments.length, 0);
-  const gradedTasks = courses.reduce((s, c) => s + c.assignments.filter(a => a.grade != null).length, 0);
+  const totalTasks = courses.reduce((s, c) => s + c.assignments.length, 0) + (project ? 1 : 0);
+  const gradedTasks = courses.reduce((s, c) => s + c.assignments.filter(a => a.grade != null).length, 0) + (project?.percent != null ? 1 : 0);
 
   const handlePrint = () => {
     window.print();
@@ -339,6 +342,31 @@ const StudentTranscript = () => {
           );
         })}
       </section>
+
+      {/* The final project: counted on its own, not under a course. */}
+      {project && (
+        <section aria-labelledby="transcript-project" className="space-y-2.5">
+          <SectionTitle id="transcript-project">Project</SectionTitle>
+          <article className="break-inside-avoid rounded-2xl border border-border bg-card p-3.5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-[15px] font-bold leading-snug">{project.title}</h3>
+                <p className="text-xs text-muted-foreground">
+                  {[project.isGroup ? "Group project" : "Individual project", project.outcome ?? "Result pending"].join(" · ")}
+                </p>
+              </div>
+              {project.percent !== null ? (
+                <span className={cn("shrink-0 text-lg font-black", getLetterGrade(project.percent).color)}>
+                  {getLetterGrade(project.percent).letter}{" "}
+                  <span className="text-xs font-medium text-muted-foreground">{project.percent}%</span>
+                </span>
+              ) : (
+                <span className="shrink-0 text-xs text-muted-foreground">Pending</span>
+              )}
+            </div>
+          </article>
+        </section>
+      )}
 
       {/* Earlier sessions. Kept separate: each has its own courses, its own
           attendance denominator and the code the student held at the time. */}

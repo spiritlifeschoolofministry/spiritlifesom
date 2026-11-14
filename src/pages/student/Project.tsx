@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +16,8 @@ import {
   PROJECT_FILE_ACCEPT,
   SUBMISSION_STATUS,
   TOPIC_STATUS,
+  formatPercent,
+  parseMembers,
   latestSubmission,
   outcomeLabel,
   projectFilePath,
@@ -40,10 +43,25 @@ const openFile = async (path: string) => {
   }
 };
 
-/** Propose a topic, or send it again after changes were asked for. */
-const TopicForm = ({ project, onSaved }: { project: Project | null; onSaved: () => void }) => {
+interface Classmate { profileId: string; name: string }
+
+/** Propose a topic alone or as a group, or send it again after changes were asked for. */
+const TopicForm = ({
+  project,
+  classmates,
+  myProfileId,
+  onSaved,
+}: {
+  project: Project | null;
+  classmates: Classmate[];
+  myProfileId: string;
+  onSaved: () => void;
+}) => {
+  const current = parseMembers(project?.members).filter((member) => member.profile_id !== myProfileId).map((member) => member.profile_id);
   const [title, setTitle] = useState(project?.title ?? "");
   const [abstract, setAbstract] = useState(project?.abstract ?? "");
+  const [group, setGroup] = useState(project?.is_group ?? false);
+  const [partners, setPartners] = useState<string[]>(current);
   const [saving, setSaving] = useState(false);
 
   const save = async (event: React.FormEvent) => {
@@ -53,8 +71,16 @@ const TopicForm = ({ project, onSaved }: { project: Project | null; onSaved: () 
       toast.error(problem);
       return;
     }
+    if (group && partners.length === 0) {
+      toast.error("Choose who is in your group, or pick Individual");
+      return;
+    }
     setSaving(true);
-    const { error } = await supabase.rpc("submit_project_topic", { p_title: title.trim(), p_abstract: abstract.trim() });
+    const { error } = await supabase.rpc("submit_project_topic", {
+      p_title: title.trim(),
+      p_abstract: abstract.trim(),
+      p_partner_profile_ids: group ? partners : [],
+    });
     setSaving(false);
     if (error) {
       console.error("Submit topic error:", error);
@@ -67,6 +93,52 @@ const TopicForm = ({ project, onSaved }: { project: Project | null; onSaved: () 
 
   return (
     <form onSubmit={save} className="space-y-4">
+      <fieldset>
+        <legend className="text-sm font-medium text-foreground">Who is doing this project?</legend>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {[
+            { value: false, label: "Just me" },
+            { value: true, label: "A group" },
+          ].map((option) => (
+            <label
+              key={option.label}
+              className={`flex min-h-11 cursor-pointer items-center rounded-xl border px-4 text-sm font-medium focus-within:ring-2 focus-within:ring-ring ${
+                group === option.value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:bg-muted"
+              }`}
+            >
+              <input type="radio" name="project-kind" className="sr-only" checked={group === option.value} onChange={() => setGroup(option.value)} />
+              {option.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      {group && (
+        <fieldset>
+          <legend className="text-sm font-medium text-foreground">
+            Group members{partners.length > 0 ? ` (you and ${partners.length} other${partners.length === 1 ? "" : "s"})` : ""}
+          </legend>
+          <p className="text-xs text-muted-foreground">
+            They are added to the project when you send it and are told. Someone already in a project cannot be added.
+          </p>
+          {classmates.length === 0 ? (
+            <p className="mt-2 text-sm text-muted-foreground">No coursemates to choose from.</p>
+          ) : (
+            <div className="mt-2 max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
+              {classmates.map((mate) => (
+                <label key={mate.profileId} className="flex min-h-10 items-center gap-2 rounded px-1 text-sm hover:bg-muted/60">
+                  <Checkbox
+                    checked={partners.includes(mate.profileId)}
+                    onCheckedChange={(checked) =>
+                      setPartners((list) => (checked === true ? [...list, mate.profileId] : list.filter((x) => x !== mate.profileId)))
+                    }
+                  />
+                  {mate.name}
+                </label>
+              ))}
+            </div>
+          )}
+        </fieldset>
+      )}
       <div className="space-y-1.5">
         <Label htmlFor="project-title">Project title</Label>
         <Input id="project-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={300} required />
@@ -232,7 +304,7 @@ const PastProjects = () => {
   const shown = (rows ?? []).filter(
     (row) =>
       !needle ||
-      [row.title, row.abstract, row.first_name, row.last_name, row.cohort_name].some((text) => text?.toLowerCase().includes(needle)),
+      [row.title, row.abstract, row.authors, row.cohort_name].some((text) => text?.toLowerCase().includes(needle)),
   );
 
   if (rows === null) return <Skeleton className="h-24 w-full rounded-[20px]" />;
@@ -257,7 +329,7 @@ const PastProjects = () => {
             <Panel as="li" key={row.id}>
               <h3 className="text-base font-bold text-foreground">{row.title}</h3>
               <p className="text-xs text-muted-foreground">
-                {[`${row.first_name ?? ""} ${row.last_name ?? ""}`.trim(), row.cohort_name, row.completed_at && format(new Date(row.completed_at), "yyyy")]
+                {[row.authors, row.cohort_name, row.completed_at && format(new Date(row.completed_at), "yyyy")]
                   .filter(Boolean)
                   .join(" · ")}
               </p>
@@ -276,7 +348,8 @@ const PastProjects = () => {
 };
 
 const StudentProject = () => {
-  const { student } = useAuth();
+  const { student, profile } = useAuth();
+  const [classmates, setClassmates] = useState<Classmate[]>([]);
   const [project, setProject] = useState<Project | null>(null);
   const [stages, setStages] = useState<Stage[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -287,7 +360,12 @@ const StudentProject = () => {
       setLoading(false);
       return;
     }
-    const { data: mine, error } = await supabase.from("project_overview").select("*").eq("student_id", student.id).maybeSingle();
+    // Through membership, not the lead column: a group member who did not
+    // propose the project still has it.
+    const { data: membership } = await supabase.from("project_members").select("project_id").eq("student_id", student.id).maybeSingle();
+    const { data: mine, error } = membership?.project_id
+      ? await supabase.from("project_overview").select("*").eq("id", membership.project_id).maybeSingle()
+      : { data: null, error: null };
     if (error) {
       console.error("Load project error:", error);
       toast.error("Could not load your project");
@@ -310,6 +388,27 @@ const StudentProject = () => {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!student?.cohort_id) return;
+    supabase
+      .from("classmate_directory")
+      .select("profile_id, display_name, first_name, last_name, role")
+      .eq("cohort_id", student.cohort_id)
+      .order("display_name")
+      .then(({ data }) =>
+        setClassmates(
+          (data ?? [])
+            .filter((row) => row.profile_id && row.profile_id !== profile?.id && (row.role ?? "student") === "student")
+            .map((row) => ({
+              profileId: row.profile_id as string,
+              name: row.display_name || [row.first_name, row.last_name].filter(Boolean).join(" ") || "Unnamed",
+            })),
+        ),
+      );
+  }, [student?.cohort_id, profile?.id]);
+
+  const members = parseMembers(project?.members);
+  const isLead = !project || project.student_id === student?.id;
   const step = project ? projectStep(project) : null;
   const approved = project?.status === "approved";
   const outcome = outcomeLabel(project?.outcome);
@@ -341,7 +440,7 @@ const StudentProject = () => {
                 Send the topic you would like to work on. If your supervisor gives you a topic instead, it will appear here and you
                 will not need to fill this in.
               </p>
-              <TopicForm project={null} onSaved={load} />
+              <TopicForm project={null} classmates={classmates} myProfileId={profile?.id ?? ""} onSaved={load} />
             </Panel>
           ) : (
             <>
@@ -351,15 +450,35 @@ const StudentProject = () => {
                     Topic: {TOPIC_STATUS[project.status as TopicStatus]?.label ?? project.status}
                   </Pill>
                   {project.topic_source === "supervisor" && <Pill tone="info">Given by your supervisor</Pill>}
+                  {project.is_group && <Pill tone="neutral">Group project</Pill>}
                 </div>
                 <h2 className="mt-3 text-xl font-extrabold leading-snug tracking-tight">{project.title}</h2>
                 {project.abstract && <p className="mt-2 whitespace-pre-wrap text-sm text-white/80">{project.abstract}</p>}
+                {project.is_group && (
+                  <p className="mt-3 text-sm text-white/80">
+                    Group: <strong className="text-white">{members.map((member) => member.name).join(", ")}</strong>
+                  </p>
+                )}
                 <p className="mt-3 text-sm text-white/80">
                   Supervisor: <strong className="text-white">{project.supervisor_name ?? "Not assigned yet"}</strong>
                 </p>
               </DarkPanel>
 
-              {!approved && (
+              {!approved && !isLead && (
+                <Panel>
+                  <SectionTitle>Waiting on the topic</SectionTitle>
+                  {project.review_note && (
+                    <p className="mt-2 rounded-lg bg-muted px-3 py-2 text-sm text-foreground">
+                      <span className="font-semibold">Note from staff: </span>{project.review_note}
+                    </p>
+                  )}
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {members.find((member) => member.lead)?.name ?? "The student who proposed it"} sends the topic for your group.
+                  </p>
+                </Panel>
+              )}
+
+              {!approved && isLead && (
                 <Panel>
                   <SectionTitle>
                     {project.status === "proposed" ? "Change your topic while you wait" : "Send your topic again"}
@@ -370,7 +489,7 @@ const StudentProject = () => {
                     </p>
                   )}
                   <div className="mt-4">
-                    <TopicForm key={project.updated_at} project={project} onSaved={load} />
+                    <TopicForm key={project.updated_at} project={project} classmates={classmates} myProfileId={profile?.id ?? ""} onSaved={load} />
                   </div>
                 </Panel>
               )}
@@ -396,7 +515,7 @@ const StudentProject = () => {
                   </div>
                   {project.final_score !== null && (
                     <p className="mt-1 text-3xl font-extrabold tracking-tight text-foreground">
-                      {project.final_score}<span className="text-base font-semibold text-muted-foreground"> / 100</span>
+                      {formatPercent(project.final_score)}
                     </p>
                   )}
                   {project.outcome_note && <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">{project.outcome_note}</p>}

@@ -12,6 +12,8 @@ import { PageSkeleton } from '@/components/portal/PageSkeleton';
 import { Loader2, Trash2, Edit2, Plus, ChevronLeft, ChevronRight, CalendarDays, List, Clock, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Tables } from '@/integrations/supabase/types';
+import { useNavigate } from 'react-router-dom';
+import { defenceEvents, defenceProjectId } from '@/lib/projects';
 
 type SchoolEvent = Tables<'school_events'>;
 
@@ -32,6 +34,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   Exam: 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/20',
   Break: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20',
   Event: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/20',
+  Defence: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/20',
 };
 
 const CATEGORY_DOT: Record<string, string> = {
@@ -40,9 +43,11 @@ const CATEGORY_DOT: Record<string, string> = {
   Exam: 'bg-red-500',
   Break: 'bg-amber-500',
   Event: 'bg-blue-500',
+  Defence: 'bg-violet-500',
 };
 
 const AdminCalendar = () => {
+  const navigate = useNavigate();
   const { profile } = useAuth();
   const [cohorts, setCohorts] = useState<Tables<'cohorts'>[]>([]);
   const [events, setEvents] = useState<SchoolEvent[]>([]);
@@ -66,12 +71,16 @@ const AdminCalendar = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [{ data: cohortsData }, { data: eventsData }] = await Promise.all([
+      const [{ data: cohortsData }, { data: eventsData }, { data: defenceData }] = await Promise.all([
         supabase.from('cohorts').select('*').order('name'),
         supabase.from('school_events').select('*').order('start_date', { ascending: true }),
+        // Project defences show here too. They are set on the project, not here.
+        supabase.from('project_overview').select('id, title, defence_at, defence_venue, member_names, cohort_id').not('defence_at', 'is', null),
       ]);
       if (cohortsData) setCohorts(cohortsData);
-      if (eventsData) setEvents(eventsData);
+      setEvents(
+        [...(eventsData || []), ...defenceEvents(defenceData || [], 'staff')].sort((a, b) => a.start_date.localeCompare(b.start_date)),
+      );
     } catch (err) {
       console.error('Load calendar error:', err);
       toast.error('Failed to load calendar');
@@ -128,6 +137,12 @@ const AdminCalendar = () => {
   };
 
   const handleEdit = (event: SchoolEvent) => {
+    // A defence is changed on its project, where the panel is told as well.
+    const projectId = defenceProjectId(event.id);
+    if (projectId) {
+      navigate(`/admin/projects/${projectId}`);
+      return;
+    }
     const s = new Date(event.start_date);
     const e = event.end_date ? new Date(event.end_date) : s;
     reset({
@@ -325,9 +340,11 @@ const AdminCalendar = () => {
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(ev)}>
                                 <Edit2 className="h-3.5 w-3.5" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(ev.id)}>
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
+                              {!defenceProjectId(ev.id) && (
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(ev.id)}>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -414,9 +431,11 @@ const AdminCalendar = () => {
                         <Edit2 className="h-3.5 w-3.5" />
                         <span className="hidden sm:inline text-xs">Edit</span>
                       </Button>
-                      <Button variant="outline" size="sm" className="h-8 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(ev.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {!defenceProjectId(ev.id) && (
+                        <Button variant="outline" size="sm" className="h-8 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(ev.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
