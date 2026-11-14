@@ -2,6 +2,9 @@ import { useEffect, useState, useCallback } from "react";
 import CohortFunnel from "@/components/charts/CohortFunnel";
 import { cohortFunnel, type FunnelStage } from "@/lib/cohort-funnel";
 import { supabase } from "@/integrations/supabase/client";
+import { Link } from "react-router-dom";
+import type { Tables } from "@/integrations/supabase/types";
+import { formatPercent, projectResultRows, projectStep, summariseProjects } from "@/lib/projects";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -103,6 +106,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
   const [materialsData, setMaterialsData] = useState<MaterialsPoint[]>([]);
   const [materialsByType, setMaterialsByType] = useState<NameValuePoint[]>([]);
   const [coursePerformance, setCoursePerformance] = useState<CoursePerformancePoint[]>([]);
+  const [projects, setProjects] = useState<Tables<"project_overview">[]>([]);
   const [genderData, setGenderData] = useState<NameValuePoint[]>([]);
   const [learningModeData, setLearningModeData] = useState<NameValuePoint[]>([]);
   const [feeCollectionRate, setFeeCollectionRate] = useState(0);
@@ -474,6 +478,16 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
     setCoursePerformance(result);
   }, [cohortFilter]);
 
+  // Final projects are their own line on a student's record, under no course,
+  // so they get their own block here rather than a row in course performance.
+  const loadProjects = useCallback(async () => {
+    let query = supabase.from("project_overview").select("*").order("updated_at", { ascending: false });
+    if (cohortFilter !== "all") query = query.eq("cohort_id", cohortFilter);
+    const { data, error } = await query;
+    if (error) console.error("Analytics projects load failed", error);
+    setProjects(data ?? []);
+  }, [cohortFilter]);
+
   const loadAnalytics = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -485,6 +499,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
         loadAssignments(),
         loadMaterials(),
         loadCoursePerformance(),
+        loadProjects(),
       ]);
     } catch (err) {
       console.error("Analytics load failed", err);
@@ -493,7 +508,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
       setLoading(false);
       setLastRefreshed(new Date());
     }
-  }, [loadEnrollment, loadRevenue, loadAttendance, loadAssignments, loadMaterials, loadCoursePerformance]);
+  }, [loadEnrollment, loadRevenue, loadAttendance, loadAssignments, loadMaterials, loadCoursePerformance, loadProjects]);
 
   useEffect(() => {
     if (!autoRefresh) return;
@@ -503,6 +518,8 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
     return () => clearInterval(interval);
   }, [autoRefresh, loadAnalytics]);
   useEffect(() => { loadAnalytics(); }, [loadAnalytics]);
+
+  const projectSummary = summariseProjects(projects);
 
   if (loading) {
     return (
@@ -571,6 +588,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
                 <DropdownMenuItem onClick={() => downloadCSV(assignmentData, "task_performance")}>Task Performance</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => downloadCSV(materialsData, "materials_by_course")}>Materials Data</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => downloadCSV(coursePerformance, "course_performance")}>Course Performance</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadCSV(projectResultRows(projects), "project_results")}>Project Results</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Select value={cohortFilter} onValueChange={setCohortFilter}>
@@ -614,6 +632,7 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
               <DropdownMenuItem onClick={() => downloadCSV(assignmentData, "task_performance")}>Task Performance</DropdownMenuItem>
               <DropdownMenuItem onClick={() => downloadCSV(materialsData, "materials_by_course")}>Materials Data</DropdownMenuItem>
               <DropdownMenuItem onClick={() => downloadCSV(coursePerformance, "course_performance")}>Course Performance</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadCSV(projectResultRows(projects), "project_results")}>Project Results</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -958,6 +977,73 @@ const AdminAnalytics = ({ standalone = true }: { standalone?: boolean }) => {
                       ))}
                     </TableBody>
                   </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Projects */}
+          <Card className="shadow-[var(--shadow-card)] border-border lg:col-span-2">
+            <CardHeader className="pb-2"><CardTitle className="text-base">Final Projects</CardTitle></CardHeader>
+            <CardContent>
+              {projects.length === 0 ? (
+                <EmptyState message="No projects recorded" />
+              ) : (
+                <div className="space-y-4">
+                  <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                    {[
+                      ["Projects", `${projectSummary.total}${projectSummary.groups ? ` (${projectSummary.groups} group)` : ""}`],
+                      ["Students in a project", projectSummary.students],
+                      ["Topics to review", projectSummary.topicsToReview + projectSummary.awaitingTopic],
+                      ["In progress", projectSummary.inProgress + projectSummary.defenceScheduled],
+                      ["Completed", projectSummary.completed],
+                      ["Average score", projectSummary.averageScore !== null ? formatPercent(projectSummary.averageScore) : "No results yet"],
+                    ].map(([label, value]) => (
+                      <div key={label} className="flex flex-col-reverse rounded-lg border border-border p-3">
+                        <dt className="text-xs text-muted-foreground">{label}</dt>
+                        <dd className="text-lg font-bold text-foreground">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Project</TableHead>
+                          <TableHead className="hidden md:table-cell">Students</TableHead>
+                          <TableHead className="hidden md:table-cell">Supervisor</TableHead>
+                          <TableHead className="text-center">Stage</TableHead>
+                          <TableHead className="text-center">Score</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {projects.slice(0, 15).map((p) => (
+                          <TableRow key={p.id}>
+                            <TableCell className="text-sm font-medium">
+                              <Link to={`/admin/projects/${p.id}`} className="underline-offset-2 hover:underline">
+                                {p.title?.trim() || "No topic yet"}
+                              </Link>
+                              <span className="mt-0.5 block text-xs font-normal text-muted-foreground md:hidden">{p.member_names}</span>
+                            </TableCell>
+                            <TableCell className="hidden text-sm md:table-cell">{p.member_names}</TableCell>
+                            <TableCell className="hidden text-sm md:table-cell">{p.supervisor_name ?? "Not assigned"}</TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="secondary" className="text-[10px]">{projectStep(p).label}</Badge>
+                            </TableCell>
+                            <TableCell className="text-center text-sm">
+                              {p.outcome && p.final_score !== null ? formatPercent(p.final_score) : "Pending"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {projects.length > 15 && (
+                    <p className="text-xs text-muted-foreground">
+                      Showing the 15 most recently updated of {projects.length}. Export "Project Results" for every student, or open{" "}
+                      <Link to="/admin/projects" className="underline">Projects</Link>.
+                    </p>
+                  )}
                 </div>
               )}
             </CardContent>

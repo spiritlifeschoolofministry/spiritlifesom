@@ -5,6 +5,8 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 const { overallWithProject, toProjectResult } = await import("@/lib/project-result");
 import {
   USUAL_RUBRIC,
+  projectResultRows,
+  summariseProjects,
   archiveEntryProblem,
   archiveYears,
   averagePercent,
@@ -327,5 +329,48 @@ describe("project forms", () => {
     expect(fromLocalInput(toLocalInput(iso))).toBe(iso);
     expect(toLocalInput(null)).toBe("");
     expect(fromLocalInput("")).toBeNull();
+  });
+});
+
+describe("projects in analytics", () => {
+  const member = (name: string, score: number | null, lead = false) => ({ student_id: name, profile_id: name, name, code: `C-${name}`, lead, score });
+  const base = { defence_at: null, outcome: null, final_approved_at: null, supervisor_name: "Dr Ade", final_score: null, cohort_name: "2026" };
+  const projects = [
+    { ...base, title: "", is_group: true, status: "awaiting_topic", members: [member("A", null, true), member("B", null)] },
+    { ...base, title: "Proposed topic", is_group: false, status: "proposed", members: [member("C", null, true)] },
+    { ...base, title: "Writing up", is_group: false, status: "approved", members: [member("D", null, true)] },
+    { ...base, title: "Defending soon", is_group: false, status: "approved", defence_at: "2026-12-01T09:00:00Z", members: [member("E", 88, true)] },
+    { ...base, title: "Done as a group", is_group: true, status: "approved", outcome: "pass", final_score: 80, members: [member("F", 70, true), member("G", 90)] },
+    { ...base, title: "Corrections due", is_group: false, status: "approved", outcome: "pass_with_corrections", members: [member("H", 60, true)] },
+  ];
+
+  it("counts projects by where they have got to", () => {
+    expect(summariseProjects(projects)).toMatchObject({
+      total: 6,
+      groups: 2,
+      students: 8,
+      awaitingTopic: 1,
+      topicsToReview: 1,
+      inProgress: 2,
+      defenceScheduled: 1,
+      completed: 1,
+    });
+  });
+
+  it("averages students' own results, only where an outcome is recorded", () => {
+    // F 70, G 90 and H 60 have outcomes; E's 88 has no outcome yet.
+    expect(summariseProjects(projects).averageScore).toBe(73.33);
+    expect(summariseProjects([]).averageScore).toBeNull();
+  });
+
+  it("exports one row per student with their own score", () => {
+    const rows = projectResultRows(projects);
+    expect(rows).toHaveLength(8);
+    expect(rows.find((row) => row.student === "G")).toMatchObject({
+      project: "Done as a group", type: "Group", outcome: "Passed", score_percent: 90, stage: "Completed", supervisor: "Dr Ade",
+    });
+    expect(rows.find((row) => row.student === "A")).toMatchObject({ project: "No topic yet", score_percent: "" });
+    // Scored but no outcome recorded: the score is not exported yet.
+    expect(rows.find((row) => row.student === "E")?.score_percent).toBe("");
   });
 });

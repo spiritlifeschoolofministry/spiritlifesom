@@ -70,6 +70,17 @@ const URL_REF_COLUMNS = [
   { table: "assignment_submissions", column: "file_url", bucket: "assignments" },
 ];
 
+/**
+ * Columns that hold a bare R2 object key (not a URL, and not the
+ * storage_path + storage_provider pair). Project drafts and hand-added archive
+ * files are stored this way. Leaving a table out of here makes its live files
+ * read as unused, and "delete unused" would then remove them.
+ */
+const KEY_REF_COLUMNS = [
+  { table: "project_submissions", column: "file_path" },
+  { table: "project_archive_entries", column: "file_path" },
+];
+
 /** Free-text/JSON settings rows that can embed an R2 link (logos, banners). */
 const TEXT_REF_SOURCES = [
   { table: "app_settings", column: "value" },
@@ -286,6 +297,18 @@ async function referencedKeys(admin: Admin): Promise<RefSets> {
         addSb(sbRef.bucket, sbRef.key);
         addR2(sbRef.key);
       }
+    }
+  }
+
+  // Bare keys. Paged, because a select returns at most 1,000 rows and a key
+  // missed here is a live file reported as unused. A failed read throws: an
+  // audit that cannot see a table must not conclude its files are orphans.
+  for (const { table, column } of KEY_REF_COLUMNS) {
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await admin.from(table).select(column).not(column, "is", null).range(from, from + 999);
+      if (error) throw new Error(`Could not read ${table}.${column}: ${error.message}`);
+      for (const row of (data ?? []) as ColumnRow[]) addR2(row[column] as string);
+      if (!data || data.length < 1000) break;
     }
   }
 

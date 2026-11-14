@@ -195,3 +195,11 @@ enabled = true
 # id. The function reads and claims the row itself, so no JWT is needed.
 verify_jwt = false
 entrypoint = "./functions/push-send/index.ts"
+
+[functions.project-purge]
+enabled = true
+# Called nightly by pg_cron with no JWT. The request chooses nothing: what is
+# deleted is decided from the database (projects 30 days in the bin, and files
+# under projects/ that no record points at).
+verify_jwt = false
+entrypoint = "./functions/project-purge/index.ts"

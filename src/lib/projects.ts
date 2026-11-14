@@ -339,3 +339,67 @@ export const projectSettingsProblem = (settings: { weight: string; groupMax: str
   if (!Number.isInteger(max) || max < 2 || max > 100) return "The largest group is a whole number from 2 to 100.";
   return null;
 };
+
+interface ReportProject extends ProjectLike {
+  title: string | null;
+  is_group: boolean | null;
+  members: unknown;
+  supervisor_name: string | null;
+  final_score: number | null;
+  cohort_name?: string | null;
+}
+
+export interface ProjectSummary {
+  total: number;
+  groups: number;
+  /** Students in a project, counting every member of a group. */
+  students: number;
+  awaitingTopic: number;
+  topicsToReview: number;
+  inProgress: number;
+  defenceScheduled: number;
+  completed: number;
+  /** Mean of the students' own results on projects with a recorded outcome; null when there are none. */
+  averageScore: number | null;
+}
+
+/** Headline figures for a set of projects, for Analytics. */
+export const summariseProjects = (projects: ReportProject[]): ProjectSummary => {
+  const scores: number[] = [];
+  let students = 0;
+  for (const project of projects) {
+    const members = parseMembers(project.members);
+    students += members.length;
+    if (!project.outcome) continue;
+    for (const member of members) if (member.score !== null) scores.push(member.score);
+  }
+  const approvedOpen = projects.filter((p) => p.status === "approved" && !isProjectComplete(p));
+  return {
+    total: projects.length,
+    groups: projects.filter((p) => p.is_group).length,
+    students,
+    awaitingTopic: projects.filter((p) => p.status === "awaiting_topic").length,
+    topicsToReview: projects.filter((p) => p.status === "proposed").length,
+    inProgress: approvedOpen.filter((p) => !p.defence_at).length,
+    defenceScheduled: approvedOpen.filter((p) => p.defence_at).length,
+    completed: projects.filter(isProjectComplete).length,
+    averageScore: scores.length ? round2(scores.reduce((sum, value) => sum + value, 0) / scores.length) : null,
+  };
+};
+
+/** One row per student per project, for the Project Results export. */
+export const projectResultRows = (projects: ReportProject[]) =>
+  projects.flatMap((project) =>
+    parseMembers(project.members).map((member) => ({
+      student: member.name,
+      student_code: member.code ?? "",
+      cohort: project.cohort_name ?? "",
+      project: project.title?.trim() || "No topic yet",
+      type: project.is_group ? "Group" : "Individual",
+      supervisor: project.supervisor_name ?? "",
+      stage: projectStep(project).label,
+      outcome: outcomeLabel(project.outcome)?.label ?? "",
+      // The student's own result, only once an outcome is recorded.
+      score_percent: project.outcome && member.score !== null ? member.score : "",
+    })),
+  );

@@ -158,6 +158,9 @@ const ProjectArchiveList = ({ staff = false }: { staff?: boolean }) => {
       toast.error("Could not remove it");
       return;
     }
+    // Its file goes too. If this fails, the nightly project-purge job removes
+    // any file under projects/ that no record points at.
+    if (removing.file_path) void r2Storage.deleteFile(removing.file_path).catch(() => undefined);
     toast.success("Removed from the archive");
     void load();
   };
