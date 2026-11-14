@@ -11,7 +11,7 @@ const StudentDiscussions = () => {
   useEffect(() => {
     if (!student?.cohort_id) return;
     supabase
-      .from("courses")
+      .from("course_offerings")
       .select("id, code, title")
       .eq("cohort_id", student.cohort_id)
       .order("code")

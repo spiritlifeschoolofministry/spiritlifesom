@@ -65,7 +65,7 @@ const StudentTranscript = () => {
 
       const [coursesRes, subsRes, attRes, cohortRes, examsRes] = await Promise.all([
         supabase
-          .from("courses")
+          .from("course_offerings")
           .select("id, title, code, lecturer, is_completed")
           .eq("cohort_id", student.cohort_id)
           .order("title"),
@@ -165,7 +165,7 @@ const StudentTranscript = () => {
         history.past.map(async (past) => {
           const [{ data: pastCourses }, pastSessionIds] = await Promise.all([
             supabase
-              .from("courses")
+              .from("course_offerings")
               .select("id, title, code, lecturer, is_completed")
               .eq("cohort_id", past.cohortId)
               .order("title"),

@@ -15,6 +15,8 @@ interface Course {
   is_completed: boolean | null;
   start_date: string | null;
   semester: number | null;
+  /** True when the course's home is another cohort and it was shared into this one. */
+  is_shared: boolean | null;
 }
 
 type CourseState = "live" | "done" | "soon";
@@ -53,9 +55,11 @@ const StudentCourses = () => {
           return;
         }
 
+        // course_offerings covers the cohort's own courses and the ones shared
+        // into it from other cohorts, with per-offering overrides applied.
         const { data, error } = await supabase
-          .from("courses")
-          .select("id, code, title, description, lecturer, is_completed, start_date, semester")
+          .from("course_offerings")
+          .select("id, code, title, description, lecturer, is_completed, start_date, semester, is_shared")
           .eq("cohort_id", student.cohort_id)
           .order("semester", { ascending: true })
           .order("start_date", { ascending: true, nullsFirst: false });
@@ -179,6 +183,7 @@ const CourseRow = ({ course, state, sessions }: { course: Course; state: CourseS
         : "In progress";
   const meta = [
     course.code,
+    course.is_shared ? "Shared course" : null,
     course.lecturer || "Lecturer TBA",
     state !== "soon" && course.start_date
       ? `from ${formatDate(course.start_date, { day: "numeric", month: "short", year: "numeric" })}`

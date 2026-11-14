@@ -227,8 +227,8 @@ const StudentDashboard = () => {
       if (cohortId) {
         try {
           const [{ data: completedData }, { data: cohortCourses }] = await Promise.all([
-            supabase.from("courses").select("id").eq("cohort_id", cohortId).eq("is_completed", true),
-            supabase.from("courses").select("id").eq("cohort_id", cohortId),
+            supabase.from("course_offerings").select("id").eq("cohort_id", cohortId).eq("is_completed", true),
+            supabase.from("course_offerings").select("id").eq("cohort_id", cohortId),
           ]);
           completedCourses = completedData?.length ?? 0;
           cohortCoursesCount = cohortCourses?.length ?? 0;

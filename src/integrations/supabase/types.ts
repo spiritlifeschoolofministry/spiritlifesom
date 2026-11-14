@@ -998,18 +998,30 @@ export type Database = {
           course_id: string
           created_at: string | null
           id: string
+          is_completed: boolean | null
+          lecturer: string | null
+          semester: number | null
+          start_date: string | null
         }
         Insert: {
           cohort_id: string
           course_id: string
           created_at?: string | null
           id?: string
+          is_completed?: boolean | null
+          lecturer?: string | null
+          semester?: number | null
+          start_date?: string | null
         }
         Update: {
           cohort_id?: string
           course_id?: string
           created_at?: string | null
           id?: string
+          is_completed?: boolean | null
+          lecturer?: string | null
+          semester?: number | null
+          start_date?: string | null
         }
         Relationships: [
           {
@@ -4015,6 +4027,23 @@ export type Database = {
       }
     }
     Views: {
+      course_offerings: {
+        Row: {
+          cohort_id: string | null
+          code: string | null
+          description: string | null
+          feedback_open: boolean | null
+          home_cohort_id: string | null
+          id: string | null
+          is_completed: boolean | null
+          is_shared: boolean | null
+          lecturer: string | null
+          semester: number | null
+          start_date: string | null
+          title: string | null
+        }
+        Relationships: []
+      }
       alumni_testimony_wall: {
         Row: {
           avatar_url: string | null

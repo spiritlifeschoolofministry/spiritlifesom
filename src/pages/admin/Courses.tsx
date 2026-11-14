@@ -54,6 +54,10 @@ const AdminCourses = () => {
     const [sharingCourseId, setSharingCourseId] = useState<string | null>(null);
     const [shareTargetCohort, setShareTargetCohort] = useState('');
     const [isSharing, setIsSharing] = useState(false);
+    // Per-offering overrides: which share row is being tailored, and its form.
+    const [editingOfferingId, setEditingOfferingId] = useState<string | null>(null);
+    const [offeringForm, setOfferingForm] = useState({ lecturer: '', semester: '', start_date: '', is_completed: '' });
+    const [savingOffering, setSavingOffering] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [cohortFilter, setCohortFilter] = useState("all");
@@ -122,6 +126,33 @@ const AdminCourses = () => {
     } finally {
       setIsSharing(false);
     }
+  };
+
+  const openOfferingEditor = (cc: Tables<'course_cohorts'>) => {
+    setEditingOfferingId(cc.id);
+    setOfferingForm({
+      lecturer: cc.lecturer ?? '',
+      semester: cc.semester != null ? String(cc.semester) : '',
+      start_date: cc.start_date ?? '',
+      is_completed: cc.is_completed == null ? '' : cc.is_completed ? 'yes' : 'no',
+    });
+  };
+
+  // Empty field = inherit from the course itself (stored as NULL).
+  const saveOffering = async (ccId: string) => {
+    setSavingOffering(true);
+    const payload = {
+      lecturer: offeringForm.lecturer.trim() || null,
+      semester: offeringForm.semester ? Number(offeringForm.semester) : null,
+      start_date: offeringForm.start_date || null,
+      is_completed: offeringForm.is_completed === '' ? null : offeringForm.is_completed === 'yes',
+    };
+    const { data, error } = await supabase.from('course_cohorts').update(payload).eq('id', ccId).select().single();
+    setSavingOffering(false);
+    if (error) { toast.error('Failed to save: ' + error.message); return; }
+    if (data) setCourseCohorts(prev => prev.map(cc => (cc.id === ccId ? data : cc)));
+    setEditingOfferingId(null);
+    toast.success('Offering updated for that cohort');
   };
 
   const openCreate = () => {
@@ -330,11 +361,61 @@ const AdminCourses = () => {
                 {courseCohorts.filter(cc => cc.course_id === sharingCourseId).map(cc => {
                   const name = getCohortName(cc.cohort_id);
                   const isPrimary = courses.find(c => c.id === sharingCourseId)?.cohort_id === cc.cohort_id;
+                  const hasOverrides = cc.lecturer != null || cc.semester != null || cc.start_date != null || cc.is_completed != null;
                   return (
-                    <div key={cc.id} className="flex items-center justify-between gap-2">
-                      <div className="text-sm">{name}{isPrimary ? ' (primary)' : ''}</div>
-                      {!isPrimary && (
-                        <Button size="sm" variant="destructive" onClick={() => unshareCourse(sharingCourseId || '', cc.cohort_id)}>Unshare</Button>
+                    <div key={cc.id} className="rounded-md border border-border p-2 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-sm">
+                          {name}{isPrimary ? ' (primary)' : ''}
+                          {!isPrimary && hasOverrides && <Badge variant="outline" className="ml-2 text-[10px]">tailored</Badge>}
+                        </div>
+                        {!isPrimary && (
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="outline" onClick={() => (editingOfferingId === cc.id ? setEditingOfferingId(null) : openOfferingEditor(cc))}>
+                              {editingOfferingId === cc.id ? 'Close' : 'Tailor'}
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={() => unshareCourse(sharingCourseId || '', cc.cohort_id)}>Unshare</Button>
+                          </div>
+                        )}
+                      </div>
+                      {!isPrimary && editingOfferingId === cc.id && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs">Lecturer (blank = same as course)</Label>
+                            <Input value={offeringForm.lecturer} onChange={e => setOfferingForm(f => ({ ...f, lecturer: e.target.value }))} placeholder="Inherit" />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Semester</Label>
+                            <Select value={offeringForm.semester || 'inherit'} onValueChange={v => setOfferingForm(f => ({ ...f, semester: v === 'inherit' ? '' : v }))}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="inherit">Same as course</SelectItem>
+                                <SelectItem value="1">1st semester</SelectItem>
+                                <SelectItem value="2">2nd semester</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Start date</Label>
+                            <Input type="date" value={offeringForm.start_date} onChange={e => setOfferingForm(f => ({ ...f, start_date: e.target.value }))} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Completed here</Label>
+                            <Select value={offeringForm.is_completed || 'inherit'} onValueChange={v => setOfferingForm(f => ({ ...f, is_completed: v === 'inherit' ? '' : v }))}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="inherit">Same as course</SelectItem>
+                                <SelectItem value="no">In progress</SelectItem>
+                                <SelectItem value="yes">Completed</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="col-span-2">
+                            <Button size="sm" onClick={() => saveOffering(cc.id)} disabled={savingOffering} className="w-full">
+                              {savingOffering ? 'Saving…' : 'Save for this cohort'}
+                            </Button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   );
@@ -385,7 +466,13 @@ const AdminCourses = () => {
                       </Badge>
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-muted-foreground">{course.lecturer || "—"}</TableCell>
-                    <TableCell className="hidden lg:table-cell text-muted-foreground">{getCohortName(course.cohort_id)}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-muted-foreground">
+                      {getCohortName(course.cohort_id)}
+                      {(() => {
+                        const shares = courseCohorts.filter(cc => cc.course_id === course.id && cc.cohort_id !== course.cohort_id).length;
+                        return shares > 0 ? <Badge variant="outline" className="ml-1.5 text-[10px]">+{shares} shared</Badge> : null;
+                      })()}
+                    </TableCell>
                     <TableCell className="hidden lg:table-cell text-muted-foreground">
                       {course.start_date ? new Date(course.start_date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
                     </TableCell>

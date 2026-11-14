@@ -161,7 +161,7 @@ const StudentFeedback = () => {
     }
     const [coursesRes, sentRes] = await Promise.all([
       supabase
-        .from("courses")
+        .from("course_offerings")
         .select("id, code, title, lecturer, feedback_open")
         .eq("cohort_id", student.cohort_id)
         .order("code"),
