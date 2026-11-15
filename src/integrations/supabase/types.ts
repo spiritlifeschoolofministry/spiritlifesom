@@ -2238,10 +2238,14 @@ export type Database = {
           credentials_emailed_at: string | null
           credentials_whatsapp_at: string | null
           domain: string
+          holder_email: string | null
+          holder_name: string | null
+          holder_phone: string | null
+          holder_whatsapp_jid: string | null
           id: string
           local_part: string
           password_reset_at: string | null
-          profile_id: string
+          profile_id: string | null
           quota_bytes: number | null
           removed_at: string | null
           stalwart_account_id: string | null
@@ -2255,10 +2259,14 @@ export type Database = {
           credentials_emailed_at?: string | null
           credentials_whatsapp_at?: string | null
           domain?: string
+          holder_email?: string | null
+          holder_name?: string | null
+          holder_phone?: string | null
+          holder_whatsapp_jid?: never
           id?: string
           local_part: string
           password_reset_at?: string | null
-          profile_id: string
+          profile_id?: string | null
           quota_bytes?: number | null
           removed_at?: string | null
           stalwart_account_id?: string | null
@@ -2272,10 +2280,14 @@ export type Database = {
           credentials_emailed_at?: string | null
           credentials_whatsapp_at?: string | null
           domain?: string
+          holder_email?: string | null
+          holder_name?: string | null
+          holder_phone?: string | null
+          holder_whatsapp_jid?: never
           id?: string
           local_part?: string
           password_reset_at?: string | null
-          profile_id?: string
+          profile_id?: string | null
           quota_bytes?: number | null
           removed_at?: string | null
           stalwart_account_id?: string | null

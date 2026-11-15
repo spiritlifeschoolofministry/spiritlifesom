@@ -36,6 +36,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageSkeleton } from "@/components/portal/PageSkeleton";
 import { AdminPageHeader, KpiTile, Panel, StatusPill } from "@/components/redesign/admin/primitives";
 import { MailboxCard } from "@/components/admin/MailboxCard";
+import { OffPortalMailboxForm } from "@/components/admin/OffPortalMailboxForm";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Mailbox = Tables<"mailboxes">;
@@ -69,6 +70,15 @@ const nameOf = (first: string | null, last: string | null) =>
 const AdminMailboxes = () => {
   const [people, setPeople] = useState<Person[]>([]);
   const [removed, setRemoved] = useState<Mailbox[]>([]);
+  /**
+   * Live mailboxes belonging to nobody on the portal.
+   *
+   * Kept apart from `people` because they have no profile to hang off: no
+   * role, no cohort, nothing to filter by but their name and address. They
+   * still belong on the Active tab, which is a list of addresses rather than
+   * of people.
+   */
+  const [offPortal, setOffPortal] = useState<Mailbox[]>([]);
   const [cohorts, setCohorts] = useState<Array<{ id: string; name: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
@@ -133,6 +143,10 @@ const AdminMailboxes = () => {
 
     setPeople(rows);
     setRemoved(((mailboxesRes.data ?? []) as Mailbox[]).filter((m) => m.status !== "active"));
+    setOffPortal(
+      ((mailboxesRes.data ?? []) as Mailbox[])
+        .filter((m) => m.status === "active" && !m.profile_id),
+    );
     setCohorts(cohortsRes.data ?? []);
     setLoading(false);
   }, []);
@@ -263,6 +277,23 @@ const AdminMailboxes = () => {
     [people, matches],
   );
 
+  /**
+   * Off-portal mailboxes that survive the current filters.
+   *
+   * They carry no role and no cohort, so a role or cohort filter excludes them
+   * rather than silently keeping them: asked for "students in 2026/2027", a
+   * board member is not an answer. Search still reaches them by name or
+   * address, which is how you find one.
+   */
+  const offPortalShown = useMemo(() => {
+    if (roleFilter !== "all" || cohortFilter !== "all") return [];
+    if (mailFilter === "without") return [];
+    const term = query.trim().toLowerCase();
+    return offPortal
+      .filter((m) => !term || `${m.holder_name ?? ""} ${m.address}`.toLowerCase().includes(term))
+      .sort((a, b) => a.address.localeCompare(b.address));
+  }, [offPortal, roleFilter, cohortFilter, mailFilter, query]);
+
   /** Opens a person in the issue tab's card, wherever you clicked from. */
   const openPerson = (id: string) => {
     setSelectedId(id);
@@ -305,7 +336,7 @@ const AdminMailboxes = () => {
             <TabsTrigger value="active" className={TAB_TRIGGER}>
               Active mailboxes
               <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-foreground/80">
-                {stats.withBox}
+                {stats.withBox + offPortal.length}
               </span>
             </TabsTrigger>
           </TabsList>
@@ -471,16 +502,18 @@ const AdminMailboxes = () => {
             </ul>
           )}
         </Panel>
+
+        <OffPortalMailboxForm onCreated={load} />
       </TabsContent>
 
       {/* --- Active: a list of mailboxes ------------------------------------ */}
       <TabsContent value="active" className="m-0 space-y-5">
         <Panel
-          title={`Active mailboxes (${issued.length})`}
+          title={`Active mailboxes (${issued.length + offPortalShown.length})`}
           titleId="active-mailboxes"
           description="Every address currently live on the mail server."
         >
-          {issued.length === 0 ? (
+          {issued.length + offPortalShown.length === 0 ? (
             <p className="px-5 py-8 text-center text-sm text-muted-foreground">
               No mailboxes have been issued yet. Use the <strong>Issue a mailbox</strong> tab to create the first one.
             </p>
@@ -508,6 +541,26 @@ const AdminMailboxes = () => {
                         before the mail server confirmed -- see mailbox-admin. */}
                     {!p.mailbox!.stalwart_account_id && <StatusPill tone="bad">Unfinished</StatusPill>}
                     <Button variant="outline" size="sm" onClick={() => openPerson(p.id)}>Manage</Button>
+                  </div>
+                </li>
+              ))}
+
+              {/* Off-portal holders. No role or cohort to show, so the pill
+                  says what they are instead -- otherwise an address with no
+                  badge next to it reads as missing data. */}
+              {offPortalShown.map((m) => (
+                <li key={m.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+                  <div className="min-w-0 flex-1">
+                    <code className="block truncate font-mono text-sm text-foreground">{m.address}</code>
+                    <span className="block truncate text-[13px] text-muted-foreground">
+                      {m.holder_name}
+                      {m.holder_email ? ` · ${m.holder_email}` : ""}
+                      {` · issued ${new Date(m.created_at).toLocaleDateString()}`}
+                    </span>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <StatusPill tone="info">Not on the portal</StatusPill>
+                    {!m.stalwart_account_id && <StatusPill tone="bad">Unfinished</StatusPill>}
                   </div>
                 </li>
               ))}

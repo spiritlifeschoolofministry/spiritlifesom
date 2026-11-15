@@ -28,22 +28,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Panel, StatusPill } from "@/components/redesign/admin/primitives";
 import type { Tables } from "@/integrations/supabase/types";
+import { IssuedCredentials, type Delivery, type Issued } from "@/components/admin/IssuedCredentials";
 
 type Mailbox = Tables<"mailboxes">;
 
-/** What the edge function hands back once, and nowhere else. */
-interface Issued {
-  address: string;
-  password: string;
-  delivery?: Delivery | null;
-}
-
-/** Which channels actually took the credentials, and what went wrong. */
-interface Delivery {
-  emailed: boolean;
-  whatsapp: boolean;
-  problems: string[];
-}
 
 const MAIL_HOST = "mail.spiritlifesom.org";
 
@@ -53,34 +41,6 @@ const formatQuota = (bytes: number | null) => {
   return gb >= 1 ? `${Number(gb.toFixed(1))} GB` : `${Math.round(bytes / (1024 * 1024))} MB`;
 };
 
-const CopyField = ({ label, value }: { label: string; value: string }) => {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } catch {
-      // Clipboard access is refused in plenty of ordinary situations (an
-      // insecure origin, a locked-down browser). The value is on screen and
-      // selectable, so say what happened rather than failing silently.
-      toast.error("Could not copy — select the text and copy it by hand");
-    }
-  };
-  return (
-    <div className="min-w-0">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-      <div className="mt-1 flex items-center gap-2">
-        <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-2.5 py-1.5 font-mono text-sm">
-          {value}
-        </code>
-        <Button type="button" size="sm" variant="outline" onClick={copy} aria-label={`Copy ${label}`}>
-          {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-        </Button>
-      </div>
-    </div>
-  );
-};
 
 
 /** Names the channels, so an admin sees what will happen before it does. */
@@ -263,44 +223,11 @@ export const MailboxCard = ({
       <div className="space-y-4 px-5 py-4">
         {/* The password, for the one render it exists. */}
         {issued && (
-          <div className="rounded-[14px] border border-amber-300 bg-amber-50 p-4 dark:border-amber-500/40 dark:bg-amber-500/10">
-            <p className="flex items-center gap-2 text-sm font-bold text-amber-900 dark:text-amber-200">
-              <ShieldAlert className="h-4 w-4 shrink-0" />
-              Copy this password now — it is not stored anywhere
-            </p>
-            <p className="mt-1 text-[13px] text-amber-900/80 dark:text-amber-200/80">
-              Give it to {personName} in person or by a channel they already control, and ask
-              them to change it the first time they sign in. Closing this panel loses it; the
-              only way back is another reset.
-            </p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <CopyField label="Address" value={issued.address} />
-              <CopyField label="Password" value={issued.password} />
-            </div>
-            {issued.delivery && (
-              <div className="mt-3 space-y-1 text-[13px]">
-                <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-semibold text-amber-900 dark:text-amber-200">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Mail className="h-3.5 w-3.5" />
-                    {issued.delivery.emailed ? "Emailed" : "Not emailed"}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <MessageCircle className="h-3.5 w-3.5" />
-                    {issued.delivery.whatsapp ? "Sent on WhatsApp" : "Not sent on WhatsApp"}
-                  </span>
-                </p>
-                {issued.delivery.problems.map((problem) => (
-                  <p key={problem} className="text-amber-900/80 dark:text-amber-200/80">{problem}</p>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-3 flex justify-end">
-              <Button size="sm" variant="outline" onClick={() => setIssued(null)}>
-                I have copied it
-              </Button>
-            </div>
-          </div>
+          <IssuedCredentials
+            issued={issued}
+            personName={personName}
+            onDismiss={() => setIssued(null)}
+          />
         )}
 
         {!mailbox && (
