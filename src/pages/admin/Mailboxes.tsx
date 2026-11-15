@@ -541,6 +541,7 @@ const AdminMailboxes = () => {
                       : p.cohortName
                         ? <StatusPill tone="neutral">{p.cohortName}</StatusPill>
                         : <StatusPill tone="warn">No cohort</StatusPill>}
+                    {p.mailbox!.is_server_admin && <StatusPill tone="bad">Server admin</StatusPill>}
                     {/* A row with no account id means the create was interrupted
                         before the mail server confirmed -- see mailbox-admin. */}
                     {!p.mailbox!.stalwart_account_id && <StatusPill tone="bad">Unfinished</StatusPill>}
@@ -564,6 +565,7 @@ const AdminMailboxes = () => {
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
                     <StatusPill tone="info">Not on the portal</StatusPill>
+                    {m.is_server_admin && <StatusPill tone="bad">Server admin</StatusPill>}
                     {!m.stalwart_account_id && <StatusPill tone="bad">Unfinished</StatusPill>}
                   </div>
                 </li>

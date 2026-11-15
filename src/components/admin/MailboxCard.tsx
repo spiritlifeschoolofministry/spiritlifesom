@@ -17,8 +17,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
-  AtSign, Check, Copy, KeyRound, Loader2, Mail, MessageCircle, Send, ShieldAlert,
-  Trash2, TriangleAlert,
+  AtSign, KeyRound, Loader2, Mail, MessageCircle, ShieldAlert, Trash2, TriangleAlert,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -89,6 +88,16 @@ export const MailboxCard = ({
   const [reuseWarning, setReuseWarning] = useState<
     { message: string; retry: Record<string, unknown> } | null
   >(null);
+  /**
+   * Whether the mailbox being created should administer the mail server.
+   *
+   * Always starts off. Granting it is a deliberate act every single time, and
+   * a checkbox that remembered its last value would eventually hand the server
+   * to a student because of what the admin did ten minutes earlier.
+   */
+  const [serverAdmin, setServerAdmin] = useState(false);
+  /** Set when an existing mailbox's role is about to change, holding the target. */
+  const [roleChange, setRoleChange] = useState<boolean | null>(null);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
@@ -181,11 +190,12 @@ export const MailboxCard = ({
   };
 
   const create = () =>
-    run({ action: "create", profile_id: profileId, local_part: localPart.trim(), notify }, (data) => {
+    run({ action: "create", profile_id: profileId, local_part: localPart.trim(), notify, server_admin: serverAdmin }, (data) => {
       if (data.address && data.password) {
         setIssued({ address: data.address, password: data.password, delivery: data.delivery ?? null });
       }
       announce("Mailbox created", data.delivery);
+      setServerAdmin(false);
     });
 
   const reset = () =>
@@ -194,6 +204,15 @@ export const MailboxCard = ({
         setIssued({ address: data.address, password: data.password, delivery: data.delivery ?? null });
       }
       announce("New password issued", data.delivery);
+    });
+
+  const changeRole = (wantAdmin: boolean) =>
+    run({ action: "set_role", mailbox_id: mailbox?.id, server_admin: wantAdmin }, () => {
+      toast.success(
+        wantAdmin
+          ? "This mailbox now administers the mail server"
+          : "Mail server administration withdrawn",
+      );
     });
 
   const remove = () =>
@@ -223,9 +242,14 @@ export const MailboxCard = ({
       }
       titleId={`mailbox-${profileId}`}
       actions={
-        mailbox
-          ? <StatusPill tone={active ? "good" : "neutral"}>{active ? "Active" : "Removed"}</StatusPill>
-          : <StatusPill tone="neutral">None</StatusPill>
+        <span className="flex items-center gap-2">
+          {active && mailbox?.is_server_admin && (
+            <StatusPill tone="bad">Server admin</StatusPill>
+          )}
+          {mailbox
+            ? <StatusPill tone={active ? "good" : "neutral"}>{active ? "Active" : "Removed"}</StatusPill>
+            : <StatusPill tone="neutral">None</StatusPill>}
+        </span>
       }
     >
       <div className="space-y-4 px-5 py-4">
@@ -268,6 +292,23 @@ export const MailboxCard = ({
                 Create mailbox
               </Button>
             </div>
+
+            <label className="flex items-start gap-2.5 rounded-[12px] border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-[13px]">
+              <Checkbox
+                checked={serverAdmin}
+                onCheckedChange={(v) => setServerAdmin(v === true)}
+                className="mt-0.5"
+                aria-label="Make this mailbox a server administrator"
+              />
+              <span>
+                <span className="font-semibold text-foreground">Server administrator</span>
+                <span className="block text-muted-foreground">
+                  Can read, change and delete <strong>every</strong> mailbox on the mail server,
+                  including other people&rsquo;s mail. Only for whoever runs the mail system —
+                  not for staff who merely need an address.
+                </span>
+              </span>
+            </label>
 
             <label className="flex items-start gap-2.5 text-[13px]">
               <Checkbox
@@ -346,6 +387,15 @@ export const MailboxCard = ({
                   <Button size="sm" variant="outline" onClick={() => setConfirmReset(true)} disabled={busy || !mailbox.stalwart_account_id}>
                     <KeyRound className="mr-1.5 h-4 w-4" /> Reset password
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setRoleChange(!mailbox.is_server_admin)}
+                    disabled={busy || !mailbox.stalwart_account_id}
+                  >
+                    <ShieldAlert className="mr-1.5 h-4 w-4" />
+                    {mailbox.is_server_admin ? "Withdraw server admin" : "Make server admin"}
+                  </Button>
                   <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => setConfirmRemove(true)} disabled={busy}>
                     <Trash2 className="mr-1.5 h-4 w-4" /> Delete mailbox
                   </Button>
@@ -363,6 +413,45 @@ export const MailboxCard = ({
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={roleChange !== null}
+        onOpenChange={(open) => !open && setRoleChange(null)}
+        title={roleChange ? "Hand over the whole mail server?" : "Withdraw server administration?"}
+        variant={roleChange ? "destructive" : "default"}
+        description={
+          roleChange ? (
+            <>
+              <p>
+                <strong>{mailbox?.address}</strong> would be able to read, change and delete
+                <strong> every mailbox on the server</strong> — every student&rsquo;s mail, every
+                member of staff&rsquo;s, and the school&rsquo;s own admin@ account.
+              </p>
+              <p>
+                That is a power over other people&rsquo;s correspondence, not a convenience. Give
+                it only to whoever actually runs the mail system. Anyone who merely needs a school
+                address does not need this.
+              </p>
+              <p>Whoever holds that mailbox&rsquo;s password holds the server, so it should be a strong one.</p>
+            </>
+          ) : (
+            <>
+              <p>
+                <strong>{mailbox?.address}</strong> goes back to being an ordinary mailbox: their
+                own mail and nothing else.
+              </p>
+              <p>Nothing in the mailbox is deleted and the password does not change.</p>
+            </>
+          )
+        }
+        confirmLabel={roleChange ? "Give full control" : "Withdraw"}
+        loading={busy}
+        onConfirm={() => {
+          const target = roleChange;
+          setRoleChange(null);
+          if (target !== null) void changeRole(target);
+        }}
+      />
 
       <ConfirmDialog
         open={Boolean(reuseWarning)}

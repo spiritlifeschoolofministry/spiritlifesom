@@ -332,11 +332,26 @@ const refusal = (entry: unknown, fallback: string): StalwartError => {
   );
 };
 
+/**
+ * What Stalwart calls a role, and what it actually means here.
+ *
+ * "User" is an ordinary mailbox: this person's own mail and nothing else.
+ * "Admin" is the whole mail server -- it can read, alter and delete every
+ * other account on it, the school's own admin@ included. There is no middle
+ * setting; Stalwart 1.1 offers these two and a Custom role the portal does not
+ * expose. So this is never inferred and never defaulted from somebody's role
+ * in the portal: being an administrator of the school is not the same as
+ * being an administrator of its mail server.
+ */
+export type AccountRole = "User" | "Admin";
+
 export interface CreateAccountArgs {
   localPart: string;
   password: string;
   description: string;
   quotaBytes?: number;
+  /** Defaults to an ordinary user. Granting Admin must always be explicit. */
+  role?: AccountRole;
 }
 
 /**
@@ -345,7 +360,9 @@ export interface CreateAccountArgs {
  * `roles` is set explicitly and is the most important line here. Both accounts
  * that existed on this server before the portal did carry `{"@type":"Admin"}`,
  * and a student account that inherited that could read and delete every other
- * mailbox on the server. It is never left to a default.
+ * mailbox on the server. It is never left to a default: absent an explicit
+ * choice this sends "User", so the dangerous value can only ever arrive by
+ * someone asking for it.
  */
 export const createAccount = async (
   config: StalwartConfig,
@@ -358,7 +375,7 @@ export const createAccount = async (
         name: args.localPart,
         domainId: config.domainId,
         description: args.description,
-        roles: { "@type": "User" },
+        roles: { "@type": args.role ?? "User" },
         credentials: passwordCredentials(args.password),
         quotas: { [DISK_QUOTA_KEY]: args.quotaBytes ?? DEFAULT_QUOTA_BYTES },
       },
@@ -377,6 +394,26 @@ export const createAccount = async (
     );
   }
   return created.id;
+};
+
+/**
+ * Grants or withdraws server administration on an existing account.
+ *
+ * Separate from the password reset because it is a different kind of act: one
+ * returns someone to their own mailbox, the other hands them every mailbox in
+ * the school. Keeping them apart means neither can be done by accident while
+ * meaning to do the other.
+ */
+export const setAccountRole = async (
+  config: StalwartConfig,
+  accountId: string,
+  role: AccountRole,
+): Promise<void> => {
+  const result = await stalwartCall(config, `${ACCOUNT}/set`, {
+    update: { [accountId]: { roles: { "@type": role } } },
+  });
+  const notUpdated = (result?.notUpdated as Record<string, unknown>)?.[accountId];
+  if (notUpdated) throw refusal(notUpdated, "The mail server refused the role change.");
 };
 
 /** A new password on an existing account. Replaces the credential outright. */

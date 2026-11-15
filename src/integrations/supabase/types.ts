@@ -2243,6 +2243,7 @@ export type Database = {
           holder_phone: string | null
           holder_whatsapp_jid: string | null
           id: string
+          is_server_admin: boolean
           local_part: string
           password_reset_at: string | null
           profile_id: string | null
@@ -2264,6 +2265,7 @@ export type Database = {
           holder_phone?: string | null
           holder_whatsapp_jid?: never
           id?: string
+          is_server_admin?: boolean
           local_part: string
           password_reset_at?: string | null
           profile_id?: string | null
@@ -2285,6 +2287,7 @@ export type Database = {
           holder_phone?: string | null
           holder_whatsapp_jid?: never
           id?: string
+          is_server_admin?: boolean
           local_part?: string
           password_reset_at?: string | null
           profile_id?: string | null

@@ -41,6 +41,8 @@ export const OffPortalMailboxForm = ({ onCreated }: { onCreated?: () => void }) 
   const [issued, setIssued] = useState<Issued | null>(null);
   /** Set when the chosen address was previously somebody else's. */
   const [reuseWarning, setReuseWarning] = useState<string | null>(null);
+  /** Always starts off: granting the mail server is a deliberate act each time. */
+  const [serverAdmin, setServerAdmin] = useState(false);
 
   /**
    * The address this name would get, asked of the server rather than worked out
@@ -75,6 +77,7 @@ export const OffPortalMailboxForm = ({ onCreated }: { onCreated?: () => void }) 
       holder_phone: phone.trim() || null,
       local_part: localPart.trim(),
       notify,
+      server_admin: serverAdmin,
       ...(allowReuse ? { allow_reuse: true } : {}),
     };
     const { data, error } = await supabase.functions.invoke("mailbox-admin", { body });
@@ -109,6 +112,7 @@ export const OffPortalMailboxForm = ({ onCreated }: { onCreated?: () => void }) 
     toast.success(sent ? `Mailbox created and ${sent}.` : "Mailbox created. Copy the password below.");
 
     setName(""); setEmail(""); setPhone(""); setLocalPart(""); setAddressTouched(false);
+    setServerAdmin(false);
     onCreated?.();
   };
 
@@ -193,6 +197,22 @@ export const OffPortalMailboxForm = ({ onCreated }: { onCreated?: () => void }) 
             />
           </div>
         </div>
+
+        <label className="flex items-start gap-2.5 rounded-[12px] border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-[13px]">
+          <Checkbox
+            checked={serverAdmin}
+            onCheckedChange={(v) => setServerAdmin(v === true)}
+            className="mt-0.5"
+            aria-label="Make this mailbox a server administrator"
+          />
+          <span>
+            <span className="font-semibold text-foreground">Server administrator</span>
+            <span className="block text-muted-foreground">
+              Can read, change and delete <strong>every</strong> mailbox on the mail server.
+              Only for whoever runs the mail system.
+            </span>
+          </span>
+        </label>
 
         <label className="flex items-start gap-2.5 text-[13px]">
           <Checkbox

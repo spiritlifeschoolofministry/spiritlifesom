@@ -33,6 +33,7 @@ import {
   localPartFromName,
   probe,
   readConfig,
+  setAccountRole,
   setPassword,
   StalwartError,
 } from "../_shared/stalwart.ts";
@@ -315,6 +316,11 @@ Deno.serve(async (req) => {
       const check = checkLocalPart(localPart);
       if (!check.ok) return json({ error: check.reason }, 400);
 
+      // Server administration is granted only by asking for it in so many
+      // words. It is never inferred from the holder's role in the portal:
+      // running the school is not the same as running its mail server.
+      const serverAdmin = body?.server_admin === true;
+
       const quotaBytes = Number.isFinite(Number(body?.quota_bytes)) && Number(body?.quota_bytes) > 0
         ? Math.floor(Number(body.quota_bytes))
         : DEFAULT_QUOTA_BYTES;
@@ -375,6 +381,7 @@ Deno.serve(async (req) => {
           local_part: localPart,
           created_by: actor.id,
           quota_bytes: quotaBytes,
+          is_server_admin: serverAdmin,
         })
         .select("id, address, holder_name, holder_email, holder_whatsapp_jid")
         .single();
@@ -408,6 +415,7 @@ Deno.serve(async (req) => {
           password,
           description,
           quotaBytes,
+          role: serverAdmin ? "Admin" : "User",
         });
         await admin
           .from("mailboxes")
@@ -436,12 +444,16 @@ Deno.serve(async (req) => {
 
         await audit(
           admin, actor, "mailbox.created", reserved.id,
-          `Created mailbox ${reserved.address} for ${fullName || "a user"}`,
+          `Created mailbox ${reserved.address} for ${fullName || "a user"}` +
+            (serverAdmin ? " with SERVER ADMINISTRATION of the mail server" : ""),
           {
             profile_id: profileId || null,
             holder_name: holderName || null,
             address: reserved.address,
             quota_bytes: quotaBytes,
+            // The single most consequential fact about this mailbox, so it is
+            // on the audit entry rather than only in a column.
+            server_admin: serverAdmin,
             // Recorded because "was the student ever told?" is a real question
             // later. The password itself is not here and never is.
             emailed: delivery?.emailed ?? false,
@@ -530,6 +542,72 @@ Deno.serve(async (req) => {
       );
 
       return json({ ok: true, address: mailbox.address, password, delivery });
+    }
+
+    // --- set_role ------------------------------------------------------------
+    // Granting or withdrawing administration of the mail server on a mailbox
+    // that already exists.
+    //
+    // Its own action rather than a field on reset, because the two are
+    // different acts: one returns somebody to their own mailbox, the other
+    // hands them everybody's. Kept apart so neither happens while meaning to do
+    // the other, and so the audit entry for each says exactly what it was.
+    if (action === "set_role") {
+      const mailboxId = String(body?.mailbox_id || "");
+      if (!mailboxId) return json({ error: "Missing mailbox_id" }, 400);
+      const wantAdmin = body?.server_admin === true;
+
+      const { data: mailbox } = await admin
+        .from("mailboxes")
+        .select("id, address, stalwart_account_id, status, is_server_admin, profile_id, holder_name")
+        .eq("id", mailboxId)
+        .single();
+      if (!mailbox) return json({ error: "No such mailbox" }, 404);
+      if (mailbox.status !== "active") return json({ error: "That mailbox has been removed." }, 409);
+      if (!mailbox.stalwart_account_id) {
+        return json({ error: "This mailbox was never finished on the mail server." }, 409);
+      }
+
+      // The school's own admin@ is not managed from here. Withdrawing its role
+      // by accident would leave nobody able to administer the server except
+      // this function's own service account.
+      if (mailbox.address === "admin@spiritlifesom.org") {
+        return json({ error: "The school's main admin@ mailbox is managed in Stalwart, not here." }, 403);
+      }
+
+      if (mailbox.is_server_admin === wantAdmin) {
+        return json({ ok: true, unchanged: true, is_server_admin: wantAdmin });
+      }
+
+      try {
+        await setAccountRole(config, mailbox.stalwart_account_id, wantAdmin ? "Admin" : "User");
+      } catch (error) {
+        console.error("mailbox-admin: role change failed", error);
+        return json(
+          { error: error instanceof StalwartError ? error.message : "Could not change the role." },
+          502,
+        );
+      }
+
+      // Written only after the mail server agreed, so the column cannot claim
+      // a power the server has not actually granted.
+      await admin.from("mailboxes").update({ is_server_admin: wantAdmin }).eq("id", mailbox.id);
+
+      await audit(
+        admin, actor, wantAdmin ? "mailbox.server_admin_granted" : "mailbox.server_admin_revoked",
+        mailbox.id,
+        wantAdmin
+          ? `Gave ${mailbox.address} administration of the whole mail server`
+          : `Withdrew mail server administration from ${mailbox.address}`,
+        {
+          profile_id: mailbox.profile_id,
+          holder_name: mailbox.holder_name,
+          address: mailbox.address,
+          server_admin: wantAdmin,
+        },
+      );
+
+      return json({ ok: true, is_server_admin: wantAdmin, address: mailbox.address });
     }
 
     // --- remove ------------------------------------------------------------
