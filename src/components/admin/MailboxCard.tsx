@@ -371,8 +371,8 @@ export const MailboxCard = ({
             {active && (
               <>
                 <p className="text-[13px] text-muted-foreground">
-                  Sign in at <a className="underline" href={`https://${MAIL_HOST}`} target="_blank" rel="noreferrer">{MAIL_HOST}</a>,
-                  or add the account to any mail app — the settings fill themselves in.
+                  Read with any mail app over IMAP; {MAIL_HOST} is the settings and
+                  password page only, and does not show messages.
                   {mailbox.password_reset_at && (
                     <> Password last reset {new Date(mailbox.password_reset_at).toLocaleDateString()}.</>
                   )}

@@ -106,9 +106,15 @@ export const credentialsEmail = (name: string, address: string, password: string
       <strong>Change this password now.</strong> It was generated for you and has been sent by
       email and WhatsApp, so treat it as temporary. Sign in and set your own password straight away.
     </p>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.55">
+      <strong>To read your mail,</strong> add this account to a mail app — Gmail, Outlook, Apple Mail
+      and Thunderbird all work, and most of them find the settings on their own once you type the
+      address above.
+    </p>
     <p style="margin:0 0 20px;font-size:15px;line-height:1.55">
-      Sign in at <a href="https://${MAIL_HOST}" style="color:#4f46e5">${MAIL_HOST}</a>, or add the
-      account to the mail app on your phone — most apps find the settings on their own.
+      <strong>To change your password,</strong> sign in at
+      <a href="https://${MAIL_HOST}" style="color:#4f46e5">${MAIL_HOST}</a>. That page is for
+      settings only — your messages are not shown there.
     </p>
     <p style="margin:0 0 6px;font-size:13px;color:#6b7280"><strong>If your mail app asks:</strong></p>
     <p style="margin:0 0 20px;font-size:13px;color:#6b7280;line-height:1.6">
@@ -132,7 +138,9 @@ export const credentialsWhatsApp = (name: string, address: string, password: str
     `Address: ${address}`,
     `Temporary password: ${password}`,
     "",
-    `Please sign in at https://${MAIL_HOST} and change this password straight away — it was sent by email and WhatsApp, so it should not stay as it is.`,
+    `To read your mail: add this account to a mail app (Gmail, Outlook, Apple Mail all work). Most find the settings on their own once you type the address.`,
+    "",
+    `To change your password: sign in at https://${MAIL_HOST} — that page is for settings only, it does not show your messages. Please change this password straight away, as it was sent by email and WhatsApp.`,
     "",
     "If you were not expecting this, tell the school office and do not use the password above.",
   ].join("\n");

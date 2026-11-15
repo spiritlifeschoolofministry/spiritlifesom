@@ -81,13 +81,17 @@ export const SchoolMailbox = ({ userId }: { userId: string }) => {
         </div>
 
         <p className="text-sm text-muted-foreground">
-          Read it at{" "}
+          <strong className="text-foreground">To read your mail,</strong> add this account to a mail
+          app — Gmail, Outlook and Apple Mail all work, and most find the settings on their own once
+          you type the address. The settings are below if yours asks.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          <strong className="text-foreground">To change your password,</strong> sign in at{" "}
           <a className="underline" href={`https://${MAIL_HOST}`} target="_blank" rel="noreferrer">
             {MAIL_HOST}
           </a>
-          , or add it to the mail app on your phone — most apps find the settings on their own.
-          If you have forgotten the password, ask the school office to reset it; nobody can look
-          it up for you.
+          . That page is for settings only and does not show your messages. If you have forgotten
+          the password, ask the school office to reset it — nobody can look it up for you.
         </p>
 
         <dl className="grid gap-2 sm:grid-cols-2">

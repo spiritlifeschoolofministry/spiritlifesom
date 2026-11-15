@@ -295,7 +295,9 @@ Admins can issue, reset and delete `@spiritlifesom.org` mailboxes from the porta
 
   KPI tiles above the tabs double as shortcuts: "Without one" jumps to the issue list filtered to exactly those people. Everything loads in one pass and filters in memory, which is deliberate at ~100 profiles; past a few thousand it should become a server-side query.
 - **The admin student record** (Personal tab, strict admin only) — the same card beside everything else about that student. Teachers reach that page but never see the card: they cannot read the `mailboxes` table either, so there is nothing to show them.
-- **The student's own profile** — read-only: their address, where to sign in, and the IMAP/SMTP settings. The card renders nothing when they have no mailbox.
+- **The student's own profile** — read-only: their address, how to read it, and the IMAP/SMTP settings. The card renders nothing when they have no mailbox.
+
+> **There is no webmail.** Stalwart is a mail server, not a mail client. `mail.spiritlifesom.org` serves a settings portal only — its navigation has three sections (Management, Settings, Account) and no mail-reading view, and `/webmail/`, `/roundcube/` and similar all 404. Students read their mail with an ordinary IMAP client (Gmail, Outlook, Apple Mail, Thunderbird); the portal page is for changing the password and nothing else. Every message and screen the portal produces now says this explicitly, because "sign in at mail.spiritlifesom.org" sends people looking for an inbox that is not there. Browser-based mail would mean installing Roundcube or SnappyMail on the VPS, which is infrastructure work on a box shared with another project.
 
 **How a mailbox is issued**
 
