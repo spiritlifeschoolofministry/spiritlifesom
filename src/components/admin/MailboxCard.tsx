@@ -131,7 +131,7 @@ export const MailboxCard = ({
         return;
       }
       if (cancelled) return;
-      if (data?.suggestion && !mailbox) setLocalPart(data.suggestion);
+      if (data?.suggestion && mailbox?.status !== "active") setLocalPart(data.suggestion);
       setContact({ email: data?.email ?? null, hasWhatsapp: Boolean(data?.has_whatsapp) });
     })();
     return () => { cancelled = true; };
@@ -238,10 +238,12 @@ export const MailboxCard = ({
           />
         )}
 
-        {!mailbox && (
+        {!active && (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              {personName} has no school address yet.
+              {mailbox
+                ? `${personName} has no live mailbox. Creating one below issues a fresh account and a new password.`
+                : `${personName} has no school address yet.`}
             </p>
             <div className="flex flex-wrap items-end gap-2">
               <div className="min-w-0 flex-1">
@@ -354,7 +356,8 @@ export const MailboxCard = ({
             {!active && (
               <p className="text-[13px] text-muted-foreground">
                 Deleted{mailbox.removed_at ? ` on ${new Date(mailbox.removed_at).toLocaleDateString()}` : ""}.
-                This address is kept on file and will not be given to anyone else.
+                The record is kept so it is clear who held this address. Issuing it to{" "}
+                {personName} again needs no confirmation; giving it to anyone else asks first.
               </p>
             )}
           </div>
