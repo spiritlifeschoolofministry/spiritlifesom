@@ -454,6 +454,12 @@ const AdminMailboxes = () => {
 
       {/* --- Issue: a worklist over people ---------------------------------- */}
       <TabsContent value="issue" className="m-0 space-y-5">
+        {/* Above the list, not below it. The school has a hundred people in
+            that list, so anything underneath it is a scroll nobody makes --
+            and this is the only route to a mailbox for someone who has no
+            portal account at all. */}
+        <OffPortalMailboxForm onCreated={load} />
+
         {/* The count and the Clear button live on the Filter panel above, which
             owns them for both tabs; repeating them here would be two controls
             for one piece of state. */}
@@ -502,8 +508,6 @@ const AdminMailboxes = () => {
             </ul>
           )}
         </Panel>
-
-        <OffPortalMailboxForm onCreated={load} />
       </TabsContent>
 
       {/* --- Active: a list of mailboxes ------------------------------------ */}
