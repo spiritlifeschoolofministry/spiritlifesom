@@ -33,3 +33,6 @@ android/app/build
 android/build
 android/local.properties
 
+
+# VPS credentials: private key and secrets. Never commit — this repo is public.
+.claude/vps/

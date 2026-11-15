@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { r2Storage } from '@/lib/r2-storage';
 import type { Tables } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/useAuth';
+import { SchoolMailbox } from '@/components/SchoolMailbox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -251,6 +252,11 @@ const AdminProfile = () => {
               </form>
             </CardContent>
           </Card>
+
+          {/* Staff have no student record, so this is the one place a lecturer
+              or administrator can see their own school address and how to read
+              it. The card renders nothing when they have not been given one. */}
+          {user?.id && <SchoolMailbox userId={user.id} />}
 
           <Card>
             <CardHeader>

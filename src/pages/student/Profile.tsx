@@ -34,7 +34,7 @@ import {
 import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
 import { fetchStudentHistory } from '@/lib/student-sessions';
 import WhatsAppPreference from '@/components/student/WhatsAppPreference';
-import { SchoolMailbox } from "@/components/student/SchoolMailbox";
+import { SchoolMailbox } from "@/components/SchoolMailbox";
 import PushToggle from '@/components/PushToggle';
 import { BellRing } from 'lucide-react';
 
