@@ -17,7 +17,7 @@
  * steps would be one more thing to keep true.
  */
 import { useState } from "react";
-import { Check, ChevronDown, Copy, Smartphone } from "lucide-react";
+import { Check, ChevronDown, Copy, ExternalLink, Globe, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +25,8 @@ import {
 } from "@/components/ui/collapsible";
 
 export const MAIL_HOST = "mail.spiritlifesom.org";
+/** The webmail client (SnappyMail). Stalwart ships none of its own. */
+export const WEBMAIL_HOST = "webmail.spiritlifesom.org";
 
 interface Guide {
   id: string;
@@ -115,11 +117,31 @@ export const MailSetupGuide = ({ address }: { address?: string | null }) => {
 
   return (
     <div className="space-y-3">
+      {/* The browser option goes first and on its own: it needs no setup at
+          all, so for most people the steps below are something they never have
+          to open. */}
+      <a
+        href={`https://${WEBMAIL_HOST}`}
+        target="_blank"
+        rel="noreferrer"
+        className="flex items-center gap-3 rounded-[12px] border border-primary/30 bg-primary/5 px-4 py-3 transition-colors hover:bg-primary/10"
+      >
+        <Globe className="h-5 w-5 shrink-0 text-primary" />
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-foreground">
+            Read your mail in the browser
+          </span>
+          <span className="block truncate text-[13px] text-muted-foreground">
+            {WEBMAIL_HOST} — sign in with your address and password. Nothing to install.
+          </span>
+        </span>
+        <ExternalLink className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
+      </a>
+
       <div className="flex items-start gap-2.5">
         <Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">
-          Your messages are not on the website. To read them, add this account to a mail app —
-          pick the one you already use and follow the steps.
+          Prefer the mail app on your phone? Pick the one you already use and follow the steps.
         </p>
       </div>
 

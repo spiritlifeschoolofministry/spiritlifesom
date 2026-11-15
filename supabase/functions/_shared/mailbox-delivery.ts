@@ -63,6 +63,8 @@ export interface DeliveryOutcome {
 }
 
 const MAIL_HOST = "mail.spiritlifesom.org";
+/** The webmail client. Stalwart has none of its own; this is SnappyMail. */
+const WEBMAIL_HOST = "webmail.spiritlifesom.org";
 
 /**
  * The sender.
@@ -107,9 +109,13 @@ export const credentialsEmail = (name: string, address: string, password: string
       email and WhatsApp, so treat it as temporary. Sign in and set your own password straight away.
     </p>
     <p style="margin:0 0 16px;font-size:15px;line-height:1.55">
-      <strong>To read your mail,</strong> add this account to a mail app — Gmail, Outlook, Apple Mail
-      and Thunderbird all work, and most of them find the settings on their own once you type the
-      address above.
+      <strong>To read your mail,</strong> go to
+      <a href="https://${WEBMAIL_HOST}" style="color:#4f46e5">${WEBMAIL_HOST}</a> and sign in with
+      the address and password above. Nothing to install.
+    </p>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.55">
+      You can also add the account to the mail app on your phone — Gmail, Outlook and Apple Mail all
+      work, and most find the settings on their own once you type the address.
     </p>
     <p style="margin:0 0 20px;font-size:15px;line-height:1.55">
       <strong>To change your password,</strong> sign in at
@@ -138,7 +144,9 @@ export const credentialsWhatsApp = (name: string, address: string, password: str
     `Address: ${address}`,
     `Temporary password: ${password}`,
     "",
-    `To read your mail: add this account to a mail app (Gmail, Outlook, Apple Mail all work). Most find the settings on their own once you type the address.`,
+    `To read your mail: go to https://${WEBMAIL_HOST} and sign in with the address and password above. Nothing to install.`,
+    "",
+    `You can also add the account to the mail app on your phone (Gmail, Outlook, Apple Mail all work).`,
     "",
     `To change your password: sign in at https://${MAIL_HOST} — that page is for settings only, it does not show your messages. Please change this password straight away, as it was sent by email and WhatsApp.`,
     "",
