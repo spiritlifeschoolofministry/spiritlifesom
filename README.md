@@ -289,7 +289,11 @@ Admins can issue, reset and delete `@spiritlifesom.org` mailboxes from the porta
 
 **Where it lives**
 
-- **`/admin/mailboxes`** (strict admin) — the whole list, a connection check, and the only place a *staff* mailbox can be issued, since staff have no student record.
+- **`/admin/mailboxes`** (strict admin) — two tabs, because issuing and reviewing want opposite shapes:
+  - **Issue a mailbox** — a worklist over *people*. Everyone is listed up front (no search required), filterable by role (students / staff), cohort — including "No cohort", the group that gets forgotten — and whether they already have an address. Search narrows further. This is the only place a **staff** mailbox can be issued, since staff have no student record anywhere else in the portal.
+  - **Active mailboxes** — a list of *mailboxes*, which is what you want when someone says they cannot get in. Deleted addresses are listed below it.
+
+  KPI tiles above the tabs double as shortcuts: "Without one" jumps to the issue list filtered to exactly those people. Everything loads in one pass and filters in memory, which is deliberate at ~100 profiles; past a few thousand it should become a server-side query.
 - **The admin student record** (Personal tab, strict admin only) — the same card beside everything else about that student. Teachers reach that page but never see the card: they cannot read the `mailboxes` table either, so there is nothing to show them.
 - **The student's own profile** — read-only: their address, where to sign in, and the IMAP/SMTP settings. The card renders nothing when they have no mailbox.
 

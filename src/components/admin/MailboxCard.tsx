@@ -75,9 +75,17 @@ const CopyField = ({ label, value }: { label: string; value: string }) => {
 export const MailboxCard = ({
   profileId,
   personName,
+  onChanged,
 }: {
   profileId: string;
   personName: string;
+  /**
+   * Called after the mail server confirms a create, reset or delete, so a
+   * surrounding list can refresh. The card reloads its own row either way --
+   * this is for the counts and pills *around* it, which would otherwise still
+   * say "None" next to a mailbox that now exists.
+   */
+  onChanged?: () => void | Promise<void>;
 }) => {
   const [mailbox, setMailbox] = useState<Mailbox | null>(null);
   const [loading, setLoading] = useState(true);
@@ -148,6 +156,7 @@ export const MailboxCard = ({
     }
     onDone(data ?? {});
     await load();
+    await onChanged?.();
   };
 
   const create = () =>
