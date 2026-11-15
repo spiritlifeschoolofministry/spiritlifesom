@@ -34,6 +34,7 @@ import {
 import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
 import { fetchStudentHistory } from '@/lib/student-sessions';
 import WhatsAppPreference from '@/components/student/WhatsAppPreference';
+import { SchoolMailbox } from "@/components/student/SchoolMailbox";
 import PushToggle from '@/components/PushToggle';
 import { BellRing } from 'lucide-react';
 
@@ -677,6 +678,8 @@ const StudentProfile = () => {
                 </form>
               </CardContent>
             </Card>
+
+            {user?.id && <SchoolMailbox userId={user.id} />}
 
             {user?.id && <WhatsAppPreference userId={user.id} />}
 

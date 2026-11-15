@@ -203,3 +203,12 @@ enabled = true
 # under projects/ that no record points at).
 verify_jwt = false
 entrypoint = "./functions/project-purge/index.ts"
+
+[functions.mailbox-admin]
+enabled = true
+# Requires a JWT and then re-checks for strict admin against the database. It
+# holds the mail server's Admin-role API key, so an unauthenticated caller must
+# never reach it -- unlike the pg_net-driven functions above, nothing here is
+# triggered by the database.
+verify_jwt = true
+entrypoint = "./functions/mailbox-admin/index.ts"

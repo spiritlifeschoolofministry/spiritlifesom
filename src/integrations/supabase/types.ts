@@ -2230,6 +2230,69 @@ export type Database = {
           },
         ]
       }
+      mailboxes: {
+        Row: {
+          address: string
+          created_at: string
+          created_by: string | null
+          domain: string
+          id: string
+          local_part: string
+          password_reset_at: string | null
+          profile_id: string
+          quota_bytes: number | null
+          removed_at: string | null
+          stalwart_account_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address?: never
+          created_at?: string
+          created_by?: string | null
+          domain?: string
+          id?: string
+          local_part: string
+          password_reset_at?: string | null
+          profile_id: string
+          quota_bytes?: number | null
+          removed_at?: string | null
+          stalwart_account_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: never
+          created_at?: string
+          created_by?: string | null
+          domain?: string
+          id?: string
+          local_part?: string
+          password_reset_at?: string | null
+          profile_id?: string
+          quota_bytes?: number | null
+          removed_at?: string | null
+          stalwart_account_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mailboxes_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mailboxes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null

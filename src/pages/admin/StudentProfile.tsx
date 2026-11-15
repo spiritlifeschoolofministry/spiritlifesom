@@ -30,6 +30,8 @@ import PortalBreadcrumbs from "@/components/portal/PortalBreadcrumbs";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import ManualRecordDialog from "@/components/admin/ManualRecordDialog";
 import { MoveCohortDialog } from "@/components/admin/MoveCohortDialog";
+import { MailboxCard } from "@/components/admin/MailboxCard";
+import { useAuth } from "@/contexts/useAuth";
 import { naira } from "@/lib/money";
 import { splitFeesBySession } from "@/lib/fee-sessions";
 import { EMPTY_TALLY, tallyAttendance, type AttendanceTally } from "@/lib/attendance";
@@ -58,6 +60,8 @@ interface StudentDetail {
   fees_paid: number | null;
   total_fees_due: number | null;
   bio: string | null;
+  /** The auth/profile id, which is what a mailbox is issued against. */
+  profile_id: string;
   profile: {
     first_name: string | null;
     last_name: string | null;
@@ -422,6 +426,9 @@ const ProfileCompleteOverrideButton = ({
 const AdminStudentProfile = () => {
   const { studentId } = useParams<{ studentId: string }>();
   const navigate = useNavigate();
+  const { role } = useAuth();
+  // "admin" here is the strict admin; a teacher also reaches this page.
+  const isStrictAdmin = (role ?? "").toLowerCase() === "admin";
   const [student, setStudent] = useState<StudentDetail | null>(null);
   const [attendance, setAttendance] = useState<AttendanceTally>(EMPTY_TALLY);
   const [fees, setFees] = useState<FeeRecord[]>([]);
@@ -751,6 +758,7 @@ const AdminStudentProfile = () => {
         </TabsList>
 
         <TabsContent value="personal">
+          <div className="space-y-4">
           <Card className="shadow-[var(--shadow-card)] border-border">
             <CardHeader><CardTitle className="text-base">Personal Information</CardTitle></CardHeader>
             <CardContent>
@@ -785,6 +793,15 @@ const AdminStudentProfile = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* Strict admin only. Teachers reach this page, but issuing and
+              deleting mail accounts is not theirs to do -- and the mailboxes
+              table does not let them read the row either, so a card here would
+              only ever show them an error. */}
+          {isStrictAdmin && student.profile_id && (
+            <MailboxCard profileId={student.profile_id} personName={fullName} />
+          )}
+          </div>
         </TabsContent>
 
         <TabsContent value="academic">

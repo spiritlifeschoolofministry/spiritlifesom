@@ -283,6 +283,53 @@ A project is individual or a group project. A student can be in one project only
 - **On the calendars.** A scheduled defence appears on the student Calendar for each member ("Your project defence") and on the admin Calendar for every project ("Defence: names"), in a "Defence" colour. These are not `school_events` rows: clicking one on the admin Calendar opens the project, where the date is changed.
 - Rules and labels: `src/lib/projects.ts` and `src/lib/project-result.ts`, tested in `src/test/projects.test.ts`.
 
+## Official school mailboxes
+
+Admins can issue, reset and delete `@spiritlifesom.org` mailboxes from the portal. The mail itself runs on the school's own Stalwart server at **mail.spiritlifesom.org** — the portal never stores a message, a folder or a password, only the record of who has been given an address.
+
+**Where it lives**
+
+- **`/admin/mailboxes`** (strict admin) — the whole list, a connection check, and the only place a *staff* mailbox can be issued, since staff have no student record.
+- **The admin student record** (Personal tab, strict admin only) — the same card beside everything else about that student. Teachers reach that page but never see the card: they cannot read the `mailboxes` table either, so there is nothing to show them.
+- **The student's own profile** — read-only: their address, where to sign in, and the IMAP/SMTP settings. The card renders nothing when they have no mailbox.
+
+**How a mailbox is issued**
+
+1. The portal suggests `firstname.lastname` from the person's profile, folding accents (`Adébáyò Olúwáségun` → `adebayo.oluwasegun`) and closing up spaces and apostrophes (`O'Brien de Souza` → `obrien.desouza`). Numbered variants are offered when the name is taken. The admin can type a different address instead.
+2. A 16-character password is generated, sent to Stalwart, and **shown to the admin exactly once**. It is never stored — `mailboxes` has no column for one — so a lost password means another reset, by design. The alphabet omits `0/O` and `1/l/I`, because these get read aloud.
+3. Deleting a mailbox deletes the account and all its mail on the server. The row is kept with `status = 'removed'` so the address is **never reissued** — mail still arrives at old addresses, and a graduate's inbox must not reopen under a new student.
+
+**Secrets (server-side only — never in the browser bundle)**
+
+Set these on the `mailbox-admin` edge function. The API key belongs to a Stalwart service account with the Admin role, which is the only role Stalwart 1.1 offers: it can create or delete *any* account on the server, including the school's own `admin@`.
+
+| Secret | Value | Notes |
+|---|---|---|
+| `STALWART_URL` | `https://mail.spiritlifesom.org` | |
+| `STALWART_API_KEY` | from the service account `app-provisioning@spiritlifesom.org` | |
+| `STALWART_MAIL_DOMAIN_ID` | `c` | the domain id for `spiritlifesom.org` |
+| `STALWART_API_PATH` | optional, defaults to `/jmap/` | the JMAP `apiUrl` |
+| `STALWART_API_URN` | optional, defaults to `urn:stalwart:jmap` | the management capability |
+
+**How the Stalwart API actually works** (read off the live server, since 1.1's management API is undocumented):
+
+- The endpoint is the **JMAP `apiUrl`** — `https://mail.spiritlifesom.org/jmap/`. There is no separate REST API: `/api/principal`, `/api/accounts` and similar all 404 on 1.1.
+- Management objects are JMAP types under the `urn:stalwart:jmap` capability, prefixed `x:` — **`x:Account/query`**, `x:Account/get`, `x:Account/set`. Plain `Account/get` is an `unknownMethod`.
+- `x:` types address the session's **primary account id**, which the server assigns, so `stalwart.ts` reads it from `/.well-known/jmap` rather than hardcoding it.
+- **List-valued properties are maps keyed `"0"`, `"1"`, … — not JSON arrays.** `credentials` and `aliases` come back that way and must go back that way; this is why the handover's CLI examples read `credentials={"0":{…}}`. Sending an array is the easiest way to break the integration.
+- A new account is created with `roles: {"@type":"User"}`, set **explicitly**. Both accounts that pre-dated the portal carry `{"@type":"Admin"}`, and a student account inheriting that could read and delete every other mailbox on the server.
+- The disk quota lives at `quotas.maxDiskQuota` (bytes).
+
+The full object schema is served at `/api/schema` — the admin console is generated from it, and it is the best reference for any field this integration does not yet set.
+
+> **Verified against the live server.** The whole lifecycle was exercised end to end with a throwaway account: `x:Account/set` create returned `created.new.id`, the credential update returned `updated`, `x:Account/get` confirmed `roles: {"@type":"User"}`, `quotas.maxDiskQuota` and the formed `emailAddress`, and the destroy returned `destroyed`. The test account was deleted and the server is back to its original two accounts. **Check connection** on `/admin/mailboxes` re-runs the read half of this at any time.
+
+**Reserved names.** `admin`, `info`, `contact`, `hello` and `postmaster` already deliver to the school's mailbox; those plus the RFC 2142 names (`abuse`, `webmaster`, `noreply`, …) are refused. Giving one away would silently divert the school's own incoming mail.
+
+**Quotas and limits.** 2 GB per mailbox by default (the VPS has ~90 GB, shared with another project). Outgoing mail relays through Resend, so that plan's daily limit is shared across every mailbox at once.
+
+**Audit.** Creating, resetting and deleting all write to `audit_logs` under `mailbox.created` / `mailbox.password_reset` / `mailbox.removed`, with the actor taken from the verified token — the edge function runs as the service role, so `auth.uid()` would find nobody.
+
 ## Dependency notes
 
 - **Vendor chunks use Rolldown `codeSplitting.groups`.** Vite 8 builds with Rolldown, which rejects Rollup's object-form `manualChunks`. `vite.config.ts` turns the `VENDOR_CHUNKS` table into groups under `build.rolldownOptions.output.codeSplitting`, and earlier entries get higher priority. The priorities matter: a group also takes the dependencies of the modules it captures, so without them `vendor-radix` swallowed React. React Router 7's code lives in `react-router`, not `react-router-dom`, so both are listed under `vendor-react`.

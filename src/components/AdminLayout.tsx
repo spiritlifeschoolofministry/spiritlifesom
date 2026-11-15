@@ -49,6 +49,7 @@ import {
   HandHeart,
   ScrollText,
   GraduationCap,
+  AtSign,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -144,6 +145,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "Storage", icon: HardDrive, path: "/admin/storage" },
       { label: "AI", icon: Sparkles, path: "/admin/ai" },
       { label: "WhatsApp", icon: MessageCircle, path: "/admin/whatsapp" },
+      { label: "Mailboxes", icon: AtSign, path: "/admin/mailboxes" },
       { label: "Settings", icon: Settings, path: "/admin/settings" },
       { label: "Profile", icon: UserCircle, path: "/admin/profile" },
     ],
@@ -173,6 +175,7 @@ const ADMIN_ONLY_PATHS = new Set([
   "/admin/ai",
   "/admin/audit",
   "/admin/email-history",
+  "/admin/mailboxes",
 ]);
 
 const AdminLayout = () => {

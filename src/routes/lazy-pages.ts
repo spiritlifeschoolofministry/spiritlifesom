@@ -126,6 +126,7 @@ export const AdminStorage = lazyPage(() => import("@/pages/admin/StorageManageme
 export const AdminAiSettings = lazyPage(() => import("@/pages/admin/AiSettings"));
 export const AdminWhatsAppSettings = lazyPage(() => import("@/pages/admin/WhatsAppSettings"));
 export const AdminWhatsAppLog = lazyPage(() => import("@/pages/admin/WhatsAppLog"));
+export const AdminMailboxes = lazyPage(() => import("@/pages/admin/Mailboxes"));
 export const StudentFeedback = lazyPage(() => import("@/pages/student/Feedback"));
 export const StudentDiscussions = lazyPage(() => import("@/pages/student/Discussions"));
 export const StudentServiceLog = lazyPage(() => import("@/pages/student/ServiceLog"));
@@ -183,6 +184,7 @@ const PAGE_BY_PATH: Record<string, LazyPage> = {
   "/admin/analytics": AdminAnalytics,
   "/admin/storage": AdminStorage,
   "/admin/ai": AdminAiSettings,
+  "/admin/mailboxes": AdminMailboxes,
   "/student/study": StudentStudy,
   "/student/discussions": StudentDiscussions,
   "/student/feedback": StudentFeedback,

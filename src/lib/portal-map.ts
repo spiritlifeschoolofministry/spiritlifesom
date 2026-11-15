@@ -347,6 +347,13 @@ export const ADMIN_PAGES: PortalPage[] = [
     aliases: ['whatsapp', 'alerts', 'notifications', 'group', 'reminders', 'bot', 'messages'],
   },
   {
+    path: '/admin/mailboxes',
+    label: 'Mailboxes',
+    group: 'System',
+    what: 'create, reset and delete official @spiritlifesom.org mail accounts for students and staff',
+    aliases: ['mailbox', 'email account', 'mail', 'inbox', 'address', 'webmail', 'stalwart', 'school email'],
+  },
+  {
     path: '/admin/settings',
     label: 'Settings',
     group: 'System',
