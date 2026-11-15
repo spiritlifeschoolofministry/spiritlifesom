@@ -47,23 +47,36 @@ const EmailHistory = ({ standalone = true }: { standalone?: boolean }) => {
 
   useEffect(() => { load(); }, []);
 
-  const filtered = rows.filter((r) => {
+  /**
+   * The filter predicate, able to ignore one facet.
+   *
+   * The figures below count with every filter applied except the one each
+   * figure is about: "Sent" and "Failed" skip the status facet, "Manual" skips
+   * the source facet. Otherwise choosing "failed" would show Sent: 0, which
+   * says nothing, and the tiles would stop being a usable summary of whatever
+   * slice you are looking at.
+   */
+  const matches = (r: EmailRow, skip?: "status" | "source") => {
     if (typeFilter !== "all" && r.email_type !== typeFilter) return false;
-    if (statusFilter !== "all" && r.status !== statusFilter) return false;
-    if (sourceFilter !== "all" && r.trigger_source !== sourceFilter) return false;
+    if (skip !== "status" && statusFilter !== "all" && r.status !== statusFilter) return false;
+    if (skip !== "source" && sourceFilter !== "all" && r.trigger_source !== sourceFilter) return false;
     if (search) {
       const q = search.toLowerCase();
       if (!r.recipient_email.toLowerCase().includes(q) &&
           !(r.triggered_by_email || "").toLowerCase().includes(q)) return false;
     }
     return true;
-  });
+  };
 
+  const filtered = rows.filter((r) => matches(r));
+
+  // Figures describe the slice on screen, not the whole log.
+  const statusBase = rows.filter((r) => matches(r, "status"));
   const stats = {
-    total: rows.length,
-    sent: rows.filter(r => r.status === "sent").length,
-    failed: rows.filter(r => r.status === "failed").length,
-    manual: rows.filter(r => r.trigger_source === "manual").length,
+    total: filtered.length,
+    sent: statusBase.filter((r) => r.status === "sent").length,
+    failed: statusBase.filter((r) => r.status === "failed").length,
+    manual: rows.filter((r) => matches(r, "source") && r.trigger_source === "manual").length,
   };
 
   const fmtDate = (d: string) => new Date(d).toLocaleString();

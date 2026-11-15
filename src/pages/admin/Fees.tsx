@@ -563,23 +563,62 @@ const AdminFees = () => {
   };
 
   // ===== KPI row =====
+  /**
+   * Which fee records the headline figures describe.
+   *
+   * The same cohort, fee-type and search filters the records table uses. A
+   * money figure that ignores the filter is the worst kind of wrong: it looks
+   * authoritative, and "collected" for one cohort read as the school's total
+   * is a number somebody could repeat in a meeting. `kpiScope` below names the
+   * slice on the tiles so the figures can never be read as school-wide when
+   * they are not.
+   *
+   * The filter controls live on the records tab; these figures sit above the
+   * tabs, which is exactly why the label matters.
+   */
+  const kpiRecords = useMemo(() => {
+    const q = recordsSearch.trim().toLowerCase();
+    return feeRecords.filter((f) => {
+      if (q && !f.student_name.toLowerCase().includes(q) && !f.student_email.toLowerCase().includes(q)) return false;
+      if (recordsCohort !== 'all' && f.cohort_id !== recordsCohort) return false;
+      if (recordsFee !== 'all' && f.fee_type !== recordsFee) return false;
+      return true;
+    });
+  }, [feeRecords, recordsSearch, recordsCohort, recordsFee]);
+
+  /** Receipts waiting, narrowed to the same cohort where one is chosen. */
+  const kpiPending = useMemo(
+    () => (recordsCohort === 'all'
+      ? pendingPayments
+      : pendingPayments.filter((p) => p.cohort_id === recordsCohort)),
+    [pendingPayments, recordsCohort],
+  );
+
+  const kpiScope = useMemo(() => {
+    const bits: string[] = [];
+    if (recordsCohort !== 'all') bits.push(cohorts.find((c) => c.id === recordsCohort)?.name ?? 'one cohort');
+    if (recordsFee !== 'all') bits.push(recordsFee);
+    if (recordsSearch.trim()) bits.push(`matching “${recordsSearch.trim()}”`);
+    return bits.length ? bits.join(' · ') : null;
+  }, [recordsCohort, recordsFee, recordsSearch, cohorts]);
+
   const kpis = useMemo(() => {
-    const live = feeRecords.filter((f) => !f.waived);
+    const live = kpiRecords.filter((f) => !f.waived);
     const collected = live.reduce((sum, f) => sum + Number(f.amount_paid || 0), 0);
     const expected = live.reduce((sum, f) => sum + Number(f.amount_due || 0), 0);
     const owing = live.filter((f) => outstandingOf(f) > 0);
     const owingStudents = new Set(owing.map((f) => f.student_id)).size;
     const outstanding = owing.reduce((sum, f) => sum + outstandingOf(f), 0);
-    const waived = feeRecords.filter((f) => f.waived);
+    const waived = kpiRecords.filter((f) => f.waived);
     const waivedAmount = waived.reduce((sum, f) => sum + outstandingOf(f), 0);
-    const oldest = pendingPayments.reduce<number | null>((min, p) => {
+    const oldest = kpiPending.reduce<number | null>((min, p) => {
       if (!p.created_at) return min;
       const t = new Date(p.created_at).getTime();
       return min === null || t < min ? t : min;
     }, null);
     const oldestDays = oldest === null ? null : Math.floor((Date.now() - oldest) / 86_400_000);
-    return { collected, expected, owingStudents, outstanding, waivedAmount, waivedCount: waived.length, oldestDays };
-  }, [feeRecords, pendingPayments]);
+    return { collected, expected, owingStudents, outstanding, waivedAmount, waivedCount: waived.length, oldestDays, pendingCount: kpiPending.length };
+  }, [kpiRecords, kpiPending]);
 
   // ===== Filtering for approved payments =====
   const feeNames = useMemo(() => {
@@ -670,6 +709,12 @@ const AdminFees = () => {
         }
       />
 
+      {kpiScope && (
+        <p className="-mb-2 text-[13px] text-muted-foreground">
+          Figures below cover <strong className="text-foreground">{kpiScope}</strong>, matching the
+          filters on the student fee records tab — not the whole school.
+        </p>
+      )}
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
         <KpiTile
           label="Collected"
@@ -678,8 +723,8 @@ const AdminFees = () => {
         />
         <KpiTile
           label="Receipts to verify"
-          value={pendingPayments.length}
-          tone={pendingPayments.length > 0 ? 'warn' : 'good'}
+          value={kpis.pendingCount}
+          tone={kpis.pendingCount > 0 ? 'warn' : 'good'}
           note={
             kpis.oldestDays === null
               ? 'None waiting'

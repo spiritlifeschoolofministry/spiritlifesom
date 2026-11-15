@@ -348,6 +348,19 @@ The full object schema is served at `/api/schema` — the admin console is gener
 
 **Audit.** Creating, resetting and deleting all write to `audit_logs` under `mailbox.created` / `mailbox.password_reset` / `mailbox.removed`, with the actor taken from the verified token — the edge function runs as the service role, so `auth.uid()` would find nobody.
 
+## Dashboard figures follow the filters
+
+Every headline figure describes **the rows the page is currently showing**, not the whole school. Filter a page to one cohort and the tiles above it recount for that cohort.
+
+Two rules make this work, and both are easy to undo by accident:
+
+- **A figure that switches a filter does not count through its own filter.** The student stat cards are buttons — clicking "Pending" filters the table. If they counted through the status filter, picking Pending would drive Approved and Graduates to nought and there would be no way back. So each facet's figure is computed with every *other* filter applied. The same holds for "Low attendance" on Attendance, the mailbox tiles on Mailboxes, and Sent/Failed/Manual on Email History.
+- **A narrowed figure says so.** Tiles carry the scope in their note ("in 2026/2027"), and Fees — whose figures sit above the tabs while its filters live on the records tab — states it in a line of its own. A money figure is the one that matters most: "collected" for a single cohort, read as the school's total, is a number somebody repeats in a meeting.
+
+Pages covered: **Students**, **Attendance**, **Fees**, **Mailboxes**, **Email History**. **Analytics** already refetched per cohort and **Projects** was already cohort-scoped. **Admin home** has no filters, so there is nothing for its figures to follow.
+
+Where a figure cannot be narrowed client-side it is narrowed at the query instead — Attendance scopes its two queue counts by passing the cohort's student ids, because `attendance` rows carry no cohort of their own.
+
 ## Dependency notes
 
 - **Vendor chunks use Rolldown `codeSplitting.groups`.** Vite 8 builds with Rolldown, which rejects Rollup's object-form `manualChunks`. `vite.config.ts` turns the `VENDOR_CHUNKS` table into groups under `build.rolldownOptions.output.codeSplitting`, and earlier entries get higher priority. The priorities matter: a group also takes the dependencies of the modules it captures, so without them `vendor-radix` swallowed React. React Router 7's code lives in `react-router`, not `react-router-dom`, so both are listed under `vendor-react`.

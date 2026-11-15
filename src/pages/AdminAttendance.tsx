@@ -380,26 +380,58 @@ const AdminAttendance = () => {
     }
   };
 
+  /**
+   * The two queue figures, scoped to the cohort filter like everything else.
+   *
+   * `attendance` rows carry no cohort of their own -- a student's cohort lives
+   * on the student -- so narrowing means naming the cohort's students. They are
+   * already in memory as rawStudents, so this costs a longer query rather than
+   * an extra round trip.
+   *
+   * Owned by its own effect rather than the bootstrap, so changing the cohort
+   * refreshes these two counts without re-running every other load on the page.
+   */
   const loadSummary = useCallback(async () => {
     try {
       const today = todayDateString();
-      const [pendingCountRes, todayCountRes] = await Promise.all([
-        supabase
-          .from("attendance")
-          .select("id", { count: "exact", head: true })
-          .eq("is_verified", false),
-        supabase
-          .from("attendance")
-          .select("id", { count: "exact", head: true })
-          .gte("marked_at", `${today}T00:00:00`)
-          .lt("marked_at", `${today}T23:59:59.999Z`),
-      ]);
+      const ids = statsCohortFilter === "all"
+        ? null
+        : rawStudents.filter((s) => s.cohort_id === statsCohortFilter).map((s) => s.id);
+
+      // A cohort with nobody in it has no check-ins; asking with an empty list
+      // would return every row rather than none.
+      if (ids && ids.length === 0) {
+        setTotalPending(0);
+        setTodayTurnout(0);
+        return;
+      }
+
+      let pendingQuery = supabase
+        .from("attendance")
+        .select("id", { count: "exact", head: true })
+        .eq("is_verified", false);
+      let todayQuery = supabase
+        .from("attendance")
+        .select("id", { count: "exact", head: true })
+        .gte("marked_at", `${today}T00:00:00`)
+        .lt("marked_at", `${today}T23:59:59.999Z`);
+
+      if (ids) {
+        pendingQuery = pendingQuery.in("student_id", ids);
+        todayQuery = todayQuery.in("student_id", ids);
+      }
+
+      const [pendingCountRes, todayCountRes] = await Promise.all([pendingQuery, todayQuery]);
       setTotalPending(pendingCountRes.count ?? 0);
       setTodayTurnout(todayCountRes.count ?? 0);
     } catch (err) {
       console.error("[AdminAttendance] Summary load error:", err);
     }
-  }, []);
+  }, [statsCohortFilter, rawStudents]);
+
+  useEffect(() => {
+    void loadSummary();
+  }, [loadSummary]);
 
   const loadPendingQueue = useCallback(async () => {
     try {
@@ -555,9 +587,25 @@ const AdminAttendance = () => {
     });
   }, [rawStudents, rawSessions, rawAttendance, statsFrom, statsTo]);
 
+  /**
+   * Students under the threshold, within whatever the page is showing.
+   *
+   * Counted with every stats filter applied except `belowThresholdOnly`, which
+   * is the filter this very tile switches -- counting through it would pin the
+   * figure to itself and make the tile useless as a toggle. The search and
+   * status facets are skipped too: both describe individual rows rather than a
+   * cohort, and a name search should not change how many students the school
+   * considers to be falling behind.
+   */
   const lowAttendanceCount = useMemo(
-    () => stats.filter((r) => r.total_classes > 0 && r.attendance_pct < LOW_ATTENDANCE_THRESHOLD).length,
-    [stats]
+    () =>
+      stats.filter(
+        (r) =>
+          (statsCohortFilter === "all" || r.cohort_id === statsCohortFilter) &&
+          r.total_classes > 0 &&
+          r.attendance_pct < LOW_ATTENDANCE_THRESHOLD,
+      ).length,
+    [stats, statsCohortFilter]
   );
 
   // Exports exactly what the statistics table is showing, so the CSV matches the
@@ -629,9 +677,9 @@ const AdminAttendance = () => {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    await Promise.all([loadCohorts(), loadClassTodaySetting(), loadSummary(), loadPendingQueue(), loadStudentStats()]);
+    await Promise.all([loadCohorts(), loadClassTodaySetting(), loadPendingQueue(), loadStudentStats()]);
     setLoading(false);
-  }, [loadCohorts, loadClassTodaySetting, loadSummary, loadPendingQueue, loadStudentStats]);
+  }, [loadCohorts, loadClassTodaySetting, loadPendingQueue, loadStudentStats]);
 
   useEffect(() => {
     loadAll();
@@ -856,6 +904,19 @@ const AdminAttendance = () => {
     [pending, queueCohortFilter, queueDate]
   );
 
+  /**
+   * The cohort the four figures describe, or null for the whole school.
+   *
+   * On the tiles because a turnout of 18 means one thing for the school and
+   * quite another for one cohort, and the number cannot say which by itself.
+   */
+  const kpiScope = useMemo(
+    () => (statsCohortFilter === "all"
+      ? null
+      : cohorts.find((c) => c.id === statsCohortFilter)?.name ?? "one cohort"),
+    [statsCohortFilter, cohorts],
+  );
+
   const statsFiltersActive =
     Boolean(search.trim()) || statsCohortFilter !== "all" || belowThresholdOnly ||
     statusFilter !== "all" || Boolean(statsFrom) || Boolean(statsTo);
@@ -1009,12 +1070,16 @@ const AdminAttendance = () => {
         </section>
 
         <div className="grid min-w-0 flex-[2_1_320px] grid-cols-2 gap-3">
-          <KpiTile label="Today's turnout" value={todayTurnout} note="Check-ins today" tone="good" />
-          <KpiTile label="Waiting to verify" value={totalPending} note="Self check-ins" tone="warn" />
+          <KpiTile label="Today's turnout" value={todayTurnout} note={kpiScope ? `Check-ins today · ${kpiScope}` : "Check-ins today"} tone="good" />
+          <KpiTile label="Waiting to verify" value={totalPending} note={kpiScope ? `Self check-ins · ${kpiScope}` : "Self check-ins"} tone="warn" />
           <KpiTile
             label="Low attendance"
             value={lowAttendanceCount}
-            note={belowThresholdOnly ? "Filtering the table. Click to clear" : `Students under ${LOW_ATTENDANCE_THRESHOLD}%`}
+            note={
+              belowThresholdOnly
+                ? "Filtering the table. Click to clear"
+                : `Under ${LOW_ATTENDANCE_THRESHOLD}%${kpiScope ? ` · ${kpiScope}` : ""}`
+            }
             tone="bad"
             onClick={() => setBelowThresholdOnly((v) => !v)}
             pressed={belowThresholdOnly}

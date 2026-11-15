@@ -166,45 +166,101 @@ const AdminMailboxes = () => {
     else toast.error(data?.detail ? String(data.detail).slice(0, 180) : "The mail server did not answer");
   };
 
-  const filtered = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    return people.filter((p) => {
-      if (roleFilter === "students" && p.isStaff) return false;
-      if (roleFilter === "staff" && !p.isStaff) return false;
-      // "No cohort" catches students who have not been placed yet, which is
-      // exactly the group that gets forgotten when addresses are handed out.
-      if (cohortFilter === "none" && p.cohortId !== null) return false;
-      if (cohortFilter !== "all" && cohortFilter !== "none" && p.cohortId !== cohortFilter) return false;
-      if (mailFilter === "with" && !p.mailbox) return false;
-      if (mailFilter === "without" && p.mailbox) return false;
-      if (term) {
-        const haystack = `${p.name} ${p.email} ${p.mailbox?.address ?? ""}`.toLowerCase();
-        if (!haystack.includes(term)) return false;
+  /**
+   * The filter predicate, able to ignore one or more facets.
+   *
+   * Every figure on this page describes the rows the page is actually showing,
+   * so the counts have to come from the same predicate the list does. The
+   * `skip` argument is what keeps the tiles usable as navigation: a tile that
+   * toggles a facet must not count through that facet, or picking "No mailbox
+   * yet" would drive "With a mailbox" to zero and you could never click back.
+   * This is ordinary faceted counting -- each facet's figure is computed with
+   * every *other* filter applied.
+   */
+  const matches = useCallback(
+    (p: Person, skip: Array<"role" | "cohort" | "mail" | "query"> = []) => {
+      const off = (facet: "role" | "cohort" | "mail" | "query") => skip.includes(facet);
+
+      if (!off("role")) {
+        if (roleFilter === "students" && p.isStaff) return false;
+        if (roleFilter === "staff" && !p.isStaff) return false;
+      }
+      if (!off("cohort")) {
+        // "No cohort" catches students who have not been placed yet, which is
+        // exactly the group that gets forgotten when addresses are handed out.
+        if (cohortFilter === "none" && p.cohortId !== null) return false;
+        if (cohortFilter !== "all" && cohortFilter !== "none" && p.cohortId !== cohortFilter) return false;
+      }
+      if (!off("mail")) {
+        if (mailFilter === "with" && !p.mailbox) return false;
+        if (mailFilter === "without" && p.mailbox) return false;
+      }
+      if (!off("query")) {
+        const term = query.trim().toLowerCase();
+        if (term) {
+          const haystack = `${p.name} ${p.email} ${p.mailbox?.address ?? ""}`.toLowerCase();
+          if (!haystack.includes(term)) return false;
+        }
       }
       return true;
-    });
-  }, [people, query, roleFilter, cohortFilter, mailFilter]);
+    },
+    [roleFilter, cohortFilter, mailFilter, query],
+  );
+
+  const filtered = useMemo(() => people.filter((p) => matches(p)), [people, matches]);
 
   const stats = useMemo(() => {
-    const withBox = people.filter((p) => p.mailbox).length;
+    // The mailbox facet is left out of its own three tiles, and the role and
+    // cohort facets out of the Staff tile -- staff have no cohort at all, so
+    // counting them through a cohort filter would always show nought.
+    const scope = people.filter((p) => matches(p, ["mail"]));
+    const withBox = scope.filter((p) => p.mailbox).length;
     return {
-      total: people.length,
+      total: scope.length,
       withBox,
-      without: people.length - withBox,
-      staff: people.filter((p) => p.isStaff).length,
+      without: scope.length - withBox,
+      staff: people.filter((p) => matches(p, ["role", "cohort"]) && p.isStaff).length,
     };
-  }, [people]);
+  }, [people, matches]);
+
+  /**
+   * What the figures above currently describe.
+   *
+   * A tile reading "12" means something very different for the whole school
+   * than for one cohort, and the number alone cannot say which. Naming the
+   * scope on the tile is what stops a filtered figure being read, or reported,
+   * as a school-wide one.
+   */
+  const scopeNote = useMemo(() => {
+    const bits: string[] = [];
+    if (roleFilter === "students") bits.push("students");
+    if (roleFilter === "staff") bits.push("staff");
+    if (cohortFilter === "none") bits.push("no cohort");
+    else if (cohortFilter !== "all") {
+      bits.push(cohorts.find((c) => c.id === cohortFilter)?.name ?? "one cohort");
+    }
+    if (query.trim()) bits.push(`matching “${query.trim()}”`);
+    return bits.length ? `in ${bits.join(", ")}` : null;
+  }, [roleFilter, cohortFilter, query, cohorts]);
 
   const selected = useMemo(
     () => people.find((p) => p.id === selectedId) ?? null,
     [people, selectedId],
   );
 
-  /** The Active tab's list: people who have one, keyed by the address. */
+  /**
+   * The Active tab's list.
+   *
+   * Filtered by the same bar as the Issue tab, minus the mailbox facet, which
+   * this list already is. Without that, filtering to one cohort would narrow
+   * the figures and the Issue list while leaving this tab showing every
+   * address in the school -- two answers to the same question on one page.
+   */
   const issued = useMemo(
-    () => people.filter((p) => p.mailbox).sort((a, b) =>
-      (a.mailbox!.address).localeCompare(b.mailbox!.address)),
-    [people],
+    () => people
+      .filter((p) => p.mailbox && matches(p, ["mail"]))
+      .sort((a, b) => (a.mailbox!.address).localeCompare(b.mailbox!.address)),
+    [people, matches],
   );
 
   /** Opens a person in the issue tab's card, wherever you clicked from. */
@@ -261,16 +317,16 @@ const AdminMailboxes = () => {
           clicking it should put you in front of that list. */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiTile
-          label="People" value={stats.total} note="students and staff"
+          label="People" value={stats.total} note={scopeNote ?? "students and staff"}
           onClick={() => { setTab("issue"); clearFilters(); }}
         />
         <KpiTile
-          label="With a mailbox" value={stats.withBox} tone="good" note="click to review"
+          label="With a mailbox" value={stats.withBox} tone="good" note={scopeNote ?? "click to review"}
           onClick={() => setTab("active")} pressed={tab === "active"}
         />
         <KpiTile
           label="Without one" value={stats.without} tone={stats.without ? "warn" : "neutral"}
-          note="click to list them"
+          note={scopeNote ?? "click to list them"}
           onClick={() => { setTab("issue"); setMailFilter("without"); }}
           pressed={tab === "issue" && mailFilter === "without"}
         />
@@ -305,23 +361,23 @@ const AdminMailboxes = () => {
         </Panel>
       )}
 
-      {/* --- Issue: a worklist over people ---------------------------------- */}
-      <TabsContent value="issue" className="m-0 space-y-5">
-        <Panel
-          title="People"
-          titleId="people"
-          description={
-            filtered.length === people.length
-              ? `All ${people.length}`
-              : `${filtered.length} of ${people.length}`
-          }
-          actions={
-            filtersActive ? (
-              <Button variant="ghost" size="sm" onClick={clearFilters}>Clear filters</Button>
-            ) : undefined
-          }
-        >
-          <div className="flex flex-wrap gap-2 border-b border-border px-5 py-3">
+      {/* Page-wide, not per-tab: both lists and every figure above read these,
+          so the page can only ever give one answer about who is in scope. */}
+      <Panel
+        title="Filter"
+        titleId="filters"
+        description={
+          filtered.length === people.length
+            ? `All ${people.length} people`
+            : `${filtered.length} of ${people.length} people`
+        }
+        actions={
+          filtersActive ? (
+            <Button variant="ghost" size="sm" onClick={clearFilters}>Clear filters</Button>
+          ) : undefined
+        }
+      >
+        <div className="flex flex-wrap gap-2 px-5 py-3">
             <div className="relative min-w-[200px] flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -363,6 +419,14 @@ const AdminMailboxes = () => {
             </Select>
           </div>
 
+      </Panel>
+
+      {/* --- Issue: a worklist over people ---------------------------------- */}
+      <TabsContent value="issue" className="m-0 space-y-5">
+        {/* The count and the Clear button live on the Filter panel above, which
+            owns them for both tabs; repeating them here would be two controls
+            for one piece of state. */}
+        <Panel title={`People (${filtered.length})`} titleId="people">
           {filtered.length === 0 ? (
             <p className="px-5 py-8 text-center text-sm text-muted-foreground">
               Nobody matches these filters.

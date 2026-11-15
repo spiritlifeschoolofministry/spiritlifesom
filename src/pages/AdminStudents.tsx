@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -193,38 +193,56 @@ const AdminStudents = () => {
     }
   };
 
-  const filteredStudents = useMemo(() => {
-    let filtered = [...students];
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter((s) =>
-        s.profile.first_name.toLowerCase().includes(q) ||
-        s.profile.last_name.toLowerCase().includes(q) ||
-        s.profile.email.toLowerCase().includes(q)
-      );
-    }
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((s) => getStatusForUI(s.admission_status) === statusFilter);
-    }
-    if (cohortFilter !== "all") {
-      filtered = filtered.filter((s) => s.cohort_id === cohortFilter);
-    }
-    if (languageFilter !== "all") {
-      filtered = filtered.filter((s) => {
+  /**
+   * The filter predicate, able to ignore one facet.
+   *
+   * `skip` is what lets the stat cards stay usable as navigation. They are
+   * buttons: clicking "Pending" filters the table to pending students. If the
+   * cards counted through the status filter too, picking Pending would drive
+   * Approved and Graduates to nought and there would be no way to click back.
+   * So the status cards count with every filter applied *except* status --
+   * ordinary faceted counting.
+   */
+  const matchesFilters = useCallback(
+    (s: Student, skip?: "status") => {
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const hit =
+          s.profile.first_name.toLowerCase().includes(q) ||
+          s.profile.last_name.toLowerCase().includes(q) ||
+          s.profile.email.toLowerCase().includes(q);
+        if (!hit) return false;
+      }
+      if (skip !== "status" && statusFilter !== "all") {
+        if (getStatusForUI(s.admission_status) !== statusFilter) return false;
+      }
+      if (cohortFilter !== "all" && s.cohort_id !== cohortFilter) return false;
+      if (languageFilter !== "all") {
         const lang = (s.preferred_language || "").trim().toLowerCase();
-        if (languageFilter === "__none__") return !lang;
-        return lang === languageFilter.toLowerCase();
-      });
-    }
-    if (modeFilter !== "all") {
-      filtered = filtered.filter((s) => {
+        if (languageFilter === "__none__" ? !!lang : lang !== languageFilter.toLowerCase()) return false;
+      }
+      if (modeFilter !== "all") {
         const mode = (s.learning_mode || "").trim().toLowerCase();
-        if (modeFilter === "__none__") return !mode;
-        return mode === modeFilter.toLowerCase();
-      });
-    }
-    return filtered;
-  }, [students, searchQuery, statusFilter, cohortFilter, languageFilter, modeFilter]);
+        if (modeFilter === "__none__" ? !!mode : mode !== modeFilter.toLowerCase()) return false;
+      }
+      return true;
+    },
+    [searchQuery, statusFilter, cohortFilter, languageFilter, modeFilter],
+  );
+
+  const filteredStudents = useMemo(
+    () => students.filter((s) => matchesFilters(s)),
+    [students, matchesFilters],
+  );
+
+  /**
+   * The rows the stat cards describe: everything the filters allow, bar the
+   * status facet the cards themselves switch.
+   */
+  const statBase = useMemo(
+    () => students.filter((s) => matchesFilters(s, "status")),
+    [students, matchesFilters],
+  );
 
   const loadEmailStatuses = async () => {
     try {
@@ -586,10 +604,12 @@ const AdminStudents = () => {
   };
 
   // Stats
-  const totalCount = students.length;
-  const pendingCount = students.filter((s) => getStatusForUI(s.admission_status) === "Pending").length;
-  const approvedCount = students.filter((s) => getStatusForUI(s.admission_status) === "Approved").length;
-  const graduateCount = students.filter((s) => getStatusForUI(s.admission_status) === "Graduate").length;
+  // Figures describe the rows on screen, not the whole school, so a filtered
+  // page cannot be read -- or reported -- as a school-wide total.
+  const totalCount = statBase.length;
+  const pendingCount = statBase.filter((s) => getStatusForUI(s.admission_status) === "Pending").length;
+  const approvedCount = statBase.filter((s) => getStatusForUI(s.admission_status) === "Approved").length;
+  const graduateCount = statBase.filter((s) => getStatusForUI(s.admission_status) === "Graduate").length;
 
   const statCards = [
     { label: "Total Students", value: totalCount, icon: Users, color: "text-foreground", bg: "bg-secondary" },
@@ -767,7 +787,7 @@ const AdminStudents = () => {
 
       {/* Results count */}
       <p className="text-xs text-muted-foreground">
-        Showing {filteredStudents.length} of {totalCount} students
+        Showing {filteredStudents.length} of {students.length} students
         {statusFilter !== "all" && <span> · Status: <span className="font-medium text-foreground">{statusFilter}</span></span>}
         {cohortFilter !== "all" && <span> · Cohort: <span className="font-medium text-foreground">{cohorts.find(c => c.id === cohortFilter)?.name}</span></span>}
         {languageFilter !== "all" && <span> · Language: <span className="font-medium text-foreground">{languageFilter === "__none__" ? "Not specified" : languageFilter}</span></span>}
