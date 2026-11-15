@@ -85,6 +85,10 @@ export const MailboxCard = ({
   const [notify, setNotify] = useState(true);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  /** Set when the address was previously somebody else's; holds the retry. */
+  const [reuseWarning, setReuseWarning] = useState<
+    { message: string; retry: Record<string, unknown> } | null
+  >(null);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
@@ -145,17 +149,21 @@ export const MailboxCard = ({
     // A non-2xx from an edge function arrives as an error whose body holds the
     // sentence the function wrote. Without reading it the admin gets "Edge
     // Function returned a non-2xx status code", which tells them nothing.
+    let payload: { error?: string; code?: string } | null = data ?? null;
     if (error) {
-      let message = "Something went wrong";
       try {
-        const parsed = await (error as { context?: Response }).context?.json();
-        if (parsed?.error) message = String(parsed.error);
-      } catch { /* fall through to the generic message */ }
-      toast.error(message);
+        payload = await (error as { context?: Response }).context?.json() ?? null;
+      } catch { /* leave it null and fall back to a generic message */ }
+    }
+
+    // The address was somebody else's. Not a failure -- a decision, and one the
+    // admin can only take knowing whose it was, which the message says.
+    if (payload?.code === "address_previously_used") {
+      setReuseWarning({ message: String(payload.error ?? ""), retry: body });
       return;
     }
-    if (data?.error) {
-      toast.error(String(data.error));
+    if (error || payload?.error) {
+      toast.error(String(payload?.error ?? "Something went wrong"));
       return;
     }
     onDone(data ?? {});
@@ -352,6 +360,38 @@ export const MailboxCard = ({
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={Boolean(reuseWarning)}
+        onOpenChange={(open) => !open && setReuseWarning(null)}
+        title="Give out an address someone else had?"
+        variant="destructive"
+        description={
+          <>
+            <p>{reuseWarning?.message}</p>
+            <p>
+              Mail is still sent to old addresses for years — by banks, churches, former
+              classmates and mailing lists nobody remembers signing up to. Anything that arrives
+              from now on will be read by whoever you are giving it to.
+            </p>
+            <p>Only do this if you are sure the address is genuinely free to reuse.</p>
+          </>
+        }
+        confirmLabel="Reuse the address"
+        loading={busy}
+        onConfirm={() => {
+          const retry = reuseWarning?.retry;
+          setReuseWarning(null);
+          if (retry) {
+            void run({ ...retry, allow_reuse: true }, (data) => {
+              if (data.address && data.password) {
+                setIssued({ address: data.address, password: data.password, delivery: data.delivery ?? null });
+              }
+              announce("Mailbox created", data.delivery);
+            });
+          }
+        }}
+      />
 
       <ConfirmDialog
         open={confirmReset}

@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Panel } from "@/components/redesign/admin/primitives";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { IssuedCredentials, type Issued } from "@/components/admin/IssuedCredentials";
 
 export const OffPortalMailboxForm = ({ onCreated }: { onCreated?: () => void }) => {
@@ -38,6 +39,8 @@ export const OffPortalMailboxForm = ({ onCreated }: { onCreated?: () => void }) 
   const [notify, setNotify] = useState(true);
   const [busy, setBusy] = useState(false);
   const [issued, setIssued] = useState<Issued | null>(null);
+  /** Set when the chosen address was previously somebody else's. */
+  const [reuseWarning, setReuseWarning] = useState<string | null>(null);
 
   /**
    * The address this name would get, asked of the server rather than worked out
@@ -63,33 +66,40 @@ export const OffPortalMailboxForm = ({ onCreated }: { onCreated?: () => void }) 
     return () => { cancelled = true; clearTimeout(timer); };
   }, [name, addressTouched]);
 
-  const create = async () => {
+  const create = async (allowReuse = false) => {
     setBusy(true);
-    const { data, error } = await supabase.functions.invoke("mailbox-admin", {
-      body: {
-        action: "create",
-        holder_name: name.trim(),
-        holder_email: email.trim() || null,
-        holder_phone: phone.trim() || null,
-        local_part: localPart.trim(),
-        notify,
-      },
-    });
+    const body = {
+      action: "create",
+      holder_name: name.trim(),
+      holder_email: email.trim() || null,
+      holder_phone: phone.trim() || null,
+      local_part: localPart.trim(),
+      notify,
+      ...(allowReuse ? { allow_reuse: true } : {}),
+    };
+    const { data, error } = await supabase.functions.invoke("mailbox-admin", { body });
     setBusy(false);
 
     // A non-2xx from an edge function arrives as an error whose body holds the
     // sentence the function wrote. Without reading it the admin gets "Edge
     // Function returned a non-2xx status code", which tells them nothing.
+    let payload: { error?: string; code?: string } | null = data ?? null;
     if (error) {
-      let message = "Something went wrong";
       try {
-        const parsed = await (error as { context?: Response }).context?.json();
-        if (parsed?.error) message = String(parsed.error);
-      } catch { /* fall through to the generic message */ }
-      toast.error(message);
+        payload = await (error as { context?: Response }).context?.json() ?? null;
+      } catch { /* leave it null and fall back to a generic message */ }
+    }
+
+    // Previously somebody else's address: a decision for the admin, not a
+    // failure, so it is put to them with the name of who held it.
+    if (payload?.code === "address_previously_used") {
+      setReuseWarning(String(payload.error ?? ""));
       return;
     }
-    if (data?.error) { toast.error(String(data.error)); return; }
+    if (error || payload?.error) {
+      toast.error(String(payload?.error ?? "Something went wrong"));
+      return;
+    }
 
     if (data?.address && data?.password) {
       setIssued({ address: data.address, password: data.password, delivery: data.delivery ?? null });
@@ -202,12 +212,31 @@ export const OffPortalMailboxForm = ({ onCreated }: { onCreated?: () => void }) 
         </label>
 
         <div className="flex justify-end">
-          <Button onClick={create} disabled={!canCreate}>
+          <Button onClick={() => create()} disabled={!canCreate}>
             {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <AtSign className="mr-1.5 h-4 w-4" />}
             Create mailbox
           </Button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(reuseWarning)}
+        onOpenChange={(open) => !open && setReuseWarning(null)}
+        title="Give out an address someone else had?"
+        variant="destructive"
+        description={
+          <>
+            <p>{reuseWarning}</p>
+            <p>
+              Mail is still sent to old addresses for years. Anything that arrives from now on
+              will be read by whoever you are giving it to.
+            </p>
+          </>
+        }
+        confirmLabel="Reuse the address"
+        loading={busy}
+        onConfirm={() => { setReuseWarning(null); void create(true); }}
+      />
     </Panel>
   );
 };

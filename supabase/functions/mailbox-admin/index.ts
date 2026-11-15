@@ -319,6 +319,48 @@ Deno.serve(async (req) => {
         ? Math.floor(Number(body.quota_bytes))
         : DEFAULT_QUOTA_BYTES;
 
+      /**
+       * Has this address been used before, and by whom?
+       *
+       * The database now only stops two *live* mailboxes sharing an address.
+       * Whether a deleted one may be handed out again is a judgement, and it
+       * depends entirely on who held it:
+       *
+       *   - The same person getting their own address back -- after a mistake,
+       *     a rename, or leaving and returning -- is no risk. It is their mail,
+       *     and refusing was the bug.
+       *   - A different person is the case worth stopping. Mail keeps arriving
+       *     at an old address for years, so a graduate's correspondence would
+       *     start landing in a new student's inbox. That still goes ahead only
+       *     if the admin says so, having been told whose address it was.
+       */
+      const { data: history } = await admin
+        .from("mailboxes")
+        .select("status, profile_id, holder_name, removed_at")
+        .eq("local_part", localPart);
+
+      const priorHolders = (history ?? []).filter((h: { status: string }) => h.status !== "active");
+      const sameHolder = (h: { profile_id: string | null; holder_name: string | null }) =>
+        (profileId && h.profile_id === profileId) ||
+        (holderName && (h.holder_name || "").trim().toLowerCase() === holderName.toLowerCase());
+
+      const someoneElse = priorHolders.filter((h) => !sameHolder(h));
+      if (someoneElse.length > 0 && body?.allow_reuse !== true) {
+        const previous = someoneElse[0];
+        let whose = previous.holder_name || "someone else";
+        if (previous.profile_id) {
+          const { person: prior } = await loadPerson(previous.profile_id);
+          whose = [prior?.first_name, prior?.last_name].filter(Boolean).join(" ").trim() || "someone else";
+        }
+        return json({
+          error: `${localPart}@spiritlifesom.org belonged to ${whose}` +
+            (previous.removed_at ? `, deleted on ${new Date(previous.removed_at).toLocaleDateString("en-GB")}` : "") +
+            ". Mail sent to it would now reach this person instead.",
+          code: "address_previously_used",
+          previous_holder: whose,
+        }, 409);
+      }
+
       // Reserve the address first. A unique-index violation here is the
       // concurrent case, and it is the right answer: whoever lost the race is
       // told the address is taken rather than both creating it.
@@ -345,7 +387,7 @@ Deno.serve(async (req) => {
         if (message.includes("mailboxes_holder_or_profile")) {
           return json({ error: "A mailbox needs either a portal account or a holder name." }, 400);
         }
-        if (message.includes("mailboxes_address_unique")) {
+        if (message.includes("mailboxes_address_active_unique")) {
           return json({ error: `${localPart}@spiritlifesom.org is already taken.` }, 409);
         }
         console.error("mailbox-admin: reserve failed", reserveError);
