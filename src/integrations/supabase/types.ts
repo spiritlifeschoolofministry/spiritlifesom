@@ -2235,6 +2235,8 @@ export type Database = {
           address: string
           created_at: string
           created_by: string | null
+          credentials_emailed_at: string | null
+          credentials_whatsapp_at: string | null
           domain: string
           id: string
           local_part: string
@@ -2250,6 +2252,8 @@ export type Database = {
           address?: never
           created_at?: string
           created_by?: string | null
+          credentials_emailed_at?: string | null
+          credentials_whatsapp_at?: string | null
           domain?: string
           id?: string
           local_part: string
@@ -2265,6 +2269,8 @@ export type Database = {
           address?: never
           created_at?: string
           created_by?: string | null
+          credentials_emailed_at?: string | null
+          credentials_whatsapp_at?: string | null
           domain?: string
           id?: string
           local_part?: string

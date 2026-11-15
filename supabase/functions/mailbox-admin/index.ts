@@ -36,6 +36,7 @@ import {
   setPassword,
   StalwartError,
 } from "../_shared/stalwart.ts";
+import { deliverCredentials, type Recipient } from "../_shared/mailbox-delivery.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -157,6 +158,31 @@ Deno.serve(async (req) => {
       return { person: data, failure: null as string | null };
     };
 
+    /**
+     * Who to send the new details to, and where.
+     *
+     * The WhatsApp number comes from whatsapp_target_for_profile rather than
+     * from the profile row, so a person who opted out is skipped here the same
+     * way they are skipped everywhere else. The student id is looked up only
+     * to attribute the email in the send history; staff simply have none.
+     */
+    const resolveRecipient = async (
+      person: { id: string; first_name: string | null; last_name: string | null; email: string | null },
+    ): Promise<Recipient> => {
+      const [{ data: jid }, { data: student }] = await Promise.all([
+        admin.rpc("whatsapp_target_for_profile", { p_profile_id: person.id }),
+        admin.from("students").select("id").eq("profile_id", person.id)
+          .eq("is_staff_preview", false).maybeSingle(),
+      ]);
+      return {
+        profileId: person.id,
+        name: [person.first_name, person.last_name].filter(Boolean).join(" ").trim() || "there",
+        email: person.email ?? null,
+        whatsappJid: typeof jid === "string" && jid ? jid : null,
+        studentId: student?.id ?? null,
+      };
+    };
+
     // --- suggest -----------------------------------------------------------
     // What this person's address would be, and whether it is free. Read-only,
     // and it never touches the mail server: the portal's own table is the
@@ -170,7 +196,13 @@ Deno.serve(async (req) => {
       if (!person) return json({ error: "No such person" }, 404);
 
       const base = localPartFromName(person.first_name, person.last_name);
-      if (!base) return json({ suggestion: "", taken: [], reason: "This person has no name on file." });
+      if (!base) {
+        const contact = await resolveRecipient(person);
+        return json({
+          suggestion: "", taken: [], reason: "This person has no name on file.",
+          email: contact.email, has_whatsapp: Boolean(contact.whatsappJid),
+        });
+      }
 
       // Offer the plain form first, then numbered variants, skipping anything
       // already claimed -- including by a removed mailbox, since those
@@ -183,7 +215,15 @@ Deno.serve(async (req) => {
       const taken = new Set((clashes || []).map((r: { local_part: string }) => r.local_part));
       const free = candidates.find((c) => !taken.has(c) && checkLocalPart(c).ok);
 
-      return json({ suggestion: free || "", taken: Array.from(taken) });
+      // The card names where the details would go, so an admin can see before
+      // clicking that a student has no number and will only get an email.
+      const contact = await resolveRecipient(person);
+      return json({
+        suggestion: free || "",
+        taken: Array.from(taken),
+        email: contact.email,
+        has_whatsapp: Boolean(contact.whatsappJid),
+      });
     }
 
     // --- probe -------------------------------------------------------------
@@ -258,10 +298,33 @@ Deno.serve(async (req) => {
           .update({ stalwart_account_id: accountId })
           .eq("id", reserved.id);
 
+        // Delivery is deliberately after the account exists and the row is
+        // written. A failed email must never roll back a mailbox that is
+        // really there -- the admin still has the password on screen, and the
+        // reset button can send it again.
+        const delivery = body?.notify === false
+          ? null
+          : await deliverCredentials(await resolveRecipient(person), reserved.address, password, admin);
+
+        if (delivery) {
+          await admin.from("mailboxes").update({
+            credentials_emailed_at: delivery.emailed ? new Date().toISOString() : null,
+            credentials_whatsapp_at: delivery.whatsapp ? new Date().toISOString() : null,
+          }).eq("id", reserved.id);
+        }
+
         await audit(
           admin, actor, "mailbox.created", reserved.id,
           `Created mailbox ${reserved.address} for ${fullName || "a user"}`,
-          { profile_id: profileId, address: reserved.address, quota_bytes: quotaBytes },
+          {
+            profile_id: profileId,
+            address: reserved.address,
+            quota_bytes: quotaBytes,
+            // Recorded because "was the student ever told?" is a real question
+            // later. The password itself is not here and never is.
+            emailed: delivery?.emailed ?? false,
+            whatsapp: delivery?.whatsapp ?? false,
+          },
         );
 
         // The password leaves the server exactly once, here.
@@ -271,6 +334,7 @@ Deno.serve(async (req) => {
           address: reserved.address,
           password,
           quota_bytes: quotaBytes,
+          delivery,
         });
       } catch (error) {
         // The mail server said no, so the reservation was never true. Undo it,
@@ -311,18 +375,34 @@ Deno.serve(async (req) => {
         );
       }
 
+      // A reset is the only way to re-send credentials at all, because the
+      // old password was never kept. So it delivers by default too.
+      const { person: owner } = await loadPerson(mailbox.profile_id);
+      const delivery = body?.notify === false || !owner
+        ? null
+        : await deliverCredentials(await resolveRecipient(owner), mailbox.address, password, admin);
+
       await admin
         .from("mailboxes")
-        .update({ password_reset_at: new Date().toISOString() })
+        .update({
+          password_reset_at: new Date().toISOString(),
+          ...(delivery?.emailed ? { credentials_emailed_at: new Date().toISOString() } : {}),
+          ...(delivery?.whatsapp ? { credentials_whatsapp_at: new Date().toISOString() } : {}),
+        })
         .eq("id", mailbox.id);
 
       await audit(
         admin, actor, "mailbox.password_reset", mailbox.id,
         `Reset the password for ${mailbox.address}`,
-        { profile_id: mailbox.profile_id, address: mailbox.address },
+        {
+          profile_id: mailbox.profile_id,
+          address: mailbox.address,
+          emailed: delivery?.emailed ?? false,
+          whatsapp: delivery?.whatsapp ?? false,
+        },
       );
 
-      return json({ ok: true, address: mailbox.address, password });
+      return json({ ok: true, address: mailbox.address, password, delivery });
     }
 
     // --- remove ------------------------------------------------------------

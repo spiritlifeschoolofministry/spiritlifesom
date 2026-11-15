@@ -303,6 +303,17 @@ Admins can issue, reset and delete `@spiritlifesom.org` mailboxes from the porta
 2. A 16-character password is generated, sent to Stalwart, and **shown to the admin exactly once**. It is never stored — `mailboxes` has no column for one — so a lost password means another reset, by design. The alphabet omits `0/O` and `1/l/I`, because these get read aloud.
 3. Deleting a mailbox deletes the account and all its mail on the server. The row is kept with `status = 'removed'` so the address is **never reissued** — mail still arrives at old addresses, and a graduate's inbox must not reopen under a new student.
 
+**Getting the credentials to the person**
+
+Reading a 16-character password down the phone to a hundred students was never going to happen, so the portal delivers them on **both** channels the school already uses:
+
+- **Email** to the personal address on `profiles.email`, sent through Resend from `noreply@school.spiritlifesom.org`. That domain is used because it is the one Resend has **verified** — the apex `spiritlifesom.org` is only partially verified and would be refused. It matters here more than on other mail: a message telling someone their password, arriving from `onboarding@resend.dev`, is indistinguishable from phishing.
+- **WhatsApp** through the existing gateway, resolved via `whatsapp_target_for_profile()` so the opt-out is honoured. That function is the profile-level twin of `whatsapp_target_for_student()`, and exists because staff have no student row — the student-keyed one would have silently skipped WhatsApp for exactly the people who run the school.
+
+A checkbox on the card controls it, **ticked by default**, and names where the details will go before you click. Resetting a password sends the new one the same way — and a reset is the *only* way to send credentials again, since the old password was never kept. `mailboxes.credentials_emailed_at` / `credentials_whatsapp_at` record **that** a delivery happened, never what was delivered. The send is logged to `email_send_history`, which is only safe because that table has no body column.
+
+> **The honest cost:** a password sent this way sits in an inbox and a chat history indefinitely. Both messages therefore lead with "change this password now" rather than burying it. Replacing this with a one-time set-your-own-password link would remove the cost entirely, and is the obvious next step if the school wants it.
+
 **Secrets (server-side only — never in the browser bundle)**
 
 Set these on the `mailbox-admin` edge function. The API key belongs to a Stalwart service account with the Admin role, which is the only role Stalwart 1.1 offers: it can create or delete *any* account on the server, including the school's own `admin@`.
@@ -314,6 +325,7 @@ Set these on the `mailbox-admin` edge function. The API key belongs to a Stalwar
 | `STALWART_MAIL_DOMAIN_ID` | `c` | the domain id for `spiritlifesom.org` |
 | `STALWART_API_PATH` | optional, defaults to `/jmap/` | the JMAP `apiUrl` |
 | `STALWART_API_URN` | optional, defaults to `urn:stalwart:jmap` | the management capability |
+| `MAILBOX_FROM` | optional, defaults to `Spirit Life SOM <noreply@school.spiritlifesom.org>` | sender for the credentials email |
 
 **How the Stalwart API actually works** (read off the live server, since 1.1's management API is undocumented):
 
