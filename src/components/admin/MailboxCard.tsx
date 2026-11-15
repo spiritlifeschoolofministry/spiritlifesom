@@ -121,9 +121,17 @@ export const MailboxCard = ({
     if (mailbox || loading) return;
     let cancelled = false;
     void (async () => {
-      const { data } = await supabase.functions.invoke("mailbox-admin", {
+      const { data, error } = await supabase.functions.invoke("mailbox-admin", {
         body: { action: "suggest", profile_id: profileId },
       });
+      // A missing suggestion is not worth a toast -- the admin can type the
+      // address. But it must reach the console: when the suggestion silently
+      // stopped appearing, that was the first symptom of a broken service-role
+      // key, and swallowing it hid the cause until a create failed too.
+      if (error || data?.error) {
+        console.error("Mailbox suggestion failed:", data?.error ?? error);
+        return;
+      }
       if (!cancelled && data?.suggestion) setLocalPart(data.suggestion);
     })();
     return () => { cancelled = true; };

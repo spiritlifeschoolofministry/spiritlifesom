@@ -44,9 +44,13 @@ Deno.serve(async (req) => {
     }
 
     // Use service role to delete the user
+    // SUPABASE_SERVICE_ROLE_KEY first, as everywhere else: the project's
+    // SERVICE_ROLE_KEY secret still holds a key that was rotated away, so on
+    // its own this client authenticates as nobody and every query comes back
+    // empty -- which reads as "user not found" rather than as a broken key.
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SERVICE_ROLE_KEY")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SERVICE_ROLE_KEY")!,
     );
 
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(user_id);

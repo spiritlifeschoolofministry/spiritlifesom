@@ -119,10 +119,43 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || "");
 
-    const admin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SERVICE_ROLE_KEY")!,
-    );
+    /**
+     * The service-role client.
+     *
+     * Two names, because this project carries both: `SERVICE_ROLE_KEY` is the
+     * one the older functions use, and `SUPABASE_SERVICE_ROLE_KEY` is the one
+     * the platform injects and keeps current. Preferring the platform's own
+     * means a key rotation does not quietly leave this function talking to the
+     * database with a dead key -- which fails as "row not found", not as "not
+     * authorised", and so reads as a missing person rather than a broken key.
+     */
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+      Deno.env.get("SERVICE_ROLE_KEY");
+    if (!serviceKey) {
+      console.error("mailbox-admin: no service role key in the environment");
+      return json({ error: "The portal is missing its database key. Tell whoever set up the project." }, 503);
+    }
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
+
+    /**
+     * Reads one profile, telling a failure apart from an absence.
+     *
+     * Collapsing the two is how a dead key, a network blip and a deleted
+     * person all came back as "No such person" -- which sent an admin looking
+     * for a profile that was there all along.
+     */
+    const loadPerson = async (profileId: string) => {
+      const { data, error } = await admin
+        .from("profiles")
+        .select("id, first_name, last_name, email")
+        .eq("id", profileId)
+        .maybeSingle();
+      if (error) {
+        console.error("mailbox-admin: profile lookup failed", error);
+        return { person: null, failure: `Could not read that person's record: ${error.message}` };
+      }
+      return { person: data, failure: null as string | null };
+    };
 
     // --- suggest -----------------------------------------------------------
     // What this person's address would be, and whether it is free. Read-only,
@@ -132,11 +165,8 @@ Deno.serve(async (req) => {
       const profileId = String(body?.profile_id || "");
       if (!profileId) return json({ error: "Missing profile_id" }, 400);
 
-      const { data: person } = await admin
-        .from("profiles")
-        .select("first_name, last_name, email")
-        .eq("id", profileId)
-        .single();
+      const { person, failure } = await loadPerson(profileId);
+      if (failure) return json({ error: failure }, 500);
       if (!person) return json({ error: "No such person" }, 404);
 
       const base = localPartFromName(person.first_name, person.last_name);
@@ -173,11 +203,8 @@ Deno.serve(async (req) => {
       const profileId = String(body?.profile_id || "");
       if (!profileId) return json({ error: "Missing profile_id" }, 400);
 
-      const { data: person } = await admin
-        .from("profiles")
-        .select("id, first_name, last_name, email")
-        .eq("id", profileId)
-        .single();
+      const { person, failure } = await loadPerson(profileId);
+      if (failure) return json({ error: failure }, 500);
       if (!person) return json({ error: "No such person" }, 404);
 
       const localPart = String(body?.local_part || "").trim().toLowerCase() ||
