@@ -22,7 +22,7 @@ import { format, isToday } from "date-fns";
 import { AlertTriangle, ChevronDown, Clock, Download, FileText } from "lucide-react";
 import { formatAnswer, sanitizeHtml, QUESTION_TYPE_LABELS, QuestionType, type AnswerFormattable } from "@/lib/exam-utils";
 import { downloadCSV } from "@/lib/csv-export";
-import { groupExamWindows, formatMinutes, type ExamWindow } from "@/lib/exam-windows";
+import { groupExamWindows, applyWindowOverrides, formatMinutes, type ExamWindow } from "@/lib/exam-windows";
 import { Bar, DarkPanel, EmptyCard, Pill, ScreenHeader, SectionTitle, type Tone } from "@/components/redesign/student-pages/ui";
 import { paperState, type PaperState } from "@/components/redesign/student-pages/exam-paper";
 import { cn } from "@/lib/utils";
@@ -53,7 +53,13 @@ export default function StudentExamsList() {
         // enforces, so a student is sent exactly the exams they may sit and the
         // list cannot promise a paper the runner will refuse.
         .order("start_at", { ascending: false });
-      setExams(ex ?? []);
+      // A make-up window is the student's, not the exam's. Without it a
+      // make-up paper lists as long closed with no Start button.
+      const { data: overrides } = await supabase
+        .from("exam_window_overrides")
+        .select("exam_id, start_at, end_at")
+        .eq("student_id", student.id);
+      setExams(applyWindowOverrides(ex ?? [], overrides));
       // Note that this student came looking. A student who opens this page and
       // never starts anything is otherwise indistinguishable from one who never
       // opened it — and after the September sitting that was exactly the

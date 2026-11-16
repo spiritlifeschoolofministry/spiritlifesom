@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { format, isToday } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/useAuth";
-import { groupExamWindows, type ExamWindow, type WindowExam } from "@/lib/exam-windows";
+import { groupExamWindows, applyWindowOverrides, type ExamWindow, type WindowExam } from "@/lib/exam-windows";
 
 /** How far ahead an exam window still counts as "up next". */
 export const EXAM_HORIZON_DAYS = 14;
@@ -58,7 +58,7 @@ export const useTodayPlan = (): TodayPlan => {
     let cancelled = false;
     (async () => {
       const today = format(new Date(), "yyyy-MM-dd");
-      const [{ data: exams }, { data: attempts }, { data: classes }] = await Promise.all([
+      const [{ data: rawExams }, { data: attempts }, { data: classes }, { data: overrides }] = await Promise.all([
         supabase
           .from("exams")
           .select("id, title, start_at, end_at, duration_minutes, status")
@@ -73,8 +73,12 @@ export const useTodayPlan = (): TodayPlan => {
           .order("date", { ascending: true })
           .order("start_time", { ascending: true })
           .limit(CLASS_LOOKAHEAD),
+        // The student's own make-up windows. Filtered by id because a staff
+        // preview session can read every student's overrides.
+        supabase.from("exam_window_overrides").select("exam_id, start_at, end_at").eq("student_id", student.id),
       ]);
       if (cancelled) return;
+      const exams = applyWindowOverrides(rawExams ?? [], overrides);
 
       const byExam = Object.fromEntries((attempts ?? []).map((a) => [a.exam_id, { status: a.status }]));
       const windows = groupExamWindows(exams ?? [], byExam);

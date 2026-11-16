@@ -85,3 +85,29 @@ export function formatMinutes(total: number): string {
   if (h === 0) return `${m} min`;
   return m === 0 ? `${h} h` : `${h} h ${m} min`;
 }
+
+export interface WindowOverride {
+  exam_id: string;
+  start_at: string | null;
+  end_at: string | null;
+}
+
+/**
+ * Each exam as this student sees it: their own window where one was granted.
+ *
+ * A make-up window lives in exam_window_overrides, not on the exam. Lists that
+ * grouped and labelled papers by the exam's own times showed a make-up paper as
+ * long closed, with no Start button, while exam-start would have let the
+ * student in. Null ends keep the exam's own time, as exam_window_for does.
+ */
+export function applyWindowOverrides<E extends { id: string; start_at: string; end_at: string }>(
+  exams: E[],
+  overrides: WindowOverride[] | null | undefined,
+): E[] {
+  if (!overrides?.length) return exams;
+  const byExam = new Map(overrides.map((o) => [o.exam_id, o]));
+  return exams.map((e) => {
+    const o = byExam.get(e.id);
+    return o ? { ...e, start_at: o.start_at ?? e.start_at, end_at: o.end_at ?? e.end_at } : e;
+  });
+}

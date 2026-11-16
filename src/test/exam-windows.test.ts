@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMinutes, groupExamWindows, type WindowExam } from "@/lib/exam-windows";
+import { formatMinutes, groupExamWindows, type WindowExam, applyWindowOverrides } from "@/lib/exam-windows";
 
 const exam = (id: string, start: string, end: string, duration = 45, title = id): WindowExam => ({
   id, start_at: start, end_at: end, duration_minutes: duration, title, status: "published",
@@ -46,5 +46,28 @@ describe("formatMinutes", () => {
     expect(formatMinutes(130)).toBe("2 h 10 min");
     expect(formatMinutes(45)).toBe("45 min");
     expect(formatMinutes(120)).toBe("2 h");
+  });
+});
+
+describe("applyWindowOverrides", () => {
+  const exam = { id: "e1", start_at: "2026-10-01T08:30:00Z", end_at: "2026-10-01T13:00:00Z", duration_minutes: 45 };
+
+  it("moves a make-up paper into the student's own live window", () => {
+    const [mine] = applyWindowOverrides([exam], [
+      { exam_id: "e1", start_at: "2026-11-14T17:00:00Z", end_at: "2026-11-16T20:00:00Z" },
+    ]);
+    expect(mine.start_at).toBe("2026-11-14T17:00:00Z");
+    const [w] = groupExamWindows([mine], {}, new Date("2026-11-16T10:00:00Z"));
+    expect(w.state).toBe("live");
+  });
+
+  it("keeps the exam's own end when the override leaves it null", () => {
+    const [mine] = applyWindowOverrides([exam], [{ exam_id: "e1", start_at: null, end_at: "2026-10-02T13:00:00Z" }]);
+    expect(mine.start_at).toBe(exam.start_at);
+    expect(mine.end_at).toBe("2026-10-02T13:00:00Z");
+  });
+
+  it("leaves exams without an override alone", () => {
+    expect(applyWindowOverrides([exam], [])).toEqual([exam]);
   });
 });
