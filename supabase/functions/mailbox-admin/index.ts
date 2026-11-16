@@ -241,9 +241,10 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Offer the plain form first, then numbered variants, skipping anything
-      // already claimed -- including by a removed mailbox, since those
-      // addresses are never reissued.
+      // Offer the plain form first, then numbered variants. Addresses held by
+      // a deleted mailbox are skipped too: they can be reissued, but only
+      // deliberately, so the suggestion should never steer an admin into one
+      // by accident.
       const candidates = [base, ...Array.from({ length: 8 }, (_, i) => `${base}${i + 2}`)];
       const { data: clashes } = await admin
         .from("mailboxes")

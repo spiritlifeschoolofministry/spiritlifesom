@@ -294,6 +294,25 @@ const AdminMailboxes = () => {
       .sort((a, b) => a.address.localeCompare(b.address));
   }, [offPortal, roleFilter, cohortFilter, mailFilter, query]);
 
+  /**
+   * Deleted addresses, with the name of whoever held each one.
+   *
+   * The list used to show struck-through addresses and nothing else, which
+   * raised the obvious question -- whose was that? -- and answered none of it.
+   * The name is the whole point of keeping these rows.
+   */
+  const removedRows = useMemo(() => {
+    const nameByProfile = new Map(people.map((p) => [p.id, p.name]));
+    return removed
+      .map((m) => ({
+        ...m,
+        heldBy: m.profile_id
+          ? nameByProfile.get(m.profile_id) ?? "a former account"
+          : m.holder_name ?? "someone not on the portal",
+      }))
+      .sort((a, b) => (b.removed_at ?? "").localeCompare(a.removed_at ?? ""));
+  }, [removed, people]);
+
   /** Opens a person in the issue tab's card, wherever you clicked from. */
   const openPerson = (id: string) => {
     setSelectedId(id);
@@ -574,26 +593,36 @@ const AdminMailboxes = () => {
           )}
         </Panel>
 
-        {removed.length > 0 && (
-          <Panel
-            title={`Deleted (${removed.length})`}
-            titleId="removed-mailboxes"
-            description="Kept on file so these addresses are never given to anyone else."
-          >
-            <ul className="divide-y divide-border">
-              {removed.map((row) => (
+        {removedRows.length > 0 && (
+          /* Folded away by default. This is history, not a worklist -- it was
+             sitting open under the live addresses, where a column of
+             struck-through mail addresses reads like something is wrong. */
+          <details className="rounded-[18px] border border-border bg-card">
+            <summary className="cursor-pointer px-5 py-3.5 text-[15px] font-bold text-foreground">
+              Previously used addresses ({removedRows.length})
+            </summary>
+            <p className="px-5 pb-3 text-[13px] text-muted-foreground">
+              These mailboxes were deleted, so their mail is gone and anything sent to them now
+              bounces. The addresses are free to issue again: giving one back to the same person
+              is immediate, and giving it to anyone else asks you to confirm first.
+            </p>
+            <ul className="divide-y divide-border border-t border-border">
+              {removedRows.map((row) => (
                 <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
-                  <code className="min-w-0 flex-1 truncate font-mono text-sm text-muted-foreground line-through">
-                    {row.address}
-                  </code>
-                  <span className="shrink-0 text-[13px] text-muted-foreground">
-                    {row.removed_at ? `deleted ${new Date(row.removed_at).toLocaleDateString()}` : ""}
-                  </span>
-                  <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <code className="block truncate font-mono text-sm text-muted-foreground">
+                      {row.address}
+                    </code>
+                    <span className="block truncate text-[13px] text-muted-foreground">
+                      held by {row.heldBy}
+                      {row.removed_at ? ` · deleted ${new Date(row.removed_at).toLocaleDateString()}` : ""}
+                    </span>
+                  </div>
+                  <StatusPill tone="neutral">Free to reuse</StatusPill>
                 </li>
               ))}
             </ul>
-          </Panel>
+          </details>
         )}
       </TabsContent>
     </Tabs>
