@@ -91,6 +91,20 @@ describe('setup instructions', () => {
   );
 
   it.each([['email', () => email], ['whatsapp', () => whatsapp]])(
+    'the %s says how to change the password, not just that you should',
+    (_name, get) => {
+      const text = get();
+      // Telling someone to change a password without naming the screen is not
+      // an instruction. The labels are the portal's own, so a student hunting
+      // for "Change password" is not left looking for a page of that name.
+      expect(text).toMatch(/Credentials/);
+      expect(text).toMatch(/New Password/);
+      expect(text).toMatch(/Current Password/);
+      expect(text).toContain('mail.spiritlifesom.org');
+    },
+  );
+
+  it.each([['email', () => email], ['whatsapp', () => whatsapp]])(
     'the %s offers the browser first, since it needs no setup at all',
     (_name, get) => expect(get()).toContain('webmail.spiritlifesom.org'),
   );

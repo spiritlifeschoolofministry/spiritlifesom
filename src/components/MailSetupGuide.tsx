@@ -88,6 +88,22 @@ const GUIDES: Guide[] = [
     ],
   },
   {
+    // Not a mail app, but the same shape of problem: a screen three levels into
+    // a server admin console that nobody finds by looking. Every message tells
+    // people to change the password immediately, which is only an instruction
+    // if they can reach the page.
+    id: "password",
+    app: "Change your password",
+    where: "In the browser — do this first",
+    steps: [
+      `Go to ${MAIL_HOST} and sign in with your full address and current password.`,
+      "In the menu on the left, open “Credentials”, then “Password”.",
+      "In “New Password”, type the password you want from now on.",
+      "In “Current Password”, type the one you are using at the moment.",
+      "Save. Then sign in again with the new password everywhere, including the mail app on your phone, which will ask for it.",
+    ],
+  },
+  {
     id: "thunderbird",
     app: "Thunderbird",
     where: "Windows, Mac or Linux",

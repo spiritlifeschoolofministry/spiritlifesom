@@ -117,13 +117,37 @@ const gmailSteps = (address: string): string[] => [
   "Give the account a name if it asks, then tap <strong>Next</strong>. Your school mail now appears in Gmail alongside your other accounts.",
 ];
 
+/**
+ * Changing the password, step by step.
+ *
+ * Every message tells people to change the password immediately, which is only
+ * an instruction if they can find the screen. The settings portal is a mail
+ * server's admin console, not a consumer product: the page is three levels in,
+ * under Credentials, and nothing on the front page points at it.
+ *
+ * The labels are the ones the portal actually shows -- read off its own schema
+ * -- rather than approximations, because a student hunting for "Change
+ * password" will not find a page called "Account Password".
+ *
+ * The "Current Password" field catches people out: it wants the temporary one
+ * from this very message, not the new one they are about to set.
+ */
+const passwordSteps = (address: string, host: string): string[] => [
+  `Go to <strong>${host}</strong>.`,
+  `Sign in with <strong>${address}</strong> and the temporary password above.`,
+  "In the menu on the left, open <strong>Credentials</strong>, then <strong>Password</strong>.",
+  "In <strong>New Password</strong>, type the password you want from now on.",
+  "In <strong>Current Password</strong>, type the temporary password from this message.",
+  "Save. From now on, sign in with your new password everywhere — including the mail app on your phone, which will ask for it again.",
+];
+
 export const credentialsEmail = (name: string, address: string, password: string) => {
   const safeName = escapeHtml(name.split(" ")[0] || name);
   const safeAddress = escapeHtml(address);
   const safePassword = escapeHtml(password);
-  const steps = gmailSteps(safeAddress)
-    .map((step) => `<li style="margin:0 0 9px;padding-left:4px">${step}</li>`)
-    .join("");
+  const li = (step: string) => `<li style="margin:0 0 9px;padding-left:4px">${step}</li>`;
+  const steps = gmailSteps(safeAddress).map(li).join("");
+  const passwordChange = passwordSteps(safeAddress, MAIL_HOST).map(li).join("");
   return {
     subject: "Your Spirit Life email account",
     html: `<!doctype html>
@@ -167,11 +191,13 @@ export const credentialsEmail = (name: string, address: string, password: string
       Username — your full address, ${safeAddress}
     </p>
 
-    <p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#4b5563">
-      <strong>To change your password,</strong> sign in at
-      <a href="https://${MAIL_HOST}" style="color:#4f46e5">${MAIL_HOST}</a>. That page is for
-      settings only — your messages are not shown there.
+    <h2 style="margin:0 0 6px;font-size:17px">How to change your password</h2>
+    <p style="margin:0 0 10px;font-size:14px;line-height:1.55;color:#4b5563">
+      Do this first, before anything else. It happens at
+      <a href="https://${MAIL_HOST}" style="color:#4f46e5">${MAIL_HOST}</a> — that page is for
+      settings only, and your messages are not shown there.
     </p>
+    <ol style="margin:0 0 22px;padding-left:22px;font-size:14px;line-height:1.6">${passwordChange}</ol>
     <p style="margin:0;font-size:13px;color:#6b7280">
       Stuck, or not expecting this? Tell the school office — and do not use the password above.
     </p>
@@ -227,7 +253,16 @@ export const credentialsWhatsApp = (name: string, address: string, password: str
     "   Then tap Next.",
     "9. Name the account if asked, then tap Next. Your school mail now appears in Gmail.",
     "",
-    `To change your password: sign in at https://${MAIL_HOST} — that page is for settings only and does not show your messages.`,
+    "--- TO CHANGE YOUR PASSWORD (do this first) ---",
+    "",
+    `1. Go to https://${MAIL_HOST}`,
+    `2. Sign in with ${address} and the temporary password above.`,
+    "3. In the menu on the left, open \"Credentials\", then \"Password\".",
+    "4. In \"New Password\", type the password you want from now on.",
+    "5. In \"Current Password\", type the temporary password from this message.",
+    "6. Save.",
+    "",
+    "That page is for settings only — it does not show your messages. After changing it, sign in with the new password everywhere, including the mail app on your phone, which will ask for it again.",
     "",
     "Stuck, or not expecting this? Tell the school office, and do not use the password above.",
   ].join("\n");
