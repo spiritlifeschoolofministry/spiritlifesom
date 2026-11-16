@@ -82,10 +82,48 @@ const escapeHtml = (value: string) =>
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string
   ));
 
+/**
+ * The settings every mail app eventually asks for, in one place.
+ *
+ * Written out at the point each one is needed rather than gathered in a table
+ * at the bottom, because somebody halfway through a phone setup will not
+ * scroll back to find a port number -- they will guess, and get it wrong.
+ */
+const IMAP_PORT = "993";
+const SMTP_PORT = "465";
+
+/**
+ * Adding the account to the Gmail app, step by step.
+ *
+ * Gmail is the one worth spelling out: nearly every student already has it on
+ * their phone, so for most people this is the whole answer. The steps name
+ * what is on screen ("Add another account", not "the account option") because
+ * someone following along is matching words to buttons, and they include the
+ * server screens rather than promising Gmail will fill them in -- on an
+ * "Other" account it usually does not.
+ *
+ * Android and iPhone differ only at step 5, which is called out inline rather
+ * than split into two lists nobody reads twice.
+ */
+const gmailSteps = (address: string): string[] => [
+  "Open the Gmail app.",
+  "Tap your profile picture in the top right corner.",
+  "Tap <strong>Add another account</strong>.",
+  "Tap <strong>Other</strong> at the bottom of the list.",
+  `Type <strong>${address}</strong> and tap <strong>Next</strong>. If it asks what kind of account, choose <strong>Personal (IMAP)</strong> — on an iPhone this is <strong>Other (IMAP)</strong>.`,
+  "Type your password from above and tap <strong>Next</strong>.",
+  `<strong>Incoming server settings.</strong> Username is your full address <strong>${address}</strong>. Server is <strong>${MAIL_HOST}</strong>. Port <strong>${IMAP_PORT}</strong>, security <strong>SSL/TLS</strong>. Tap <strong>Next</strong>.`,
+  `<strong>Outgoing server settings.</strong> Turn <strong>Require sign-in</strong> on. Username is again <strong>${address}</strong>. Server is <strong>${MAIL_HOST}</strong>. Port <strong>${SMTP_PORT}</strong>, security <strong>SSL/TLS</strong>. Tap <strong>Next</strong>.`,
+  "Give the account a name if it asks, then tap <strong>Next</strong>. Your school mail now appears in Gmail alongside your other accounts.",
+];
+
 export const credentialsEmail = (name: string, address: string, password: string) => {
   const safeName = escapeHtml(name.split(" ")[0] || name);
   const safeAddress = escapeHtml(address);
   const safePassword = escapeHtml(password);
+  const steps = gmailSteps(safeAddress)
+    .map((step) => `<li style="margin:0 0 9px;padding-left:4px">${step}</li>`)
+    .join("");
   return {
     subject: "Your Spirit Life email account",
     html: `<!doctype html>
@@ -104,37 +142,55 @@ export const credentialsEmail = (name: string, address: string, password: string
         <strong>Temporary password</strong><br><code style="font-size:15px">${safePassword}</code>
       </td></tr>
     </table>
-    <p style="margin:0 0 16px;padding:12px 14px;background:#fff7ed;border-left:4px solid #f59e0b;font-size:14px;line-height:1.55">
+    <p style="margin:0 0 22px;padding:12px 14px;background:#fff7ed;border-left:4px solid #f59e0b;font-size:14px;line-height:1.55">
       <strong>Change this password now.</strong> It was generated for you and has been sent by
       email and WhatsApp, so treat it as temporary. Sign in and set your own password straight away.
     </p>
-    <p style="margin:0 0 16px;font-size:15px;line-height:1.55">
-      <strong>To read your mail,</strong> go to
-      <a href="https://${WEBMAIL_HOST}" style="color:#4f46e5">${WEBMAIL_HOST}</a> and sign in with
-      the address and password above. Nothing to install.
+
+    <h2 style="margin:0 0 6px;font-size:17px">Option 1 — read it in your browser</h2>
+    <p style="margin:0 0 22px;font-size:15px;line-height:1.55">
+      Go to <a href="https://${WEBMAIL_HOST}" style="color:#4f46e5">${WEBMAIL_HOST}</a> and sign in
+      with the address and password above. Nothing to install.
     </p>
-    <p style="margin:0 0 16px;font-size:15px;line-height:1.55">
-      You can also add the account to the mail app on your phone — Gmail, Outlook and Apple Mail all
-      work, and most find the settings on their own once you type the address.
+
+    <h2 style="margin:0 0 6px;font-size:17px">Option 2 — add it to the Gmail app on your phone</h2>
+    <p style="margin:0 0 10px;font-size:14px;line-height:1.55;color:#4b5563">
+      Your school mail then arrives in Gmail with your other mail. Follow these in order.
     </p>
-    <p style="margin:0 0 20px;font-size:15px;line-height:1.55">
+    <ol style="margin:0 0 22px;padding-left:22px;font-size:14px;line-height:1.6">${steps}</ol>
+
+    <h2 style="margin:0 0 6px;font-size:17px">Using a different app?</h2>
+    <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#4b5563">
+      Outlook, Apple Mail and Thunderbird all work. Choose <strong>IMAP</strong>, and use:<br>
+      Incoming — ${MAIL_HOST}, port ${IMAP_PORT}, SSL/TLS<br>
+      Outgoing — ${MAIL_HOST}, port ${SMTP_PORT}, SSL/TLS<br>
+      Username — your full address, ${safeAddress}
+    </p>
+
+    <p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#4b5563">
       <strong>To change your password,</strong> sign in at
       <a href="https://${MAIL_HOST}" style="color:#4f46e5">${MAIL_HOST}</a>. That page is for
       settings only — your messages are not shown there.
     </p>
-    <p style="margin:0 0 6px;font-size:13px;color:#6b7280"><strong>If your mail app asks:</strong></p>
-    <p style="margin:0 0 20px;font-size:13px;color:#6b7280;line-height:1.6">
-      IMAP — ${MAIL_HOST}, port 993, SSL<br>
-      SMTP — ${MAIL_HOST}, port 465 (SSL) or 587 (STARTTLS)
-    </p>
     <p style="margin:0;font-size:13px;color:#6b7280">
-      If you were not expecting this, tell the school office — do not use the password above.
+      Stuck, or not expecting this? Tell the school office — and do not use the password above.
     </p>
   </div>
 </body></html>`,
   };
 };
 
+/**
+ * The same thing for WhatsApp.
+ *
+ * Plain text, no markup, and the Gmail steps numbered one per line: a wall of
+ * prose in a chat window does not get read, and these are steps somebody
+ * follows with the phone in their hand while switching between two apps.
+ *
+ * It repeats the address on the server lines rather than saying "as above",
+ * because by the time they reach step 7 the address has scrolled off a phone
+ * screen.
+ */
 export const credentialsWhatsApp = (name: string, address: string, password: string) =>
   [
     `Hello ${name.split(" ")[0] || name},`,
@@ -144,13 +200,36 @@ export const credentialsWhatsApp = (name: string, address: string, password: str
     `Address: ${address}`,
     `Temporary password: ${password}`,
     "",
-    `To read your mail: go to https://${WEBMAIL_HOST} and sign in with the address and password above. Nothing to install.`,
+    "Please change this password as soon as you sign in — it was sent by email and WhatsApp, so it should not stay as it is.",
     "",
-    `You can also add the account to the mail app on your phone (Gmail, Outlook, Apple Mail all work).`,
+    "--- TO READ YOUR MAIL ---",
     "",
-    `To change your password: sign in at https://${MAIL_HOST} — that page is for settings only, it does not show your messages. Please change this password straight away, as it was sent by email and WhatsApp.`,
+    `EASIEST: go to https://${WEBMAIL_HOST} and sign in with the address and password above. Nothing to install.`,
     "",
-    "If you were not expecting this, tell the school office and do not use the password above.",
+    "OR ADD IT TO THE GMAIL APP:",
+    "",
+    "1. Open the Gmail app.",
+    "2. Tap your profile picture, top right.",
+    "3. Tap \"Add another account\".",
+    "4. Tap \"Other\" at the bottom.",
+    `5. Type ${address} and tap Next. If it asks the account type, choose "Personal (IMAP)" — on iPhone it says "Other (IMAP)".`,
+    "6. Type the password above and tap Next.",
+    "7. Incoming server settings:",
+    `   Username: ${address}`,
+    `   Server: ${MAIL_HOST}`,
+    `   Port: ${IMAP_PORT}, Security: SSL/TLS`,
+    "   Then tap Next.",
+    "8. Outgoing server settings:",
+    "   Turn ON \"Require sign-in\"",
+    `   Username: ${address}`,
+    `   Server: ${MAIL_HOST}`,
+    `   Port: ${SMTP_PORT}, Security: SSL/TLS`,
+    "   Then tap Next.",
+    "9. Name the account if asked, then tap Next. Your school mail now appears in Gmail.",
+    "",
+    `To change your password: sign in at https://${MAIL_HOST} — that page is for settings only and does not show your messages.`,
+    "",
+    "Stuck, or not expecting this? Tell the school office, and do not use the password above.",
   ].join("\n");
 
 /**

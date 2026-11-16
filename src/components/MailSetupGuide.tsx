@@ -48,13 +48,19 @@ const GUIDES: Guide[] = [
     id: "gmail",
     app: "Gmail",
     where: "Android or iPhone",
+    // Spelled out to the last port number rather than promising Gmail will
+    // work it out: on an "Other" account it asks for both server screens, and
+    // someone stuck on one of them cannot be talked through it over the phone.
     steps: [
-      "Open the Gmail app and tap your profile picture, top right.",
-      "Tap “Add another account”, then choose “Other”.",
-      "Type your full school address and tap “Next”.",
-      "Choose “Personal (IMAP)” if it asks what kind of account this is.",
-      "Enter your password and tap “Next”. Gmail fills in the server settings itself.",
-      "If it asks for a server, type mail.spiritlifesom.org for both incoming and outgoing.",
+      "Open the Gmail app.",
+      "Tap your profile picture in the top right corner.",
+      "Tap “Add another account”.",
+      "Tap “Other” at the bottom of the list.",
+      "Type your full school address and tap “Next”. If it asks what kind of account, choose “Personal (IMAP)” — on an iPhone this is “Other (IMAP)”.",
+      "Type your password and tap “Next”.",
+      "Incoming server settings — Username: your full address. Server: mail.spiritlifesom.org. Port: 993. Security: SSL/TLS. Tap “Next”.",
+      "Outgoing server settings — turn “Require sign-in” on. Username: your full address. Server: mail.spiritlifesom.org. Port: 465. Security: SSL/TLS. Tap “Next”.",
+      "Name the account if it asks, then tap “Next”. Your school mail now appears in Gmail alongside your other accounts.",
     ],
   },
   {
@@ -96,7 +102,7 @@ const GUIDES: Guide[] = [
 
 const SETTINGS = [
   { label: "Incoming (IMAP)", value: `${MAIL_HOST}, port 993, SSL/TLS` },
-  { label: "Outgoing (SMTP)", value: `${MAIL_HOST}, port 465 (SSL) or 587 (STARTTLS)` },
+  { label: "Outgoing (SMTP)", value: `${MAIL_HOST}, port 465, SSL/TLS` },
   { label: "User name", value: "your full email address" },
 ];
 

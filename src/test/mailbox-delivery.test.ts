@@ -55,6 +55,47 @@ describe('credentialsEmail', () => {
   });
 });
 
+/**
+ * The setup steps are the difference between an address somebody uses and one
+ * that sits unopened, so they are asserted rather than trusted. The server
+ * values especially: a wrong port is a support call the school cannot debug
+ * over the phone, and nothing else in the system would catch it.
+ */
+describe('setup instructions', () => {
+  const email = credentialsEmail('Olaopa Michael', ADDRESS, PASSWORD).html;
+  const whatsapp = credentialsWhatsApp('Olaopa Michael', ADDRESS, PASSWORD);
+
+  it.each([['email', () => email], ['whatsapp', () => whatsapp]])(
+    'the %s walks through the Gmail app',
+    (_name, get) => {
+      const text = get();
+      expect(text).toMatch(/Add another account/i);
+      expect(text).toMatch(/Other/);
+      expect(text).toMatch(/IMAP/);
+      expect(text).toMatch(/Require sign-in/i);
+    },
+  );
+
+  it.each([['email', () => email], ['whatsapp', () => whatsapp]])(
+    'the %s carries the server settings a phone actually asks for',
+    (_name, get) => {
+      const text = get();
+      expect(text).toContain('mail.spiritlifesom.org');
+      expect(text).toContain('993');   // IMAP, implicit TLS -- 143 is refused
+      expect(text).toContain('465');   // SMTP over SSL
+      expect(text).toMatch(/SSL\/TLS/);
+      // The username is the full address, and getting this wrong is the most
+      // common failure: people type the part before the @.
+      expect(text.split(ADDRESS).length - 1).toBeGreaterThanOrEqual(3);
+    },
+  );
+
+  it.each([['email', () => email], ['whatsapp', () => whatsapp]])(
+    'the %s offers the browser first, since it needs no setup at all',
+    (_name, get) => expect(get()).toContain('webmail.spiritlifesom.org'),
+  );
+});
+
 describe('credentialsWhatsApp', () => {
   it('carries the address and password, and is plain text', () => {
     const text = credentialsWhatsApp('Olaopa Michael', ADDRESS, PASSWORD);
