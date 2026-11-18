@@ -61,6 +61,7 @@ import {
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { MoveCohortDialog } from "@/components/admin/MoveCohortDialog";
+import { StaffList } from "@/components/admin/StaffList";
 
 interface Student {
   id: string;
@@ -130,6 +131,8 @@ const AdminStudents = () => {
   const [cohortFilter, setCohortFilter] = useState("all");
   const [languageFilter, setLanguageFilter] = useState("all");
   const [modeFilter, setModeFilter] = useState("all");
+  // Staff have no student row, so they are a separate list, not a facet.
+  const [peopleFilter, setPeopleFilter] = useState<"students" | "staff">("students");
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -230,6 +233,11 @@ const AdminStudents = () => {
       return true;
     },
     [searchQuery, statusFilter, cohortFilter, languageFilter, modeFilter],
+  );
+
+  const studentIdByProfile = useMemo(
+    () => new Map(students.filter((s) => s.profile_id).map((s) => [s.profile_id as string, s.id])),
+    [students],
   );
 
   const filteredStudents = useMemo(
@@ -672,7 +680,7 @@ const AdminStudents = () => {
       </div>
 
       {/* Bulk Action Bar */}
-      {selectedIds.size > 0 && (
+      {peopleFilter === "students" && selectedIds.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl bg-primary/5 border border-primary/20">
           <span className="text-sm font-medium text-foreground mr-1">
             {selectedIds.size} selected
@@ -720,6 +728,19 @@ const AdminStudents = () => {
             className="pl-9"
           />
         </div>
+        <Select
+          value={peopleFilter}
+          onValueChange={(v) => { setPeopleFilter(v as "students" | "staff"); setSelectedIds(new Set()); }}
+        >
+          <SelectTrigger className="w-full sm:w-36">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="students">Students</SelectItem>
+            <SelectItem value="staff">Staff</SelectItem>
+          </SelectContent>
+        </Select>
+        {peopleFilter === "students" && (<>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-full sm:w-44">
             <SelectValue placeholder="Filter by status" />
@@ -785,8 +806,12 @@ const AdminStudents = () => {
             )}
           </SelectContent>
         </Select>
+        </>)}
       </div>
 
+      {peopleFilter === "staff" ? (
+        <StaffList searchQuery={searchQuery} studentIdByProfile={studentIdByProfile} />
+      ) : (<>
       {/* Results count */}
       <p className="text-xs text-muted-foreground">
         Showing {filteredStudents.length} of {students.length} students
@@ -1036,6 +1061,8 @@ const AdminStudents = () => {
           </>
         )}
       </div>
+
+      </>)}
 
       {/* Bulk Graduate Dialog */}
       <Dialog open={showBulkGraduateDialog} onOpenChange={setShowBulkGraduateDialog}>
