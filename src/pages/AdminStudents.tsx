@@ -207,10 +207,12 @@ const AdminStudents = () => {
     (s: Student, skip?: "status") => {
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
-        const hit =
-          s.profile.first_name.toLowerCase().includes(q) ||
-          s.profile.last_name.toLowerCase().includes(q) ||
-          s.profile.email.toLowerCase().includes(q);
+        // Any of these can be null (an unfinished profile, a staff row), and one
+        // null here used to throw and take the whole page down mid-typing.
+        const p = s.profile;
+        const hit = [p?.first_name, p?.last_name, p?.email].some((v) =>
+          (v ?? "").toLowerCase().includes(q),
+        );
         if (!hit) return false;
       }
       if (skip !== "status" && statusFilter !== "all") {
