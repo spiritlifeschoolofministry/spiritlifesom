@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
             "Authorization": `Bearer ${RESEND_API_KEY}`,
           },
           body: JSON.stringify({
-            from: "Spirit Life SOM <onboarding@resend.dev>",
+            from: "Spirit Life SOM <noreply@spiritlifesom.org>",
             to: recipient.email,
             subject: fill(subject, recipient),
             html: `

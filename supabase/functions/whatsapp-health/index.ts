@@ -135,7 +135,7 @@ async function alert(verdict: Verdict, status: GatewayStatus | null): Promise<vo
       Authorization: `Bearer ${RESEND_API_KEY}`,
     },
     body: JSON.stringify({
-      from: "Spirit Life SOM <onboarding@resend.dev>",
+      from: "Spirit Life SOM <noreply@spiritlifesom.org>",
       to,
       subject,
       html: `

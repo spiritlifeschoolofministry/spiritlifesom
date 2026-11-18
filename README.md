@@ -171,6 +171,7 @@ Built to the boards on the "SLSOM Redesign" canvas; the home page follows Option
 - **Session progress on My Courses**: courses still running show "held / planned sessions" from the schedule.
 - **Courses shared between cohorts** (`supabase/migrations/20261122090000_course_offerings.sql`): a course lives in its home cohort (`courses.cohort_id`) and can be shared into others via `course_cohorts` (Admin › Teaching › Courses › Share). Each share can be **tailored** per cohort — its own lecturer, semester, start date and completed flag; a blank field inherits from the course. The view `course_offerings` is the one answer to "which courses does this cohort see" (home + shared, overrides applied, `is_shared` flag), and every student page (My Courses, dashboard counts, transcript, discussions, course feedback) reads it, so shared courses actually appear to students. Unsharing is guarded: a delete on `course_cohorts` is refused while the cohort still has materials, exams, scheduled classes or assignments for that course, and a course's home-cohort row can't be removed at all (change the course's cohort instead). A trigger keeps the home row present, and `course_cohorts` is readable by signed-in users only (the anonymous role's read was revoked).
 - **Contact subject**: the Contact form has an optional Subject field. `send-contact-email` accepts it (one line, at most 120 characters), puts it in the email subject, and now HTML-escapes every visitor field.
+- **Email sender**: every email the app sends through Resend (contact form, student emails, resends, WhatsApp health alerts, mailbox credentials) comes from `Spirit Life SOM <noreply@spiritlifesom.org>`. The domain is verified in Resend for sending; its "partially verified" label refers only to the optional tracking records. Never go back to `onboarding@resend.dev` — Resend only delivers that test sender to the account owner, so students would silently receive nothing.
 - **Phone fixes**: the WhatsApp button sits above the pinned step footer on `/register` and `/complete-profile`. Switches have an invisible 48 × 44 px tap area.
 
 ## Portal navigation
@@ -322,7 +323,7 @@ Their contact details live on the mailbox row (`holder_name`, `holder_email`, `h
 
 Reading a 16-character password down the phone to a hundred students was never going to happen, so the portal delivers them on **both** channels the school already uses:
 
-- **Email** to the personal address on `profiles.email`, sent through Resend from `noreply@school.spiritlifesom.org`. That domain is used because it is the one Resend has **verified** — the apex `spiritlifesom.org` is only partially verified and would be refused. It matters here more than on other mail: a message telling someone their password, arriving from `onboarding@resend.dev`, is indistinguishable from phishing.
+- **Email** to the personal address on `profiles.email`, sent through Resend from `noreply@spiritlifesom.org`, which is verified for sending (Resend's "partially verified" label refers only to the optional tracking records). It matters here more than on other mail: a message telling someone their password, arriving from `onboarding@resend.dev`, is indistinguishable from phishing.
 - **WhatsApp** through the existing gateway, resolved via `whatsapp_target_for_profile()` so the opt-out is honoured. That function is the profile-level twin of `whatsapp_target_for_student()`, and exists because staff have no student row — the student-keyed one would have silently skipped WhatsApp for exactly the people who run the school.
 
 A checkbox on the card controls it, **ticked by default**, and names where the details will go before you click. Resetting a password sends the new one the same way — and a reset is the *only* way to send credentials again, since the old password was never kept. `mailboxes.credentials_emailed_at` / `credentials_whatsapp_at` record **that** a delivery happened, never what was delivered. The send is logged to `email_send_history`, which is only safe because that table has no body column.
@@ -340,7 +341,7 @@ Set these on the `mailbox-admin` edge function. The API key belongs to a Stalwar
 | `STALWART_MAIL_DOMAIN_ID` | `c` | the domain id for `spiritlifesom.org` |
 | `STALWART_API_PATH` | optional, defaults to `/jmap/` | the JMAP `apiUrl` |
 | `STALWART_API_URN` | optional, defaults to `urn:stalwart:jmap` | the management capability |
-| `MAILBOX_FROM` | optional, defaults to `Spirit Life SOM <noreply@school.spiritlifesom.org>` | sender for the credentials email |
+| `MAILBOX_FROM` | optional, defaults to `Spirit Life SOM <noreply@spiritlifesom.org>` | sender for the credentials email |
 
 **How the Stalwart API actually works** (read off the live server, since 1.1's management API is undocumented):
 

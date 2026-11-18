@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
         'Authorization': `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: 'Spirit Life SOM <onboarding@resend.dev>',
+        from: 'Spirit Life SOM <noreply@spiritlifesom.org>',
         to: 'spiritlifeschoolofministry@gmail.com',
         subject: topic ? `Contact Form: ${topic} (${String(name).slice(0, 60)})` : `Contact Form: ${String(name).slice(0, 60)}`,
         reply_to: email,

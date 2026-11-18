@@ -69,13 +69,13 @@ const WEBMAIL_HOST = "webmail.spiritlifesom.org";
 /**
  * The sender.
  *
- * `school.spiritlifesom.org` is the domain Resend has verified; the apex is
- * only partially verified, so sending from it would be refused. It matters
- * more here than on other mail the school sends: a message telling somebody
+ * `spiritlifesom.org` is verified in Resend for sending. (Resend shows it as
+ * "partially verified" only because click/open tracking records are not set
+ * up; that does not affect sending.) It matters more here than on other mail the school sends: a message telling somebody
  * their password, arriving from `onboarding@resend.dev`, is indistinguishable
  * from a phishing attempt and teaches exactly the wrong reflex.
  */
-const DEFAULT_FROM = "Spirit Life SOM <noreply@school.spiritlifesom.org>";
+const DEFAULT_FROM = "Spirit Life SOM <noreply@spiritlifesom.org>";
 
 const escapeHtml = (value: string) =>
   value.replace(/[&<>"']/g, (c) => (
