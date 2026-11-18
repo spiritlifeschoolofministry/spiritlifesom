@@ -5,7 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users } from "lucide-react";
+import { MessageCircle, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type { WhatsAppRecipient } from "@/components/admin/WhatsAppSendDialog";
 
 interface StaffProfile {
   id: string;
@@ -20,6 +22,7 @@ interface Props {
   searchQuery: string;
   /** profile id -> student id, for staff who are also enrolled. */
   studentIdByProfile: Map<string, string>;
+  onWhatsApp: (recipient: WhatsAppRecipient) => void;
 }
 
 /**
@@ -29,9 +32,10 @@ interface Props {
  * move) has nothing to say about them. This is a plain read-only list of every
  * profile whose role is not "student" -- the same definition of staff the
  * Mailboxes page uses. Someone who is also enrolled links to their student
- * record; changing a role stays where it already lives.
+ * record; changing a role stays where it already lives. The one action here is
+ * WhatsApp, because staff have nowhere else in the portal to be messaged from.
  */
-export const StaffList = ({ searchQuery, studentIdByProfile }: Props) => {
+export const StaffList = ({ searchQuery, studentIdByProfile, onWhatsApp }: Props) => {
   const navigate = useNavigate();
   const [staff, setStaff] = useState<StaffProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,6 +115,16 @@ export const StaffList = ({ searchQuery, studentIdByProfile }: Props) => {
                 {studentId && (
                   <Badge variant="secondary" className="shrink-0 hidden sm:inline-flex">Also a student</Badge>
                 )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  title="Send WhatsApp"
+                  aria-label={`Send WhatsApp to ${name}`}
+                  onClick={(e) => { e.stopPropagation(); onWhatsApp({ profileId: p.id, name }); }}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                </Button>
               </CardContent>
             </Card>
           );

@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Search, MoreHorizontal, GraduationCap, Loader2, Trash2,
-  AlertTriangle, Mail, Send, Users, UserCheck, Clock, XCircle, Eye, ChevronRight, Download,
+  AlertTriangle, Mail, MessageCircle, Send, Users, UserCheck, Clock, XCircle, Eye, ChevronRight, Download,
   ShieldCheck, ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -62,6 +62,7 @@ import {
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { MoveCohortDialog } from "@/components/admin/MoveCohortDialog";
 import { StaffList } from "@/components/admin/StaffList";
+import { WhatsAppSendDialog, type WhatsAppRecipient } from "@/components/admin/WhatsAppSendDialog";
 
 interface Student {
   id: string;
@@ -132,6 +133,7 @@ const AdminStudents = () => {
   const [languageFilter, setLanguageFilter] = useState("all");
   const [modeFilter, setModeFilter] = useState("all");
   // Staff have no student row, so they are a separate list, not a facet.
+  const [waTargets, setWaTargets] = useState<WhatsAppRecipient[]>([]);
   const [peopleFilter, setPeopleFilter] = useState<"students" | "staff">("students");
   const [cohorts, setCohorts] = useState<CohortOption[]>([]);
 
@@ -239,6 +241,13 @@ const AdminStudents = () => {
     () => new Map(students.filter((s) => s.profile_id).map((s) => [s.profile_id as string, s.id])),
     [students],
   );
+
+  const toWaRecipient = (s: Student): WhatsAppRecipient | null =>
+    s.profile_id
+      ? { profileId: s.profile_id, name: `${s.profile?.first_name ?? ""} ${s.profile?.last_name ?? ""}`.trim() || "(no name)" }
+      : null;
+  const openWhatsApp = (list: Student[]) =>
+    setWaTargets(list.map(toWaRecipient).filter((r): r is WhatsAppRecipient => !!r));
 
   const filteredStudents = useMemo(
     () => students.filter((s) => matchesFilters(s)),
@@ -689,6 +698,14 @@ const AdminStudents = () => {
             <Mail className="h-3.5 w-3.5" /> Email
           </Button>
           <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openWhatsApp(students.filter((s) => selectedIds.has(s.id)))}
+            className="gap-1.5 text-xs h-8"
+          >
+            <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+          </Button>
+          <Button
             size="sm"
             className="gap-1.5 text-xs h-8 bg-emerald-600 hover:bg-emerald-700 text-primary-foreground"
             onClick={() => setConfirmAction({ type: "bulkApprove" })}
@@ -810,7 +827,11 @@ const AdminStudents = () => {
       </div>
 
       {peopleFilter === "staff" ? (
-        <StaffList searchQuery={searchQuery} studentIdByProfile={studentIdByProfile} />
+        <StaffList
+          searchQuery={searchQuery}
+          studentIdByProfile={studentIdByProfile}
+          onWhatsApp={(r) => setWaTargets([r])}
+        />
       ) : (<>
       {/* Results count */}
       <p className="text-xs text-muted-foreground">
@@ -924,6 +945,9 @@ const AdminStudents = () => {
                             <DropdownMenuItem onClick={() => openEmailForStudent(student)}>
                               <Mail className="mr-2 h-4 w-4" /> Send Email
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openWhatsApp([student])}>
+                              <MessageCircle className="mr-2 h-4 w-4" /> Send WhatsApp
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {student.profile.role?.toLowerCase() === "teacher" ? (
                               <DropdownMenuItem onClick={() => handleRoleChange(student, "student")}>
@@ -1028,6 +1052,9 @@ const AdminStudents = () => {
                           <DropdownMenuItem onClick={() => openEmailForStudent(student)}>
                             <Mail className="mr-2 h-4 w-4" /> Send Email
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openWhatsApp([student])}>
+                            <MessageCircle className="mr-2 h-4 w-4" /> Send WhatsApp
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           {student.profile.role?.toLowerCase() === "teacher" ? (
                             <DropdownMenuItem onClick={() => handleRoleChange(student, "student")}>
@@ -1063,6 +1090,12 @@ const AdminStudents = () => {
       </div>
 
       </>)}
+
+      <WhatsAppSendDialog
+        recipients={waTargets}
+        open={waTargets.length > 0}
+        onOpenChange={(o) => { if (!o) setWaTargets([]); }}
+      />
 
       {/* Bulk Graduate Dialog */}
       <Dialog open={showBulkGraduateDialog} onOpenChange={setShowBulkGraduateDialog}>
