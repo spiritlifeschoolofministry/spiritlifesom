@@ -39,6 +39,9 @@ import { MailboxCard } from "@/components/admin/MailboxCard";
 import { OffPortalMailboxForm } from "@/components/admin/OffPortalMailboxForm";
 import type { Tables } from "@/integrations/supabase/types";
 
+import { LinkMailboxDialog } from "@/components/admin/LinkMailboxDialog";
+import { isLikelyMatch, type LinkCandidate } from "@/lib/mailbox-match";
+
 type Mailbox = Tables<"mailboxes">;
 
 /** One row of the list: a person, plus the mailbox they do or do not have. */
@@ -48,6 +51,7 @@ interface Person {
   lastName: string | null;
   name: string;
   email: string;
+  phone: string | null;
   role: string;
   /** Null for staff, and for a student not yet placed in a cohort. */
   cohortId: string | null;
@@ -89,10 +93,11 @@ const AdminMailboxes = () => {
   const [mailFilter, setMailFilter] = useState<MailFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<MailboxTab>("issue");
+  const [linking, setLinking] = useState<Mailbox | null>(null);
 
   const load = useCallback(async () => {
     const [profilesRes, studentsRes, mailboxesRes, cohortsRes] = await Promise.all([
-      supabase.from("profiles").select("id, first_name, last_name, email, role"),
+      supabase.from("profiles").select("id, first_name, last_name, email, phone, role"),
       // is_staff_preview rows are the admins' own dummy student records. Letting
       // one through would file an administrator under a cohort.
       supabase.from("students").select("profile_id, cohort_id, is_staff_preview, cohort:cohorts(name)")
@@ -132,6 +137,7 @@ const AdminMailboxes = () => {
         lastName: p.last_name,
         name: nameOf(p.first_name, p.last_name),
         email: p.email,
+        phone: p.phone ?? null,
         role: p.role || "unknown",
         cohortId: student?.cohortId ?? null,
         cohortName: student?.cohortName ?? null,
@@ -313,6 +319,14 @@ const AdminMailboxes = () => {
       .sort((a, b) => (b.removed_at ?? "").localeCompare(a.removed_at ?? ""));
   }, [removed, people]);
 
+  /** Portal accounts that could take an off-portal mailbox: anyone without one. */
+  const linkCandidates = useMemo<LinkCandidate[]>(
+    () => people
+      .filter((p) => !p.mailbox)
+      .map((p) => ({ id: p.id, name: p.name, email: p.email, phone: p.phone, role: p.role })),
+    [people],
+  );
+
   /** Opens a person in the issue tab's card, wherever you clicked from. */
   const openPerson = (id: string) => {
     setSelectedId(id);
@@ -331,6 +345,7 @@ const AdminMailboxes = () => {
   if (loading) return <PageSkeleton />;
 
   return (
+    <>
     <Tabs value={tab} onValueChange={(v) => setTab(v as MailboxTab)} className="space-y-5">
       <AdminPageHeader
         section="System"
@@ -584,8 +599,15 @@ const AdminMailboxes = () => {
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
                     <StatusPill tone="info">Not on the portal</StatusPill>
+                    {/* They registered since: same personal email or phone. */}
+                    {linkCandidates.some((p) => isLikelyMatch(m, p)) && (
+                      <StatusPill tone="warn">Has a portal account?</StatusPill>
+                    )}
                     {m.is_server_admin && <StatusPill tone="bad">Server admin</StatusPill>}
                     {!m.stalwart_account_id && <StatusPill tone="bad">Unfinished</StatusPill>}
+                    <Button variant="outline" size="sm" onClick={() => setLinking(m)}>
+                      Link to portal account
+                    </Button>
                   </div>
                 </li>
               ))}
@@ -626,6 +648,14 @@ const AdminMailboxes = () => {
         )}
       </TabsContent>
     </Tabs>
+
+    <LinkMailboxDialog
+      mailbox={linking}
+      candidates={linkCandidates}
+      onOpenChange={(o) => { if (!o) setLinking(null); }}
+      onLinked={() => void load()}
+    />
+    </>
   );
 };
 

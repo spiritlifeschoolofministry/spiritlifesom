@@ -212,3 +212,10 @@ enabled = true
 # triggered by the database.
 verify_jwt = true
 entrypoint = "./functions/mailbox-admin/index.ts"
+
+[functions.mailbox-login]
+enabled = true
+# Called from the login page before anyone is signed in. It does its own rate
+# limiting and only ever returns a session for the right password or code.
+verify_jwt = false
+entrypoint = "./functions/mailbox-login/index.ts"

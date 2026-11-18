@@ -24,6 +24,38 @@ import {
   authSoft,
 } from "@/components/redesign/public/auth";
 
+/**
+ * A school address (name@spiritlifesom.org) is an alias for the portal account
+ * its mailbox belongs to. Auth only knows the personal email, so these go
+ * through the mailbox-login function, which signs in server-side and hands
+ * back a session without ever revealing the personal address.
+ */
+const SCHOOL_DOMAIN = "@spiritlifesom.org";
+const isSchoolAddress = (value: string) => value.trim().toLowerCase().endsWith(SCHOOL_DOMAIN);
+
+const callMailboxLogin = async (body: Record<string, string>) => {
+  const { data, error } = await supabase.functions.invoke("mailbox-login", { body });
+  if (error) {
+    let reason = "Invalid login credentials";
+    try {
+      const ctx = (error as { context?: Response }).context;
+      const parsed = ctx ? await ctx.json() : null;
+      if (parsed?.error) reason = parsed.error;
+    } catch { /* keep the generic message */ }
+    throw new Error(reason);
+  }
+  return data as { access_token?: string; refresh_token?: string; ok?: boolean };
+};
+
+const startSession = async (tokens: { access_token?: string; refresh_token?: string }) => {
+  if (!tokens.access_token || !tokens.refresh_token) throw new Error("Invalid login credentials");
+  const { error } = await supabase.auth.setSession({
+    access_token: tokens.access_token,
+    refresh_token: tokens.refresh_token,
+  });
+  if (error) throw error;
+};
+
 const Login = () => {
   const navigate = useNavigate();
   const { user, role, profile, student, isProfileResolved, isAuthReady, authError } = useAuth();
@@ -96,8 +128,12 @@ const Login = () => {
     setLoading(true);
     setStatusMsg("Checking credentials...");
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      if (isSchoolAddress(email)) {
+        await startSession(await callMailboxLogin({ action: "password", address: email, password }));
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      }
       toast.success("Welcome back!");
       // Stay in the loading state until the auth context resolves and the
       // effect above routes us — the session is only half-ready right now.
@@ -116,6 +152,12 @@ const Login = () => {
     if (!otpEmail) { toast.error("Enter your email"); return; }
     setOtpLoading(true);
     try {
+      if (isSchoolAddress(otpEmail)) {
+        await callMailboxLogin({ action: "otp_request", address: otpEmail });
+        toast.success("If that address has a portal account, a code is on its way to that school mailbox.");
+        setOtpStep("verify");
+        return;
+      }
       const { error } = await supabase.auth.signInWithOtp({
         email: otpEmail,
         options: {
@@ -139,6 +181,12 @@ const Login = () => {
     if (!otpCode || otpCode.length < 6) { toast.error("Enter the code from your email"); return; }
     setOtpLoading(true);
     try {
+      if (isSchoolAddress(otpEmail)) {
+        await startSession(await callMailboxLogin({ action: "otp_verify", address: otpEmail, code: otpCode }));
+        toast.success("Signed in!");
+        setRedirecting(true);
+        return;
+      }
       const { data, error } = await supabase.auth.verifyOtp({
         email: otpEmail,
         token: otpCode,
@@ -205,6 +253,11 @@ const Login = () => {
                   placeholder="you@example.com"
                   className={authInput}
                 />
+                {isSchoolAddress(email) && (
+                  <p className="text-xs text-muted-foreground">
+                    Signing in with your school address: use your <strong>portal</strong> password, not your mailbox password.
+                  </p>
+                )}
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="password" className={authLabel}>Password</Label>

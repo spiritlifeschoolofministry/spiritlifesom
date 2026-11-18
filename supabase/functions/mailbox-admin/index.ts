@@ -175,6 +175,9 @@ Deno.serve(async (req) => {
      * there is no opt-out table to consult -- somebody who hands the school a
      * number for this purpose has asked to be written to.
      */
+    const nameOfPerson = (p: { first_name: string | null; last_name: string | null; email: string | null }) =>
+      [p.first_name, p.last_name].filter(Boolean).join(" ").trim() || p.email || "that person";
+
     const holderRecipient = (row: {
       id?: string;
       holder_name: string | null;
@@ -269,6 +272,71 @@ Deno.serve(async (req) => {
     // --- probe -------------------------------------------------------------
     // Confirms the mail server is reachable and the API shape is right, without
     // creating anything. See _shared/stalwart.ts for why this exists.
+    // --- link --------------------------------------------------------------
+    // Hand an off-portal mailbox to a portal account once its holder has one.
+    // Only the portal's record moves: the mail, the password and the account
+    // on the mail server are untouched. The holder_* contact fields are
+    // cleared because the CHECK constraint allows a profile or a holder, never
+    // both -- the account's own contact details take over. Never touches the
+    // mail server, so it does not need its config.
+    if (action === "link") {
+      const mailboxId = String(body?.mailbox_id || "");
+      const profileId = String(body?.profile_id || "");
+      if (!mailboxId || !profileId) return json({ error: "Missing mailbox_id or profile_id" }, 400);
+
+      const { data: mailbox } = await admin
+        .from("mailboxes")
+        .select("id, address, status, profile_id, holder_name, holder_email, holder_phone")
+        .eq("id", mailboxId)
+        .maybeSingle();
+      if (!mailbox) return json({ error: "No such mailbox" }, 404);
+      if (mailbox.status !== "active") return json({ error: "That mailbox has been removed." }, 409);
+      if (mailbox.profile_id) return json({ error: "That mailbox already belongs to a portal account." }, 409);
+
+      const { person, failure } = await loadPerson(profileId);
+      if (failure) return json({ error: failure }, 500);
+      if (!person) return json({ error: "No such portal account" }, 404);
+
+      const { data: existing } = await admin
+        .from("mailboxes")
+        .select("address")
+        .eq("profile_id", profileId)
+        .eq("status", "active")
+        .maybeSingle();
+      if (existing) {
+        return json({
+          error: `${nameOfPerson(person)} already has ${existing.address}. Delete that one first if this should replace it.`,
+        }, 409);
+      }
+
+      const { error: updateError } = await admin
+        .from("mailboxes")
+        .update({ profile_id: profileId, holder_name: null, holder_email: null, holder_phone: null })
+        .eq("id", mailbox.id)
+        .is("profile_id", null);
+      if (updateError) {
+        console.error("mailbox-admin: link failed", updateError);
+        return json({ error: `Could not link the mailbox: ${updateError.message}` }, 500);
+      }
+
+      await audit(
+        admin, actor, "mailbox.linked", mailbox.id,
+        `Linked ${mailbox.address} (held by ${mailbox.holder_name}) to the portal account of ${nameOfPerson(person)}`,
+        {
+          address: mailbox.address,
+          profile_id: profileId,
+          // What was cleared, so the audit trail keeps it.
+          previous_holder: {
+            name: mailbox.holder_name,
+            email: mailbox.holder_email,
+            phone: mailbox.holder_phone,
+          },
+        },
+      );
+
+      return json({ ok: true, address: mailbox.address });
+    }
+
     if (action === "probe") {
       const config = readConfig();
       const result = await probe(config);
